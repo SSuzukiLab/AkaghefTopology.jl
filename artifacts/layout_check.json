@@ -1,0 +1,1247 @@
+{
+  "checked": 44,
+  "instances": [
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "lens_2_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 6,
+      "weighted": true,
+      "group": "projects/invariant/C250823MSTinv_extalg",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "s2xs1_calculation",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C250823MSTinv_extalg",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 1,
+      "failing": [],
+      "name": "connected_sum_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": false,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 6,
+      "failing": [
+        "P6"
+      ],
+      "name": "connected_sum_2",
+      "status": "fail",
+      "pinned": false,
+      "bendTotal": 18,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": [
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "realOnly": true,
+      "crossings": 11,
+      "failing": [
+        "P6",
+        "P7"
+      ],
+      "name": "connected_sum_3",
+      "status": "fail",
+      "pinned": false,
+      "bendTotal": 30,
+      "edges": 22,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": [
+        {
+          "message": "edge passes through a crossing",
+          "severity": "error",
+          "at": [
+            -2.0,
+            -1.0
+          ],
+          "rule": "P7",
+          "edges": [
+            5
+          ]
+        },
+        {
+          "message": "edge passes through a crossing",
+          "severity": "error",
+          "at": [
+            -2.0,
+            0.0
+          ],
+          "rule": "P7",
+          "edges": [
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments overlap along a shared span",
+          "severity": "error",
+          "at": null,
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments overlap along a shared span",
+          "severity": "error",
+          "at": null,
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            -1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            -1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments overlap along a shared span",
+          "severity": "error",
+          "at": null,
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments overlap along a shared span",
+          "severity": "error",
+          "at": null,
+          "rule": "P6",
+          "edges": [
+            5,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            7
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            7,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            7,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            7,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            7,
+            21
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -1.0,
+            -3.0
+          ],
+          "rule": "P6",
+          "edges": [
+            15,
+            17
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -1.0,
+            -3.0
+          ],
+          "rule": "P6",
+          "edges": [
+            15,
+            17
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -1.0,
+            -3.0
+          ],
+          "rule": "P6",
+          "edges": [
+            15,
+            17
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -1.0,
+            -3.0
+          ],
+          "rule": "P6",
+          "edges": [
+            15,
+            17
+          ]
+        }
+      ]
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "lens_2_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 6,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "s2xs1_calculation",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 6,
+      "failing": [
+        "P6"
+      ],
+      "name": "connected_sum_2_again",
+      "status": "fail",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": [
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "s2xs1_weighted",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 8,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "knot_complement_weight_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 14,
+      "edges": 8,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "knot_complement_weight_2",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 14,
+      "edges": 8,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone_positive",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone_negative",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": true,
+      "group": "projects/invariant/C260125MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 2,
+      "failing": [],
+      "name": "hopf",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 8,
+      "edges": 4,
+      "weighted": false,
+      "group": "projects/invariant/C250811MSTinvUR",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 5,
+      "failing": [],
+      "name": "poincare",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 12,
+      "edges": 20,
+      "weighted": false,
+      "group": "projects/invariant/C250811MSTinvUR",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "borromean",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 12,
+      "edges": 12,
+      "weighted": false,
+      "group": "projects/invariant/C251020KnotDsl2bfromUR",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 5,
+      "failing": [],
+      "name": "whitehead",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 10,
+      "weighted": false,
+      "group": "projects/invariant/C251020KnotDsl2bfromUR",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 2,
+      "failing": [],
+      "name": "lens_2_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 4,
+      "weighted": true,
+      "group": "projects/spine/example/C260220LensSpaces",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "s2xs1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 8,
+      "weighted": true,
+      "group": "Docs/experiment/C260225M_Oinv",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "lens_2_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 6,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "s2xs1_calculation",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 6,
+      "failing": [
+        "P6"
+      ],
+      "name": "connected_sum_2",
+      "status": "fail",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": [
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            0.0,
+            1.0
+          ],
+          "rule": "P6",
+          "edges": [
+            2,
+            11
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        },
+        {
+          "message": "segments meet away from any crossing",
+          "severity": "error",
+          "at": [
+            -3.0,
+            0.0
+          ],
+          "rule": "P6",
+          "edges": [
+            5,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "knot_complement_weight_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 14,
+      "edges": 8,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "knot_complement_weight_2",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 14,
+      "edges": 8,
+      "weighted": true,
+      "group": "projects/invariant/C250818MSTinv_uqsl2",
+      "diagnostics": []
+    },
+    {
+      "name": "unknot",
+      "realOnly": false,
+      "crossings": 0,
+      "status": "skipped",
+      "pinned": false,
+      "diagnostics": [],
+      "reason": "no crossings",
+      "weighted": false,
+      "group": "topology/Manifold/VLExample"
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "trefoil",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 8,
+      "edges": 6,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "trefoil_sage",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 8,
+      "edges": 6,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 1,
+      "failing": [],
+      "name": "abalone_sage",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 6,
+      "edges": 2,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 2,
+      "failing": [],
+      "name": "hopf",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 8,
+      "edges": 4,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "borromean",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 12,
+      "edges": 12,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 5,
+      "failing": [],
+      "name": "whitehead",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 10,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 9,
+      "failing": [],
+      "name": "koda",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 18,
+      "edges": 18,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "lens_2_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 6,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 5,
+      "failing": [],
+      "name": "lens_3_1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 14,
+      "edges": 10,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 3,
+      "failing": [],
+      "name": "lens_3_2",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 10,
+      "edges": 8,
+      "weighted": false,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 9,
+      "failing": [],
+      "name": "koda_virtual",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 18,
+      "edges": 18,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "s2xs1",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 8,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "s2xs1_weighted",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 8,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 6,
+      "failing": [],
+      "name": "s2xs1_calculation",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 12,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "odata_variant",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 16,
+      "edges": 8,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": false,
+      "crossings": 3,
+      "failing": [],
+      "name": "trefoil_negative",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 8,
+      "edges": 6,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    },
+    {
+      "realOnly": true,
+      "crossings": 4,
+      "failing": [],
+      "name": "koda_fig13",
+      "status": "pass",
+      "pinned": false,
+      "bendTotal": 12,
+      "edges": 12,
+      "weighted": true,
+      "group": "topology/Manifold/VLExample",
+      "diagnostics": []
+    }
+  ],
+  "failing": 4,
+  "rules": [
+    "P1",
+    "P3",
+    "P4v",
+    "P5",
+    "P6",
+    "P7"
+  ],
+  "generated": "1787243998"
+}

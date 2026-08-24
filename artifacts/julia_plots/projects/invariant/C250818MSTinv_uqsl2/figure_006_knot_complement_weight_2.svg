@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+<rect width="100%" height="100%" fill="#faf9f7"/>
+<path d="M 473.20000000000005 252.0 L 521.2 252.0 Q 550.0 252.0 550.0 280.8 L 550.0 511.2 Q 550.0 540.0 521.2 540.0 L 98.8 540.0 Q 70.0 540.0 70.0 511.2 L 70.0 88.8 Q 70.0 60.0 98.8 60.0 L 329.2 60.0 Q 358.0 60.0 358.0 88.8 L 358.0 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 325.36 548.64 L 310.0 540.0 L 325.36 531.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="315.0" y="535.0" font-family="sans-serif" font-size="17">-1.0</text>
+<path d="M 358.0 156.0 L 358.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 366.64 188.64 L 358.0 204.0 L 349.36 188.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="363.0" y="199.0" font-family="sans-serif" font-size="17">0.0</text>
+<path d="M 358.0 252.0 L 358.0 319.2 Q 358.0 348.0 329.2 348.0 L 290.8 348.0 Q 262.0 348.0 262.0 319.2 L 262.0 280.8 Q 262.0 252.0 290.8 252.0 L 338.79999999999995 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 325.36 356.64 L 310.0 348.0 L 325.36 339.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="315.0" y="343.0" font-family="sans-serif" font-size="17">1.0</text>
+<path d="M 377.20000000000005 252.0 L 434.79999999999995 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 390.64 243.36 L 406.0 252.0 L 390.64 260.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="411.0" y="247.0" font-family="sans-serif" font-size="17">2.0</text>
+<path d="M 454.0 156.0 L 454.0 88.8 Q 454.0 60.0 482.8 60.0 L 521.2 60.0 Q 550.0 60.0 550.0 88.8 L 550.0 127.2 Q 550.0 156.0 521.2 156.0 L 473.20000000000005 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 486.64 51.35999999999999 L 502.0 60.0 L 486.64 68.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="507.0" y="55.0" font-family="sans-serif" font-size="17">1.0</text>
+<path d="M 434.79999999999995 156.0 L 377.20000000000005 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 421.36 164.64000000000001 L 406.0 156.0 L 421.36 147.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="411.0" y="151.0" font-family="sans-serif" font-size="17">-2.0</text>
+<path d="M 338.79999999999995 156.0 L 194.8 156.0 Q 166.0 156.0 166.0 184.8 L 166.0 415.2 Q 166.0 444.0 194.8 444.0 L 425.2 444.0 Q 454.0 444.0 454.0 415.2 L 454.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 174.64000000000001 284.64 L 166.0 300.0 L 157.36 284.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="171.0" y="295.0" font-family="sans-serif" font-size="17">0.0</text>
+<path d="M 454.0 252.0 L 454.0 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 445.36 219.36 L 454.0 204.0 L 462.64 219.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="459.0" y="199.0" font-family="sans-serif" font-size="17">-1.0</text>
+<circle cx="358.0" cy="156.0" r="5" fill="#0000ff"/>
+<text x="366.0" y="148.0" font-family="sans-serif" font-size="17">V1</text>
+<circle cx="358.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="366.0" y="244.0" font-family="sans-serif" font-size="17">V2</text>
+<circle cx="454.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="462.0" y="244.0" font-family="sans-serif" font-size="17">V3</text>
+<circle cx="454.0" cy="156.0" r="5" fill="#0000ff"/>
+<text x="462.0" y="148.0" font-family="sans-serif" font-size="17">V4</text>
+</svg>

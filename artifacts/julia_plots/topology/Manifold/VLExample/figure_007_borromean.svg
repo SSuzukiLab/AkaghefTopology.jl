@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+<rect width="100%" height="100%" fill="#faf9f7"/>
+<path d="M 454.0 252.0 L 454.0 184.8 Q 454.0 156.0 425.2 156.0 L 377.20000000000005 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 445.36 219.36 L 454.0 204.0 L 462.64 219.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 338.79999999999995 156.0 L 290.8 156.0 Q 262.0 156.0 262.0 184.8 L 262.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 315.76 164.64000000000001 L 300.4 156.0 L 315.76 147.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 262.0 252.0 L 262.0 319.2 Q 262.0 348.0 290.8 348.0 L 338.79999999999995 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 270.64 284.64 L 262.0 300.0 L 253.35999999999999 284.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 377.20000000000005 348.0 L 425.2 348.0 Q 454.0 348.0 454.0 319.2 L 454.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 400.24 339.36 L 415.6 348.0 L 400.24 356.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 358.0 156.0 L 358.0 88.8 Q 358.0 60.0 329.2 60.0 L 194.8 60.0 Q 166.0 60.0 166.0 88.8 L 166.0 232.8" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 277.36 68.64 L 262.0 60.0 L 277.36 51.35999999999999" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 166.0 271.20000000000005 L 166.0 415.2 Q 166.0 444.0 194.8 444.0 L 329.2 444.0 Q 358.0 444.0 358.0 415.2 L 358.0 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 246.64000000000001 435.36 L 262.0 444.0 L 246.64000000000001 452.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 358.0 348.0 L 358.0 271.20000000000005" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 349.36 324.96 L 358.0 309.6 L 366.64 324.96" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 358.0 232.8 L 358.0 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 349.36 209.76 L 358.0 194.39999999999998 L 366.64 209.76" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 166.0 252.0 L 98.8 252.0 Q 70.0 252.0 70.0 280.8 L 70.0 511.2 Q 70.0 540.0 98.8 540.0 L 521.2 540.0 Q 550.0 540.0 550.0 511.2 L 550.0 280.8 Q 550.0 252.0 521.2 252.0 L 473.20000000000005 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 294.64 531.36 L 310.0 540.0 L 294.64 548.64" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 434.79999999999995 252.0 L 358.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 411.76 260.64 L 396.4 252.0 L 411.76 243.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 358.0 252.0 L 281.20000000000005 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 334.96 260.64 L 319.6 252.0 L 334.96 243.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 242.8 252.0 L 166.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 219.76 260.64 L 204.39999999999998 252.0 L 219.76 243.36" fill="none" stroke="#0000ff" stroke-width="3"/>
+<circle cx="358.0" cy="156.0" r="5" fill="#0000ff"/>
+<text x="366.0" y="148.0" font-family="sans-serif" font-size="17">V1</text>
+<circle cx="166.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="174.0" y="244.0" font-family="sans-serif" font-size="17">V2</text>
+<circle cx="454.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="462.0" y="244.0" font-family="sans-serif" font-size="17">V3</text>
+<circle cx="358.0" cy="348.0" r="5" fill="#0000ff"/>
+<text x="366.0" y="340.0" font-family="sans-serif" font-size="17">V4</text>
+<circle cx="358.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="366.0" y="244.0" font-family="sans-serif" font-size="17">V5</text>
+<circle cx="262.0" cy="252.0" r="5" fill="#0000ff"/>
+<text x="270.0" y="244.0" font-family="sans-serif" font-size="17">V6</text>
+</svg>

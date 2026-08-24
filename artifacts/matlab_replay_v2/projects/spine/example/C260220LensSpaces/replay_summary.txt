@@ -1,0 +1,5 @@
+source=/tmp/execution-mlx-scope-D7ddgH/projects/spine/example/C260220LensSpaces.m
+plot_calls=1
+figures=1
+plot_errors=0
+script_error=false

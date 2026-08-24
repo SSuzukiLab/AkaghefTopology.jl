@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+<rect width="100%" height="100%" fill="#faf9f7"/>
+<path d="M 166.0 420.0 L 106.0 420.0 Q 70.0 420.0 70.0 456.0 L 70.0 504.0 Q 70.0 540.0 106.0 540.0 L 154.0 540.0 Q 190.0 540.0 190.0 504.0 L 190.0 420.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 80.8 460.79999999999995 L 70.0 480.0 L 59.19999999999999 460.79999999999995" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="75.0" y="475.0" font-family="sans-serif" font-size="17">-1.0</text>
+<path d="M 190.0 420.0 L 190.0 336.0 Q 190.0 300.0 226.0 300.0 L 274.0 300.0 Q 310.0 300.0 346.0 300.0 L 394.0 300.0 Q 430.0 300.0 430.0 264.0 L 430.0 180.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 230.79999999999998 289.2 L 250.0 300.0 L 230.79999999999998 310.79999999999995" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="255.0" y="295.0" font-family="sans-serif" font-size="17">-1.0</text>
+<path d="M 430.0 180.0 L 430.0 96.0 Q 430.0 60.0 466.0 60.0 L 514.0 60.0 Q 550.0 60.0 550.0 96.0 L 550.0 144.0 Q 550.0 180.0 514.0 180.0 L 454.0 180.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 470.79999999999995 49.20000000000002 L 490.0 60.0 L 470.79999999999995 70.79999999999998" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="495.0" y="55.0" font-family="sans-serif" font-size="17">1.0</text>
+<path d="M 214.0 180.0 L 274.0 180.0 Q 310.0 180.0 310.0 216.0 L 310.0 264.0 Q 310.0 300.0 310.0 336.0 L 310.0 384.0 Q 310.0 420.0 274.0 420.0 L 214.0 420.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 320.79999999999995 220.8 L 310.0 240.0 L 299.20000000000005 220.8" fill="none" stroke="#0000ff" stroke-width="3"/>
+<text x="315.0" y="235.0" font-family="sans-serif" font-size="17">0.0</text>
+<circle cx="190.0" cy="420.0" r="5" fill="#0000ff"/>
+<text x="198.0" y="412.0" font-family="sans-serif" font-size="17">V1</text>
+<circle cx="430.0" cy="180.0" r="5" fill="#0000ff"/>
+<text x="438.0" y="172.0" font-family="sans-serif" font-size="17">V2</text>
+</svg>

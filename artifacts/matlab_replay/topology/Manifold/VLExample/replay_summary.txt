@@ -1,0 +1,5 @@
+source=/tmp/execution-mlx-scope-D7ddgH/topology/Manifold/VLExample.m
+plot_calls=0
+figures=0
+plot_errors=0
+script_error=true

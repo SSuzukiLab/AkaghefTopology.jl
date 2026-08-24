@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+<rect width="100%" height="100%" fill="#faf9f7"/>
+<path d="M 390.0 380.0 L 390.0 268.0 Q 390.0 220.0 342.0 220.0 L 262.0 220.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 375.6 325.6 L 390.0 300.0 L 404.4 325.6" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 198.0 220.0 L 118.0 220.0 Q 70.0 220.0 70.0 268.0 L 70.0 332.0 Q 70.0 380.0 118.0 380.0 L 230.0 380.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 84.39999999999999 274.4 L 70.0 300.0 L 55.59999999999999 274.4" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 230.0 380.0 L 358.0 380.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 268.4 365.6 L 294.0 380.0 L 268.4 394.4" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 422.0 380.0 L 502.0 380.0 Q 550.0 380.0 550.0 332.0 L 550.0 108.0 Q 550.0 60.0 502.0 60.0 L 278.0 60.0 Q 230.0 60.0 230.0 108.0 L 230.0 220.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 535.6 245.6 L 550.0 220.0 L 564.4 245.6" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 230.0 220.0 L 230.0 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 244.4 258.4 L 230.0 284.0 L 215.6 258.4" fill="none" stroke="#0000ff" stroke-width="3"/>
+<path d="M 230.0 412.0 L 230.0 492.0 Q 230.0 540.0 278.0 540.0 L 342.0 540.0 Q 390.0 540.0 390.0 492.0 L 390.0 380.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
+<path d="M 284.4 525.6 L 310.0 540.0 L 284.4 554.4" fill="none" stroke="#0000ff" stroke-width="3"/>
+<circle cx="230.0" cy="220.0" r="5" fill="#0000ff"/>
+<text x="238.0" y="212.0" font-family="sans-serif" font-size="17">V1</text>
+<circle cx="230.0" cy="380.0" r="5" fill="#0000ff"/>
+<text x="238.0" y="372.0" font-family="sans-serif" font-size="17">V2</text>
+<circle cx="390.0" cy="380.0" r="5" fill="#0000ff"/>
+<text x="398.0" y="372.0" font-family="sans-serif" font-size="17">V3</text>
+</svg>

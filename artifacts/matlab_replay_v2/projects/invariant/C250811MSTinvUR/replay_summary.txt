@@ -1,0 +1,5 @@
+source=/tmp/execution-mlx-scope-D7ddgH/projects/invariant/C250811MSTinvUR.m
+plot_calls=2
+figures=1
+plot_errors=0
+script_error=true
