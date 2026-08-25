@@ -1,0 +1,264 @@
+{
+  "qmd": {
+    "qmd_files_present": 0,
+    "reading_copies": [
+      "threads/PJ260825/MST1.md",
+      "threads/PJ260825/MST2.md",
+      "threads/PJ260825/MST3.md"
+    ],
+    "boundary": "The current Markdown copies are mechanically converted reading text, not executable qmd documents."
+  },
+  "MST1": {
+    "paper_relevant_o_graph": {
+      "available_conversion_cases": [
+        "hopf",
+        "knot",
+        "lens",
+        "s2xs1",
+        "three_component",
+        "two_zero",
+        "virtual"
+      ],
+      "lens_trace": "(1/(1-((1+eps1)+(1+eps2))))/(-((1+(((1+eps1)+(1+eps2))/(1-((1+eps1)+(1+eps2)))))-1))"
+    },
+    "heisenberg_double": {
+      "base_hopf_dimension": 9,
+      "double_dimension": 81,
+      "commutator_nonzero_entries": 1,
+      "multiplication_term_count": 1890,
+      "pairing": {
+        "re": 0.0,
+        "im": 0.0
+      }
+    },
+    "boundary": [
+      "Heisenberg double multiplication is executable.",
+      "The paper's canonical element, Fock character, Tr(S) examples, and all 16 MP tensor equalities are not exposed as one reproduced workflow."
+    ]
+  },
+  "MST2": {
+    "paper_example_28": {
+      "reproduced": true,
+      "q_inv_trace_S": {
+        "re": -0.38196601125010354,
+        "im": -1.175570504584946
+      },
+      "diagram_invariant": [
+        {
+          "re": -0.3819660112501073,
+          "im": -1.1755705045849463
+        },
+        {
+          "re": -0.38196601125011126,
+          "im": -1.1755705045849565
+        }
+      ],
+      "claim": "Z(L(2,1),f;u_q(sl2^+)) = q^{-1} Tr(S)",
+      "max_abs_gap": 1.297881106480425e-14
+    },
+    "lens_sweep_data_cases": 31,
+    "lens_L2_1": {
+      "layout_valid": true,
+      "hperp": [
+        [],
+        [],
+        [],
+        []
+      ],
+      "gauss": [
+        [
+          -2,
+          -1,
+          1,
+          2
+        ]
+      ],
+      "failing_layout_rules": [],
+      "weight_kernel": [
+        [
+          0
+        ],
+        [
+          -1
+        ],
+        [
+          0
+        ],
+        [
+          1
+        ]
+      ],
+      "orientation": [
+        1,
+        1
+      ],
+      "disk_edge_sums": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "svg": "MST_lens_L2_1.svg",
+      "weight_base": [
+        1,
+        -1,
+        -1,
+        0
+      ]
+    },
+    "exterior_lens_values": [
+      {
+        "re": 4.0,
+        "im": 0.0
+      },
+      {
+        "re": 4.0,
+        "im": 0.0
+      }
+    ],
+    "uqsl2_lens_values": [
+      {
+        "re": -0.3819660112501073,
+        "im": -1.1755705045849463
+      },
+      {
+        "re": -0.38196601125011126,
+        "im": -1.1755705045849565
+      }
+    ],
+    "boundary": [
+      "Concrete integral weights and finite-Hopf contractions are executable.",
+      "Example 28's q^-1 Tr(S) is reproduced end-to-end for L(2,1); the general framing/WRT conjecture (Conjecture 29) is not certified."
+    ]
+  },
+  "MST3": {
+    "direct_MP_2_to_3": {
+      "A2": {
+        "gauss": [
+          [
+            -1,
+            -2,
+            2,
+            -5,
+            1,
+            3,
+            4,
+            -4,
+            -3,
+            5
+          ]
+        ],
+        "orientation": [
+          1,
+          -1,
+          -1,
+          1,
+          1
+        ],
+        "crossing_count": 5
+      },
+      "B2": {
+        "gauss": [
+          [
+            -5,
+            3,
+            4,
+            -4,
+            -3,
+            2,
+            1,
+            -1,
+            5,
+            -2
+          ]
+        ],
+        "orientation": [
+          1,
+          -1,
+          -1,
+          1,
+          -1
+        ],
+        "crossing_count": 5
+      },
+      "A4": {
+        "gauss": [
+          [
+            1,
+            -5,
+            2,
+            -2,
+            -1,
+            3,
+            4,
+            -4,
+            -3,
+            5
+          ]
+        ],
+        "orientation": [
+          -1,
+          1,
+          -1,
+          1,
+          -1
+        ],
+        "crossing_count": 5
+      },
+      "B4": {
+        "gauss": [
+          [
+            -5,
+            3,
+            4,
+            -4,
+            -3,
+            -2,
+            5,
+            -1,
+            1,
+            2
+          ]
+        ],
+        "orientation": [
+          -1,
+          1,
+          -1,
+          1,
+          1
+        ],
+        "crossing_count": 5
+      }
+    },
+    "chained_A4_then_C2": {
+      "gauss": [
+        [
+          1,
+          -5,
+          -3,
+          2,
+          -2,
+          -1,
+          3,
+          6,
+          4,
+          -4,
+          5,
+          -6
+        ]
+      ],
+      "orientation": [
+        -1,
+        1,
+        -1,
+        1,
+        -1,
+        -1
+      ],
+      "crossing_count": 6
+    },
+    "boundary": [
+      "Only direct non-weighted 2-to-3 MP moves used by C250811 are executable.",
+      "Inverse 3-to-2, weighted transport, PS-I--IV condition checking, pure-sliding sequences, CP moves, and Theorem 3 decomposition are not executable workflows."
+    ]
+  }
+}

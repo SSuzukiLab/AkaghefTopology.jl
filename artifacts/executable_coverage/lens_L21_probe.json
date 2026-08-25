@@ -1,0 +1,44 @@
+{
+  "L21_disk_edge_sums": [
+    0.0,
+    0.0,
+    -1.0
+  ],
+  "L21_svg": "C:\\Users\\Akaghef\\data\\21_研究\\lib\\topology.jl\\artifacts\\executable_coverage\\MST_lens_L2_1.svg",
+  "L21_layout_valid": true,
+  "L21_hperp_rows": 0,
+  "L21_failing_rules": [],
+  "sweep_cases": 31,
+  "L21_gauss": [
+    [
+      -2,
+      -1,
+      1,
+      2
+    ]
+  ],
+  "L21_base": [
+    1,
+    -1,
+    -1,
+    0
+  ],
+  "L21_orientation": [
+    1,
+    1
+  ],
+  "L21_kernel": [
+    [
+      0
+    ],
+    [
+      -1
+    ],
+    [
+      0
+    ],
+    [
+      1
+    ]
+  ]
+}
