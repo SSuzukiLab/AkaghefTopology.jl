@@ -155,6 +155,7 @@ end
     p1=plot_svg(d,joinpath(out,"ur.svg")); p2=plot_svg(v,joinpath(out,"vl.svg"))
     ur_svg=read(p1,String); vl_svg=read(p2,String)
     @test occursin("<svg",ur_svg); @test occursin("<svg",vl_svg)
+    @test isnothing(match(r"(?m)[ \t]+$",vl_svg))
     # MATLAB URDiagram.plot is exactly one leftward horizontal quiver.
     @test count("<line",ur_svg)==1
     @test count("<path",ur_svg)==1

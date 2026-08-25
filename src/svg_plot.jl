@@ -1,4 +1,5 @@
 _esc(s) = replace(replace(replace(string(s), "&"=>"&amp;"), "<"=>"&lt;"), ">"=>"&gt;")
+_trim_svg_line_ends(s) = join(rstrip.(split(string(s),'\n';keepempty=true)),'\n')
 
 function _urd_weight_label(weight)
     raw=string(weight)
@@ -145,7 +146,7 @@ function _write_link_svg(path, body, bbox; title="o-graph", desc="", meta=nothin
 </style>""")
         println(io,"<rect class=\"bg\" x=\"$(_num(xmin-m))\" y=\"$(_num(-(ymax+m)))\" ",
                    "width=\"$(_num(width))\" height=\"$(_num(height))\" fill=\"#faf9f7\"/>")
-        println(io, body)
+        println(io, _trim_svg_line_ends(body))
         println(io,"</svg>")
     end
     abspath(path)
@@ -155,7 +156,7 @@ function _write_svg(path, body; width=900, height=600)
     open(path, "w") do io
         println(io, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$width\" height=\"$height\" viewBox=\"0 0 $width $height\">")
         println(io, "<rect width=\"100%\" height=\"100%\" fill=\"#faf9f7\"/>")
-        println(io, body)
+        println(io, _trim_svg_line_ends(body))
         println(io, "</svg>")
     end
     abspath(path)
