@@ -131,11 +131,15 @@ Consequence: **IS2 and IS3 below are fork-introduced regressions, not upstream
 defects.** Upstream lets the caller pin the backend and converts the solution
 to integers. Restoring both on the MATLAB side is a few lines.
 
-### 3.3 Julia path
+### 3.3 Julia plot/layout path
 
-No Sage, no Python. Dependencies are `AbstractAlgebra`, `GLPK`, `JSON`,
-`JuMP`, `LinearAlgebra` — all pure Julia or JLL-packaged, with no system
-prerequisite.
+This path has no Sage or Python dependency. Its dependencies are
+`AbstractAlgebra`, `GLPK`, `JSON`, `JuMP`, and `LinearAlgebra` — all pure Julia
+or JLL-packaged, with no system prerequisite. This is a scoped boundary for the
+plot/layout kernel, not a policy to remove Sage from all mathematical work.
+Mature general-purpose CAS operations, especially group computations already
+provided by Sage/GAP, should be reused through a thin Julia-facing boundary
+rather than reimplemented.
 
 | Stage | Location | Parity / status |
 |---|---|---|
@@ -367,8 +371,10 @@ that variable). That design has no Windows form.
 3. The fixture gates stay retired anyway, because plot acceptance no longer
    compares against MATLAB (section 1). They are closed by decision.
 4. Julia remains the preferred plot path, now on substrate and speed grounds
-   rather than necessity: no Python, no Sage, no system prerequisite, no
-   per-call interpreter start-up. **Still unverified on Windows.** The check is
+   rather than necessity: this path has no Python, Sage or system prerequisite
+   and no per-call interpreter start-up. This says nothing against reusing
+   Sage/GAP for mature CAS operations outside plotting. **Still unverified on
+   Windows.** The check is
    `julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'`; if
    `GLPK_jll` fails to resolve, `HiGHS` or `Cbc` are drop-in alternatives.
 
@@ -395,7 +401,9 @@ that variable). That design has no Windows form.
 
 ## 9. To-be
 
-Sage leaves the plot path; Julia owns every stage.
+Sage leaves the plot/layout path; Julia owns every stage of that path. Sage/GAP
+remain available behind a thin boundary for general-purpose CAS operations that
+should not be reimplemented, including group computations.
 
 | Layer | as-is | to-be |
 |---|---|---|
@@ -404,7 +412,7 @@ Sage leaves the plot path; Julia owns every stage.
 | Routing | `allocate_pos.py` | Julia, after IS7 is fixed |
 | Isolated components, unknot circles, abalone reversal | `allocate_pos.py` | Julia (**unported**) |
 | Drawing | MATLAB | Julia SVG |
-| Sage | required, Mac-only | not required |
+| Sage in plot/layout | required, Mac-only | not required |
 
 **PR1 — assert P3 in `orthogonal_layout`.** Five lines: each edge's polyline
 must start at its tail crossing and end at its head crossing. Failing loudly

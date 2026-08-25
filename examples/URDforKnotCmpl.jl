@@ -30,27 +30,41 @@ function run_URDforKnotCmpl_manual_prefix()
     d
 end
 
-"""Replay the complete final exploratory D2 cell in `URDforKnotCmpl.mlx`.
+"""Replay the final exploratory D2 cell in `URDforKnotCmpl.mlx`.
 
-The source cell is one ordered mutation sequence.  Its `lim0` call is omitted
+The source cell is one ordered mutation sequence. Its `lim0` call is omitted
 from the mutations deliberately: MATLAB returns the limit but does not replace
-`D2`, so the following swaps act on the same diagram.  Named snapshots make
-that state boundary inspectable without treating stale embedded Live Script
-output as an oracle.
+`D2`. MATLAB then calls `simplifySim`, which simplifies only symbolic weights
+and does not alter the vertex word; Julia's weight expressions are already
+normalized at operation boundaries, so this is a structural no-op here.
+
+The saved MATLAB output records that the following `swap([2,-3])` stops with
+"argument must be existing vertices". Return that exploratory error together
+with the last valid snapshots instead of presenting the cell as a completed
+calculation.
 """
 function run_URDforKnotCmpl_d2_exploratory_cell()
     d=run_URDforKnotCmpl_manual_prefix()
     prefix=(V=copy(d.V),C=d.C,W=copy(d.W))
 
-    # `D2.lim0` is non-mutating in the MATLAB implementation.
-    swap!(d,[2,-2]); dilation!(d,2,5); swap!(d,[1,5]); simplify2!(d)
+    # `D2.lim0` is non-mutating; MATLAB `D2.simplifySim` changes expressions,
+    # not the diagram structure.
+    swap!(d,[2,-2]); dilation!(d,2,5); swap!(d,[1,5])
     after_simplify=(V=copy(d.V),C=d.C,W=copy(d.W))
 
-    swap!(d,[2,-3]); swap!(d,[2,5]); dilation!(d,3,5); swap!(d,[5,6])
-    before_last_dilation=(V=copy(d.V),C=d.C,W=copy(d.W))
-    dilation!(d,4,5); swap!(d,[1,5])
+    exploratory_error=nothing
+    before_last_dilation=nothing
+    final=nothing
+    try
+        swap!(d,[2,-3]); swap!(d,[2,5]); dilation!(d,3,5); swap!(d,[5,6])
+        before_last_dilation=(V=copy(d.V),C=d.C,W=copy(d.W))
+        dilation!(d,4,5); swap!(d,[1,5])
+        final=(V=copy(d.V),C=d.C,W=copy(d.W))
+    catch error
+        exploratory_error=error
+    end
     (prefix=prefix,after_simplify=after_simplify,
-     before_last_dilation=before_last_dilation,final=(V=copy(d.V),C=d.C,W=copy(d.W)))
+     before_last_dilation=before_last_dilation,final=final,error=exploratory_error)
 end
 
 """Current-source numeric `simplify2; trace2` cell for the figure-eight case."""

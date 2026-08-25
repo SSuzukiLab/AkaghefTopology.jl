@@ -38,8 +38,10 @@ include(joinpath(@__DIR__,"tensor_coefficients.jl"))
     @test run_URDforKnotCmpl_manual_prefix().V==[-5,1,-2,2,5,-1]
     d2_exploratory=run_URDforKnotCmpl_d2_exploratory_cell()
     @test d2_exploratory.prefix.V==[-5,1,-2,2,5,-1]
-    @test all(snapshot -> all(isfinite,snapshot.W),
-              (d2_exploratory.after_simplify,d2_exploratory.before_last_dilation,d2_exploratory.final))
+    @test d2_exploratory.after_simplify.V==[-5,5,1,2,-2,-1]
+    @test d2_exploratory.after_simplify.W==[-1,Inf,Inf]
+    @test d2_exploratory.error isa ArgumentError
+    @test occursin("vertices must exist",sprint(showerror,d2_exploratory.error))
     @test isapprox(run_URDforKnotCmpl_figure_eight_trace().trace,-4.526591341323682e-5;rtol=1e-12)
     dev, err=run_dev_urdiagram(); @test err isa ArgumentError; @test validate_data(dev)
     dev_reductions=run_dev_reduction_cells()

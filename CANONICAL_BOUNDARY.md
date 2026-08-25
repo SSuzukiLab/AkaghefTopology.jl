@@ -109,9 +109,12 @@ Consequences for the conditions stated above:
 2. The manifest item "for each plotted `VirtualLink`, source
    `REdgeTable.Position` polylines and crossing positions" is likewise
    producible on Windows after that rewrite.  Mac-side export is possible now.
-3. The Julia path has no Python, Sage or system dependency and is expected to
-   run natively on Windows, which would satisfy a plot-evidence clause without
-   the rewrite.  **This has not been verified on Windows.**
+3. The Julia **plot/layout path** has no Python, Sage or system dependency and
+   is expected to run natively on Windows, which would satisfy a plot-evidence
+   clause without the rewrite. This statement is local to plotting: mature
+   general-purpose CAS operations such as group computations remain candidates
+   for reuse through a thin Sage/GAP boundary, not Julia reimplementation.
+   **The plot path has not been verified on Windows.**
 
 Nothing here relaxes the boundary.  Until the ADR owner rules, plot evidence
 produced anywhere remains `mac-replayed` at best, and no promotion follows from
