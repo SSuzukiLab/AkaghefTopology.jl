@@ -24,9 +24,11 @@ export URDiagram, VirtualLink, SymExpr, sym,
        MovePattern, make_move_data, SmallObject
 export SparseFactor, FiniteHopfAlgebra, uqsl2_borel_small, sweedler_algebra,
        exterior_algebra, hopf_invariant, label_tensor, contract_network,
-       dense_tensor, hopf_tensors, evaluate_tensor_expression, verify_hopf
+       dense_tensor, hopf_tensors, validate_tensor_expression,
+       evaluate_tensor_expression, verify_hopf,
+       is_involutory, is_unimodular
 export legacy_hopf_tensors
-export FiniteAlgebra, AlgebraElement, basis_element, cyclic_group_algebra,
+export FiniteAlgebra, AlgebraElement, basis_element, group_algebra, cyclic_group_algebra,
        kac_paljutkin_algebra, dual_algebra, hopf_pairing, heisenberg_double,
        drinfeld_double
 
@@ -40,6 +42,7 @@ include("layout_invariants.jl")
 include("helpers.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
+include("hopf_properties.jl")
 include("finite_algebra.jl")
 include("svg_plot.jl")
 

@@ -1,7 +1,11 @@
-struct SparseFactor
+struct SparseFactor{T}
     variables::Vector{Int}
-    terms::Dict{Tuple,ComplexF64}
+    terms::Dict{Tuple,T}
 end
+
+SparseFactor(variables,terms::AbstractDict{<:Tuple,T}) where {T}=
+    SparseFactor{T}(Int.(collect(variables)),
+                    Dict{Tuple,T}(Tuple(key)=>value for (key,value) in terms))
 
 struct FiniteHopfAlgebra
     dimension::Int
@@ -18,8 +22,7 @@ struct FiniteHopfAlgebra
     left_cointegral::SparseFactor
 end
 
-_sparse_data(terms)=SparseFactor(Int[],Dict{Tuple,ComplexF64}(
-    Tuple(key)=>ComplexF64(value) for (key,value) in terms))
+_sparse_data(terms)=SparseFactor(Int[],terms)
 
 _qbinomial(q,n,k)=begin
     k < 0 || k > n ? 0.0+0im :
@@ -215,56 +218,57 @@ function exterior_algebra(generator_count::Integer)
                       _sparse_data(integral),_sparse_data(integral))
 end
 
-function _factor_with_variables(factor::SparseFactor,variables)
+function _factor_with_variables(factor::SparseFactor{T},variables) where {T}
     source_variables=Int.(variables)
     unique_variables=unique(source_variables)
     positions=[[index for (index,variable) in enumerate(source_variables) if variable==target]
                for target in unique_variables]
-    terms=Dict{Tuple,ComplexF64}()
+    terms=Dict{Tuple,T}()
     for (key,value) in factor.terms
         all(all(key[index]==key[first(group)] for index in group) for group in positions) || continue
         reduced=Tuple(key[first(group)] for group in positions)
-        terms[reduced]=get(terms,reduced,0)+value
+        terms[reduced]=get(terms,reduced,zero(T))+value
     end
-    filter!(pair -> abs(last(pair))>1e-12,terms)
+    filter!(pair -> !_coefficient_iszero(last(pair)),terms)
     SparseFactor(unique_variables,terms)
 end
 
-function _multiply_factors(left::SparseFactor,right::SparseFactor)
+function _multiply_factors(left::SparseFactor{L},right::SparseFactor{R}) where {L,R}
+    T=promote_type(L,R)
     variables=unique(vcat(left.variables,right.variables))
     left_positions=[findfirst(==(variable),variables) for variable in left.variables]
     right_positions=[findfirst(==(variable),variables) for variable in right.variables]
     shared=intersect(left.variables,right.variables)
     left_shared=[findfirst(==(variable),left.variables) for variable in shared]
     right_shared=[findfirst(==(variable),right.variables) for variable in shared]
-    terms=Dict{Tuple,ComplexF64}()
-    right_index=Dict{Tuple,Vector{Tuple{Tuple,ComplexF64}}}()
+    terms=Dict{Tuple,T}()
+    right_index=Dict{Tuple,Vector{Tuple{Tuple,R}}}()
     for (right_key,right_value) in right.terms
         join_key=Tuple(right_key[position] for position in right_shared)
-        push!(get!(right_index,join_key,Tuple{Tuple,ComplexF64}[]),(right_key,right_value))
+        push!(get!(right_index,join_key,Tuple{Tuple,R}[]),(right_key,right_value))
     end
     for (left_key,left_value) in left.terms
         join_key=Tuple(left_key[position] for position in left_shared)
-        for (right_key,right_value) in get(right_index,join_key,Tuple{Tuple,ComplexF64}[])
+        for (right_key,right_value) in get(right_index,join_key,Tuple{Tuple,R}[])
         key=fill(0,length(variables))
         for (position,value) in zip(left_positions,left_key); key[position]=value; end
         for (position,value) in zip(right_positions,right_key); key[position]=value; end
         tuple=Tuple(key)
-        terms[tuple]=get(terms,tuple,0)+left_value*right_value
+        terms[tuple]=get(terms,tuple,zero(T))+left_value*right_value
         end
     end
-    filter!(pair -> abs(last(pair))>1e-12,terms)
+    filter!(pair -> !_coefficient_iszero(last(pair)),terms)
     SparseFactor(variables,terms)
 end
 
-function _sum_variable(factor::SparseFactor,variable::Int)
+function _sum_variable(factor::SparseFactor{T},variable::Int) where {T}
     position=findfirst(==(variable),factor.variables)
     position === nothing && return factor
     variables=factor.variables[setdiff(eachindex(factor.variables),position)]
-    terms=Dict{Tuple,ComplexF64}()
+    terms=Dict{Tuple,T}()
     for (key,value) in factor.terms
         reduced=Tuple(key[index] for index in eachindex(key) if index != position)
-        terms[reduced]=get(terms,reduced,0)+value
+        terms[reduced]=get(terms,reduced,zero(T))+value
     end
     SparseFactor(variables,terms)
 end

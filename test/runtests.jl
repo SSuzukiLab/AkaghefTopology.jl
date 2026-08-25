@@ -16,6 +16,10 @@ include(joinpath(ROOT,"examples","C260125MSTinv_uqsl2.jl"))
 include(joinpath(ROOT,"examples","C260220LensSpaces.jl"))
 include(joinpath(ROOT,"examples","C251020KnotDsl2bfromUR.jl"))
 include(joinpath(ROOT,"examples","C250811MSTinvUR.jl"))
+include(joinpath(@__DIR__,"group_algebra.jl"))
+include(joinpath(@__DIR__,"hopf_properties.jl"))
+include(joinpath(@__DIR__,"tensor_validation.jl"))
+include(joinpath(@__DIR__,"tensor_coefficients.jl"))
 
 @testset "URDiagram core and Live Scripts" begin
     d=URDiagram(); set_data_cvw!(d,1,[1,-2,-3,3,-1,2],[sym(:x),sym(:y),sym(:z)])

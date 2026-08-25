@@ -118,26 +118,77 @@ function _make_hopf_algebra(dimension,multiplication,unit,coproduct,counit,antip
         _sparse_data(left_cointegral))
 end
 
-function cyclic_group_algebra(order::Integer)
-    order>0 || throw(ArgumentError("group order must be positive"))
+"""Construct the complex group Hopf algebra from a finite multiplication table.
+
+`table[i,j] == k` means that the product of basis elements `i` and `j` is
+basis element `k`. The table must describe a group; closure, a two-sided
+identity, associativity, and two-sided inverses are validated exactly.
+"""
+function group_algebra(table::AbstractMatrix{<:Integer})
+    rows,columns=size(table)
+    rows>0 && rows==columns || throw(ArgumentError("group table must be nonempty and square"))
+    order=rows
+    values=Matrix{Int}(table)
+    all(value -> 1<=value<=order,values) ||
+        throw(ArgumentError("group table entries must lie in 1:$order"))
+    identity=findfirst(candidate ->
+        all(i -> values[candidate,i]==i && values[i,candidate]==i,1:order),1:order)
+    identity===nothing && throw(ArgumentError("group table has no two-sided identity"))
+    for i in 1:order,j in 1:order,k in 1:order
+        values[values[i,j],k]==values[i,values[j,k]] ||
+            throw(ArgumentError("group table is not associative at ($i,$j,$k)"))
+    end
+    inverses=Vector{Int}(undef,order)
+    for i in 1:order
+        candidates=[j for j in 1:order if values[i,j]==identity && values[j,i]==identity]
+        length(candidates)==1 || throw(ArgumentError("group element $i has no unique two-sided inverse"))
+        inverses[i]=only(candidates)
+    end
     multiplication=Dict{Tuple,ComplexF64}()
     coproduct=Dict{Tuple,ComplexF64}(); antipode=Dict{Tuple,ComplexF64}()
-    for i in 0:order-1,j in 0:order-1
-        multiplication[(i+1,j+1,mod(i+j,order)+1)]=1
+    for i in 1:order,j in 1:order
+        multiplication[(i,j,values[i,j])]=1
     end
-    for i in 0:order-1
-        coproduct[(i+1,i+1,i+1)]=1
-        antipode[(mod(-i,order)+1,i+1)]=1
+    for i in 1:order
+        coproduct[(i,i,i)]=1
+        antipode[(inverses[i],i)]=1
     end
-    unit=Dict{Tuple,ComplexF64}((1,)=>1)
+    unit=Dict{Tuple,ComplexF64}((identity,)=>1)
     counit=Dict{Tuple,ComplexF64}((i,)=>1 for i in 1:order)
     positive,negative=_vertex_constants(multiplication,coproduct,antipode)
-    integral=Dict{Tuple,ComplexF64}((1,)=>1)
+    integral=Dict{Tuple,ComplexF64}((identity,)=>1)
     cointegral=Dict{Tuple,ComplexF64}((i,)=>1 for i in 1:order)
     FiniteHopfAlgebra(order,_sparse_data(multiplication),_sparse_data(unit),
         _sparse_data(coproduct),_sparse_data(counit),_sparse_data(positive),
         _sparse_data(negative),_sparse_data(antipode),_sparse_data(integral),
         _sparse_data(cointegral),_sparse_data(integral),_sparse_data(cointegral))
+end
+
+"""Construct the complex group Hopf algebra from ordered labels and a product.
+
+Basis index `i` corresponds to `elements[i]`. The operation is materialized
+once on every ordered pair and then validated as a finite group table.
+"""
+function group_algebra(elements::AbstractVector,multiply)
+    isempty(elements) && throw(ArgumentError("group elements must be nonempty"))
+    labels=collect(elements)
+    for i in eachindex(labels),j in firstindex(labels):i-1
+        isequal(labels[i],labels[j]) && throw(ArgumentError("group elements must be unique"))
+    end
+    table=Matrix{Int}(undef,length(labels),length(labels))
+    for i in eachindex(labels),j in eachindex(labels)
+        product=multiply(labels[i],labels[j])
+        matches=findall(label -> isequal(label,product),labels)
+        length(matches)==1 || throw(ArgumentError("group operation is not closed on the supplied elements"))
+        table[i,j]=only(matches)
+    end
+    group_algebra(table)
+end
+
+function cyclic_group_algebra(order::Integer)
+    order>0 || throw(ArgumentError("group order must be positive"))
+    table=[mod(i+j-2,order)+1 for i in 1:order,j in 1:order]
+    group_algebra(table)
 end
 
 _kp_index(x,y,z)=1+x+2y+4z
