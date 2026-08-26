@@ -100,3 +100,18 @@ Canonical ownership and the personal/iPad return path are defined in
 evidence is not Windows Math Harness verification, and personal-surface edits
 cannot overwrite either this library or canonical Harness state without an
 explicit import, rerun, and review on Windows.
+
+## Heegaard subsystem
+
+`Topology.Heegaard` stores signed cyclic words and explicit region
+decorations separately from layout data. The core path provides
+immutable-by-convention code values, layered validation/certification, ribbon
+boundary cycles, exact intersection and Smith-normal-form computations,
+representation canonicalization, certificate-carrying local moves,
+deterministic alpha-cut layout data, semantic SVG/TikZ output, and typed
+punctured-diagram/flow-spine/o-data boundaries.
+
+The pure-Julia core does not silently delegate topology to Catlab or a
+renderer. `layout_heegaard(; backend=:catlab)` records its pure-Julia fallback
+in the backend trace, `group_probe` reports when optional GAP is unavailable,
+and non-canonical spine output is marked in its conversion certificate.

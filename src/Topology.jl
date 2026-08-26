@@ -32,6 +32,7 @@ export legacy_hopf_tensors
 export FiniteAlgebra, AlgebraElement, basis_element, group_algebra, cyclic_group_algebra,
        kac_paljutkin_algebra, dual_algebra, hopf_pairing, heisenberg_double,
        drinfeld_double
+export Heegaard
 
 include("symbolic.jl")
 include("laurent.jl")
@@ -47,5 +48,6 @@ include("tensor_network.jl")
 include("hopf_properties.jl")
 include("finite_algebra.jl")
 include("svg_plot.jl")
+include("heegaard/Heegaard.jl")
 
 end
