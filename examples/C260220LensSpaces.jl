@@ -1,14 +1,5 @@
 using Topology
 
-"""Real Gauss presentation used for the lens-space sweep in C260220LensSpaces.mlx."""
-function lens_space_link(s::Integer,t::Integer)
-    s>=2 || throw(ArgumentError("s must be at least 2"))
-    gcd(s,t)==1 || throw(ArgumentError("s and t must be coprime"))
-    code=vcat(-mod.((s:-1:1).*t.-1,s).-1,1:s)
-    link=VirtualLink(); set_data!(link;rgauss=[code],orientation=ones(Int,s))
-    link
-end
-
 """Reproduce the coprime sweep and disk-edge sums in C260220LensSpaces.mlx."""
 function run_C260220_lens_spaces(;maximum_s=10)
     maximum_s>=2 || throw(ArgumentError("maximum_s must be at least 2"))

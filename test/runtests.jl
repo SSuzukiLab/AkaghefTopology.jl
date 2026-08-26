@@ -20,6 +20,9 @@ include(joinpath(@__DIR__,"group_algebra.jl"))
 include(joinpath(@__DIR__,"hopf_properties.jl"))
 include(joinpath(@__DIR__,"tensor_validation.jl"))
 include(joinpath(@__DIR__,"tensor_coefficients.jl"))
+include(joinpath(@__DIR__,"virtual_planarization.jl"))
+include(joinpath(@__DIR__,"arrow_placement.jl"))
+include(joinpath(@__DIR__,"poincare_layout.jl"))
 
 @testset "URDiagram core and Live Scripts" begin
     d=URDiagram(); set_data_cvw!(d,1,[1,-2,-3,3,-1,2],[sym(:x),sym(:y),sym(:z)])

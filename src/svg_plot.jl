@@ -37,7 +37,7 @@ edge whether the diagram spans three units or thirty. The previous renderer
 applied a fixed `0.20` before projection and a corner radius after it, so gaps
 narrowed as diagrams grew.
 """
-const LINK_STYLE = (strand=0.10, arrow=0.085, gap=0.18, radius=0.28,
+const LINK_STYLE = (strand=0.07, arrow=0.06, gap=0.18, radius=0.28,
                     vertex=0.115, font=0.32, margin=0.7, px_per_unit=72)
 
 _num(x) = string(round(x;digits=4))
@@ -112,6 +112,23 @@ function _arclength_midpoint(points)
         walked += span
     end
     (points[end], complex(1.0,0.0))
+end
+
+"""Midpoint and tangent of the central nonzero polyline segment.
+
+MATLAB `VirtualLink.plot` deliberately places the direction marker at
+`mean(segs(floor(end/2)+(0:1)))`. Unlike the global arc-length midpoint, this
+cannot land exactly on a polyline corner when half the total length is a segment
+boundary. Keep this separate from label placement, which still uses the stable
+arc-length midpoint.
+"""
+function _middle_segment_midpoint(points)
+    segments=[(points[i],points[i+1]) for i in 1:length(points)-1
+              if points[i+1]!=points[i]]
+    isempty(segments) && return (first(points),complex(1.0,0.0))
+    first_point,last_point=segments[cld(length(segments),2)]
+    direction=(last_point-first_point)/abs(last_point-first_point)
+    ((first_point+last_point)/2,direction)
 end
 
 """Wrap link body markup in a themed, content-fitted SVG.
@@ -342,11 +359,12 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
                    "stroke-linejoin=\"round\" stroke-linecap=\"round\"/>")
 
         midpoint,unit=_arclength_midpoint(points)
-        back=midpoint-unit*0.20
-        left=back+unit*im*0.11; right=back-unit*im*0.11
-        arrow=[_pt(left),_pt(midpoint),_pt(right)]
+        arrow_midpoint,arrow_unit=_middle_segment_midpoint(points)
+        back=arrow_midpoint-arrow_unit*0.20
+        left=back+arrow_unit*im*0.11; right=back-arrow_unit*im*0.11
+        arrow=[_pt(left),_pt(arrow_midpoint),_pt(right)]
         arrow_data="M $(_num(arrow[1][1])) $(_num(arrow[1][2])) L $(_num(arrow[2][1])) $(_num(arrow[2][2])) L $(_num(arrow[3][1])) $(_num(arrow[3][2]))"
-        push!(body,"<path class=\"arrow\" d=\"$arrow_data\" fill=\"none\" stroke=\"#1b3bd0\" ",
+        push!(body,"<path class=\"arrow\" data-arc=\"$(arc.id)\" d=\"$arrow_data\" fill=\"none\" stroke=\"#1b3bd0\" ",
                    "stroke-width=\"$(_num(S.arrow))\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>")
 
         if v.is_weighted || edge_labels in (:id,:all)

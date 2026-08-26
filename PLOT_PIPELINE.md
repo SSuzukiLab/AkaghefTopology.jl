@@ -143,7 +143,7 @@ rather than reimplemented.
 
 | Stage | Location | Parity / status |
 |---|---|---|
-| Virtual planarisation | `src/virtual_planarization.jl` — `planarize_virtual_gauss` | not compared |
+| Virtual planarisation | `src/virtual_planarization.jl` — `planarize_virtual_gauss` | exact MATLAB `vg2g` output parity on five `VLExample` Virtual-Gauss inputs; exact fixtures retained; DEBUG invariants cover the ten `DevLinkVG2Gscr` inputs |
 | PD code | `src/virtual_link.jl` — `pd_code` | matches Sage on the measured cases |
 | Regions | `src/virtual_link.jl` — `regions` | matches `Link.regions()` on hopf |
 | MILP 1: minimum bend | `src/orthogonal_layout.jl` — `minimal_bending_numbers` | degenerate, see IS1 |
@@ -151,6 +151,12 @@ rather than reimplemented.
 | Routing | `src/orthogonal_layout.jl` — `_route_edges` | matches on self-loop-free diagrams; **misroutes one edge on three diagrams, see IS7** |
 | Arc aggregation | `src/svg_plot.jl` — `_real_arc_layouts` | not compared |
 | SVG emission | `src/svg_plot.jl` — `plot_svg` | not compared |
+
+The planarisation comparison uses the Sage-independent
+`VirtualLink.debugVG2G` entry and `scripts/compare_vg2g.jl`. It compares exact
+Gauss code and orientation output and records the MATLAB/Julia versions. The
+five outputs are retained in `test/fixtures/vg2g_matlab_v1.json`. This evidence
+does not claim coverage of every vg2g pattern or all virtual links.
 
 Not ported: `_isolated_components`, `component_gap`, unknot circles, abalone
 reversal. `_route_edges` raises `ArgumentError` on a disconnected PD instead.
@@ -389,9 +395,7 @@ that variable). That design has no Windows form.
   `VirtualLink.calcPos`. The under-strand gap of `0.20` in pre-projection
   units, the `0.3 * scale` corner radius, and the arrow placed at the midpoint
   *index* rather than the arc-length midpoint are all unexamined.
-- **`planarize_virtual_gauss`.** All part-A/B cases were supplied as ordinary
-  Gauss codes, so the planariser was a pass-through. 22 of the 45 plot
-  instances in the acceptance corpus take that path.
+
 - **The Whitehead visual rejection.** Its bending vector equals the one the
   fork's default backend returns, and it passes P1/P3/P5/P6, so neither IS1 nor
   IS7 explains the 2026-08-14 rejection.

@@ -50,7 +50,8 @@ function minimal_bending_numbers(pd::AbstractMatrix{<:Integer})
     [values[2index-1]-values[2index] for index in eachindex(edge_ids)]
 end
 
-function _piece_lengths(pd::Matrix{Int},bending::Vector{Int})
+function _piece_lengths(pd::Matrix{Int},bending::Vector{Int};
+                        DEBUG_MODE::Bool=false,debug_io::IO=stderr)
     edge_ids = sort(unique(vec(pd)))
     edge_index = Dict(edge => index for (index,edge) in enumerate(edge_ids))
     segments_by_edge = Dict(edge => [(edge,k) for k in 0:abs(bending[edge_index[edge]])]
@@ -131,13 +132,17 @@ function _piece_lengths(pd::Matrix{Int},bending::Vector{Int})
     for segment in all_segments
         variables[segment] = @variable(model,lower_bound=1,integer=true)
     end
-    for region in new_regions
+    max_direction=0
+    legacy_dropped=Tuple{Int,Any,Int}[]
+    for (region_index,region) in enumerate(new_regions)
         positive_horizontal = VariableRef[]
         negative_horizontal = VariableRef[]
         positive_vertical = VariableRef[]
         negative_vertical = VariableRef[]
         direction = 0
         for (segment,turn) in region
+            max_direction=max(max_direction,direction)
+            direction>3 && push!(legacy_dropped,(region_index,segment,direction))
             # Sage applies the modulo only to the first branch and compares the
             # rest bare, so a segment reached with direction in 5..7 is dropped
             # from every bucket. This normalisation is a deliberate divergence,
@@ -150,6 +155,10 @@ function _piece_lengths(pd::Matrix{Int},bending::Vector{Int})
         end
         @constraint(model,sum(positive_horizontal)-sum(negative_horizontal) == 0)
         @constraint(model,sum(positive_vertical)-sum(negative_vertical) == 0)
+    end
+    DEBUG_MODE && begin
+        println(debug_io,"[piece-lengths] max_direction=",max_direction)
+        println(debug_io,"[piece-lengths] MATLAB legacy-dropped-directions=",legacy_dropped)
     end
     @objective(model,Min,sum(values(variables)))
     optimize!(model)
@@ -166,6 +175,14 @@ _step(point::ComplexF64,length::Real,direction::Int) =
 function _route_edges(pd::Matrix{Int},orientation::Vector{Int},bending::Vector{Int},lengths)
     edge_ids = sort(unique(vec(pd)))
     edge_index = Dict(edge => index for (index,edge) in enumerate(edge_ids))
+    # A stored zero means "virtual crossing": no real over/under crossing and
+    # no rendered vertex. Routing nevertheless needs a local frame to interpret
+    # PD slots. Sage `Link.orientation()` returns +1 for these planarisation
+    # crossings, and MATLAB explicitly applies `ori_(ori_==0)=1` before its
+    # slot-dependent calculations. Normalize only this local routing view;
+    # `LinkLayout.orientation` keeps the original zero as topological/rendering
+    # metadata. This is a frame convention, not a change of crossing type.
+    routing_orientation=replace(orientation,0=>1)
     crossing_positions = fill(complex(NaN,NaN),size(pd,1))
     crossing_rotations = fill(0,size(pd,1))
     crossing_positions[1] = 0.0+0.0im
@@ -204,8 +221,8 @@ function _route_edges(pd::Matrix{Int},orientation::Vector{Int},bending::Vector{I
         direction = mod(crossing_rotations[route_crossing]+route_slot-1,4)
         turn = bending[edge_index[edge]] < 0 ? -1 : 1
         edge_lengths = [lengths[(edge,k)] for k in 0:abs(bending[edge_index[edge]])]
-        if route_slot == 1 || (route_slot == 4 && orientation[route_crossing] == 1) ||
-                        (route_slot == 2 && orientation[route_crossing] == -1)
+        if route_slot == 1 || (route_slot == 4 && routing_orientation[route_crossing] == 1) ||
+                        (route_slot == 2 && routing_orientation[route_crossing] == -1)
             turn = -turn
             reverse!(edge_lengths)
         end
@@ -235,8 +252,8 @@ function _route_edges(pd::Matrix{Int},orientation::Vector{Int},bending::Vector{I
             turn = bending[edge_index[edge]] < 0 ? -1 : 1
             edge_lengths = [lengths[(edge,k)] for k in 0:abs(bending[edge_index[edge]])]
             if route_slot == 1 ||
-                    (route_slot == 4 && orientation[route_crossing] == 1) ||
-                    (route_slot == 2 && orientation[route_crossing] == -1)
+                    (route_slot == 4 && routing_orientation[route_crossing] == 1) ||
+                    (route_slot == 2 && routing_orientation[route_crossing] == -1)
                 turn = -turn
                 reverse!(edge_lengths)
             end

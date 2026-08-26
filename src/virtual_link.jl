@@ -1,3 +1,18 @@
+"""Gauss-code representation of a virtual link or o-graph.
+
+`orientation[i]` has two distinct roles that must not be conflated:
+
+- `+1` / `-1`: crossing `i` is real, with the corresponding signed local
+  crossing convention;
+- `0`: crossing `i` is virtual. It has no over/under topological information,
+  is removed by `real_gauss_code`, and is not drawn as a real vertex.
+
+A virtual crossing still needs a cyclic order when converted to PD slots and
+routed geometrically. For that representation-only local frame, this library
+uses the same slot convention as `+1`, matching Sage/MATLAB. This does **not**
+turn the virtual crossing into a positive real crossing; the stored value
+remains `0` and continues to control topology and rendering.
+"""
 mutable struct VirtualLink
     gauss::Vector{Vector{Int}}
     orientation::Vector{Int}
@@ -16,6 +31,26 @@ struct RealEdge
 end
 
 VirtualLink() = VirtualLink(Vector{Vector{Int}}(), Int[], Vector{Vector{Float64}}(), false, false, Char[])
+
+"""Return the real-Gauss input for the lens space `L(s,t)`.
+
+This is the `RGauss` family used in MATLAB `VLExample.mlx` and
+`C260220LensSpaces.mlx`. Crossing labels are reduced modulo `s`; `s` and `t`
+must be coprime.
+"""
+function lens_space_rgauss(s::Integer,t::Integer)
+    s>=2 || throw(ArgumentError("s must be at least 2"))
+    gcd(s,t)==1 || throw(ArgumentError("s and t must be coprime"))
+    code=vcat(-mod.((s:-1:1).*t.-1,s).-1,1:s)
+    (rgauss=[Int.(code)],orientation=ones(Int,s))
+end
+
+"""Construct the real-Gauss `VirtualLink` presentation of `L(s,t)`."""
+function lens_space_link(s::Integer,t::Integer)
+    input=lens_space_rgauss(s,t)
+    link=VirtualLink()
+    set_data!(link;rgauss=input.rgauss,orientation=input.orientation)
+end
 
 function _normalize_gauss(code)
     code isa AbstractVector{<:Integer} && return [Int.(code)]
@@ -176,6 +211,9 @@ function pd_code(v::VirtualLink)
         if v.orientation[crossing] == -1
             pd[crossing,:] = [under[1],over[1],under[2],over[2]]
         else
+            # `0` is topologically virtual, but a PD row still needs a cyclic
+            # slot order. Sage/MATLAB use the +1 local frame for that purely
+            # combinatorial choice; virtual status remains in `orientation`.
             pd[crossing,:] = [under[1],over[2],under[2],over[1]]
         end
     end
@@ -607,87 +645,6 @@ function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
     v.gauss[strand] = circshift(v.gauss[strand], amount); v
 end
 
-function _cyclic_match(component::Vector{Int},pattern::Vector{Int})
-    length(pattern)<=length(component) || return nothing
-    for start in eachindex(component)
-        all(component[mod1(start+offset,length(component))]==pattern[offset+1]
-            for offset in 0:length(pattern)-1) && return start
-    end
-    nothing
-end
-
-"""Apply a non-weighted 2-to-3 Matveev--Piergallini move.
-
-This is the direct half of MATLAB `VirtualLink.move("MP",...)` used by
-`C250811MSTinvUR`: the two selected real vertices are replaced by the
-three-vertex template of type `A1` through `D4`.  The inverse 3-to-2 path
-and weighted edge transport remain intentionally separate because MATLAB's
-own implementation uses a different relabelling branch for those cases.
-"""
-function mp_move!(v::VirtualLink,parameter::AbstractString,vertices)
-    v.is_weighted && throw(ArgumentError("weighted MP edge transport is not implemented"))
-    selected=Int.(collect(vertices)); length(selected)==2 ||
-        throw(ArgumentError("only direct 2-to-3 MP moves are implemented"))
-    all(vertex -> 1<=vertex<=length(v.orientation),selected) || throw(BoundsError(v.orientation,selected))
-    templates=make_move_data()
-    before=only(filter(pattern -> pattern.parameter==parameter,templates["MP-L"]))
-    after=only(filter(pattern -> pattern.parameter==parameter,templates["MP-R"]))
-    v.orientation[selected]==before.orientation ||
-        throw(ArgumentError("MP parameter $parameter does not match selected crossing orientations"))
-    new_vertex=length(v.orientation)+1
-    mapped_before=[[sign(vertex)*selected[abs(vertex)] for vertex in fragment] for fragment in before.gauss]
-    mapped_after=[[sign(vertex)*(abs(vertex)==3 ? new_vertex : selected[abs(vertex)]) for vertex in fragment]
-                  for fragment in after.gauss]
-    matches=Tuple{Int,Int}[]
-    for fragment in mapped_before
-        candidates=Tuple{Int,Int}[]
-        for (component_index,component) in enumerate(v.gauss)
-            start=_cyclic_match(component,fragment)
-            start===nothing || push!(candidates,(component_index,start))
-        end
-        length(candidates)==1 || throw(ArgumentError("MP fragment has $(length(candidates)) matches; move is ambiguous or invalid"))
-        push!(matches,only(candidates))
-    end
-    # This direct splice is valid when the three template fragments occupy
-    # disjoint, non-wrapping source intervals.  It covers the C250811 calls
-    # and deliberately fails closed for the more general reconnection case.
-    occupied=Set{Tuple{Int,Int}}()
-    for (fragment,(component_index,start)) in zip(mapped_before,matches)
-        component=v.gauss[component_index]
-        start+length(fragment)-1<=length(component) ||
-            throw(ArgumentError("wrapping MP fragments require the general reconnection path"))
-        for position in start:start+length(fragment)-1
-            key=(component_index,position)
-            key in occupied && throw(ArgumentError("overlapping MP fragments require the general reconnection path"))
-            push!(occupied,key)
-        end
-    end
-    replacements=Dict{Tuple{Int,Int},Tuple{Int,Vector{Int}}}()
-    for (index,(component_index,start)) in enumerate(matches)
-        replacements[(component_index,start)]=(length(mapped_before[index]),mapped_after[index])
-    end
-    result=Vector{Vector{Int}}()
-    for (component_index,component) in enumerate(v.gauss)
-        rewritten=Int[]; position=1
-        while position<=length(component)
-            key=(component_index,position)
-            if haskey(replacements,key)
-                consumed,replacement=replacements[key]
-                append!(rewritten,replacement); position+=consumed
-            else
-                push!(rewritten,component[position]); position+=1
-            end
-        end
-        push!(result,rewritten)
-    end
-    orientation=vcat(v.orientation,0)
-    for local_vertex in 1:3
-        actual=local_vertex==3 ? new_vertex : selected[local_vertex]
-        orientation[actual]=after.orientation[local_vertex]
-    end
-    v.real_only ? set_data!(v;rgauss=result,orientation=orientation) :
-                  set_data!(v;gauss=result,orientation=orientation)
-end
 function disjoint_sum!(a::VirtualLink, b::VirtualLink)
     offset=length(a.orientation)
     append!(a.gauss, [[sign(x)*offset+x for x in g] for g in b.gauss])

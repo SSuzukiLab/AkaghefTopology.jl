@@ -7,10 +7,40 @@ function _link(code,orientation;real=false)
     link
 end
 
+"""Raw Virtual-Gauss inputs defined with MATLAB `RGauss` or `odata` in `VLExample.mlx`.
+
+The `lens_3_2` entry records the exact parameters used by `VLExample.mlx`;
+`lens_space_rgauss(s,t)` constructs the full coprime lens-space family.
+`matlab_input` preserves whether the source cell used `RGauss` or `odata`,
+although both map to Julia's `set_data!(...; rgauss=...)` boundary.
+"""
+function vl_virtual_gauss_inputs()
+    lens32=lens_space_rgauss(3,2)
+    [
+        (name="lens_3_2",rgauss=lens32.rgauss,orientation=lens32.orientation,
+         matlab_input=:RGauss),
+        (name="poincare",rgauss=[[4,-5,3,-4,2,-3,1,-2,5,-1]],
+         orientation=ones(Int,5),matlab_input=:RGauss),
+        (name="s2xs1",rgauss=[[-1,-2,3,4,-4,-3,2,1]],
+         orientation=[1,1,1,1],matlab_input=:odata),
+        (name="odata_variant",rgauss=[[-1,2,3,4,-4,-3,-2,1]],
+         orientation=[1,-1,1,1],matlab_input=:odata),
+        (name="koda_fig13",rgauss=[[2,-1,-2,1,4,-3,-4,3]],
+         orientation=[-1,1,-1,1],matlab_input=:RGauss),
+    ]
+end
+
+"""Construct fresh `VirtualLink` objects for `vl_virtual_gauss_inputs()`."""
+function vl_virtual_gauss_examples()
+    Dict(input.name=>_link(input.rgauss,input.orientation;real=true)
+         for input in vl_virtual_gauss_inputs())
+end
+
 """Reproduce the 19 plotting calls in `topology/Manifold/VLExample.mlx`."""
 function run_vl_plot_calls(;output_dir=nothing)
     calls=NamedTuple[]
     add(name,link;bending=nothing)=push!(calls,(name=name,link=link,bending=bending))
+    virtual_gauss=vl_virtual_gauss_examples()
 
     add("unknot",_link([Int[]],Int[]))
     trefoil=_link([[-1,2,-3,1,-2,3]],[-1,-1,-1])
@@ -26,13 +56,12 @@ function run_vl_plot_calls(;output_dir=nothing)
     signed_arr=arr.*(-1).^arr
     arr=vcat(-signed_arr,reverse(signed_arr))
     add("lens_3_1",_link([arr],orientation))
-    s=3; t=2; arr=vcat(-mod.((s:-1:1).*t.-1,s).-1,1:s)
-    add("lens_3_2",_link([arr],ones(Int,s);real=true))
+    add("lens_3_2",deepcopy(virtual_gauss["lens_3_2"]))
     koda_virtual=_link(koda,[-1,1,1,1,-1,0,0,0,0])
     set_weight!(koda_virtual,[[0,0,0,1,1,1,-1,0,1,0]])
     add("koda_virtual",koda_virtual)
 
-    s2xs1=_link([[-1,-2,3,4,-4,-3,2,1]],[1,1,1,1];real=true)
+    s2xs1=deepcopy(virtual_gauss["s2xs1"])
     set_weight!(s2xs1,[[1,-1,-1,0,1,0,-1,0]])
     add("s2xs1",s2xs1)
     weighted=deepcopy(s2xs1); set_weight!(weighted,[[0,0,0,1,0,0,0,-1]])
@@ -40,13 +69,13 @@ function run_vl_plot_calls(;output_dir=nothing)
     calculation=_link([[-1,5,-2,3,-6,4,-4,6,-3,2,-5,1]],[1,1,1,1,0,0])
     set_weight!(calculation,[[1,-1,-1,0,1,0,-1,0]])
     add("s2xs1_calculation",calculation)
-    odata_variant=_link([[-1,2,3,4,-4,-3,-2,1]],[1,-1,1,1];real=true)
+    odata_variant=deepcopy(virtual_gauss["odata_variant"])
     set_weight!(odata_variant,[[1,0,-1,-1,1,0,0,-1]])
     add("odata_variant",odata_variant)
     trefoil_negative=_link([[1,-2,3,-1,2,-3]],[-1,-1,-1])
     set_weight!(trefoil_negative,[[1,-1,0,0,0,-1]])
     add("trefoil_negative",trefoil_negative)
-    koda_fig13=_link([[2,-1,-2,1,4,-3,-4,3]],[-1,1,-1,1];real=true)
+    koda_fig13=deepcopy(virtual_gauss["koda_fig13"])
     set_weight!(koda_fig13,[[-1,0,0,0,0,0,0,0]])
     add("koda_fig13",koda_fig13)
 

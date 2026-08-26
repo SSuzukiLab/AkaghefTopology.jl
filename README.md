@@ -63,6 +63,23 @@ retractions worth reading before trusting an earlier claim. Read it before
 touching `src/orthogonal_layout.jl` or `src/svg_plot.jl`. Three things it
 settles:
 
+The normative API, call graph, stage contracts, SVG semantics, errors, and
+P1–P7 acceptance rules are specified separately in
+[`docs/specs/virtual-link-plot.md`](docs/specs/virtual-link-plot.md). New
+requirements belong in that specification; audit observations and historical
+retractions belong in `PLOT_PIPELINE.md`.
+
+The source-retaining, real-Gauss-centred multi-representation model and the
+provisional Julia direction—immutable mathematical values with optional mutable
+memoisation—are recorded in
+[`docs/specs/virtual-link-data-model.md`](docs/specs/virtual-link-data-model.md).
+It is design rationale, not yet a normative Julia API specification.
+
+The data-driven move architecture, MATLAB compatibility boundary, public
+`movable`/`move`/`move!` API, capacity reconnection, vertex lifecycle, weight
+transport, errors, and support matrix are specified in
+[`docs/specs/virtual-link-moves.md`](docs/specs/virtual-link-moves.md).
+
 - Plots are **no longer accepted by comparison with MATLAB**. The criterion is
   that the layout is a valid bend-minimal orthogonal embedding, checked by
   property. Differences caused by the degenerate minimum-bend MILP are

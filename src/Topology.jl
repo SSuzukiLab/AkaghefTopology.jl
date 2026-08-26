@@ -4,7 +4,7 @@ using LinearAlgebra
 using JuMP
 using GLPK
 
-export URDiagram, VirtualLink, SymExpr, sym,
+export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
        LaurentPolynomial, LaurentRational, laurent_variable, laurent_variables, evaluate, limit_zero,
        set_data_cvw!, set_data_cvs!, set_data_v!, set_data_cm!, set_data!, set_weight!,
        set_weight_by_crossing!,
@@ -15,7 +15,8 @@ export URDiagram, VirtualLink, SymExpr, sym,
        rank, odata, weight_expression, unicode_art, trans_knot_complement,
        gauss_code, real_gauss_code, real_edge_table, RealEdge, pd_code, edge_directions, regions,
        head_map, is_closed,
-       hmove_matrix, disk_table, calculate_weight, mirror_manifold!, cyclic_shift!, mp_move!,
+       hmove_matrix, disk_table, calculate_weight, mirror_manifold!, cyclic_shift!,
+       MoveCandidate, movable, move, move!, mp_move!,
        connected_sum!, disjoint_sum!, knot_complement!, vl_to_urdiagram,
        ur_invariant, ur_prime_invariant, EdgeLayout, LinkLayout,
        minimal_bending_numbers, orthogonal_layout, plot_svg, plot_urd_structure_svg, bernstein, bezier,
@@ -40,6 +41,7 @@ include("virtual_planarization.jl")
 include("orthogonal_layout.jl")
 include("layout_invariants.jl")
 include("helpers.jl")
+include("moves.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")
