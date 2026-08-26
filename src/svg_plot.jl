@@ -246,10 +246,16 @@ itself after Sage returns, in `VirtualLink.calcPos` (`connectPolylines`, the
 per-arc reversal check, component offsets). The two have never been compared.
 See `PLOT_PIPELINE.md` section 8.
 """
-function _real_arc_layouts(v::VirtualLink,layout::LinkLayout)
+function _real_arc_layouts(v::VirtualLink,layout::LinkLayout;planarization=:matlab)
     # `orthogonal_layout` planarised the same input already; recomputing keeps
     # the two call sites able to drift apart. See `PLOT_PIPELINE.md` IS6.
-    code = v.real_only ? first(planarize_virtual_gauss(v.gauss,v.orientation)) : v.gauss
+    code = if v.real_only
+        planarization === :layer8 ? first(planarize_virtual_gauss_layer8(v.gauss,v.orientation)) :
+        planarization === :matlab ? first(planarize_virtual_gauss(v.gauss,v.orientation)) :
+        throw(ArgumentError("unsupported planarization route: $planarization"))
+    else
+        v.gauss
+    end
     pieces=Dict{Tuple{Int,Int},Vector{NamedTuple}}()
     for edge in layout.edges
         piece=_directed_piece(edge,layout.orientation)
@@ -279,6 +285,20 @@ function _real_arc_layouts(v::VirtualLink,layout::LinkLayout)
             points=ComplexF64[]
             for index in indices
                 append!(points,isempty(points) ? sequence[index].points : sequence[index].points[2:end])
+            end
+            if isempty(points)
+                # A one-crossing component can induce a self-loop edge with no
+                # routed PD segment. MATLAB's renderer keeps such a component
+                # visible; give the real arc a small rectilinear loop so the
+                # arrow/label code never receives an empty polyline.
+                centre=layout.crossings[abs(component[previous_position])]
+                radius=0.35
+                points=ComplexF64[centre,
+                    centre+radius,
+                    centre+radius+radius*im,
+                    centre-radius+radius*im,
+                    centre-radius,
+                    centre]
             end
             arc_id += 1
             component_weights=component_index <= length(v.weights) ? v.weights[component_index] : Float64[]
@@ -314,7 +334,8 @@ at the midpoint *index* rather than the arc-length midpoint -- are recorded in
 `PLOT_PIPELINE.md` section 3.
 """
 function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
-                  edge_labels=:weight,replay_positions=nothing)
+                  edge_labels=:weight,replay_positions=nothing,
+                  planarization=:matlab)
     body=String[]
     if isempty(v.orientation)
         S=LINK_STYLE
@@ -328,8 +349,9 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
     end
     layout=nothing
     arcs=if replay_positions === nothing
-        layout=orthogonal_layout(v;bending_numbers=bending_numbers)
-        _real_arc_layouts(v,layout)
+        layout=orthogonal_layout(v;bending_numbers=bending_numbers,
+                                 planarization=planarization)
+        _real_arc_layouts(v,layout;planarization=planarization)
     else
         metadata=_replay_arc_metadata(v)
         length(replay_positions)==length(metadata) || throw(ArgumentError("one MATLAB Position polyline is required for each real arc"))

@@ -155,6 +155,47 @@ function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
         data=make_move_data()
         return [MoveCandidate(move_type,"dir",selected,edge_list,:forward,
                               only(data["02-L"]),only(data["02-R"]),locations)]
+    elseif move_type=="BMP" && length(selected)==2
+        selected[1]!=selected[2] || throw(ArgumentError("BMP vertices must be distinct"))
+        values=abs.(selected)
+        all(vertex -> vertex>0 && vertex<=length(orientation),values) || return MoveCandidate[]
+        positions=Dict{Int,Tuple{Int,Int}}()
+        for vertex in (values[1],values[2],-values[1],-values[2])
+            occurrences=[(component,position) for (component,word) in enumerate(code)
+                         for position in findall(==(vertex),word)]
+            length(occurrences)==1 || return MoveCandidate[]
+            positions[vertex]=only(occurrences)
+        end
+        v1,v2=values
+        p1,p2,p3,p4=positions[v1],positions[v2],positions[-v1],positions[-v2]
+        acceptable=Bool[
+            p1[1]==p2[1] && p1[2]+1==p2[2] && orientation[values]==[-1,1],
+            p3[1]==p4[1] && p3[2]+1==p4[2] && orientation[values]==[1,-1],
+            p2[1]==p1[1] && p2[2]+1==p1[2] && orientation[values]==[1,-1],
+            p4[1]==p3[1] && p4[2]+1==p3[2] && orientation[values]==[-1,1],
+        ]
+        if strict
+            preferred=selected[1]>0 ? 1 : 2
+            acceptable=[acceptable[preferred]]
+            !acceptable[1] && return MoveCandidate[]
+            values=selected[1]>0 ? values : -values
+        else
+            any(acceptable) || return MoveCandidate[]
+        end
+        return [MoveCandidate(move_type,"",Int.(values),edge_list,:forward,
+                              nothing,nothing,Tuple{Int,Int}[])]
+    elseif move_type=="B02" && length(selected)==2
+        all(selected .> 0) || throw(ArgumentError("B02 vertices must be positive"))
+        selected[1]!=selected[2] || throw(ArgumentError("B02 vertices must be distinct"))
+        values=copy(selected)
+        all(vertex -> vertex<=length(orientation),values) || return MoveCandidate[]
+        orientation[values[1]]*orientation[values[2]]==-1 || return MoveCandidate[]
+        orientation[values[1]]==-1 && (values=reverse(values))
+        matches=any(component -> component==values || component==-values ||
+                         component==reverse(values) || component==-reverse(values),code)
+        matches || return MoveCandidate[]
+        return [MoveCandidate(move_type,"",copy(selected),edge_list,:inverse,
+                              nothing,nothing,Tuple{Int,Int}[])]
     end
 
     isempty(selected) && throw(ArgumentError("$move_type move requires selected vertices"))
@@ -462,6 +503,84 @@ function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
     set_data!(v;rgauss=code,orientation=vcat(orientation,[1,-1]))
 end
 
+function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
+    parameter in (0,1) || throw(ArgumentError("BMP circle orientation must be 0 or 1"))
+    code,orientation=real_gauss_code(v)
+    values=Int.(candidate.vertices)
+    S=sign(values[1])
+    v1,v2=abs.(values)
+    locate(value)=begin
+        locations=[(component,position) for (component,word) in enumerate(code)
+                   for position in findall(==(value),word)]
+        length(locations)==1 || throw(ArgumentError("BMP vertex occurrence is ambiguous"))
+        only(locations)
+    end
+    component1,position1=locate(-values[1])
+    word=code[component1]
+    code[component1]=vcat(word[position1+1:end],word[1:position1-1])
+    component2,_=locate(-values[2])
+    component0,position0=locate(values[1])
+    new_vertex=S*(maximum(reduce(vcat,code;init=Int[]))+1)
+    code[component0][position0]=new_vertex
+    position0=findfirst(==(values[2]),code[component0])
+    position0===nothing && throw(ArgumentError("BMP second vertex disappeared during rotation"))
+    deleteat!(code[component0],position0)
+    component2,position2=locate(-values[2])
+    circle=parameter==1 ? [-values[1],-values[2],-new_vertex] :
+                           [-values[2],-values[1],-new_vertex]
+    new_orientation=vcat(orientation,0)
+    circle_orientation=parameter==1 ? -[-1,1,1]*S : [-1,1,1]*S
+    for (vertex,value) in zip((v1,v2,abs(new_vertex)),circle_orientation)
+        new_orientation[vertex]=value
+    end
+    if component1==component2
+        word=code[component2]
+        code=vcat(code,
+                  [[values[1];word[1:position2-1]],
+                   [values[2];word[position2+1:end]]])
+        code[component2]=circle
+    else
+        word=code[component2]
+        code[component2]=vcat([values[2]],word[position2+1:end],word[1:position2-1],
+                              [values[1]],code[component1])
+        code[component1]=circle
+    end
+    set_data!(v;rgauss=code,orientation=new_orientation)
+end
+
+function _apply_b02_two!(v::VirtualLink,candidate::MoveCandidate)
+    code,orientation=real_gauss_code(v)
+    values=copy(candidate.vertices)
+    nv=length(orientation)
+    mapping=Dict(old=>new for (new,old) in enumerate(setdiff(1:nv,values)))
+    is_positive=any(component -> component==values || component==-values,code)
+    is_positive && (values=-values)
+    locate(value)=begin
+        locations=[(component,position) for (component,word) in enumerate(code)
+                   for position in findall(==(value),word)]
+        length(locations)==1 || throw(ArgumentError("B02 vertex occurrence is ambiguous"))
+        only(locations)
+    end
+    component0,_=locate(-values[1])
+    component2,position2=locate(values[2])
+    word=code[component2]
+    code[component2]=vcat(word[position2+1:end],word[1:position2-1])
+    component1,position1=locate(values[1])
+    if component1==component2
+        word=code[component1]
+        code[component0]=word[1:position1-1]
+        code[component1]=word[position1+1:end]
+    else
+        word1=code[component1]; word2=code[component2]
+        code[component0]=vcat(word2,word1[position1+1:end],word1[1:position1-1])
+        deleteat!(code,sort([component1,component2]))
+    end
+    result=[_relabel_word(word,mapping) for word in code]
+    new_orientation=copy(orientation)
+    deleteat!(new_orientation,sort(abs.(values)))
+    set_data!(v;rgauss=result,orientation=new_orientation)
+end
+
 function _apply_hmove!(v::VirtualLink,vertex::Int,amount)
     v.is_weighted || throw(ArgumentError("H move requires a weighted VirtualLink"))
     code,_=real_gauss_code(v)
@@ -498,8 +617,15 @@ function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,st
     isempty(candidates) && throw(ArgumentError("No valid moves found."))
     length(candidates)>1 && @warn "moves may be ambiguous; applying the first strict candidate" count=length(candidates)
     candidate=first(candidates)
-    move_type=="02" && candidate.parameter=="dir" ? _apply_direct_02!(v,candidate) :
-                                                     _apply_pattern_move!(v,candidate)
+    if move_type=="02" && candidate.parameter=="dir"
+        _apply_direct_02!(v,candidate)
+    elseif move_type=="BMP" && length(candidate.vertices)==2
+        _apply_bmp_two!(v,candidate,param)
+    elseif move_type=="B02" && length(candidate.vertices)==2 && candidate.before===nothing
+        _apply_b02_two!(v,candidate)
+    else
+        _apply_pattern_move!(v,candidate)
+    end
 end
 
 function move!(v::VirtualLink,type,arg::NamedTuple)
