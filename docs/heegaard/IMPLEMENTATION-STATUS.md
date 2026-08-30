@@ -1,33 +1,39 @@
 # Heegaard subsystem implementation status
 
 This worktree implements the core contract from the supplied Heegaard
-specification:
+specification as `Topology.Heegaard`, not as a standalone package.
 
-- `Topology.Heegaard` is a separate namespace under the existing `Topology`
-  package.
-- Signed cyclic words, intersections, explicit region partitions, layered
+Implemented and tested:
+
+- signed cyclic words, intersections, explicit region partitions, layered
   validation, certification, ribbon boundary cycles, surface Euler/genus,
-  presentations, exact integer homology, and representation hashes are live.
-- `.hgd.json`, `.hgd.layout.json`, and `.hgd2ograph.json` have separate
-  serializers and the layout loader checks the core hash.
-- Epsilon/R/S moves and an explicitly supplied combinatorial H move return
-  fresh values with `MoveCertificate`s.
-- Gauss and alpha-cut layout data, semantic SVG/TikZ output, and the typed
-  punctured-diagram/flow-spine/OData boundary are live.
+  presentations, exact integer homology, and representation hashes;
+- separate `.hgd.json`, `.hgd.layout.json`, and `.hgd2ograph.json`
+  serializers, with core-hash verification on layout replay;
+- epsilon/R/S moves and explicitly supplied combinatorial H moves returning
+  fresh values with `MoveCertificate`s;
+- Gauss and alpha-cut paired-puncture layouts, semantic SVG/TikZ output, and
+  the typed punctured-diagram/flow-spine/OData boundary;
+- Catlab as a direct dependency for ordered-port wiring seeds only. Puncture
+  placement, terminal ribbon topology, geometric validation, and acceptance
+  remain in `Topology.Heegaard`;
+- a Poincare homology-sphere source fixture and a separately certified
+  paired-puncture layout fixture. The layout uses Catlab provenance plus a
+  fixture-scoped terminal-DCEL corridor certificate and passes strict
+  crossing, self-crossing, puncture, endpoint, beta-successor, and layout-hash
+  checks.
 
-The following acceptance layers remain intentionally explicit rather than
-silently approximated:
+The following boundaries remain explicit:
 
-- Catlab/Graphviz/CairoMakie and GAP are not direct core dependencies in this
-  worktree. The layout path records a pure-Julia fallback, and `group_probe`
-  reports optional GAP unavailability.
-- A geometric band-slide search, VirtualLink standardization of OData, and
+- The Poincare route certificate is not a generic fixed-boundary router. A
+  constructive realization algorithm for an arbitrary genus-zero terminal
+  DCEL remains future work.
+- A geometric band-slide search, VirtualLink standardization of OData, and a
   fully canonical flow-spine/o-graph conversion are not claimed. The H move
   requires replacement visits, a path record, and the post-slide region
   partition.
-- The supplied bundle contains specification and bibliography files, not the
-  reviewed Poincare/Hempel fixture transcriptions. No fixture was invented;
-  tests use checked synthetic S3, lens, and S2 x S1 records.
+- The Poincare decorated region partition is a cellular reconstruction
+  candidate, not a region decoration transcribed from Klebanov's figure.
 
 The package's full test command is:
 
@@ -38,11 +44,6 @@ julia --startup-file=no --pkgimages=no --project=. -e "using Pkg; Pkg.test(; cov
 Julia 1.12.6 is available on the current Windows machine. Julia 1.10 LTS was
 not installed during this run, so that compatibility job remains unexecuted.
 
-Verification at commit `cf4dede`:
-
-- the dedicated Heegaard suite passes all 60 tests;
-- the complete package suite passed before rebasing onto upstream `eaec7a6`;
-- the post-rebase complete suite is blocked by the pre-existing
-  `svg_plot.jl` → `orthogonal_layout.jl` `planarization` keyword mismatch.
-  The parent main worktree already contains an uncommitted compatibility
-  change for that unrelated issue, and it was not copied into this worktree.
+Current verification evidence is recorded in the Poincare fixture note and in
+the test suite. GAP verification is preserved under
+`experiments/heegaard/poincare_sphere/gap/`.

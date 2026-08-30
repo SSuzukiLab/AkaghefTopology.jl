@@ -291,10 +291,13 @@ passed to `set_data!` (IS4). Pinning them is a debugging aid, not a fix: the
 hand-tuned overrides in `examples/` were chosen against the MATLAB path and
 trigger IS7 here. See `PLOT_PIPELINE.md` section 4 part B.
 """
-function orthogonal_layout(v::VirtualLink;bending_numbers=nothing)
+function orthogonal_layout(v::VirtualLink;bending_numbers=nothing,planarization=:matlab)
     source=v
     if v.real_only
-        gauss,orientation=planarize_virtual_gauss(v.gauss,v.orientation)
+        gauss,orientation=planarization === :layer8 ?
+            planarize_virtual_gauss_layer8(v.gauss,v.orientation) :
+            planarization === :matlab ? planarize_virtual_gauss(v.gauss,v.orientation) :
+            throw(ArgumentError("unsupported planarization route: $planarization"))
         source=VirtualLink()
         set_data!(source;gauss=gauss,orientation=orientation)
     end

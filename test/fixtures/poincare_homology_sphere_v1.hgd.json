@@ -1,0 +1,40 @@
+{
+  "curves": {
+    "alpha": [
+      {"id": 1, "label": "alpha_1", "visits": [1, 2, 3, 4, 5, 6, 7], "tags": {}},
+      {"id": 2, "label": "alpha_2", "visits": [8, 9, 10, 11, 12], "tags": {}}
+    ],
+    "beta": [
+      {"id": 1, "label": "beta_1", "visits": [1, 2, 3, 4, 8, 6, 10], "tags": {}},
+      {"id": 2, "label": "beta_2", "visits": [7, 11, 12, 5, 9], "tags": {}}
+    ]
+  },
+  "intersections": [
+    {"id": 1, "alpha": 1, "beta": 1, "sign": -1, "source_label": "a1"},
+    {"id": 2, "alpha": 1, "beta": 1, "sign": -1, "source_label": "a2"},
+    {"id": 3, "alpha": 1, "beta": 1, "sign": -1, "source_label": "a3"},
+    {"id": 4, "alpha": 1, "beta": 1, "sign": -1, "source_label": "a4"},
+    {"id": 5, "alpha": 1, "beta": 2, "sign": 1, "source_label": "a5"},
+    {"id": 6, "alpha": 1, "beta": 1, "sign": 1, "source_label": "a6"},
+    {"id": 7, "alpha": 1, "beta": 2, "sign": 1, "source_label": "a7"},
+    {"id": 8, "alpha": 2, "beta": 1, "sign": 1, "source_label": "b1"},
+    {"id": 9, "alpha": 2, "beta": 2, "sign": 1, "source_label": "b2"},
+    {"id": 10, "alpha": 2, "beta": 1, "sign": 1, "source_label": "b3"},
+    {"id": 11, "alpha": 2, "beta": 2, "sign": -1, "source_label": "b4"},
+    {"id": 12, "alpha": 2, "beta": 2, "sign": -1, "source_label": "b5"}
+  ],
+  "metadata": {
+    "fixture": "poincare_homology_sphere_klebanov_fig_2_15",
+    "source": "Anna Klebanov, Gauss diagrams of 3-manifolds",
+    "source_url": "https://arxiv.org/abs/math/0308055",
+    "source_locator": "arXiv:math/0308055v1, Fig. 2.15, PDF p. 20, poincare.eps",
+    "convention": "alpha is M+ and beta is M-; integer ids preserve the visible a1..a7,b1..b5 cyclic orders",
+    "sign_convention": "ids 1-4 and 11-12 are negative; ids 5-10 are positive",
+    "region_decoration_status": "candidate_not_source_transcribed",
+    "status": "code_transcribed_region_candidate"
+  },
+  "regions": {
+    "boundary_cycle_blocks": [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+  },
+  "schema": "akaghef.heegaard/1"
+}

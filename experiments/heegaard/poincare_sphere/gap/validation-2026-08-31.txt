@@ -1,0 +1,38 @@
+Poincare homology-sphere GAP validation
+Date: 2026-08-31 Asia/Tokyo
+Evidence status: verified-computationally for the exact displayed presentation
+
+Presentation:
+  <g1,g2 | g1^-4 g2 g1 g2, g1 g2^-2 g1 g2>
+
+Environment:
+  Host: Windows, WSL2 Ubuntu
+  GAP: Ubuntu package gap-core 4.12.1-2build2
+  gap-libs: 4.12.1-2build2
+  gap-gapdoc: 1.6.6-1
+  Installation method: apt-get download plus dpkg-deb extraction into a fresh /tmp directory
+  System packages changed: no
+
+Command:
+  wsl.exe -e bash experiments/heegaard/poincare_sphere/gap/verify-with-ubuntu-packages.sh
+
+Result:
+  GAP_VERSION=4.12.1
+  SIZE=120
+  PERFECT=true
+  ABELIAN_INVARIANTS=[  ]
+
+Downloaded package SHA-256:
+  gap-core_4.12.1-2build2_amd64.deb
+    f56581f1e4ea01e4a66e6db6f1fcb997d654d7bd6a7daa66c0e5efff934c1f78
+  gap-libs_4.12.1-2build2_all.deb
+    a8cfbb0a62eed29cdef6d983ab1cbfbfcf4de45850ddb9c58e585064e8583c8c
+  gap-gapdoc_1.6.6-1_all.deb
+    cb14c58ad6caf05a7fb1bada753156d3ad3df20eee4f8fd2e334be6444f05964
+
+Interpretation:
+  GAP computes order 120 and trivial abelianization for the presentation
+  transcribed from Klebanov Fig. 2.15. This is independent of Topology.Heegaard's
+  exact Smith-normal-form computation of H1=0. It verifies the presented group;
+  the identification of the source diagram and the candidate region decoration
+  remain separate provenance claims.

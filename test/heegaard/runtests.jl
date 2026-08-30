@@ -109,12 +109,15 @@ end
     placement = H.default_puncture_placement(cut)
     ports = H.place_ports(cut, placement)
     @test length(placement) == 2
-    @test length(ports) == 1
+    @test length(ports) == 2
     wiring = H.build_wiring_problem(cut, ports)
-    @test wiring.wires == [(beta_id=1, from_port=1, to_port=1)]
+    @test wiring.wires == [(beta_id=1, from_port=1, to_port=2)]
     layout = H.layout_heegaard(diagram)
     @test layout.view == :alpha_cut
     @test layout.report.valid
+    @test layout.backend_trace["backend"] == "catlab"
+    @test layout.backend_trace["catlab_used"] == true
+    @test layout.backend_trace["catlab_layout"]["ordered_port_count"] == 2
     svg = H.render(layout)
     @test occursin("data-intersection-id=\"1\"", svg)
     @test occursin("data-curve-family=\"beta\"", svg)
@@ -122,12 +125,119 @@ end
     @test H.validate_layout(diagram, layout).valid
     @test H.gauss_layout(diagram).view == :gauss
 
+    pure_layout = H.layout_heegaard(diagram; backend=:pure_julia)
+    @test pure_layout.backend_trace["catlab_used"] == false
+    @test pure_layout.backend_trace["backend"] == "pure_julia"
+
     temporary = mktempdir()
     path = joinpath(temporary, "s3.hgd.layout.json")
     H.save_layout(path, layout)
     loaded = H.load_layout(path, diagram)
     @test loaded.report.valid
     @test_throws ArgumentError H.load_layout(path, lens_fixture(5))
+end
+
+@testset "Alpha-cut validator recomputes semantic geometry" begin
+    diagram = lens_fixture(2)
+    cut = H.cut_along_alpha(diagram)
+    punctures = H.default_puncture_placement(cut)
+    ports = H.place_ports(cut, punctures)
+    routes = H._alpha_cut_routes(diagram, cut, punctures, ports)
+    diagram_hash = H.canonical_hash(diagram)
+    empty_report = H.LayoutValidationReport(false, H.ValidationIssue[], Dict{Symbol,Bool}())
+
+    wrong_successors = [
+        H.Route(:beta, 1, 1, 1, 4, [ports[1].point, ports[4].point]),
+        H.Route(:beta, 1, 2, 2, 3, [ports[2].point, ports[3].point]),
+    ]
+    wrong_layout = H.HeegaardLayout(diagram_hash, :alpha_cut, Dict{String,Any}(),
+                                    punctures, ports, wrong_successors,
+                                    Tuple{Int,Int}[], Dict{String,Any}(), empty_report)
+    wrong_report = H.validate_layout(diagram, wrong_layout; expected_hash=diagram_hash)
+    @test any(issue -> issue.code == :beta_successor, wrong_report.issues)
+
+    s3 = s3_fixture()
+    s3_cut = H.cut_along_alpha(s3)
+    s3_punctures = H.default_puncture_placement(s3_cut)
+    s3_ports = H.place_ports(s3_cut, s3_punctures)
+    start, finish = s3_ports[1].point, s3_ports[2].point
+    self_crossing = H.Route(:beta, 1, 1, 1, 2,
+        [start, (0.0, 0.0), (2.0, 2.0), (2.0, 0.0), (0.0, 2.0), finish])
+    self_layout = H.HeegaardLayout(H.canonical_hash(s3), :alpha_cut, Dict{String,Any}(),
+                                   s3_punctures, s3_ports, [self_crossing],
+                                   Tuple{Int,Int}[], Dict{String,Any}(), empty_report)
+    self_report = H.validate_layout(s3, self_layout; expected_hash=H.canonical_hash(s3))
+    @test any(issue -> issue.code == :self_crossing, self_report.issues)
+    @test any(issue -> issue.code == :puncture_intrusion, self_report.issues)
+
+    @test !isempty(H._route_crossings(routes))
+    crossing_layout = H.HeegaardLayout(diagram_hash, :alpha_cut, Dict{String,Any}(),
+                                       punctures, ports, routes,
+                                       Tuple{Int,Int}[], Dict{String,Any}(), empty_report)
+    crossing_report = H.validate_layout(diagram, crossing_layout; expected_hash=diagram_hash)
+    @test any(issue -> issue.code == :crossing_mismatch, crossing_report.issues)
+end
+
+@testset "Poincare homology-sphere source fixture" begin
+    fixture_path = joinpath(@__DIR__, "..", "fixtures", "poincare_homology_sphere_v1.hgd.json")
+    layout_fixture_path = joinpath(@__DIR__, "..", "fixtures",
+                                   "poincare_homology_sphere_v1.hgd.layout.json")
+    fixture = H.load_heegaard(fixture_path)
+    diagram = H.certify_heegaard(fixture)
+    @test H.validate(diagram).valid
+    @test H.surface_genus(diagram) == 2
+    @test H.intersection_matrix(diagram) == [-3 2; 2 -1]
+    presentation = H.fundamental_group_presentation(diagram)
+    @test presentation.relators == [[(1, -1), (1, -1), (1, -1), (1, -1), (2, 1), (1, 1), (2, 1)],
+                                     [(1, 1), (2, -1), (2, -1), (1, 1), (2, 1)]]
+    @test H.abelianization_matrix(presentation) == [-3 2; 2 -1]
+    @test H.first_homology(diagram).free_rank == 0
+    @test isempty(H.first_homology(diagram).torsion)
+    @test H.is_homology_sphere(diagram)
+    @test H.source_manifest(diagram)["region_decoration_status"] == "candidate_not_source_transcribed"
+    diagram_hash = H.canonical_hash(diagram)
+    @test diagram_hash == "691e24337be7458d8b8309229d22bdb1985c137c628312a26622a5f58625dcc0"
+    cut = H.cut_along_alpha(diagram; diagram_hash=diagram_hash)
+    placement = H.default_puncture_placement(cut)
+    ports = H.place_ports(cut, placement)
+    terminal = H._terminal_ribbon_report(diagram, cut, ports,
+        H.build_wiring_problem(diagram, cut, ports))
+    @test terminal.planar
+    @test (terminal.vertices, terminal.edges, terminal.faces, terminal.euler, terminal.genus) ==
+          (4, 12, 10, 2, 0)
+    @test terminal.face_lengths == [2, 2, 2, 2, 2, 2, 3, 3, 3, 3]
+    @test terminal.boundary_cycle_bijection
+    @test sort(terminal.face_to_boundary_cycle) == collect(1:10)
+
+    temporary = mktempdir()
+    roundtrip_path = joinpath(temporary, "poincare.hgd.json")
+    H.save_heegaard(roundtrip_path, diagram)
+    roundtrip = H.load_heegaard(roundtrip_path)
+    @test H.canonical_hash(roundtrip) == H.canonical_hash(diagram)
+
+    layout = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
+                               route_certificate=layout_fixture_path)
+    @test layout.report.valid
+    @test layout.backend_trace["catlab_used"] == true
+    @test layout.backend_trace["post_router"] == "certified-fixed-boundary-pl"
+    @test layout.backend_trace["route_certificate"]["file"] ==
+          "poincare_homology_sphere_v1.hgd.layout.json"
+    @test layout.backend_trace["terminal_embedding"]["planar"] == true
+    @test isempty(layout.crossings)
+    @test sum(length(route.points) for route in layout.routes) == 346
+    replay = H.load_layout(layout_fixture_path, diagram)
+    @test replay.report.valid
+    @test replay.diagram_hash == diagram_hash
+    @test all((first.family, first.curve_id, first.segment_id,
+               first.start_port, first.end_port, first.points) ==
+              (second.family, second.curve_id, second.segment_id,
+               second.start_port, second.end_port, second.points)
+              for (first, second) in zip(replay.routes, layout.routes))
+    svg = H.render(layout; backend=:svg)
+    @test occursin("data-heegaard-view=\"alpha_cut\"", svg)
+    @test occursin("data-diagram-hash=\"$diagram_hash\"", svg)
+    @test occursin("candidate_not_source_transcribed", svg)
+    @test occursin("data-curve-family=\"beta\"", svg)
 end
 
 @testset "Typed spine conversion" begin

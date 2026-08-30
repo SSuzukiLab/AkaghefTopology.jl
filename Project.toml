@@ -1,22 +1,29 @@
 name = "Topology"
 uuid = "b3afbb9e-8463-4dcc-94b0-b9c16bd98cad"
-authors = ["Akaghef"]
 version = "0.1.0"
+authors = ["Akaghef"]
 
 [deps]
 AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
+Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+
+[sources]
+RuntimeGeneratedFunctions = {path = "vendor/RuntimeGeneratedFunctions"}
 
 [compat]
-julia = "1.10, 1.11, 1.12"
+Catlab = "0.17.6"
 JSON3 = "1"
+RuntimeGeneratedFunctions = "0.5.25"
 StructTypes = "1"
+julia = "1.10, 1.11, 1.12"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

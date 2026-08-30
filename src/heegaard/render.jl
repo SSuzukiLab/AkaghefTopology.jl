@@ -51,7 +51,8 @@ function load_layout(path::AbstractString, H::HeegaardDiagram)
     schema = string(_spec_field(parsed, :schema, ""))
     schema == "akaghef.heegaard.layout/1" || throw(ArgumentError("unknown layout schema: $schema"))
     hash = string(_spec_field(parsed, :diagram_hash, ""))
-    hash == canonical_hash(H) || throw(ArgumentError("layout core hash does not match the diagram"))
+    core_hash = canonical_hash(H)
+    hash == core_hash || throw(ArgumentError("layout core hash does not match the diagram"))
     punctures = [begin
         center = _point_tuple(_spec_field(item, :center, []))
         Puncture(Int(_spec_field(item, :id, 0)), Int(_spec_field(item, :pair, 0)),
@@ -81,14 +82,18 @@ function load_layout(path::AbstractString, H::HeegaardDiagram)
         _plain_value(_spec_field(parsed, :chart, Dict{String,Any}())), punctures, ports, routes,
         crossings, _plain_value(_spec_field(parsed, :backend_trace, Dict{String,Any}())),
         LayoutValidationReport(false, ValidationIssue[], Dict{Symbol,Bool}()))
-    report = validate_layout(H, layout)
+    report = validate_layout(H, layout; expected_hash=core_hash)
     HeegaardLayout(layout.diagram_hash, layout.view, layout.chart, layout.punctures,
                    layout.ports, layout.routes, layout.crossings, layout.backend_trace, report)
 end
 
 function _svg_header(layout)
+    provenance = haskey(layout.backend_trace, "provenance") ?
+        _svg_escape(_canonical_json(layout.backend_trace["provenance"])) : ""
     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-3 -3 6 6\" " *
-    "role=\"img\" data-heegaard-view=\"$(_svg_escape(layout.view))\">"
+    "role=\"img\" data-heegaard-view=\"$(_svg_escape(layout.view))\" " *
+    "data-diagram-hash=\"$(_svg_escape(layout.diagram_hash))\">" *
+    "<metadata data-provenance=\"$provenance\"/>"
 end
 
 function _route_path(route::Route)

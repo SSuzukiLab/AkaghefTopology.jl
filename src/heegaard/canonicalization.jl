@@ -1,27 +1,64 @@
 """Representation-only canonicalization and SHA-256 identity."""
 
-function _canonical_json(value)
+function _write_canonical_json(io::IO, value)
     if value === nothing
-        return "null"
+        write(io, "null")
     elseif value === missing
-        return "null"
+        write(io, "null")
     elseif value isa AbstractDict
         keys_sorted = sort!(String[string(key) for key in keys(value)])
-        parts = String[]
-        for key in keys_sorted
+        write(io, '{')
+        for (index, key) in enumerate(keys_sorted)
+            index > 1 && write(io, ',')
             original = haskey(value, key) ? key : Symbol(key)
-            push!(parts, JSON3.write(key) * ":" * _canonical_json(value[original]))
+            write(io, JSON3.write(key), ':')
+            _write_canonical_json(io, value[original])
         end
-        return "{" * join(parts, ",") * "}"
+        write(io, '}')
     elseif value isa NamedTuple
-        return _canonical_json(Dict(string(name) => getfield(value, name) for name in propertynames(value)))
+        names = sort!(collect(propertynames(value)); by=string)
+        write(io, '{')
+        for (index, name) in enumerate(names)
+            index > 1 && write(io, ',')
+            write(io, JSON3.write(string(name)), ':')
+            _write_canonical_json(io, getfield(value, name))
+        end
+        write(io, '}')
     elseif value isa Tuple || value isa AbstractVector
-        return "[" * join((_canonical_json(item) for item in value), ",") * "]"
+        write(io, '[')
+        for (index, item) in enumerate(value)
+            index > 1 && write(io, ',')
+            _write_canonical_json(io, item)
+        end
+        write(io, ']')
     elseif value isa Symbol
-        return JSON3.write(String(value))
+        write(io, JSON3.write(String(value)))
     else
-        return JSON3.write(value)
+        write(io, JSON3.write(value))
     end
+    io
+end
+
+function _canonical_json(value)
+    io = IOBuffer()
+    _write_canonical_json(io, value)
+    String(take!(io))
+end
+
+function _cyclic_lexmin(values::AbstractVector)
+    isempty(values) && return collect(values)
+    keys = repr.(values)
+    best = 1
+    for candidate in 2:length(values)
+        for offset in 0:length(values)-1
+            candidate_key = keys[mod1(candidate + offset, length(values))]
+            best_key = keys[mod1(best + offset, length(values))]
+            candidate_key == best_key && continue
+            candidate_key < best_key && (best = candidate)
+            break
+        end
+    end
+    vcat(values[best:end], values[1:best-1])
 end
 
 function _permutations(values::Vector{Int})
@@ -79,14 +116,14 @@ function _region_signatures(object, intersection_map, curve_maps)
                           intersection_map[dart_map[id].target],
                           dart_map[id].target_port)
         end
-        isempty(raw) || (raw = _lexmin([vcat(raw[i:end], raw[1:i-1]) for i in eachindex(raw)]))
+        isempty(raw) || (raw = _cyclic_lexmin(raw))
         push!(signatures, raw)
     end
     signatures
 end
 
 function _candidate(code::HeegaardCode, alpha_order, alpha_visits, beta_order, beta_visits,
-                    decorated::Bool, original_partition=nothing)
+                    decorated::Bool, original_partition=nothing, ribbon_data=nothing)
     alpha_map = Dict(code.alpha[old].id => new for (new, old) in enumerate(alpha_order))
     beta_map = Dict(code.beta[old].id => new for (new, old) in enumerate(beta_order))
     intersection_map = Dict{Int,Int}()
@@ -114,16 +151,15 @@ function _candidate(code::HeegaardCode, alpha_order, alpha_visits, beta_order, b
         curve_maps = Dict(:alpha => alpha_map, :beta => beta_map)
         # Encode the actual region blocks by transformed cycle signatures,
         # making region labels and cycle numbering immaterial.
-        graph = ribbon_graph(code)
-        cycles = boundary_cycles(graph)
-        dart_map = _dart_map(graph)
+        ribbon_data === nothing && throw(ArgumentError("decorated canonicalization requires ribbon data"))
+        graph, cycles, dart_map = ribbon_data
         cycle_signatures = Any[]
         for cycle in cycles
             raw = [(intersection_map[dart_map[id].origin], dart_map[id].origin_port,
                     (graph.edges[dart_map[id].edge].family,
                      curve_maps[graph.edges[dart_map[id].edge].family][graph.edges[dart_map[id].edge].curve_id]),
                     intersection_map[dart_map[id].target], dart_map[id].target_port) for id in cycle]
-            push!(cycle_signatures, _lexmin([vcat(raw[i:end], raw[1:i-1]) for i in eachindex(raw)]))
+            push!(cycle_signatures, _cyclic_lexmin(raw))
         end
         original_partition === nothing && throw(ArgumentError("decorated canonicalization requires a region partition"))
         regions = sort([sort([cycle_signatures[cycle] for cycle in block]; by=repr)
@@ -161,12 +197,19 @@ function canonicalize_representation(object)
     end
     best = nothing
     best_key = nothing
+    ribbon_data = if decorated
+        graph = ribbon_graph(code)
+        cycles = boundary_cycles(graph)
+        (graph, cycles, _dart_map(graph))
+    else
+        nothing
+    end
     for alpha_order in alpha_orders, alpha_visits in _ordered_variants(code.alpha, alpha_order),
         beta_order in beta_orders, beta_visits in _ordered_variants(code.beta, beta_order)
         partition = object isa HeegaardDiagram ? object.code.regions :
                     object isa DecoratedHeegaardCode ? object.regions : nothing
         candidate = _candidate(code, alpha_order, alpha_visits, beta_order, beta_visits,
-                              decorated, partition)
+                              decorated, partition, ribbon_data)
         key = _canonical_json(candidate.key)
         if best_key === nothing || key < best_key
             best_key, best = key, candidate
@@ -191,7 +234,7 @@ function canonicalize_representation(object)
                  (graph.edges[dart_map[id].edge].family,
                   curve_maps[graph.edges[dart_map[id].edge].family][graph.edges[dart_map[id].edge].curve_id]),
                  dart_map[id].target, dart_map[id].target_port) for id in cycle]
-        signature_to_id[_lexmin([vcat(raw[i:end], raw[1:i-1]) for i in eachindex(raw)])] = cycle_id
+        signature_to_id[_cyclic_lexmin(raw)] = cycle_id
     end
     blocks = [[signature_to_id[signature] for signature in block] for block in best.regions]
     DecoratedHeegaardCode(canonical_code, RegionPartition(blocks), deepcopy(code.metadata))
