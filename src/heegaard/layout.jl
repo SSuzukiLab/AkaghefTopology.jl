@@ -521,14 +521,23 @@ end
 
 function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_julia,
                          seed=nothing, placement=nothing, route_certificate=nothing,
+                         router=:auto, anchors=nothing,
+                         grid_step=nothing, margin=1.5, max_attempts=12,
+                         max_expansions=25000,
                          kwargs...)
     backend in (:catlab, :pure_julia, :fallback) || throw(ArgumentError("unknown layout backend $backend"))
     fallback in (:pure_julia, :error, :none) || throw(ArgumentError("unknown Catlab fallback policy $fallback"))
+    router in (:auto, :none, :feasible) || throw(ArgumentError("unknown route policy $router"))
+    router == :feasible && route_certificate !== nothing &&
+        throw(ArgumentError("router=:feasible cannot be combined with route_certificate"))
+    route_policy = router == :auto ?
+        (route_certificate === nothing ? :feasible : :certificate) : router
     diagram_hash = canonical_hash(H)
     cut = cut_along_alpha(H; diagram_hash=diagram_hash)
     punctures = placement === nothing ? default_puncture_placement(cut) : placement
     ports = place_ports(cut, punctures)
     wiring = build_wiring_problem(H, cut, ports)
+    router_anchors = anchors
     terminal_report = _terminal_ribbon_report(H, cut, ports, wiring)
     terminal_report.planar || throw(ArgumentError(
         "the fixed-puncture terminal ribbon map is not planar; no feasible alpha-cut route exists"))
@@ -537,11 +546,14 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
     catlab_result = nothing
     if backend == :catlab
         try
-            catlab_result, anchors = _catlab_route_anchors(wiring)
-            routes = [Route(route.family, route.curve_id, route.segment_id,
-                            route.start_port, route.end_port,
-                            _catlab_route_points(route, anchors[index]))
-                      for (index, route) in enumerate(routes)]
+            catlab_result, catlab_anchors = _catlab_route_anchors(wiring)
+            router_anchors === nothing && (router_anchors = catlab_anchors)
+            if route_policy == :none
+                routes = [Route(route.family, route.curve_id, route.segment_id,
+                                route.start_port, route.end_port,
+                                _catlab_route_points(route, catlab_anchors[index]))
+                          for (index, route) in enumerate(routes)]
+            end
         catch error
             catlab_error = sprint(showerror, error)
             fallback in (:error, :none) && throw(ArgumentError(
@@ -551,7 +563,14 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
     end
     post_router = "none"
     certificate_trace = nothing
-    if route_certificate !== nothing
+    if route_policy == :feasible
+        routes = feasible_fixed_endpoint_routes(H, punctures, ports, wiring;
+                                                anchors=router_anchors,
+                                                grid_step=grid_step, margin=margin,
+                                                max_attempts=max_attempts,
+                                                max_expansions=max_expansions)
+        post_router = "bounded-fixed-endpoint-feasible"
+    elseif route_certificate !== nothing
         certificate_path = string(route_certificate)
         routes = _apply_route_certificate(routes, ports, certificate_path, diagram_hash)
         post_router = "certified-fixed-boundary-pl"
@@ -574,9 +593,16 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
             "ordered_ports" => true,
             "seed_layout" => catlab_result === nothing ? "pure-julia" : "catlab",
             "fixed_endpoint_fitting" => true,
-            "feasible_router" => route_certificate === nothing ? "identity-if-verified" :
-                                 "certified-fixed-boundary-pl",
+            "feasible_router" => post_router,
             "smoothing" => "not-run",
+        ),
+        "feasible_router" => route_policy == :feasible,
+        "router_anchor_count" => router_anchors === nothing ? 0 : length(router_anchors),
+        "router_limits" => Dict{String,Any}(
+            "grid_step" => grid_step,
+            "margin" => margin,
+            "max_attempts" => max_attempts,
+            "max_expansions" => max_expansions,
         ),
         "terminal_embedding" => Dict{String,Any}(
             "planar" => terminal_report.planar,
@@ -607,8 +633,9 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
             "fixed-endpoint seed is not a feasible Heegaard layout ($codes); " *
             "no verified topological router result is available"))
     end
-    if route_certificate === nothing
+    if route_policy == :none
         trace["post_router"] = "verified-seed-identity"
+        trace["pipeline"]["feasible_router"] = "verified-seed-identity"
     end
     HeegaardLayout(provisional.diagram_hash, provisional.view, provisional.chart,
                    provisional.punctures, provisional.ports, provisional.routes,

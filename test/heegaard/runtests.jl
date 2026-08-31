@@ -119,8 +119,9 @@ end
     @test layout.backend_trace["catlab_used"] == true
     @test layout.backend_trace["catlab_layout"]["ordered_port_count"] == 2
     @test layout.backend_trace["pipeline"]["puncture_placement"] == "fixed-2-by-g"
-    @test layout.backend_trace["pipeline"]["feasible_router"] == "identity-if-verified"
-    @test layout.backend_trace["post_router"] == "verified-seed-identity"
+    @test layout.backend_trace["pipeline"]["feasible_router"] ==
+          "bounded-fixed-endpoint-feasible"
+    @test layout.backend_trace["post_router"] == "bounded-fixed-endpoint-feasible"
     svg = H.render(layout)
     @test occursin("data-intersection-id=\"1\"", svg)
     @test occursin("data-curve-family=\"beta\"", svg)
@@ -220,7 +221,10 @@ end
     roundtrip = H.load_heegaard(roundtrip_path)
     @test H.canonical_hash(roundtrip) == H.canonical_hash(diagram)
 
-    @test_throws ArgumentError H.layout_heegaard(diagram; backend=:pure_julia)
+    generated = H.layout_heegaard(diagram; backend=:pure_julia)
+    @test generated.report.valid
+    @test generated.backend_trace["post_router"] == "bounded-fixed-endpoint-feasible"
+    @test isempty(generated.crossings)
     layout = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                                route_certificate=layout_fixture_path)
     @test layout.report.valid
@@ -245,6 +249,8 @@ end
     @test occursin("candidate_not_source_transcribed", svg)
     @test occursin("data-curve-family=\"beta\"", svg)
 end
+
+include(joinpath(@__DIR__, "feasible_router.jl"))
 
 @testset "Typed spine conversion" begin
     diagram = s3_fixture()

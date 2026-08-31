@@ -16,6 +16,7 @@ include("groups.jl")
 include("moves.jl")
 include("cut_surface.jl")
 include("layout.jl")
+include("feasible_router.jl")
 include("render.jl")
 include("conversion_spine.jl")
 
@@ -37,6 +38,7 @@ export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode
        enumerate_local_moves,
        cut_along_alpha, default_puncture_placement, place_ports,
        build_wiring_problem, gauss_layout, layout_heegaard, validate_layout,
+       feasible_fixed_endpoint_routes,
        render, render_tikz, inspect_html, save_layout, load_layout,
        make_punctured, to_flow_spine, to_ograph, to_odata, to_heegaard,
        compare_representations, save_conversion
