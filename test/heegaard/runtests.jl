@@ -240,6 +240,8 @@ end
     @test occursin("data-curve-family=\"beta\"", svg)
 end
 
+include(joinpath(@__DIR__, "feasible_router.jl"))
+
 @testset "Typed spine conversion" begin
     diagram = s3_fixture()
     punctured = H.make_punctured(diagram)

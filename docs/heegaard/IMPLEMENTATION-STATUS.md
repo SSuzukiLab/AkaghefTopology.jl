@@ -17,6 +17,11 @@ Implemented and tested:
 - Catlab as a direct dependency for ordered-port wiring seeds only. Puncture
   placement, terminal ribbon topology, geometric validation, and acceptance
   remain in `Topology.Heegaard`;
+- a bounded `feasible_fixed_endpoint_routes` prototype. It consumes the fixed
+  punctures, ordered ports, wiring, and optional Catlab anchor hints, searches
+  a finite visibility graph, and accepts a result only after
+  `validate_layout` reconstructs the beta successor relation and finds zero
+  crossings, self-crossings, and puncture intrusions;
 - a Poincare homology-sphere source fixture and a separately certified
   paired-puncture layout fixture. The layout uses Catlab provenance plus a
   fixture-scoped terminal-DCEL corridor certificate and passes strict
@@ -25,9 +30,13 @@ Implemented and tested:
 
 The following boundaries remain explicit:
 
-- The Poincare route certificate is not a generic fixed-boundary router. A
-  constructive realization algorithm for an arbitrary genus-zero terminal
-  DCEL remains future work.
+- The bounded feasible router is not complete: it uses a finite grid, a fixed
+  wire order, and a bounded number of shortest-path attempts. Failure is only
+  failure to find a solution within those bounds. It is not a general
+  fixed-boundary or arbitrary genus-zero terminal-DCEL router, and it uses no
+  Tutte embedding, moving punctures, or radial postprocess.
+- The Poincare route certificate remains a separate fixture artifact and is
+  not evidence of general router completeness.
 - A geometric band-slide search, VirtualLink standardization of OData, and a
   fully canonical flow-spine/o-graph conversion are not claimed. The H move
   requires replacement visits, a path record, and the post-slide region
