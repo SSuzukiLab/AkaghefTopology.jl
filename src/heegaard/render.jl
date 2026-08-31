@@ -22,12 +22,29 @@ function _layout_json(layout::HeegaardLayout)
         "routes" => [Dict("family"=>String(r.family), "curve_id"=>r.curve_id,
                           "segment_id"=>r.segment_id,
                           "start_port"=>r.start_port, "end_port"=>r.end_port,
-                          "points"=>[[point...] for point in r.points]) for r in layout.routes],
+                          "points"=>[[point...] for point in r.points],
+                          "curve"=>_curve_json(r.curve)) for r in layout.routes],
         "crossings" => [[pair...] for pair in layout.crossings],
         "backend_trace" => deepcopy(layout.backend_trace),
         "report" => Dict("valid"=>layout.report.valid,
                           "checks"=>Dict(String(key)=>value for (key,value) in layout.report.checks)),
     )
+end
+
+function _curve_json(curve::PolylineCurve)
+    Dict{String,Any}("type"=>"polyline", "points"=>[[point...] for point in curve.points])
+end
+
+function _curve_json(curve::BezierChain)
+    Dict{String,Any}(
+        "type"=>"bezier_chain", "flatness"=>curve.flatness, "max_depth"=>curve.max_depth,
+        "segments"=>[Dict("type"=>"cubic", "points"=>[[point...] for point in
+                       (segment.p0, segment.p1, segment.p2, segment.p3)])
+                     for segment in curve.segments])
+end
+
+function _curve_json(curve::RouteCurve)
+    throw(ArgumentError("unsupported route curve representation $(typeof(curve))"))
 end
 
 function save_layout(path::AbstractString, layout::HeegaardLayout)
@@ -43,6 +60,29 @@ function _point_tuple(value)
     values = collect(value)
     length(values) == 2 || throw(ArgumentError("2D coordinate must have two entries"))
     (Float64(values[1]), Float64(values[2]))
+end
+
+function _curve_from_spec(spec)
+    spec === nothing && throw(ArgumentError("route is missing its curve representation"))
+    curve_type = string(_spec_field(spec, :type, ""))
+    if curve_type == "polyline"
+        points = [_point_tuple(point) for point in _as_vector(_spec_field(spec, :points, nothing))]
+        return PolylineCurve(points)
+    elseif curve_type == "bezier_chain"
+        segments = CubicBezierSegment[]
+        for segment_spec in _as_vector(_spec_field(spec, :segments, nothing))
+            string(_spec_field(segment_spec, :type, "")) == "cubic" ||
+                throw(ArgumentError("unknown Bezier segment type"))
+            points = [_point_tuple(point) for point in
+                      _as_vector(_spec_field(segment_spec, :points, nothing))]
+            length(points) == 4 || throw(ArgumentError("cubic Bezier segment must have four points"))
+            push!(segments, CubicBezierSegment((points[1], points[2], points[3], points[4])))
+        end
+        return BezierChain(segments;
+                           flatness=Float64(_spec_field(spec, :flatness, 0.0)),
+                           max_depth=Int(_spec_field(spec, :max_depth, 0)))
+    end
+    throw(ArgumentError("unknown route curve type: $curve_type"))
 end
 
 """Read a layout only when its stored core hash matches `H`."""
@@ -66,12 +106,16 @@ function load_layout(path::AbstractString, H::HeegaardDiagram)
              Float64(_spec_field(item, :parameter, 0.0)), point)
     end for item in _as_vector(_spec_field(parsed, :ports, []))]
     routes = [begin
-        points = [_point_tuple(point) for point in _as_vector(_spec_field(item, :points, []))]
+        encoded_points = _spec_field(item, :points, nothing)
+        encoded_points === nothing && throw(ArgumentError("layout route is missing flattened points"))
+        points = [_point_tuple(point) for point in _as_vector(encoded_points)]
         start = _spec_field(item, :start_port, nothing)
         finish = _spec_field(item, :end_port, nothing)
+        encoded_curve = _spec_field(item, :curve, nothing)
+        curve = encoded_curve === nothing ? nothing : _curve_from_spec(encoded_curve)
         Route(Symbol(_spec_field(item, :family, "beta")), Int(_spec_field(item, :curve_id, 0)),
               Int(_spec_field(item, :segment_id, 0)), start === nothing ? nothing : Int(start),
-              finish === nothing ? nothing : Int(finish), points)
+              finish === nothing ? nothing : Int(finish), points; curve)
     end for item in _as_vector(_spec_field(parsed, :routes, []))]
     crossings = [(begin
         values = collect(pair)
@@ -97,12 +141,25 @@ function _svg_header(layout)
 end
 
 function _route_path(route::Route)
-    isempty(route.points) && return ""
-    result = "M $(_fmt(first(route.points)[1])) $(_fmt(-first(route.points)[2]))"
-    for point in route.points[2:end]
-        result *= " L $(_fmt(point[1])) $(_fmt(-point[2]))"
+    curve = route.curve
+    if curve isa PolylineCurve
+        points = curve.points
+        result = "M $(_fmt(first(points)[1])) $(_fmt(-first(points)[2]))"
+        for point in points[2:end]
+            result *= " L $(_fmt(point[1])) $(_fmt(-point[2]))"
+        end
+        return result
+    elseif curve isa BezierChain
+        first_segment = first(curve.segments)
+        result = "M $(_fmt(first_segment.p0[1])) $(_fmt(-first_segment.p0[2]))"
+        for segment in curve.segments
+            result *= " C $(_fmt(segment.p1[1])) $(_fmt(-segment.p1[2])) " *
+                      "$(_fmt(segment.p2[1])) $(_fmt(-segment.p2[2])) " *
+                      "$(_fmt(segment.p3[1])) $(_fmt(-segment.p3[2]))"
+        end
+        return result
     end
-    result
+    throw(ArgumentError("unsupported route curve representation $(typeof(curve))"))
 end
 
 function _render_svg(layout::HeegaardLayout)
@@ -146,9 +203,22 @@ function render_tikz(layout::HeegaardLayout)
         push!(parts, "\\draw[red!70!black] ($( _fmt(puncture.center[1]) ),$( _fmt(puncture.center[2]) )) circle ($( _fmt(puncture.radius) ));")
     end
     for route in layout.routes
-        isempty(route.points) && continue
-        points = join(["($(_fmt(point[1])),$(_fmt(point[2])))" for point in route.points], " -- ")
-        push!(parts, "\\draw[hgdroute] $points;")
+        curve = route.curve
+        if curve isa PolylineCurve
+            points = join(["($(_fmt(point[1])),$(_fmt(point[2])))" for point in curve.points], " -- ")
+            push!(parts, "\\draw[hgdroute] $points;")
+        elseif curve isa BezierChain
+            segment = first(curve.segments)
+            path = "($(_fmt(segment.p0[1])),$(_fmt(segment.p0[2])))"
+            for segment in curve.segments
+                path *= " .. controls ($(_fmt(segment.p1[1])),$(_fmt(segment.p1[2]))) and " *
+                        "($(_fmt(segment.p2[1])),$(_fmt(segment.p2[2]))) .. " *
+                        "($(_fmt(segment.p3[1])),$(_fmt(segment.p3[2])))"
+            end
+            push!(parts, "\\draw[hgdroute] $path;")
+        else
+            throw(ArgumentError("unsupported route curve representation $(typeof(curve))"))
+        end
     end
     push!(parts, "\\end{tikzpicture}")
     join(parts, "\n")
