@@ -16,6 +16,7 @@ include("groups.jl")
 include("moves.jl")
 include("cut_surface.jl")
 include("layout.jl")
+include("planar_embedding.jl")
 include("render.jl")
 include("conversion_spine.jl")
 

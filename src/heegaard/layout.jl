@@ -224,7 +224,36 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     edge_count = length(wiring.wires)
     face_count = length(faces)
     euler = vertex_count - edge_count + face_count
-    genus = (2 - euler) ÷ 2
+    adjacency = Dict(boundary => Int[] for boundary in keys(rotations))
+    for edge in 1:edge_count
+        first_vertex = port_map[origin_port[2edge - 1]].boundary_id
+        second_vertex = port_map[origin_port[2edge]].boundary_id
+        push!(adjacency[first_vertex], second_vertex)
+        push!(adjacency[second_vertex], first_vertex)
+    end
+    component_vertices = Vector{Vector{Int}}()
+    unseen_vertices = Set(keys(rotations))
+    while !isempty(unseen_vertices)
+        root = minimum(unseen_vertices)
+        delete!(unseen_vertices, root)
+        component = Int[]
+        stack = [root]
+        while !isempty(stack)
+            vertex = pop!(stack)
+            push!(component, vertex)
+            for neighbor in adjacency[vertex]
+                neighbor in unseen_vertices || continue
+                delete!(unseen_vertices, neighbor)
+                push!(stack, neighbor)
+            end
+        end
+        push!(component_vertices, sort(component))
+    end
+    component_count = length(component_vertices)
+    # The face permutation compactifies every connected ribbon component
+    # separately.  Thus its Euler test is V-E+F=2c, not V-E+F=2, when a
+    # stabilization contributes a disjoint terminal component.
+    genus = (2component_count - euler) ÷ 2
     graph = ribbon_graph(H)
     original_cycles = boundary_cycles(graph)
     alpha_edge_count = sum(length(curve.visits) for curve in H.code.code.alpha)
@@ -248,11 +277,16 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     end
     sort(face_to_boundary) == collect(eachindex(filtered_original)) ||
         throw(ArgumentError("terminal faces do not bijectively match ribbon boundary cycles"))
-    (planar=euler == 2, vertices=vertex_count, edges=edge_count,
+    (planar=euler == 2component_count, vertices=vertex_count, edges=edge_count,
      faces=face_count, euler=euler, genus=genus,
+     components=component_count, component_vertices=component_vertices,
      face_lengths=sort(length.(faces)), face_cycles=faces,
      face_to_boundary_cycle=face_to_boundary,
-     boundary_cycle_bijection=true)
+     boundary_cycle_bijection=true, rotations=rotations,
+     origin_port=origin_port, origin_dart=origin_dart,
+     next_dart=next_dart,
+     origin_vertex=Dict(dart => port_map[port].boundary_id
+                        for (dart, port) in origin_port))
 end
 
 """Run Catlab's wiring-diagram layout on an ordered, non-topological view.
@@ -444,6 +478,28 @@ function validate_layout(H::HeegaardDiagram, layout::HeegaardLayout; expected_ha
                         "port cyclic order could not be reconstructed from puncture placement", "ports")
         end
     end
+    for puncture in layout.punctures
+        boundary_ports = [port for port in layout.ports if port.boundary_id == puncture.id]
+        length(boundary_ports) <= 1 && continue
+        coincident = any(_same_point(boundary_ports[first].point, boundary_ports[second].point)
+                         for first in 1:length(boundary_ports)-1
+                         for second in first+1:length(boundary_ports))
+        actual_ccw = [port.id for port in sort(copy(boundary_ports); by=port ->
+            atan(port.point[2] - puncture.center[2], port.point[1] - puncture.center[1]))]
+        expected_ccw = [port.id for port in sort(copy(boundary_ports);
+                                                by=port -> (port.parameter, port.id))]
+        !coincident && _cyclic_equal(actual_ccw, expected_ccw) ||
+            _add_issue!(issues, :layout, :port_cyclic_geometry,
+                        "ports on puncture $(puncture.id) do not realize their prescribed cyclic order",
+                        "ports")
+    end
+    for first in 1:length(layout.punctures)-1, second in first+1:length(layout.punctures)
+        a, b = layout.punctures[first], layout.punctures[second]
+        distance = hypot(a.center[1] - b.center[1], a.center[2] - b.center[2])
+        distance + 1e-10 < a.radius + b.radius &&
+            _add_issue!(issues, :layout, :puncture_overlap,
+                        "punctures $(a.id) and $(b.id) have overlapping interiors", "punctures")
+    end
     endpoint_use = Dict{Int,Int}()
     actual_routes = Set{Tuple{Int,Int,Int,Int}}()
     port_map = Dict(port.id => port for port in layout.ports)
@@ -519,18 +575,43 @@ function validate_layout(H::HeegaardDiagram, layout::HeegaardLayout; expected_ha
     LayoutValidationReport(isempty(issues), issues, checks)
 end
 
+function _layout_candidate_report(H, diagram_hash, punctures, ports, routes)
+    crossings = _route_crossings(routes)
+    candidate = HeegaardLayout(diagram_hash, :alpha_cut,
+        Dict{String,Any}("chart"=>"sphere-at-infinity", "outer_halo"=>true),
+        punctures, ports, routes, crossings, Dict{String,Any}(),
+        LayoutValidationReport(false, ValidationIssue[], Dict{Symbol,Bool}()))
+    validate_layout(H, candidate; expected_hash=diagram_hash)
+end
+
+function _layout_issue_summary(report)
+    isempty(report.issues) && return "unknown geometric incompatibility"
+    join(sort(unique(string(issue.code) for issue in report.issues)), ", ")
+end
+
 function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_julia,
                          seed=nothing, placement=nothing, route_certificate=nothing,
                          kwargs...)
     backend in (:catlab, :pure_julia, :fallback) || throw(ArgumentError("unknown layout backend $backend"))
     fallback in (:pure_julia, :error, :none) || throw(ArgumentError("unknown Catlab fallback policy $fallback"))
+    placement_policy = placement === nothing ? :grid_if_feasible :
+        placement isa Symbol ? placement : :fixed
+    placement_policy in (:grid_if_feasible, :planar_embedding, :fixed) ||
+        throw(ArgumentError("unknown puncture placement policy $placement_policy"))
+    placement_policy == :fixed && !(placement isa AbstractVector) &&
+        throw(ArgumentError("a fixed puncture placement must be a vector of Puncture values"))
     diagram_hash = canonical_hash(H)
     cut = cut_along_alpha(H; diagram_hash=diagram_hash)
-    punctures = placement === nothing ? default_puncture_placement(cut) : placement
-    ports = place_ports(cut, punctures)
-    wiring = build_wiring_problem(H, cut, ports)
-    terminal_report = _terminal_ribbon_report(H, cut, ports, wiring)
-    routes = _alpha_cut_routes(H, cut, punctures, ports)
+    grid_placement = default_puncture_placement(cut)
+    base_punctures = placement_policy == :fixed ? collect(placement) : grid_placement
+    base_ports = place_ports(cut, base_punctures)
+    wiring = build_wiring_problem(H, cut, base_ports)
+    terminal_report = _terminal_ribbon_report(H, cut, base_ports, wiring)
+    terminal_report.planar || throw(ArgumentError(
+        "terminal ribbon map is not planar: components=$(terminal_report.components), " *
+        "V=$(terminal_report.vertices), E=$(terminal_report.edges), F=$(terminal_report.faces), " *
+        "V-E+F=$(terminal_report.euler)"))
+    routes = _alpha_cut_routes(H, cut, base_punctures, base_ports)
     catlab_error = nothing
     catlab_result = nothing
     if backend == :catlab
@@ -549,7 +630,13 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
     end
     post_router = "none"
     certificate_trace = nothing
+    placement_trace = Dict{String,Any}()
+    realization_trace = nothing
+    punctures = base_punctures
+    ports = base_ports
     if route_certificate !== nothing
+        placement_policy in (:grid_if_feasible, :fixed) || throw(ArgumentError(
+            "route certificates require the default grid or an explicit fixed placement"))
         certificate_path = string(route_certificate)
         routes = _apply_route_certificate(routes, ports, certificate_path, diagram_hash)
         post_router = "certified-fixed-boundary-pl"
@@ -557,6 +644,72 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
             "file" => basename(certificate_path),
             "sha256" => bytes2hex(sha256(read(certificate_path))),
         )
+        placement_trace = Dict{String,Any}(
+            "policy" => String(placement_policy),
+            "branch" => "fixed-certificate",
+            "reason" => "route certificate retains its fixed puncture coordinates",
+        )
+    else
+        function attempt_realization(fixed_placement)
+            candidate_punctures, candidate_ports, candidate_routes, candidate_trace =
+                _realize_terminal_map(H, cut, base_ports, terminal_report;
+                                      fixed_placement=fixed_placement)
+            report = _layout_candidate_report(H, diagram_hash, candidate_punctures,
+                                              candidate_ports, candidate_routes)
+            candidate_punctures, candidate_ports, candidate_routes, candidate_trace, report
+        end
+
+        if placement_policy == :grid_if_feasible
+            grid_failure = nothing
+            try
+                candidate = attempt_realization(grid_placement)
+                if candidate[5].valid
+                    punctures, ports, routes, realization_trace = candidate[1:4]
+                    placement_trace = Dict{String,Any}(
+                        "policy" => "grid_if_feasible",
+                        "branch" => "grid",
+                        "reason" => "the 2 x g grid admits a strictly valid terminal realization",
+                    )
+                else
+                    grid_failure = "strict validation failed: $(_layout_issue_summary(candidate[5]))"
+                end
+            catch error
+                grid_failure = sprint(showerror, error)
+            end
+            if grid_failure !== nothing
+                candidate = attempt_realization(nothing)
+                candidate[5].valid || throw(ArgumentError(
+                    "Tutte fallback failed strict validation: $(_layout_issue_summary(candidate[5]))"))
+                punctures, ports, routes, realization_trace = candidate[1:4]
+                placement_trace = Dict{String,Any}(
+                    "policy" => "grid_if_feasible",
+                    "branch" => "planar_embedding",
+                    "reason" => "fixed grid rejected: $grid_failure",
+                )
+            end
+        elseif placement_policy == :fixed
+            candidate = attempt_realization(base_punctures)
+            candidate[5].valid || throw(ArgumentError(
+                "fixed puncture placement is incompatible with the terminal embedding: " *
+                _layout_issue_summary(candidate[5])))
+            punctures, ports, routes, realization_trace = candidate[1:4]
+            placement_trace = Dict{String,Any}(
+                "policy" => "fixed",
+                "branch" => "fixed",
+                "reason" => "explicit puncture placement passed strict validation",
+            )
+        else
+            candidate = attempt_realization(nothing)
+            candidate[5].valid || throw(ArgumentError(
+                "Tutte realization failed strict validation: $(_layout_issue_summary(candidate[5]))"))
+            punctures, ports, routes, realization_trace = candidate[1:4]
+            placement_trace = Dict{String,Any}(
+                "policy" => "planar_embedding",
+                "branch" => "planar_embedding",
+                "reason" => "punctures are determined by the certified planar realization",
+            )
+        end
+        post_router = "tutte-barycentric-flag-refinement"
     end
     crossings = _route_crossings(routes)
     trace = Dict{String,Any}(
@@ -567,8 +720,10 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
         "fallback_policy" => String(fallback),
         "provenance" => source_manifest(H),
         "post_router" => post_router,
+        "placement" => placement_trace,
         "terminal_embedding" => Dict{String,Any}(
             "planar" => terminal_report.planar,
+            "components" => terminal_report.components,
             "vertices" => terminal_report.vertices,
             "edges" => terminal_report.edges,
             "faces" => terminal_report.faces,
@@ -580,6 +735,7 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
     )
     catlab_error === nothing || (trace["catlab_error"] = catlab_error)
     certificate_trace === nothing || (trace["route_certificate"] = certificate_trace)
+    realization_trace === nothing || (trace["geometric_realization"] = realization_trace)
     catlab_result === nothing || (trace["catlab_layout"] = Dict{String,Any}(
         "box_count" => catlab_result.box_count,
         "wire_count" => catlab_result.wire_count,

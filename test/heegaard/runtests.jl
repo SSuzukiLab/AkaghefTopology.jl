@@ -8,10 +8,13 @@ function s3_fixture()
     H.certify_heegaard(H.decorate(code, [[1]]; metadata=Dict("fixture"=>"s3")))
 end
 
-function lens_fixture(p)
-    code = H.heegaard_code([collect(1:p)], [collect(1:p)],
+function lens_fixture(p, q=1)
+    gcd(p, q) == 1 || throw(ArgumentError("lens-space parameters must be coprime"))
+    beta_word = [mod1(1 + (index - 1) * q, p) for index in 1:p]
+    code = H.heegaard_code([collect(1:p)], [beta_word],
         [H.Intersection(i, 1, 1, 1) for i in 1:p])
-    H.certify_heegaard(H.decorate(code, [[i] for i in 1:p]; metadata=Dict("fixture"=>"lens")))
+    H.certify_heegaard(H.decorate(code, [[i] for i in 1:p];
+                                 metadata=Dict("fixture"=>"L($p,$q)")))
 end
 
 @testset "Heegaard schema and certification" begin
@@ -124,6 +127,8 @@ end
     @test isempty(layout.crossings)
     @test H.validate_layout(diagram, layout).valid
     @test H.gauss_layout(diagram).view == :gauss
+    @test layout.backend_trace["placement"]["branch"] in ("grid", "planar_embedding")
+    @test layout.backend_trace["post_router"] == "tutte-barycentric-flag-refinement"
 
     pure_layout = H.layout_heegaard(diagram; backend=:pure_julia)
     @test pure_layout.backend_trace["catlab_used"] == false
@@ -135,6 +140,35 @@ end
     loaded = H.load_layout(path, diagram)
     @test loaded.report.valid
     @test_throws ArgumentError H.load_layout(path, lens_fixture(5))
+end
+
+@testset "General-genus terminal planar realization" begin
+    for (p, q) in ((2, 1), (5, 2), (7, 3))
+        diagram = lens_fixture(p, q)
+        before_hash = H.canonical_hash(diagram)
+        layout = H.layout_heegaard(diagram; backend=:pure_julia)
+        @test layout.report.valid
+        @test layout.report.checks[:geometric]
+        @test isempty(layout.crossings)
+        @test length(layout.routes) == p
+        @test all(length(route.points) == 5 for route in layout.routes)
+        @test H.validate_layout(diagram, layout).valid
+        @test H.canonical_hash(diagram) == before_hash
+        @test layout.backend_trace["geometric_realization"]["algorithm"] ==
+              "tutte-barycentric-flag-refinement"
+    end
+
+    stabilized = s3_fixture()
+    stabilized, _ = H.stabilize(stabilized)
+    stabilized, _ = H.stabilize(stabilized)
+    @test H.surface_genus(stabilized) == 3
+    layout = H.layout_heegaard(stabilized; backend=:pure_julia)
+    @test layout.report.valid
+    @test layout.report.checks[:geometric]
+    @test isempty(layout.crossings)
+    @test layout.backend_trace["terminal_embedding"]["components"] == 3
+    @test layout.backend_trace["terminal_embedding"]["euler"] == 6
+    @test H.validate_layout(stabilized, layout).valid
 end
 
 @testset "Alpha-cut validator recomputes semantic geometry" begin
@@ -207,6 +241,7 @@ end
           (4, 12, 10, 2, 0)
     @test terminal.face_lengths == [2, 2, 2, 2, 2, 2, 3, 3, 3, 3]
     @test terminal.boundary_cycle_bijection
+    @test terminal.components == 1
     @test sort(terminal.face_to_boundary_cycle) == collect(1:10)
 
     temporary = mktempdir()
@@ -214,6 +249,19 @@ end
     H.save_heegaard(roundtrip_path, diagram)
     roundtrip = H.load_heegaard(roundtrip_path)
     @test H.canonical_hash(roundtrip) == H.canonical_hash(diagram)
+
+    algorithmic = H.layout_heegaard(diagram; backend=:pure_julia)
+    @test algorithmic.report.valid
+    @test algorithmic.report.checks[:geometric]
+    @test isempty(algorithmic.crossings)
+    @test all(length(route.points) == 5 for route in algorithmic.routes)
+    @test H.validate_layout(diagram, algorithmic).valid
+    @test algorithmic.backend_trace["placement"]["branch"] == "planar_embedding"
+    @test algorithmic.backend_trace["post_router"] ==
+          "tutte-barycentric-flag-refinement"
+    @test !haskey(algorithmic.backend_trace, "route_certificate")
+    @test algorithmic.backend_trace["geometric_realization"]["refinement_crossings"] == 0
+    @test H.canonical_hash(diagram) == diagram_hash
 
     layout = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                                route_certificate=layout_fixture_path)
