@@ -1,5 +1,191 @@
 """Semantic layouts.  Geometry is derived data and never enters the core hash."""
 
+function _curve_points(curve::PolylineCurve)
+    copy(curve.points)
+end
+
+function _midpoint(first, second)
+    ((first[1] + second[1]) / 2, (first[2] + second[2]) / 2)
+end
+
+function _cubic_flat_enough(segment::CubicBezierSegment)
+    chord = (segment.p0, segment.p3)
+    max(_segment_distance_squared(segment.p1, chord[1], chord[2]),
+        _segment_distance_squared(segment.p2, chord[1], chord[2])) <= 0.0
+end
+
+function _flatten_cubic(segment::CubicBezierSegment, tolerance, max_depth, depth=0)
+    chord_distance = max(sqrt(_segment_distance_squared(segment.p1, segment.p0, segment.p3)),
+                         sqrt(_segment_distance_squared(segment.p2, segment.p0, segment.p3)))
+    (depth >= max_depth || chord_distance <= tolerance) && return [segment.p0, segment.p3]
+    q01 = _midpoint(segment.p0, segment.p1)
+    q12 = _midpoint(segment.p1, segment.p2)
+    q23 = _midpoint(segment.p2, segment.p3)
+    r012 = _midpoint(q01, q12)
+    r123 = _midpoint(q12, q23)
+    center = _midpoint(r012, r123)
+    left = CubicBezierSegment((segment.p0, q01, r012, center))
+    right = CubicBezierSegment((center, r123, q23, segment.p3))
+    vcat(_flatten_cubic(left, tolerance, max_depth, depth + 1)[1:end-1],
+         _flatten_cubic(right, tolerance, max_depth, depth + 1))
+end
+
+function _curve_points(curve::BezierChain)
+    result = NTuple{2,Float64}[]
+    for (index, segment) in enumerate(curve.segments)
+        flattened = _flatten_cubic(segment, curve.flatness, curve.max_depth)
+        index == 1 ? append!(result, flattened) : append!(result, flattened[2:end])
+    end
+    result
+end
+
+_flatten_curve(curve::RouteCurve) = _curve_points(curve)
+
+function _curve_points(curve::RouteCurve)
+    throw(ArgumentError("unsupported route curve representation $(typeof(curve))"))
+end
+
+function _route_points(route::Route)
+    _curve_points(route.curve)
+end
+
+function _line_curve(first, second)
+    CubicBezierSegment((first, first, second, second))
+end
+
+function _route_corner_step(points, route_index, vertex_index, routes, punctures;
+                            step_fraction, clearance_fraction, puncture_fraction)
+    vertex = points[vertex_index]
+    previous = points[vertex_index - 1]
+    next = points[vertex_index + 1]
+    previous_length = hypot(vertex[1] - previous[1], vertex[2] - previous[2])
+    next_length = hypot(next[1] - vertex[1], next[2] - vertex[2])
+    local_bound = step_fraction * min(previous_length, next_length)
+
+    other_clearance = Inf
+    for (other_index, other_route) in enumerate(routes)
+        other_index == route_index && continue
+        other_points = _route_points(other_route)
+        for segment_index in 1:length(other_points)-1
+            other_clearance = min(other_clearance,
+                sqrt(_segment_distance_squared(vertex, other_points[segment_index],
+                                               other_points[segment_index + 1])))
+        end
+    end
+
+    puncture_margin = Inf
+    for puncture in punctures
+        distance = hypot(vertex[1] - puncture.center[1], vertex[2] - puncture.center[2])
+        puncture_margin = min(puncture_margin, distance - puncture.radius)
+    end
+    min(local_bound, clearance_fraction * other_clearance,
+        puncture_fraction * max(puncture_margin, 0.0))
+end
+
+function _mechanically_smooth_route(route::Route, route_index, routes, punctures;
+                                    step_fraction, clearance_fraction,
+                                    puncture_fraction, flatness, max_depth)
+    route.curve isa PolylineCurve || throw(ArgumentError(
+        "mechanical smoothing accepts only a feasible polyline route"))
+    points = _route_points(route)
+    segments = CubicBezierSegment[]
+    current = first(points)
+    steps = Float64[]
+    smoothed_corners = 0
+    for vertex_index in 2:length(points)-1
+        vertex = points[vertex_index]
+        step = _route_corner_step(points, route_index, vertex_index, routes, punctures;
+                                   step_fraction, clearance_fraction, puncture_fraction)
+        push!(steps, step)
+        previous = points[vertex_index - 1]
+        next = points[vertex_index + 1]
+        turn = (vertex[1] - previous[1]) * (next[2] - vertex[2]) -
+               (vertex[2] - previous[2]) * (next[1] - vertex[1])
+        scale = max(hypot(vertex[1] - previous[1], vertex[2] - previous[2]) *
+                    hypot(next[1] - vertex[1], next[2] - vertex[2]), 1.0)
+        if step <= eps(Float64) || abs(turn) <= 1e-12 * scale
+            push!(segments, _line_curve(current, vertex))
+            current = vertex
+            continue
+        end
+        incoming_length = hypot(vertex[1] - previous[1], vertex[2] - previous[2])
+        outgoing_length = hypot(next[1] - vertex[1], next[2] - vertex[2])
+        incoming = (vertex[1] + step * (previous[1] - vertex[1]) / incoming_length,
+                    vertex[2] + step * (previous[2] - vertex[2]) / incoming_length)
+        outgoing = (vertex[1] + step * (next[1] - vertex[1]) / outgoing_length,
+                    vertex[2] + step * (next[2] - vertex[2]) / outgoing_length)
+        push!(segments, _line_curve(current, incoming))
+        push!(segments, CubicBezierSegment((incoming, vertex, vertex, outgoing)))
+        current = outgoing
+        smoothed_corners += 1
+    end
+    push!(segments, _line_curve(current, last(points)))
+    curve = BezierChain(segments; flatness, max_depth)
+    flattened = _curve_points(curve)
+    smoothed = Route(route.family, route.curve_id, route.segment_id,
+                     route.start_port, route.end_port, flattened; curve)
+    smoothed, (steps=steps, smoothed_corners=smoothed_corners,
+               max_step=isempty(steps) ? 0.0 : maximum(steps),
+               min_positive_step=isempty(filter(step -> step > 0.0, steps)) ? 0.0 :
+                   minimum(filter(step -> step > 0.0, steps)))
+end
+
+"""Mechanically round a valid feasible layout inside a clearance tube.
+
+The input must already be a valid alpha-cut PL layout.  Each corner step is
+bounded by incident-edge length, distance to other routes, and puncture
+margin.  The returned layout is accepted only after flattening its actual
+Bezier representation and re-running the full layout validator.
+"""
+function smooth_layout(H::HeegaardDiagram, layout::HeegaardLayout;
+                       step_fraction=0.18, clearance_fraction=0.25,
+                       puncture_fraction=0.5, flatness=1e-4, max_depth=20)
+    layout.view == :alpha_cut || throw(ArgumentError("mechanical smoothing requires an alpha-cut layout"))
+    0.0 < step_fraction <= 1 / 3 || throw(ArgumentError("step_fraction must be in (0, 1/3]"))
+    0.0 < clearance_fraction <= 0.5 || throw(ArgumentError("clearance_fraction must be in (0, 1/2]"))
+    0.0 < puncture_fraction <= 0.5 || throw(ArgumentError("puncture_fraction must be in (0, 1/2]"))
+    input_report = validate_layout(H, layout)
+    input_report.valid || throw(ArgumentError("mechanical smoothing requires a valid feasible layout"))
+    all(route.curve isa PolylineCurve for route in layout.routes) ||
+        throw(ArgumentError("mechanical smoothing requires PL input routes"))
+
+    routes = Route[]
+    route_metrics = Any[]
+    for (route_index, route) in enumerate(layout.routes)
+        smoothed, metrics = _mechanically_smooth_route(
+            route, route_index, layout.routes, layout.punctures;
+            step_fraction, clearance_fraction, puncture_fraction, flatness, max_depth)
+        push!(routes, smoothed)
+        push!(route_metrics, Dict{String,Any}(
+            "curve_id" => route.curve_id, "segment_id" => route.segment_id,
+            "smoothed_corners" => metrics.smoothed_corners,
+            "max_step" => metrics.max_step,
+            "min_positive_step" => metrics.min_positive_step,
+            "flattened_points" => length(smoothed.points)))
+    end
+    trace = deepcopy(layout.backend_trace)
+    trace["smoothing"] = Dict{String,Any}(
+        "method" => "mechanical-clearance-tube",
+        "step_fraction" => Float64(step_fraction),
+        "clearance_fraction" => Float64(clearance_fraction),
+        "puncture_fraction" => Float64(puncture_fraction),
+        "flatness" => Float64(flatness), "max_depth" => Int(max_depth),
+        "route_metrics" => route_metrics)
+    haskey(trace, "pipeline") &&
+        (trace["pipeline"]["smoothing"] = "mechanical-clearance-tube")
+    candidate = HeegaardLayout(layout.diagram_hash, layout.view, deepcopy(layout.chart),
+                               deepcopy(layout.punctures), deepcopy(layout.ports), routes,
+                               Tuple{Int,Int}[], trace,
+                               LayoutValidationReport(false, ValidationIssue[], Dict{Symbol,Bool}()))
+    report = validate_layout(H, candidate; expected_hash=layout.diagram_hash)
+    report.valid || throw(ArgumentError(
+        "mechanical smoothing failed closed: " *
+        join(["$(issue.code): $(issue.message)" for issue in report.issues], "; ")))
+    HeegaardLayout(candidate.diagram_hash, candidate.view, candidate.chart,
+                   candidate.punctures, candidate.ports, candidate.routes,
+                   _route_crossings(candidate.routes), candidate.backend_trace, report)
+end
+
 function _point_for_port(ports, id)
     port = findfirst(port -> port.id == id, ports)
     port === nothing && throw(ArgumentError("unknown port id $id"))
@@ -89,11 +275,14 @@ end
 
 function _route_segments(routes)
     segments = NamedTuple[]
-    for (route_id, route) in enumerate(routes), segment_id in 1:length(route.points)-1
-        a, b = route.points[segment_id], route.points[segment_id + 1]
-        push!(segments, (route=route_id, segment=segment_id, a=a, b=b,
-                         xmin=min(a[1], b[1]), xmax=max(a[1], b[1]),
-                         ymin=min(a[2], b[2]), ymax=max(a[2], b[2])))
+    for (route_id, route) in enumerate(routes)
+        points = _route_points(route)
+        for segment_id in 1:length(points)-1
+            a, b = points[segment_id], points[segment_id + 1]
+            push!(segments, (route=route_id, segment=segment_id, a=a, b=b,
+                             xmin=min(a[1], b[1]), xmax=max(a[1], b[1]),
+                             ymin=min(a[2], b[2]), ymax=max(a[2], b[2])))
+        end
     end
     segments
 end
@@ -143,9 +332,10 @@ end
 
 function _route_enters_puncture(route::Route, puncture::Puncture; tolerance=1e-9)
     threshold = max(puncture.radius - tolerance, 0.0)^2
-    any(_segment_distance_squared(puncture.center, route.points[index],
-                                  route.points[index + 1]) < threshold
-        for index in 1:length(route.points)-1)
+    points = _route_points(route)
+    any(_segment_distance_squared(puncture.center, points[index],
+                                  points[index + 1]) < threshold
+        for index in 1:length(points)-1)
 end
 
 function _alpha_cut_routes(H::HeegaardDiagram, cut, punctures, ports)
@@ -447,6 +637,7 @@ function validate_layout(H::HeegaardDiagram, layout::HeegaardLayout; expected_ha
     endpoint_use = Dict{Int,Int}()
     actual_routes = Set{Tuple{Int,Int,Int,Int}}()
     port_map = Dict(port.id => port for port in layout.ports)
+    curve_geometry_valid = true
     for route in layout.routes
         if route.family != :beta
             _add_issue!(issues, :layout, :route_family,
@@ -462,20 +653,36 @@ function validate_layout(H::HeegaardDiagram, layout::HeegaardLayout; expected_ha
         if route.start_port !== nothing && route.end_port !== nothing
             push!(actual_routes, (route.curve_id, route.segment_id,
                                   route.start_port, route.end_port))
+        end
+        route_points = try
+            _route_points(route)
+        catch error
+            curve_geometry_valid = false
+            _add_issue!(issues, :layout, :unsupported_curve,
+                        "route curve cannot be flattened: $(sprint(showerror, error))", "routes")
+            nothing
+        end
+        route_points === nothing && continue
+        route_points == route.points || begin
+            curve_geometry_valid = false
+            _add_issue!(issues, :layout, :curve_points_mismatch,
+                        "route flattened cache does not match its curve representation", "routes")
+        end
+        if route.start_port !== nothing && route.end_port !== nothing
             start = get(port_map, route.start_port, nothing)
             finish = get(port_map, route.end_port, nothing)
-            start === nothing || isempty(route.points) || _same_point(first(route.points), start.point) ||
+            start === nothing || isempty(route_points) || first(route_points) == start.point ||
                 _add_issue!(issues, :layout, :route_start_geometry,
-                            "route does not start at its declared port", "routes")
-            finish === nothing || isempty(route.points) || _same_point(last(route.points), finish.point) ||
+                            "route curve does not start exactly at its declared port", "routes")
+            finish === nothing || isempty(route_points) || last(route_points) == finish.point ||
                 _add_issue!(issues, :layout, :route_end_geometry,
-                            "route does not end at its declared port", "routes")
+                            "route curve does not end exactly at its declared port", "routes")
         end
-        all(isfinite(point[1]) && isfinite(point[2]) for point in route.points) ||
+        all(isfinite(point[1]) && isfinite(point[2]) for point in route_points) ||
             _add_issue!(issues, :layout, :nonfinite_coordinate, "route contains a non-finite coordinate", "routes")
-        length(route.points) >= 2 || _add_issue!(issues, :layout, :degenerate_route, "route has fewer than two points", "routes")
-        any(_same_point(route.points[index], route.points[index + 1])
-            for index in 1:length(route.points)-1) &&
+        length(route_points) >= 2 || _add_issue!(issues, :layout, :degenerate_route, "route has fewer than two points", "routes")
+        any(_same_point(route_points[index], route_points[index + 1])
+            for index in 1:length(route_points)-1) &&
             _add_issue!(issues, :layout, :degenerate_segment,
                         "route contains a zero-length segment", "routes")
         _self_crosses(route) && _add_issue!(issues, :layout, :self_crossing,
@@ -507,13 +714,21 @@ function validate_layout(H::HeegaardDiagram, layout::HeegaardLayout; expected_ha
     end
     sort(collect(keys(endpoint_use))) == sort(port_ids) && all(value == 1 for value in values(endpoint_use)) ||
         _add_issue!(issues, :layout, :endpoint_use, "each beta half-edge cut port must be used exactly once", "routes")
-    computed_crossings = _route_crossings(layout.routes)
+    computed_crossings = try
+        _route_crossings(layout.routes)
+    catch error
+        curve_geometry_valid = false
+        _add_issue!(issues, :layout, :unsupported_curve,
+                    "route crossings cannot be computed: $(sprint(showerror, error))", "routes")
+        Tuple{Int,Int}[]
+    end
     layout.crossings == computed_crossings || _add_issue!(issues, :layout, :crossing_mismatch,
         "stored crossing list does not match route geometry", "crossings")
     isempty(computed_crossings) || _add_issue!(issues, :layout, :geometric_crossing,
         "accepted alpha-cut layouts cannot contain non-endpoint beta crossings", "crossings")
     checks[:semantic] = isempty(issues)
-    checks[:geometric] = isempty(computed_crossings) &&
+    checks[:curve_representation] = curve_geometry_valid
+    checks[:geometric] = curve_geometry_valid && isempty(computed_crossings) &&
                          !any(issue -> issue.code in (:self_crossing, :puncture_intrusion,
                                                       :degenerate_segment), issues)
     LayoutValidationReport(isempty(issues), issues, checks)

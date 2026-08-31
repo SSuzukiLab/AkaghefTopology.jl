@@ -24,6 +24,7 @@ export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode
        HeegaardDiagram, PuncturedHeegaardDiagram, FlowSpine, OData,
        ValidationIssue, ValidationReport, ValidationError, MoveCertificate,
        ConversionCertificate, HeegaardLayout, CutSurface, Puncture, Port,
+       RouteCurve, PolylineCurve, CubicBezierSegment, BezierChain,
        RibbonGraph, GroupPresentation,
        heegaard_code, decorate, certify_heegaard, load_heegaard, save_heegaard,
        canonicalize_representation, canonical_hash, source_manifest,
@@ -37,8 +38,8 @@ export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode
        handle_slide, stabilize, destabilize, apply_move, inverse_move,
        enumerate_local_moves,
        cut_along_alpha, default_puncture_placement, place_ports,
-       build_wiring_problem, gauss_layout, layout_heegaard, validate_layout,
-       feasible_fixed_endpoint_routes,
+       build_wiring_problem, gauss_layout, layout_heegaard, smooth_layout,
+       validate_layout, feasible_fixed_endpoint_routes,
        render, render_tikz, inspect_html, save_layout, load_layout,
        make_punctured, to_flow_spine, to_ograph, to_odata, to_heegaard,
        compare_representations, save_conversion

@@ -1,5 +1,6 @@
 using Test
 using Topology
+using JSON
 
 const H = Topology.Heegaard
 
@@ -251,6 +252,54 @@ end
 end
 
 include(joinpath(@__DIR__, "feasible_router.jl"))
+
+@testset "Mechanical smoothing preserves the certified Poincare layout" begin
+    fixture_path = joinpath(@__DIR__, "..", "fixtures", "poincare_homology_sphere_v1.hgd.json")
+    layout_fixture_path = joinpath(@__DIR__, "..", "fixtures",
+                                   "poincare_homology_sphere_v1.hgd.layout.json")
+    diagram = H.certify_heegaard(H.load_heegaard(fixture_path))
+    feasible = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
+                                 route_certificate=layout_fixture_path)
+    smoothed = H.smooth_layout(diagram, feasible; step_fraction=0.14, flatness=1e-4)
+
+    @test smoothed.report.valid
+    @test smoothed.crossings == Tuple{Int,Int}[]
+    @test smoothed.report.checks[:curve_representation]
+    @test all(route.curve isa H.BezierChain for route in smoothed.routes)
+    @test all(first(route.points) == H._point_for_port(smoothed.ports, route.start_port) &&
+              last(route.points) == H._point_for_port(smoothed.ports, route.end_port)
+              for route in smoothed.routes)
+    @test any(route -> length(route.points) > 346 / length(smoothed.routes), smoothed.routes)
+    @test occursin(" C ", H.render(smoothed; backend=:svg))
+
+    temporary = mktempdir()
+    path = joinpath(temporary, "poincare-smoothed.hgd.layout.json")
+    H.save_layout(path, smoothed)
+    encoded = JSON.parsefile(path)
+    @test encoded["routes"][1]["curve"]["type"] == "bezier_chain"
+    loaded = H.load_layout(path, diagram)
+    @test loaded.report.valid
+    @test all(route.curve isa H.BezierChain for route in loaded.routes)
+    @test all(first == second for (first, second) in zip(
+        [route.points for route in smoothed.routes], [route.points for route in loaded.routes]))
+
+    tampered_routes = deepcopy(feasible.routes)
+    tampered_routes[1].points[2] = (tampered_routes[1].points[2][1] + 0.01,
+                                    tampered_routes[1].points[2][2])
+    tampered = H.HeegaardLayout(feasible.diagram_hash, feasible.view, feasible.chart,
+                                feasible.punctures, feasible.ports, tampered_routes,
+                                feasible.crossings, feasible.backend_trace, feasible.report)
+    tampered_report = H.validate_layout(diagram, tampered)
+    @test any(issue -> issue.code == :curve_points_mismatch, tampered_report.issues)
+
+    malformed_path = joinpath(temporary, "malformed.hgd.layout.json")
+    malformed = deepcopy(encoded)
+    malformed["routes"][1]["curve"]["type"] = "unknown"
+    open(malformed_path, "w") do io
+        JSON.print(io, malformed)
+    end
+    @test_throws ArgumentError H.load_layout(malformed_path, diagram)
+end
 
 @testset "Typed spine conversion" begin
     diagram = s3_fixture()
