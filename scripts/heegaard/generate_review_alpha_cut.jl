@@ -23,9 +23,18 @@ function write_layout(output, label, diagram)
     isempty(layout.crossings) || error("$label produced route crossings")
     H.render(layout; backend=:svg, path=joinpath(output, "$(label)__alpha_cut.svg"))
     H.save_layout(joinpath(output, "$(label)__alpha_cut.hgd.layout.json"), layout)
+    relaxed = H.smooth_layout(diagram, layout;
+        iterations=12, max_spacing=0.15, simplify_tolerance=0.04, flatness=1e-4)
+    H.render(relaxed; backend=:svg,
+             path=joinpath(output, "$(label)__alpha_cut__relaxed.svg"))
+    H.save_layout(joinpath(output, "$(label)__alpha_cut__relaxed.hgd.layout.json"), relaxed)
+    metrics = relaxed.backend_trace["smoothing"]
     println(label, " routes=", length(layout.routes),
             " points=", sum(length(route.points) for route in layout.routes),
-            " router=", layout.backend_trace["post_router"])
+            " router=", layout.backend_trace["post_router"],
+            " dense=", metrics["dense_points"],
+            " knots=", metrics["simplified_points"],
+            " controls=", metrics["control_points"])
 end
 
 function main()

@@ -17,7 +17,9 @@ end
 function _flatten_cubic(segment::CubicBezierSegment, tolerance, max_depth, depth=0)
     chord_distance = max(sqrt(_segment_distance_squared(segment.p1, segment.p0, segment.p3)),
                          sqrt(_segment_distance_squared(segment.p2, segment.p0, segment.p3)))
-    (depth >= max_depth || chord_distance <= tolerance) && return [segment.p0, segment.p3]
+    chord_distance <= tolerance && return [segment.p0, segment.p3]
+    depth >= max_depth && throw(ArgumentError(
+        "Bezier flattening did not certify the requested tolerance before max_depth"))
     q01 = _midpoint(segment.p0, segment.p1)
     q12 = _midpoint(segment.p1, segment.p2)
     q23 = _midpoint(segment.p2, segment.p3)
@@ -137,9 +139,9 @@ bounded by incident-edge length, distance to other routes, and puncture
 margin.  The returned layout is accepted only after flattening its actual
 Bezier representation and re-running the full layout validator.
 """
-function smooth_layout(H::HeegaardDiagram, layout::HeegaardLayout;
-                       step_fraction=0.18, clearance_fraction=0.25,
-                       puncture_fraction=0.5, flatness=1e-4, max_depth=20)
+function _round_layout_corners(H::HeegaardDiagram, layout::HeegaardLayout;
+                               step_fraction=0.18, clearance_fraction=0.25,
+                               puncture_fraction=0.5, flatness=1e-4, max_depth=20)
     layout.view == :alpha_cut || throw(ArgumentError("mechanical smoothing requires an alpha-cut layout"))
     0.0 < step_fraction <= 1 / 3 || throw(ArgumentError("step_fraction must be in (0, 1/3]"))
     0.0 < clearance_fraction <= 0.5 || throw(ArgumentError("clearance_fraction must be in (0, 1/2]"))

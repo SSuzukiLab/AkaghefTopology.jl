@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.112673 -1.661609 1.855649 3.530029" role="img" data-heegaard-view="alpha_cut" data-diagram-hash="a6cf0966a501c1462331a4ca08ce3003c389fc59d64f0b14e923f1c62061c5f4"><metadata data-provenance="{}"/>
+<g data-layer="routes">
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="3" d="M 0.825423 -0.781087 C 0.850282 -0.669732 0.875141 -0.558376 0.9 -0.44702 C 0.924859 -0.335665 1.06129 0.403543 1.109035 0.522285 C 1.156781 0.641028 1.204526 0.75977 1.252271 0.878513" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="6" d="M 0.72 -1.0 C 0.711497 -0.872301 0.702993 -0.744602 0.69449 -0.616903 C 0.685987 -0.489203 0.845898 0.281633 0.9 0.39298 C 0.954102 0.504327 1.008204 0.615673 1.062306 0.72702" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="7" d="M 1.062306 -0.72702 C 1.101537 -0.633687 1.140769 -0.540354 1.18 -0.44702 C 1.219231 -0.353687 1.342576 1.083477 1.32 1.09298 C 1.297424 1.102482 1.274848 1.111985 1.252271 1.121487" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="2" d="M 0.825423 -1.218913 C 0.756949 -1.194949 0.688474 -1.170984 0.62 -1.14702 C 0.551526 -1.123056 0.738192 0.263611 0.76 0.39298 C 0.781808 0.522349 0.803615 0.651718 0.825423 0.781087" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="4" d="M 1.252271 -0.878513 C 1.274848 -0.781348 1.297424 -0.684184 1.32 -0.58702 C 1.342576 -0.489856 1.465126 0.733075 1.449051 0.862769 C 1.432976 0.992463 1.405898 1.219646 1.32 1.23298 C 1.234102 1.246313 1.148204 1.259646 1.062306 1.27298" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="5" d="M 1.062306 -1.27298 C 1.054871 -1.27766 1.047435 -1.28234 1.04 -1.28702 C 1.032565 -1.2917 0.66292 -1.289157 0.628555 -1.258411 C 0.59419 -1.227664 0.609774 -1.168035 0.603727 -1.122321 C 0.59768 -1.076607 0.45987 0.121003 0.489633 0.256072 C 0.519396 0.391141 0.685987 0.489203 0.69449 0.616903 C 0.702993 0.744602 0.711497 0.872301 0.72 1.0" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="1" d="M 1.252271 -1.121487 C 1.315339 -1.010124 1.378407 -0.89876 1.441475 -0.787397 C 1.504543 -0.676033 1.612276 0.651567 1.593367 0.794609 C 1.574457 0.937652 1.524896 1.082226 1.441455 1.199939 C 1.358013 1.317651 1.203573 1.563982 1.109035 1.477715 C 1.014498 1.391447 0.91996 1.30518 0.825423 1.218913" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+</g>
+<g data-layer="punctures">
+<circle data-pair="1" data-side="plus" cx="1.0" cy="-1.0" r="0.28" fill="#b54a35" fill-opacity="0.14" stroke="#b54a35" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<circle data-pair="1" data-side="minus" cx="1.0" cy="1.0" r="0.28" fill="#b54a35" fill-opacity="0.14" stroke="#b54a35" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<circle data-intersection-id="1" data-port-index="1" cx="1.252271" cy="-1.121487" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="2" data-port-index="2" cx="1.062306" cy="-1.27298" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="3" data-port-index="3" cx="0.825423" cy="-1.218913" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="4" data-port-index="4" cx="0.72" cy="-1.0" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="5" data-port-index="5" cx="0.825423" cy="-0.781087" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="6" data-port-index="6" cx="1.062306" cy="-0.72702" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="7" data-port-index="7" cx="1.252271" cy="-0.878513" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="7" data-port-index="8" cx="1.252271" cy="0.878513" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="6" data-port-index="9" cx="1.062306" cy="0.72702" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="5" data-port-index="10" cx="0.825423" cy="0.781087" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="4" data-port-index="11" cx="0.72" cy="1.0" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="3" data-port-index="12" cx="0.825423" cy="1.218913" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="2" data-port-index="13" cx="1.062306" cy="1.27298" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="1" data-port-index="14" cx="1.252271" cy="1.121487" r="0.045" fill="#b54a35"/>
+</g>
+</svg>

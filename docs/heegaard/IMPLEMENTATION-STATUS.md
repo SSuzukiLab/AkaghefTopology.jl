@@ -26,6 +26,10 @@ Implemented and tested:
   `L(7,1)`, and `L(7,2)`. All six are accepted by the strict layout validator.
   In particular, touching at a shared interior routing-grid vertex is treated
   as an intersection, not as a legal shared endpoint;
+- deterministic mechanical relaxation of verified PL routes: topology-preserving
+  multiscale shortcuts, densification, length/bending/repulsion dynamics,
+  arc-length redistribution, clearance-bounded accepted steps, knot
+  reduction, G1 cubic Bezier output, serialization, and final layout validation;
 - a Poincare homology-sphere source fixture and a separately certified
   paired-puncture layout fixture. The layout uses Catlab provenance plus a
   fixture-scoped terminal-DCEL corridor certificate and passes strict
@@ -63,8 +67,9 @@ not installed during this run, so that compatibility job remains unexecuted.
 
 Current verification evidence is recorded in the Poincare fixture note and in
 the test suite. The focused feasible-router suite passes 32/32 after adding
-the shared-interior-point regression. Candidate smoothing generation accepts
-all three Poincare variants with zero flattened-geometry violations. A full
+the shared-interior-point regression. Before/after smoothing artifacts are
+generated for Poincare and all six S3/lens review fixtures with zero reported
+route crossings. A full
 `Pkg.test()` run reached the existing top-level fixture test and then failed
 at `test/runtests.jl:158` on a Windows temporary filename with `Invalid
 argument`; therefore this work does not claim that the unrelated full package

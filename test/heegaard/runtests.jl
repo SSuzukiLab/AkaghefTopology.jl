@@ -251,14 +251,16 @@ end
 
 include(joinpath(@__DIR__, "feasible_router.jl"))
 
-@testset "Mechanical smoothing preserves the certified Poincare layout" begin
+@testset "Mechanical relaxation preserves the certified Poincare layout" begin
     fixture_path = joinpath(@__DIR__, "..", "fixtures", "poincare_homology_sphere_v1.hgd.json")
     layout_fixture_path = joinpath(@__DIR__, "..", "fixtures",
                                    "poincare_homology_sphere_v1.hgd.layout.json")
     diagram = H.certify_heegaard(H.load_heegaard(fixture_path))
     feasible = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                                  route_certificate=layout_fixture_path)
-    smoothed = H.smooth_layout(diagram, feasible; step_fraction=0.14, flatness=1e-4)
+    smoothed = H.smooth_layout(diagram, feasible;
+                               iterations=8, max_spacing=0.15,
+                               simplify_tolerance=0.04, flatness=1e-4)
 
     @test smoothed.report.valid
     @test smoothed.crossings == Tuple{Int,Int}[]
@@ -267,7 +269,20 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
     @test all(first(route.points) == H._point_for_port(smoothed.ports, route.start_port) &&
               last(route.points) == H._point_for_port(smoothed.ports, route.end_port)
               for route in smoothed.routes)
-    @test any(route -> length(route.points) > 346 / length(smoothed.routes), smoothed.routes)
+    metrics = smoothed.backend_trace["smoothing"]
+    @test metrics["method"] == "constrained-mechanical-relaxation-v1"
+    @test metrics["accepted_steps"] > 0
+    @test metrics["final_energy"] < metrics["initial_energy"]
+    @test metrics["simplified_points"] < metrics["dense_points"]
+    @test metrics["endpoint_tangents_certified"]
+    @test all(begin
+        segments = route.curve.segments
+        all(abs((segments[index].p3[1] - segments[index].p2[1]) *
+                (segments[index + 1].p1[2] - segments[index + 1].p0[2]) -
+                (segments[index].p3[2] - segments[index].p2[2]) *
+                (segments[index + 1].p1[1] - segments[index + 1].p0[1])) <= 1e-10
+            for index in 1:length(segments)-1)
+    end for route in smoothed.routes)
     @test occursin(" C ", H.render(smoothed; backend=:svg))
 
     temporary = mktempdir()

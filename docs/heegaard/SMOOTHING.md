@@ -1,22 +1,31 @@
-# Mechanical smoothing
+# Mechanical relaxation
 
-`Topology.Heegaard.smooth_layout(diagram, layout)` is a bounded post-process
-for an already-valid, alpha-cut, fixed-boundary PL layout. It does not create
-or optimize a layout. The input Poincare route certificate remains the
-feasibility witness.
+`Topology.Heegaard.smooth_layout(diagram, layout)` now performs iterative
+mechanical relaxation of an already-valid, alpha-cut, fixed-boundary PL layout.
+The former one-pass corner fillet remains internal and is not the public result.
 
-Each interior PL vertex `V` is replaced by a cubic segment with controls
-`(A,V,V,B)`, where `A` and `B` are stepped along the two incident PL edges.
-The step is bounded by the local edge-length bound, one quarter of the
-distance to every other route, and half of the nonnegative puncture margin.
-Thus every generated corner lies in the corresponding local tube around the
-original feasible route. Ports and puncture centers are copied unchanged.
+Before local relaxation, a multiscale nonlocal shortcut pass removes
+low-frequency detours. A shortcut is accepted only when it shortens the route,
+its swept region contains no puncture or other route, and the ordinary layout
+validator preserves the certified route/intersection structure. The local
+objective is total route length with weak bending and obstacle repulsion;
+points are redistributed by arc length after each accepted step.
 
-`Route.points` is the deterministic flattened cache of `Route.curve`. A
-`BezierChain` stores its flattening tolerance and recursion depth. Validation,
-JSON serialization, SVG `C` commands, and TikZ output read the curve field;
-the validator rejects a stale cache, malformed curve, non-exact endpoint, or
-any flattened crossing, self-crossing, or puncture intrusion.
+```text
+verified feasible PL routes
+-> densify (endpoint guard edges remain exact)
+-> overdamped tension + bending + route/self/puncture repulsion
+-> clearance-bounded step with backtracking and validate_layout
+-> RDP knot reduction with fail-closed validation
+-> G1 cubic Bezier chain
+-> adaptive flattening and final validate_layout
+```
+
+The trace records the energy history, accepted steps, dense/reduced knot counts,
+Bezier segment/control counts, minimum clearance, endpoint-tangent check, and
+all parameters. The algorithm is deterministic. Fixed port endpoints, fixed
+punctures, route identity/successor data, crossing freedom, and puncture
+exclusion are hard gates.
 
 Generate the owner-review candidates with:
 
@@ -24,10 +33,7 @@ Generate the owner-review candidates with:
 julia --startup-file=no --pkgimages=no --project=. scripts/generate_poincare_smoothing_candidates.jl
 ```
 
-The generated `artifacts/heegaard/poincare_smoothing_candidates/summary.json`
-records the three step fractions and their flattened-geometry metrics. The
-directory also contains `poincare-baseline.svg`, rendered with the same dynamic
-view box as the candidates so that visual scale is comparable. The candidate
-SVGs are intended for owner visual review and do not replace the validator's
-finite flattened checks. Those checks are evidence about the selected
-flattening tolerance, not a proof over the continuous Bezier curves.
+The generated directory contains `poincare-baseline.svg` and
+`poincare-relaxed.svg`. Web child pages must show feasible input and relaxed
+output together at a common scale. Mechanical checks do not decide visual
+quality; owner review does.
