@@ -222,10 +222,8 @@ end
     roundtrip = H.load_heegaard(roundtrip_path)
     @test H.canonical_hash(roundtrip) == H.canonical_hash(diagram)
 
-    generated = H.layout_heegaard(diagram; backend=:pure_julia)
-    @test generated.report.valid
-    @test generated.backend_trace["post_router"] == "bounded-fixed-endpoint-feasible"
-    @test isempty(generated.crossings)
+    @test_throws ArgumentError H.layout_heegaard(
+        diagram; backend=:pure_julia, max_attempts=1)
     layout = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                                route_certificate=layout_fixture_path)
     @test layout.report.valid

@@ -26,5 +26,8 @@ julia --startup-file=no --pkgimages=no --project=. scripts/generate_poincare_smo
 
 The generated `artifacts/heegaard/poincare_smoothing_candidates/summary.json`
 records the three step fractions and their flattened-geometry metrics. The
-candidate SVGs are intended for visual review and do not replace the
-validator’s finite flattened checks.
+directory also contains `poincare-baseline.svg`, rendered with the same dynamic
+view box as the candidates so that visual scale is comparable. The candidate
+SVGs are intended for owner visual review and do not replace the validator's
+finite flattened checks. Those checks are evidence about the selected
+flattening tolerance, not a proof over the continuous Bezier curves.

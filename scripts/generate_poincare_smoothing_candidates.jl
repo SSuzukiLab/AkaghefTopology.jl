@@ -11,6 +11,7 @@ diagram = H.certify_heegaard(H.load_heegaard(FIXTURE))
 feasible = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                              route_certificate=LAYOUT)
 mkpath(OUTPUT)
+H.render(feasible; backend=:svg, path=joinpath(OUTPUT, "poincare-baseline.svg"))
 
 specifications = [("tight", 0.08), ("balanced", 0.14), ("wide", 0.22)]
 summary = Any[]

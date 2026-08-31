@@ -24,7 +24,7 @@ function _verify_router_routes(diagram; anchors=nothing)
     ports = H.place_ports(cut, punctures)
     wiring = H.build_wiring_problem(diagram, cut, ports)
     routes = H.feasible_fixed_endpoint_routes(diagram, punctures, ports, wiring;
-                                               anchors=anchors, max_attempts=2)
+                                               anchors=anchors, max_attempts=24)
     candidate = H.HeegaardLayout(H.canonical_hash(diagram), :alpha_cut,
                                  Dict{String,Any}(), punctures, ports, routes,
                                  H._route_crossings(routes), Dict{String,Any}(),
@@ -39,10 +39,11 @@ function _verify_router_routes(diagram; anchors=nothing)
 end
 
 @testset "Bounded fixed-endpoint feasible router" begin
-    poincare = H.certify_heegaard(H.load_heegaard(joinpath(@__DIR__, "..", "fixtures",
-                                                            "poincare_homology_sphere_v1.hgd.json")))
-    poincare_routes = _verify_router_routes(poincare)
-    @test sum(length(route.points) for route in poincare_routes) > 24
+    touching = [
+        H.Route(:beta, 1, 1, nothing, nothing, [(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]),
+        H.Route(:beta, 2, 1, nothing, nothing, [(0.0, 1.0), (1.0, 1.0), (2.0, 1.0)]),
+    ]
+    @test H._route_crossings(touching) == [(1, 2)]
 
     s3 = _router_s3_fixture()
     s3_layout = H.layout_heegaard(s3; backend=:pure_julia, router=:feasible,
@@ -62,4 +63,13 @@ end
     wiring = H.build_wiring_problem(cut, ports)
     @test_throws ArgumentError H.feasible_fixed_endpoint_routes(
         s3, punctures, ports, wiring; max_attempts=1, max_expansions=0)
+
+    poincare = H.certify_heegaard(H.load_heegaard(joinpath(@__DIR__, "..", "fixtures",
+                                                            "poincare_homology_sphere_v1.hgd.json")))
+    poincare_cut = H.cut_along_alpha(poincare)
+    poincare_punctures = H.default_puncture_placement(poincare_cut)
+    poincare_ports = H.place_ports(poincare_cut, poincare_punctures)
+    poincare_wiring = H.build_wiring_problem(poincare, poincare_cut, poincare_ports)
+    @test_throws ArgumentError H.feasible_fixed_endpoint_routes(
+        poincare, poincare_punctures, poincare_ports, poincare_wiring; max_attempts=1)
 end

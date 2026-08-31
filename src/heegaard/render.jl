@@ -184,7 +184,7 @@ function _render_svg(layout::HeegaardLayout)
     for route in layout.routes
         attrs = "data-curve-family=\"$(_svg_escape(route.family))\" " *
                 "data-curve-id=\"$(route.curve_id)\" data-route-segment=\"$(route.segment_id)\""
-        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"#17324d\" stroke-width=\"0.025\" vector-effect=\"non-scaling-stroke\"/>")
+        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"#17324d\" stroke-width=\"1.4\" vector-effect=\"non-scaling-stroke\"/>")
     end
     push!(parts, "</g>")
     if layout.view == :alpha_cut
@@ -193,7 +193,7 @@ function _render_svg(layout::HeegaardLayout)
             push!(parts, "<circle data-pair=\"$(puncture.pair)\" data-side=\"$(_svg_escape(puncture.side))\" " *
                          "cx=\"$(_fmt(puncture.center[1]))\" cy=\"$(_fmt(-puncture.center[2]))\" " *
                          "r=\"$(_fmt(puncture.radius))\" fill=\"#b54a35\" fill-opacity=\"0.14\" " *
-                         "stroke=\"#b54a35\" stroke-width=\"0.035\" vector-effect=\"non-scaling-stroke\"/>")
+                         "stroke=\"#b54a35\" stroke-width=\"1.5\" vector-effect=\"non-scaling-stroke\"/>")
         end
         for port in layout.ports
             push!(parts, "<circle data-intersection-id=\"$(port.intersection_id)\" data-port-index=\"$(port.id)\" " *

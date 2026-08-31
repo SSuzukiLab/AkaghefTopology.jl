@@ -31,9 +31,6 @@ function _router_path_clear(points, punctures, routes)
     _self_crosses(candidate) && return false
     for route in routes
         for first in _route_segments(Route[candidate]), second in _route_segments(Route[route])
-            shared_endpoint = _same_point(first.a, second.a) || _same_point(first.a, second.b) ||
-                              _same_point(first.b, second.a) || _same_point(first.b, second.b)
-            shared_endpoint && continue
             _segments_cross(first.a, first.b, second.a, second.b) && return false
         end
     end
@@ -192,7 +189,7 @@ function _feasible_fixed_endpoint_routes(H::HeegaardDiagram,
     step = grid_step === nothing ? min(0.18, max(minimum(p.radius for p in punctures) / 2, 0.06)) : Float64(grid_step)
     step > 0 || throw(ArgumentError("grid_step must be positive"))
     base_points = _router_grid_points(punctures, ports; grid_step=step, margin=margin)
-    order = _router_wire_order(wiring, ports)
+    base_order = _router_wire_order(wiring, ports)
     segment_ids = Dict{Int,Int}()
     per_beta = Dict{Int,Int}()
     for (wire_index, wire) in enumerate(wiring.wires)
@@ -202,6 +199,9 @@ function _feasible_fixed_endpoint_routes(H::HeegaardDiagram,
     routes = Route[]
     for attempt in 1:max_attempts
         empty!(routes)
+        shift = mod(fld(attempt - 1, 2), length(base_order))
+        order = circshift(base_order, shift)
+        iseven(attempt) && reverse!(order)
         bend_weight = 0.01 * ((attempt - 1) % 4)
         success = true
         for wire_index in order

@@ -255,9 +255,6 @@ function _route_crossings(routes::Vector{Route})
         routes[second.route].family == :alpha && continue
         pair = minmax(first.route, second.route)
         pair in route_pairs && continue
-        shared_endpoint = _same_point(first.a, second.a) || _same_point(first.a, second.b) ||
-                          _same_point(first.b, second.a) || _same_point(first.b, second.b)
-        shared_endpoint && continue
         _segments_cross(first.a, first.b, second.a, second.b) && push!(route_pairs, pair)
     end
     sort!(collect(route_pairs))

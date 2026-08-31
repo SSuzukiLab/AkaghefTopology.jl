@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.036585 -1.842603 1.87317 3.585484" role="img" data-heegaard-view="alpha_cut" data-diagram-hash="a8e47d894fe6d19a2cb6f41ce04036e2414334671477eef5b85c0dbb424c0702"><metadata data-provenance="{}"/>
+<g data-layer="routes">
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="2" d="M 0.72 -1.0 L 0.62 -0.593704 L 0.76 -0.313704 L 0.9 -0.033704 L 1.04 0.246296 L 1.18 0.526296 L 1.226525 0.83542" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="5" d="M 0.913475 -0.733704 L 1.04 -0.453704 L 1.04 -0.313704 L 1.18 -0.033704 L 1.32 0.246296 L 1.32 0.666296 L 1.32 1.086296 L 1.226525 1.16458" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="4" d="M 0.913475 -1.266296 L 0.76 -1.293704 L 0.51 -1.0 L 0.48 -0.593704 L 0.62 -0.313704 L 0.76 -0.033704 L 0.76 0.386296 L 0.913475 0.733704" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="3" d="M 1.226525 -0.83542 L 1.32 -0.453704 L 1.46 -0.173704 L 1.46 0.246296 L 1.46 0.666296 L 1.46 1.086296 L 1.18 1.366296 L 0.913475 1.266296" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="1" d="M 1.226525 -1.16458 L 1.18 -1.293704 L 0.848582 -1.466018 L 0.62 -1.153704 L 0.34 -0.873704 L 0.34 -0.453704 L 0.48 -0.173704 L 0.48 0.246296 L 0.48 0.666296 L 0.72 1.0" fill="none" stroke="#17324d" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+</g>
+<g data-layer="punctures">
+<circle data-pair="1" data-side="plus" cx="1.0" cy="-1.0" r="0.28" fill="#b54a35" fill-opacity="0.14" stroke="#b54a35" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<circle data-pair="1" data-side="minus" cx="1.0" cy="1.0" r="0.28" fill="#b54a35" fill-opacity="0.14" stroke="#b54a35" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<circle data-intersection-id="1" data-port-index="1" cx="1.226525" cy="-1.16458" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="2" data-port-index="2" cx="0.913475" cy="-1.266296" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="3" data-port-index="3" cx="0.72" cy="-1.0" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="4" data-port-index="4" cx="0.913475" cy="-0.733704" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="5" data-port-index="5" cx="1.226525" cy="-0.83542" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="5" data-port-index="6" cx="1.226525" cy="0.83542" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="4" data-port-index="7" cx="0.913475" cy="0.733704" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="3" data-port-index="8" cx="0.72" cy="1.0" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="2" data-port-index="9" cx="0.913475" cy="1.266296" r="0.045" fill="#b54a35"/>
+<circle data-intersection-id="1" data-port-index="10" cx="1.226525" cy="1.16458" r="0.045" fill="#b54a35"/>
+</g>
+</svg>
