@@ -530,6 +530,8 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
     ports = place_ports(cut, punctures)
     wiring = build_wiring_problem(H, cut, ports)
     terminal_report = _terminal_ribbon_report(H, cut, ports, wiring)
+    terminal_report.planar || throw(ArgumentError(
+        "the fixed-puncture terminal ribbon map is not planar; no feasible alpha-cut route exists"))
     routes = _alpha_cut_routes(H, cut, punctures, ports)
     catlab_error = nothing
     catlab_result = nothing
@@ -567,6 +569,15 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
         "fallback_policy" => String(fallback),
         "provenance" => source_manifest(H),
         "post_router" => post_router,
+        "pipeline" => Dict{String,Any}(
+            "puncture_placement" => "fixed-2-by-g",
+            "ordered_ports" => true,
+            "seed_layout" => catlab_result === nothing ? "pure-julia" : "catlab",
+            "fixed_endpoint_fitting" => true,
+            "feasible_router" => route_certificate === nothing ? "identity-if-verified" :
+                                 "certified-fixed-boundary-pl",
+            "smoothing" => "not-run",
+        ),
         "terminal_embedding" => Dict{String,Any}(
             "planar" => terminal_report.planar,
             "vertices" => terminal_report.vertices,
@@ -590,6 +601,15 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
         punctures, ports, routes, crossings, trace,
         LayoutValidationReport(false, ValidationIssue[], Dict{Symbol,Bool}()))
     report = validate_layout(H, provisional; expected_hash=diagram_hash)
+    if !report.valid
+        codes = join(sort(unique(string(issue.code) for issue in report.issues)), ", ")
+        throw(ArgumentError(
+            "fixed-endpoint seed is not a feasible Heegaard layout ($codes); " *
+            "no verified topological router result is available"))
+    end
+    if route_certificate === nothing
+        trace["post_router"] = "verified-seed-identity"
+    end
     HeegaardLayout(provisional.diagram_hash, provisional.view, provisional.chart,
                    provisional.punctures, provisional.ports, provisional.routes,
                    provisional.crossings, provisional.backend_trace, report)

@@ -90,7 +90,24 @@ end
 function _svg_header(layout)
     provenance = haskey(layout.backend_trace, "provenance") ?
         _svg_escape(_canonical_json(layout.backend_trace["provenance"])) : ""
-    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-3 -3 6 6\" " *
+    coordinates = NTuple{2,Float64}[]
+    for route in layout.routes
+        append!(coordinates, [(point[1], -point[2]) for point in route.points])
+    end
+    for puncture in layout.punctures
+        push!(coordinates, (puncture.center[1] - puncture.radius,
+                            -puncture.center[2] - puncture.radius))
+        push!(coordinates, (puncture.center[1] + puncture.radius,
+                            -puncture.center[2] + puncture.radius))
+    end
+    isempty(coordinates) && push!(coordinates, (0.0, 0.0))
+    xmin, xmax = extrema(first.(coordinates))
+    ymin, ymax = extrema(last.(coordinates))
+    span = max(xmax - xmin, ymax - ymin, 1.0)
+    margin = 0.08span + 0.15
+    viewbox = join(_fmt.((xmin - margin, ymin - margin,
+                         xmax - xmin + 2margin, ymax - ymin + 2margin)), " ")
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewbox\" " *
     "role=\"img\" data-heegaard-view=\"$(_svg_escape(layout.view))\" " *
     "data-diagram-hash=\"$(_svg_escape(layout.diagram_hash))\">" *
     "<metadata data-provenance=\"$provenance\"/>"
@@ -110,7 +127,7 @@ function _render_svg(layout::HeegaardLayout)
     for route in layout.routes
         attrs = "data-curve-family=\"$(_svg_escape(route.family))\" " *
                 "data-curve-id=\"$(route.curve_id)\" data-route-segment=\"$(route.segment_id)\""
-        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"#17324d\" stroke-width=\"0.025\"/>")
+        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"#17324d\" stroke-width=\"0.025\" vector-effect=\"non-scaling-stroke\"/>")
     end
     push!(parts, "</g>")
     if layout.view == :alpha_cut
@@ -118,7 +135,8 @@ function _render_svg(layout::HeegaardLayout)
         for puncture in layout.punctures
             push!(parts, "<circle data-pair=\"$(puncture.pair)\" data-side=\"$(_svg_escape(puncture.side))\" " *
                          "cx=\"$(_fmt(puncture.center[1]))\" cy=\"$(_fmt(-puncture.center[2]))\" " *
-                         "r=\"$(_fmt(puncture.radius))\" fill=\"none\" stroke=\"#b54a35\" stroke-width=\"0.025\"/>")
+                         "r=\"$(_fmt(puncture.radius))\" fill=\"#b54a35\" fill-opacity=\"0.14\" " *
+                         "stroke=\"#b54a35\" stroke-width=\"0.035\" vector-effect=\"non-scaling-stroke\"/>")
         end
         for port in layout.ports
             push!(parts, "<circle data-intersection-id=\"$(port.intersection_id)\" data-port-index=\"$(port.id)\" " *

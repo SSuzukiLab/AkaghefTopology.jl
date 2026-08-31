@@ -118,9 +118,14 @@ end
     @test layout.backend_trace["backend"] == "catlab"
     @test layout.backend_trace["catlab_used"] == true
     @test layout.backend_trace["catlab_layout"]["ordered_port_count"] == 2
+    @test layout.backend_trace["pipeline"]["puncture_placement"] == "fixed-2-by-g"
+    @test layout.backend_trace["pipeline"]["feasible_router"] == "identity-if-verified"
+    @test layout.backend_trace["post_router"] == "verified-seed-identity"
     svg = H.render(layout)
     @test occursin("data-intersection-id=\"1\"", svg)
     @test occursin("data-curve-family=\"beta\"", svg)
+    @test occursin("fill-opacity=\"0.14\"", svg)
+    @test occursin("vector-effect=\"non-scaling-stroke\"", svg)
     @test isempty(layout.crossings)
     @test H.validate_layout(diagram, layout).valid
     @test H.gauss_layout(diagram).view == :gauss
@@ -215,6 +220,7 @@ end
     roundtrip = H.load_heegaard(roundtrip_path)
     @test H.canonical_hash(roundtrip) == H.canonical_hash(diagram)
 
+    @test_throws ArgumentError H.layout_heegaard(diagram; backend=:pure_julia)
     layout = H.layout_heegaard(diagram; backend=:catlab, fallback=:error,
                                route_certificate=layout_fixture_path)
     @test layout.report.valid
