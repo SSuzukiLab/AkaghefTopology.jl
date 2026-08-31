@@ -270,7 +270,10 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
               last(route.points) == H._point_for_port(smoothed.ports, route.end_port)
               for route in smoothed.routes)
     metrics = smoothed.backend_trace["smoothing"]
-    @test metrics["method"] == "constrained-mechanical-relaxation-v1"
+    @test metrics["method"] == "global-shortcut-mechanical-relaxation-v2"
+    @test metrics["shortcut_count"] >= 0
+    @test metrics["length_after_shortcut"] <= metrics["length_before_shortcut"]
+    @test metrics["length_after_relaxation"] <= metrics["length_after_shortcut"] + 1e-10
     @test metrics["accepted_steps"] > 0
     @test metrics["final_energy"] < metrics["initial_energy"]
     @test metrics["simplified_points"] < metrics["dense_points"]
