@@ -119,7 +119,7 @@ function _global_shortcut_polylines(H, layout, point_routes; minimum_gain=1e-3)
     current = deepcopy(point_routes)
     before = sum(_polyline_length, current)
     accepted = 0
-    for _ in 1:8
+    while true
         changed = false
         for route_index in eachindex(current)
             points = current[route_index]

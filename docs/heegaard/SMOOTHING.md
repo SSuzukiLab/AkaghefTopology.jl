@@ -10,6 +10,9 @@ its swept region contains no puncture or other route, and the ordinary layout
 validator preserves the certified route/intersection structure. The local
 objective is total route length with weak bending and obstacle repulsion;
 points are redistributed by arc length after each accepted step.
+Shortcutting continues until a complete pass accepts nothing. No arbitrary
+pass limit is needed because every accepted shortcut strictly removes route
+vertices, so this stage terminates finitely.
 
 ```text
 verified feasible PL routes

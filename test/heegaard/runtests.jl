@@ -271,7 +271,7 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
               for route in smoothed.routes)
     metrics = smoothed.backend_trace["smoothing"]
     @test metrics["method"] == "global-shortcut-mechanical-relaxation-v2"
-    @test metrics["shortcut_count"] >= 0
+    @test metrics["shortcut_count"] > 0
     @test metrics["length_after_shortcut"] <= metrics["length_before_shortcut"]
     @test metrics["length_after_relaxation"] <= metrics["length_after_shortcut"] + 1e-10
     @test metrics["accepted_steps"] > 0
