@@ -80,8 +80,11 @@ end
 function _multiscale_density(point, route_index, point_routes, spread_range)
     density = 0.0
     gradient = (0.0, 0.0)
-    scales = (0.5 * spread_range, spread_range, 2.0 * spread_range)
-    scale_weights = (0.25, 0.50, 0.25)
+    # The widest kernel reaches across a puncture corridor.  Without this term
+    # the force only reacts after neighboring routes have already formed a
+    # visually collapsed bundle.
+    scales = (0.5 * spread_range, 1.5 * spread_range, 4.0 * spread_range)
+    scale_weights = (0.15, 0.35, 0.50)
     for other_route in eachindex(point_routes)
         other_route == route_index && continue
         points = point_routes[other_route]
@@ -203,6 +206,174 @@ function _global_shortcut_polylines(H, layout, point_routes; minimum_gain=1e-3)
         changed || break
     end
     current, (accepted=accepted, before=before, after=sum(_polyline_length, current))
+end
+
+function _reduce_cut_word(tokens)
+    reduced = Int[]
+    for token in tokens
+        !isempty(reduced) && last(reduced) == -token ? pop!(reduced) : push!(reduced, token)
+    end
+    reduced
+end
+
+function _path_cut_word(points, punctures, radii)
+    center_y = sum(puncture.center[2] for puncture in punctures) / length(punctures)
+    tokens = Int[]
+    for segment in 1:length(points)-1
+        first, second = points[segment], points[segment + 1]
+        delta_x = second[1] - first[1]
+        abs(delta_x) <= 1e-12 && continue
+        events = Tuple{Float64,Int}[]
+        for (index, puncture) in enumerate(punctures)
+            parameter = (puncture.center[1] - first[1]) / delta_x
+            1e-10 < parameter < 1 - 1e-10 || continue
+            crossing_y = first[2] + parameter * (second[2] - first[2])
+            outward = puncture.center[2] >= center_y ? 1.0 : -1.0
+            cut_start = puncture.center[2] + outward * radii[index]
+            outward * (crossing_y - cut_start) > 1e-10 || continue
+            push!(events, (parameter, delta_x > 0 ? index : -index))
+        end
+        sort!(events; by=event -> event[1])
+        append!(tokens, last.(events))
+    end
+    _reduce_cut_word(tokens)
+end
+
+function _visibility_radii(start_point, end_point, punctures, clearance)
+    [begin
+        endpoint_margin = min(_vnorm(_vsub(start_point, puncture.center)) - puncture.radius,
+                              _vnorm(_vsub(end_point, puncture.center)) - puncture.radius)
+        puncture.radius + min(clearance, 0.8 * max(endpoint_margin, 0.0))
+    end for puncture in punctures]
+end
+
+function _visible_disk_segment(first, second, punctures, radii)
+    for (puncture, radius) in zip(punctures, radii)
+        sqrt(_segment_distance_squared(puncture.center, first, second)) >= radius - 1e-8 ||
+            return false
+    end
+    true
+end
+
+function _visible_route_segment(first, second, barrier_routes)
+    for points in barrier_routes, segment in 1:length(points)-1
+        _segments_cross(first, second, points[segment], points[segment + 1]) && return false
+    end
+    true
+end
+
+function _barrier_navigation_nodes(barrier_routes, offset)
+    nodes = NTuple{2,Float64}[]
+    for points in barrier_routes
+        length(points) < 2 && continue
+        for index in eachindex(points)
+            previous = points[max(index - 1, 1)]
+            following = points[min(index + 1, length(points))]
+            tangent = _vsub(following, previous)
+            norm = _vnorm(tangent)
+            norm <= 1e-12 && continue
+            normal = (-tangent[2] / norm, tangent[1] / norm)
+            push!(nodes, _vadd(points[index], _vscale(offset, normal)))
+            push!(nodes, _vsub(points[index], _vscale(offset, normal)))
+        end
+    end
+    nodes
+end
+
+function _homotopic_visibility_path(points, punctures, barrier_routes;
+                                    clearance, samples=32)
+    length(points) <= 2 && return copy(points)
+    start_point, end_point = first(points), last(points)
+    radii = _visibility_radii(start_point, end_point, punctures, clearance)
+    target_word = _path_cut_word(points, punctures, radii)
+    nodes = NTuple{2,Float64}[start_point, end_point]
+    for (puncture, radius) in zip(punctures, radii)
+        vertex_radius = radius / cospi(1 / samples) + 1e-6
+        for sample in 0:samples-1
+            angle = 2π * sample / samples
+            push!(nodes, (puncture.center[1] + vertex_radius * cos(angle),
+                          puncture.center[2] + vertex_radius * sin(angle)))
+        end
+    end
+    append!(nodes, _barrier_navigation_nodes(barrier_routes,
+                                              max(0.2 * clearance, 1e-3)))
+    adjacency = [Tuple{Int,Float64,Vector{Int}}[] for _ in nodes]
+    for first_index in eachindex(nodes), second_index in first_index+1:length(nodes)
+        _visible_disk_segment(nodes[first_index], nodes[second_index], punctures, radii) ||
+            continue
+        _visible_route_segment(nodes[first_index], nodes[second_index], barrier_routes) ||
+            continue
+        weight = _vnorm(_vsub(nodes[second_index], nodes[first_index]))
+        forward_word = _path_cut_word([nodes[first_index], nodes[second_index]], punctures, radii)
+        push!(adjacency[first_index], (second_index, weight, forward_word))
+        push!(adjacency[second_index], (first_index, weight, -reverse(forward_word)))
+    end
+    frontier = [(distance=0.0, node=1, word=Int[], path=Int[1])]
+    best = Dict{Tuple{Int,String},Float64}((1, "") => 0.0)
+    while !isempty(frontier)
+        frontier_index = argmin(state.distance for state in frontier)
+        state = popat!(frontier, frontier_index)
+        state.distance > get(best, (state.node, join(state.word, ',')), Inf) + 1e-12 && continue
+        state.node == 2 && state.word == target_word && return nodes[state.path]
+        for (neighbor, edge_length, edge_word) in adjacency[state.node]
+            word = _reduce_cut_word(vcat(state.word, edge_word))
+            length(word) <= length(target_word) || continue
+            word == target_word[1:length(word)] || continue
+            distance = state.distance + edge_length
+            key = (neighbor, join(word, ','))
+            distance + 1e-12 < get(best, key, Inf) || continue
+            best[key] = distance
+            push!(frontier, (distance=distance, node=neighbor, word=word,
+                             path=vcat(state.path, neighbor)))
+        end
+    end
+    copy(points)
+end
+
+function _geodesically_tighten_polylines(H, layout, point_routes;
+                                         clearance, minimum_relative_gain=0.0)
+    current = deepcopy(point_routes)
+    accepted = 0
+    before = sum(_polyline_length, current)
+    attempts = Dict{String,Any}[]
+    for route_index in eachindex(current)
+        points = current[route_index]
+        length(points) <= 4 && continue
+        interior = points[2:end-1]
+        barriers = [current[index] for index in eachindex(current) if index != route_index]
+        geodesic = _homotopic_visibility_path(
+            interior, layout.punctures, barriers; clearance)
+        old_length = _polyline_length(interior)
+        new_length = _polyline_length(geodesic)
+        route = layout.routes[route_index]
+        detail = Dict{String,Any}(
+            "family" => String(route.family),
+            "curve_id" => route.curve_id,
+            "segment_id" => route.segment_id,
+            "old_length" => old_length,
+            "candidate_length" => new_length,
+            "status" => "not-shorter")
+        relative_gain = (old_length - new_length) / max(old_length, eps())
+        detail["relative_gain"] = relative_gain
+        if !(new_length + 1e-3 < old_length &&
+             relative_gain >= minimum_relative_gain)
+            push!(attempts, detail)
+            continue
+        end
+        proposal = deepcopy(current)
+        proposal[route_index] = vcat(points[1:1], geodesic, points[end:end])
+        if _validated_polyline_candidate(H, layout, proposal) === nothing
+            detail["status"] = "validator-rejected"
+            push!(attempts, detail)
+            continue
+        end
+        current = proposal
+        accepted += 1
+        detail["status"] = "accepted"
+        push!(attempts, detail)
+    end
+    current, (accepted=accepted, before=before, after=sum(_polyline_length, current),
+              attempts=attempts)
 end
 
 function _mechanical_energy(point_routes, punctures;
@@ -563,7 +734,7 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
         tension=1.0, bending=0.05,
         route_clearance=0.22, route_repulsion=8.0,
         puncture_clearance=0.18, puncture_repulsion=10.0,
-        density_weight=0.025, spread_range=0.32,
+        density_weight=0.08, spread_range=0.45,
         repulsion_distance=nothing, repulsion_strength=nothing,
         safety_fraction=0.12,
         convergence_tolerance=1e-5, simplify_tolerance=0.04,
@@ -590,14 +761,22 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
 
     source_points = [_route_points(route) for route in layout.routes]
     shortened, shortcuts = _global_shortcut_polylines(H, layout, source_points)
-    dense = [_densify_route(points; max_spacing) for points in shortened]
+    geodesic, geodesics = _geodesically_tighten_polylines(
+        H, layout, shortened; clearance=puncture_clearance)
+    dense = [_densify_route(points; max_spacing) for points in geodesic]
     relaxed, relaxation = _relax_polylines(H, layout, dense;
         iterations, time_step, tension, bending, route_clearance,
         route_repulsion, puncture_clearance, puncture_repulsion,
         density_weight, spread_range,
         safety_fraction, convergence_tolerance)
-    simplified, removed = _simplify_polylines(H, layout, relaxed;
-                                               tolerance=simplify_tolerance)
+    presimplified, first_removed = _simplify_polylines(
+        H, layout, relaxed; tolerance=simplify_tolerance)
+    tightened, final_geodesics = _geodesically_tighten_polylines(
+        H, layout, presimplified; clearance=puncture_clearance,
+        minimum_relative_gain=0.05)
+    simplified, second_removed = _simplify_polylines(
+        H, layout, tightened; tolerance=simplify_tolerance)
+    removed = first_removed + second_removed
     result, accepted_handle_scale, certificate = _fit_bezier_layout(H, layout, simplified;
         handle_scale, flatness, max_depth)
 
@@ -605,9 +784,15 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     trace["smoothing"] = Dict{String,Any}(
         "method" => "global-shortcut-mechanical-relaxation-v2",
         "shortcut_count" => shortcuts.accepted,
+        "geodesic_route_count" => geodesics.accepted,
         "length_before_shortcut" => shortcuts.before,
         "length_after_shortcut" => shortcuts.after,
+        "length_after_geodesic" => geodesics.after,
+        "geodesic_attempts" => geodesics.attempts,
         "length_after_relaxation" => sum(_polyline_length, relaxed),
+        "final_geodesic_route_count" => final_geodesics.accepted,
+        "length_after_final_geodesic" => final_geodesics.after,
+        "final_geodesic_attempts" => final_geodesics.attempts,
         "dense_points" => sum(length, dense),
         "relaxed_points" => sum(length, relaxed),
         "simplified_points" => sum(length, simplified),

@@ -13,7 +13,7 @@ mkpath(OUTPUT)
 H.render(feasible; backend=:svg, path=joinpath(OUTPUT, "poincare-baseline.svg"))
 
 candidate = H.smooth_layout(diagram, feasible;
-    iterations=12, max_spacing=0.15, simplify_tolerance=0.04, flatness=1e-4)
+    iterations=48, max_spacing=0.15, simplify_tolerance=0.04, flatness=1e-4)
 stem = joinpath(OUTPUT, "poincare-relaxed")
 H.save_layout(stem * ".hgd.layout.json", candidate)
 H.render(candidate; backend=:svg, path=stem * ".svg")
