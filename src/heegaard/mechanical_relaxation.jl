@@ -77,6 +77,30 @@ function _clearance_force(distance, clearance, strength)
     strength * (clearance - max(distance, 0.0))
 end
 
+function _multiscale_density(point, route_index, point_routes, spread_range)
+    density = 0.0
+    gradient = (0.0, 0.0)
+    scales = (0.5 * spread_range, spread_range, 2.0 * spread_range)
+    scale_weights = (0.25, 0.50, 0.25)
+    for other_route in eachindex(point_routes)
+        other_route == route_index && continue
+        points = point_routes[other_route]
+        for segment in 1:length(points)-1
+            closest = _closest_on_segment(point, points[segment], points[segment + 1])
+            difference = _vsub(point, closest)
+            squared_distance = difference[1]^2 + difference[2]^2
+            segment_length = _vnorm(_vsub(points[segment + 1], points[segment]))
+            for (sigma, weight) in zip(scales, scale_weights)
+                kernel = weight * segment_length / sigma *
+                         exp(-squared_distance / (2sigma^2))
+                density += kernel
+                gradient = _vadd(gradient, _vscale(-kernel / sigma^2, difference))
+            end
+        end
+    end
+    density, gradient
+end
+
 function _polyline_clearance(point_routes, punctures)
     minimum_clearance = Inf
     for first_route in eachindex(point_routes)
@@ -183,7 +207,8 @@ end
 
 function _mechanical_energy(point_routes, punctures;
                             tension, bending, route_clearance, route_repulsion,
-                            puncture_clearance, puncture_repulsion)
+                            puncture_clearance, puncture_repulsion,
+                            density_weight, spread_range)
     energy = 0.0
     for points in point_routes
         for index in 1:length(points)-1
@@ -212,12 +237,18 @@ function _mechanical_energy(point_routes, punctures;
                       points[segment], points[segment + 1])) - puncture.radius
         energy += _clearance_barrier(margin, puncture_clearance, puncture_repulsion)
     end
+    for route_index in eachindex(point_routes), index in 3:length(point_routes[route_index])-2
+        density, _ = _multiscale_density(point_routes[route_index][index], route_index,
+                                         point_routes, spread_range)
+        energy += density_weight * density^3 / 3
+    end
     energy
 end
 
 function _mechanical_forces(point_routes, punctures;
                             tension, bending, route_clearance, route_repulsion,
-                            puncture_clearance, puncture_repulsion)
+                            puncture_clearance, puncture_repulsion,
+                            density_weight, spread_range)
     forces = [[(0.0, 0.0) for _ in points] for points in point_routes]
     for route_index in eachindex(point_routes)
         points = point_routes[route_index]
@@ -232,6 +263,10 @@ function _mechanical_forces(point_routes, punctures;
                           _vadd(_vscale(-4.0, points[index + 1]), points[index + 2])))
                 force = _vadd(force, _vscale(-bending, fourth))
             end
+            density, density_gradient = _multiscale_density(
+                points[index], route_index, point_routes, spread_range)
+            force = _vadd(force,
+                _vscale(-density_weight * density^2, density_gradient))
             forces[route_index][index] = force
         end
     end
@@ -335,11 +370,12 @@ function _relax_polylines(H, layout, point_routes;
                           iterations, time_step, tension, bending,
                           route_clearance, route_repulsion,
                           puncture_clearance, puncture_repulsion,
+                          density_weight, spread_range,
                           safety_fraction, convergence_tolerance)
     current = deepcopy(point_routes)
     energy = _mechanical_energy(current, layout.punctures;
         tension, bending, route_clearance, route_repulsion,
-        puncture_clearance, puncture_repulsion)
+        puncture_clearance, puncture_repulsion, density_weight, spread_range)
     history = Float64[energy]
     accepted_steps = 0
     converged = false
@@ -347,7 +383,7 @@ function _relax_polylines(H, layout, point_routes;
     for _ in 1:iterations
         forces = _mechanical_forces(current, layout.punctures;
             tension, bending, route_clearance, route_repulsion,
-            puncture_clearance, puncture_repulsion)
+            puncture_clearance, puncture_repulsion, density_weight, spread_range)
         force_norm = maximum((_vnorm(force) for route in forces for force in route); init=0.0)
         force_norm <= convergence_tolerance && (converged = true; break)
         clearance = _polyline_clearance(current, layout.punctures)
@@ -367,7 +403,8 @@ function _relax_polylines(H, layout, point_routes;
             proposal_energy = candidate === nothing ? Inf :
                 _mechanical_energy(proposal, layout.punctures;
                     tension, bending, route_clearance, route_repulsion,
-                    puncture_clearance, puncture_repulsion)
+                    puncture_clearance, puncture_repulsion,
+                    density_weight, spread_range)
             if candidate !== nothing && proposal_energy <= energy + 1e-12
                 current, energy = proposal, proposal_energy
                 push!(history, energy)
@@ -526,6 +563,7 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
         tension=1.0, bending=0.05,
         route_clearance=0.22, route_repulsion=8.0,
         puncture_clearance=0.18, puncture_repulsion=10.0,
+        density_weight=0.025, spread_range=0.32,
         repulsion_distance=nothing, repulsion_strength=nothing,
         safety_fraction=0.12,
         convergence_tolerance=1e-5, simplify_tolerance=0.04,
@@ -547,6 +585,8 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     puncture_clearance > 0 || throw(ArgumentError("puncture_clearance must be positive"))
     route_repulsion > 0 || throw(ArgumentError("route_repulsion must be positive"))
     puncture_repulsion > 0 || throw(ArgumentError("puncture_repulsion must be positive"))
+    density_weight >= 0 || throw(ArgumentError("density_weight must be nonnegative"))
+    spread_range > 0 || throw(ArgumentError("spread_range must be positive"))
 
     source_points = [_route_points(route) for route in layout.routes]
     shortened, shortcuts = _global_shortcut_polylines(H, layout, source_points)
@@ -554,6 +594,7 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     relaxed, relaxation = _relax_polylines(H, layout, dense;
         iterations, time_step, tension, bending, route_clearance,
         route_repulsion, puncture_clearance, puncture_repulsion,
+        density_weight, spread_range,
         safety_fraction, convergence_tolerance)
     simplified, removed = _simplify_polylines(H, layout, relaxed;
                                                tolerance=simplify_tolerance)
@@ -591,6 +632,8 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
             "route_repulsion" => route_repulsion,
             "puncture_clearance" => puncture_clearance,
             "puncture_repulsion" => puncture_repulsion,
+            "density_weight" => density_weight,
+            "spread_range" => spread_range,
             "safety_fraction" => safety_fraction,
             "convergence_tolerance" => convergence_tolerance,
             "simplify_tolerance" => simplify_tolerance))
