@@ -45,6 +45,38 @@ function _segment_distance(first_a, first_b, second_a, second_b)
              sqrt(_segment_distance_squared(second_b, first_a, first_b))))
 end
 
+function _closest_on_segment_with_parameter(point, first, second)
+    direction = _vsub(second, first)
+    denominator = direction[1]^2 + direction[2]^2
+    denominator <= eps(Float64) && return first, 0.0
+    parameter = clamp(((point[1] - first[1]) * direction[1] +
+                       (point[2] - first[2]) * direction[2]) / denominator, 0.0, 1.0)
+    _vadd(first, _vscale(parameter, direction)), parameter
+end
+
+function _closest_segment_pair(first_a, first_b, second_a, second_b)
+    candidates = Tuple{Float64,NTuple{2,Float64},NTuple{2,Float64},Float64,Float64}[]
+    projected, parameter = _closest_on_segment_with_parameter(first_a, second_a, second_b)
+    push!(candidates, (_vnorm(_vsub(first_a, projected)), first_a, projected, 0.0, parameter))
+    projected, parameter = _closest_on_segment_with_parameter(first_b, second_a, second_b)
+    push!(candidates, (_vnorm(_vsub(first_b, projected)), first_b, projected, 1.0, parameter))
+    projected, parameter = _closest_on_segment_with_parameter(second_a, first_a, first_b)
+    push!(candidates, (_vnorm(_vsub(projected, second_a)), projected, second_a, parameter, 0.0))
+    projected, parameter = _closest_on_segment_with_parameter(second_b, first_a, first_b)
+    push!(candidates, (_vnorm(_vsub(projected, second_b)), projected, second_b, parameter, 1.0))
+    candidates[argmin(first.(candidates))]
+end
+
+function _clearance_barrier(distance, clearance, strength)
+    distance >= clearance && return 0.0
+    0.5 * strength * (clearance - max(distance, 0.0))^2
+end
+
+function _clearance_force(distance, clearance, strength)
+    distance >= clearance && return 0.0
+    strength * (clearance - max(distance, 0.0))
+end
+
 function _polyline_clearance(point_routes, punctures)
     minimum_clearance = Inf
     for first_route in eachindex(point_routes)
@@ -150,44 +182,46 @@ function _global_shortcut_polylines(H, layout, point_routes; minimum_gain=1e-3)
 end
 
 function _mechanical_energy(point_routes, punctures;
-                            tension, bending, repulsion_distance, repulsion_strength)
+                            tension, bending, route_clearance, route_repulsion,
+                            puncture_clearance, puncture_repulsion)
     energy = 0.0
     for points in point_routes
         for index in 1:length(points)-1
             delta = _vsub(points[index + 1], points[index])
             energy += tension * _vnorm(delta)
         end
-        for index in 2:length(points)-1
+        for index in 3:length(points)-2
             second = _vadd(_vsub(points[index - 1], _vscale(2.0, points[index])), points[index + 1])
             energy += bending * (second[1]^2 + second[2]^2)
         end
     end
-    for route_index in eachindex(point_routes), point_index in 3:length(point_routes[route_index])-2
-        point = point_routes[route_index][point_index]
-        for other_route in eachindex(point_routes)
-            other = point_routes[other_route]
-            for segment in 1:length(other)-1
-                other_route == route_index && abs(segment - point_index) <= 2 && continue
-                distance = sqrt(_segment_distance_squared(point, other[segment], other[segment + 1]))
-                distance < repulsion_distance &&
-                    (energy += repulsion_strength * (repulsion_distance - distance)^2)
+    for first_route in eachindex(point_routes), first_segment in 1:length(point_routes[first_route])-1
+        first_points = point_routes[first_route]
+        for second_route in first_route:length(point_routes)
+            second_points = point_routes[second_route]
+            start_segment = second_route == first_route ? first_segment + 4 : 1
+            for second_segment in start_segment:length(second_points)-1
+                distance = _segment_distance(first_points[first_segment], first_points[first_segment + 1],
+                                             second_points[second_segment], second_points[second_segment + 1])
+                energy += _clearance_barrier(distance, route_clearance, route_repulsion)
             end
         end
-        for puncture in punctures
-            margin = _vnorm(_vsub(point, puncture.center)) - puncture.radius
-            margin < repulsion_distance &&
-                (energy += repulsion_strength * (repulsion_distance - margin)^2)
-        end
+    end
+    for points in point_routes, segment in 2:length(points)-2, puncture in punctures
+        margin = sqrt(_segment_distance_squared(puncture.center,
+                      points[segment], points[segment + 1])) - puncture.radius
+        energy += _clearance_barrier(margin, puncture_clearance, puncture_repulsion)
     end
     energy
 end
 
 function _mechanical_forces(point_routes, punctures;
-                            tension, bending, repulsion_distance, repulsion_strength)
+                            tension, bending, route_clearance, route_repulsion,
+                            puncture_clearance, puncture_repulsion)
     forces = [[(0.0, 0.0) for _ in points] for points in point_routes]
     for route_index in eachindex(point_routes)
         points = point_routes[route_index]
-        for index in 3:length(points)-2
+        for index in 2:length(points)-1
             incoming = _vsub(points[index], points[index - 1])
             outgoing = _vsub(points[index + 1], points[index])
             force = _vscale(tension, _vsub(_unit(outgoing), _unit(incoming)))
@@ -198,37 +232,52 @@ function _mechanical_forces(point_routes, punctures;
                           _vadd(_vscale(-4.0, points[index + 1]), points[index + 2])))
                 force = _vadd(force, _vscale(-bending, fourth))
             end
-            point = points[index]
-            for other_route in eachindex(point_routes)
-                other = point_routes[other_route]
-                for segment in 1:length(other)-1
-                    other_route == route_index && abs(segment - index) <= 2 && continue
-                    closest = _closest_on_segment(point, other[segment], other[segment + 1])
-                    difference = _vsub(point, closest)
-                    distance = _vnorm(difference)
-                    if distance < repulsion_distance
-                        direction = distance <= 1e-12 ?
-                            _unit((- (other[segment + 1][2] - other[segment][2]),
-                                    other[segment + 1][1] - other[segment][1])) :
-                            _vscale(inv(distance), difference)
-                        magnitude = repulsion_strength *
-                                    (repulsion_distance - max(distance, 1e-12)) /
-                                    repulsion_distance
-                        force = _vadd(force, _vscale(magnitude, direction))
-                    end
-                end
-            end
-            for puncture in punctures
-                radial = _vsub(point, puncture.center)
-                distance = _vnorm(radial)
-                margin = distance - puncture.radius
-                if margin < repulsion_distance
-                    magnitude = repulsion_strength *
-                                (repulsion_distance - margin) / repulsion_distance
-                    force = _vadd(force, _vscale(magnitude, _unit(radial)))
-                end
-            end
             forces[route_index][index] = force
+        end
+    end
+    for first_route in eachindex(point_routes), first_segment in 1:length(point_routes[first_route])-1
+        first_points = point_routes[first_route]
+        for second_route in first_route:length(point_routes)
+            second_points = point_routes[second_route]
+            start_segment = second_route == first_route ? first_segment + 4 : 1
+            for second_segment in start_segment:length(second_points)-1
+                distance, first_point, second_point, first_parameter, second_parameter =
+                    _closest_segment_pair(first_points[first_segment], first_points[first_segment + 1],
+                                          second_points[second_segment], second_points[second_segment + 1])
+                magnitude = _clearance_force(distance, route_clearance, route_repulsion)
+                magnitude == 0.0 && continue
+                difference = _vsub(first_point, second_point)
+                direction = distance <= 1e-12 ?
+                    _unit((-(second_points[second_segment + 1][2] - second_points[second_segment][2]),
+                            second_points[second_segment + 1][1] - second_points[second_segment][1])) :
+                    _vscale(inv(distance), difference)
+                first_force = _vscale(magnitude, direction)
+                second_force = _vscale(-magnitude, direction)
+                forces[first_route][first_segment] = _vadd(
+                    forces[first_route][first_segment], _vscale(1 - first_parameter, first_force))
+                forces[first_route][first_segment + 1] = _vadd(
+                    forces[first_route][first_segment + 1], _vscale(first_parameter, first_force))
+                forces[second_route][second_segment] = _vadd(
+                    forces[second_route][second_segment], _vscale(1 - second_parameter, second_force))
+                forces[second_route][second_segment + 1] = _vadd(
+                    forces[second_route][second_segment + 1], _vscale(second_parameter, second_force))
+            end
+        end
+    end
+    for route_index in eachindex(point_routes)
+        points = point_routes[route_index]
+        for segment in 2:length(points)-2, puncture in punctures
+            closest, parameter = _closest_on_segment_with_parameter(
+                puncture.center, points[segment], points[segment + 1])
+            radial = _vsub(closest, puncture.center)
+            margin = _vnorm(radial) - puncture.radius
+            magnitude = _clearance_force(margin, puncture_clearance, puncture_repulsion)
+            magnitude == 0.0 && continue
+            force = _vscale(magnitude, _unit(radial))
+            forces[route_index][segment] = _vadd(
+                forces[route_index][segment], _vscale(1 - parameter, force))
+            forces[route_index][segment + 1] = _vadd(
+                forces[route_index][segment + 1], _vscale(parameter, force))
         end
     end
     forces
@@ -284,18 +333,21 @@ end
 
 function _relax_polylines(H, layout, point_routes;
                           iterations, time_step, tension, bending,
-                          repulsion_distance, repulsion_strength,
+                          route_clearance, route_repulsion,
+                          puncture_clearance, puncture_repulsion,
                           safety_fraction, convergence_tolerance)
     current = deepcopy(point_routes)
     energy = _mechanical_energy(current, layout.punctures;
-        tension, bending, repulsion_distance, repulsion_strength)
+        tension, bending, route_clearance, route_repulsion,
+        puncture_clearance, puncture_repulsion)
     history = Float64[energy]
     accepted_steps = 0
     converged = false
     minimum_clearance = _polyline_clearance(current, layout.punctures)
     for _ in 1:iterations
         forces = _mechanical_forces(current, layout.punctures;
-            tension, bending, repulsion_distance, repulsion_strength)
+            tension, bending, route_clearance, route_repulsion,
+            puncture_clearance, puncture_repulsion)
         force_norm = maximum((_vnorm(force) for route in forces for force in route); init=0.0)
         force_norm <= convergence_tolerance && (converged = true; break)
         clearance = _polyline_clearance(current, layout.punctures)
@@ -314,7 +366,8 @@ function _relax_polylines(H, layout, point_routes;
             candidate = _validated_polyline_candidate(H, layout, proposal)
             proposal_energy = candidate === nothing ? Inf :
                 _mechanical_energy(proposal, layout.punctures;
-                    tension, bending, repulsion_distance, repulsion_strength)
+                    tension, bending, route_clearance, route_repulsion,
+                    puncture_clearance, puncture_repulsion)
             if candidate !== nothing && proposal_energy <= energy + 1e-12
                 current, energy = proposal, proposal_energy
                 push!(history, energy)
@@ -469,9 +522,12 @@ then fitted by a G1 cubic Bezier chain. The final adaptive flattening is passed
 through the ordinary layout validator before the result is returned.
 """
 function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
-        max_spacing=0.12, iterations=60, time_step=0.08,
-        tension=1.0, bending=0.05, repulsion_distance=0.16,
-        repulsion_strength=0.08, safety_fraction=0.18,
+        max_spacing=0.10, iterations=120, time_step=0.04,
+        tension=1.0, bending=0.05,
+        route_clearance=0.22, route_repulsion=8.0,
+        puncture_clearance=0.18, puncture_repulsion=10.0,
+        repulsion_distance=nothing, repulsion_strength=nothing,
+        safety_fraction=0.12,
         convergence_tolerance=1e-5, simplify_tolerance=0.04,
         handle_scale=1 / 3, flatness=1e-4, max_depth=20)
     layout.view == :alpha_cut || throw(ArgumentError("mechanical relaxation requires alpha-cut view"))
@@ -483,13 +539,22 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     iterations >= 1 || throw(ArgumentError("iterations must be positive"))
     0 < safety_fraction < 0.5 || throw(ArgumentError("safety_fraction must be in (0,1/2)"))
     flatness > 0 || throw(ArgumentError("flatness must be positive"))
+    repulsion_distance === nothing ||
+        (route_clearance = puncture_clearance = Float64(repulsion_distance))
+    repulsion_strength === nothing ||
+        (route_repulsion = puncture_repulsion = Float64(repulsion_strength))
+    route_clearance > 0 || throw(ArgumentError("route_clearance must be positive"))
+    puncture_clearance > 0 || throw(ArgumentError("puncture_clearance must be positive"))
+    route_repulsion > 0 || throw(ArgumentError("route_repulsion must be positive"))
+    puncture_repulsion > 0 || throw(ArgumentError("puncture_repulsion must be positive"))
 
     source_points = [_route_points(route) for route in layout.routes]
     shortened, shortcuts = _global_shortcut_polylines(H, layout, source_points)
     dense = [_densify_route(points; max_spacing) for points in shortened]
     relaxed, relaxation = _relax_polylines(H, layout, dense;
-        iterations, time_step, tension, bending, repulsion_distance,
-        repulsion_strength, safety_fraction, convergence_tolerance)
+        iterations, time_step, tension, bending, route_clearance,
+        route_repulsion, puncture_clearance, puncture_repulsion,
+        safety_fraction, convergence_tolerance)
     simplified, removed = _simplify_polylines(H, layout, relaxed;
                                                tolerance=simplify_tolerance)
     result, accepted_handle_scale, certificate = _fit_bezier_layout(H, layout, simplified;
@@ -522,8 +587,10 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
         "parameters" => Dict{String,Any}(
             "max_spacing" => max_spacing, "iterations" => iterations,
             "time_step" => time_step, "tension" => tension, "bending" => bending,
-            "repulsion_distance" => repulsion_distance,
-            "repulsion_strength" => repulsion_strength,
+            "route_clearance" => route_clearance,
+            "route_repulsion" => route_repulsion,
+            "puncture_clearance" => puncture_clearance,
+            "puncture_repulsion" => puncture_repulsion,
             "safety_fraction" => safety_fraction,
             "convergence_tolerance" => convergence_tolerance,
             "simplify_tolerance" => simplify_tolerance))
