@@ -28,6 +28,9 @@ summary = [Dict{String,Any}(
     "accepted_steps" => smoothing["accepted_steps"],
     "initial_energy" => smoothing["initial_energy"],
     "final_energy" => smoothing["final_energy"],
+    "minimum_route_separation" => smoothing["minimum_flattened_separation"],
+    "configured_minimum_route_separation" =>
+        smoothing["parameters"]["minimum_route_separation"],
     "crossings" => length(candidate.crossings),
     "valid" => candidate.report.valid,
     "layout_file" => basename(stem * ".hgd.layout.json"),

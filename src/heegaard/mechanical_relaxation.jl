@@ -136,6 +136,25 @@ function _polyline_clearance(point_routes, punctures)
     isfinite(minimum_clearance) ? minimum_clearance : 1.0
 end
 
+function _route_pair_clearance(point_routes)
+    minimum_clearance = Inf
+    for first_route in eachindex(point_routes)
+        first_points = point_routes[first_route]
+        for second_route in first_route+1:length(point_routes)
+            second_points = point_routes[second_route]
+            for first_segment in 1:length(first_points)-1,
+                second_segment in 1:length(second_points)-1
+                minimum_clearance = min(minimum_clearance,
+                    _segment_distance(first_points[first_segment],
+                                      first_points[first_segment + 1],
+                                      second_points[second_segment],
+                                      second_points[second_segment + 1]))
+            end
+        end
+    end
+    isfinite(minimum_clearance) ? minimum_clearance : Inf
+end
+
 _polyline_length(points) = sum(_vnorm(_vsub(points[index + 1], points[index]))
                                for index in 1:length(points)-1; init=0.0)
 
@@ -255,9 +274,11 @@ function _visible_disk_segment(first, second, punctures, radii)
     true
 end
 
-function _visible_route_segment(first, second, barrier_routes)
+function _visible_route_segment(first, second, barrier_routes, minimum_clearance)
     for points in barrier_routes, segment in 1:length(points)-1
         _segments_cross(first, second, points[segment], points[segment + 1]) && return false
+        _segment_distance(first, second, points[segment], points[segment + 1]) >=
+            minimum_clearance || return false
     end
     true
 end
@@ -281,7 +302,7 @@ function _barrier_navigation_nodes(barrier_routes, offset)
 end
 
 function _homotopic_visibility_path(points, punctures, barrier_routes;
-                                    clearance, samples=32)
+                                    clearance, route_clearance, samples=32)
     length(points) <= 2 && return copy(points)
     start_point, end_point = first(points), last(points)
     radii = _visibility_radii(start_point, end_point, punctures, clearance)
@@ -296,12 +317,13 @@ function _homotopic_visibility_path(points, punctures, barrier_routes;
         end
     end
     append!(nodes, _barrier_navigation_nodes(barrier_routes,
-                                              max(0.2 * clearance, 1e-3)))
+                                              max(0.6 * clearance, 3e-3)))
     adjacency = [Tuple{Int,Float64,Vector{Int}}[] for _ in nodes]
     for first_index in eachindex(nodes), second_index in first_index+1:length(nodes)
         _visible_disk_segment(nodes[first_index], nodes[second_index], punctures, radii) ||
             continue
-        _visible_route_segment(nodes[first_index], nodes[second_index], barrier_routes) ||
+        _visible_route_segment(nodes[first_index], nodes[second_index], barrier_routes,
+                               route_clearance) ||
             continue
         weight = _vnorm(_vsub(nodes[second_index], nodes[first_index]))
         forward_word = _path_cut_word([nodes[first_index], nodes[second_index]], punctures, radii)
@@ -331,7 +353,8 @@ function _homotopic_visibility_path(points, punctures, barrier_routes;
 end
 
 function _geodesically_tighten_polylines(H, layout, point_routes;
-                                         clearance, minimum_relative_gain=0.0)
+                                         clearance, route_clearance,
+                                         minimum_relative_gain=0.0)
     current = deepcopy(point_routes)
     accepted = 0
     before = sum(_polyline_length, current)
@@ -342,7 +365,7 @@ function _geodesically_tighten_polylines(H, layout, point_routes;
         interior = points[2:end-1]
         barriers = [current[index] for index in eachindex(current) if index != route_index]
         geodesic = _homotopic_visibility_path(
-            interior, layout.punctures, barriers; clearance)
+            interior, layout.punctures, barriers; clearance, route_clearance)
         old_length = _polyline_length(interior)
         new_length = _polyline_length(geodesic)
         route = layout.routes[route_index]
@@ -670,7 +693,8 @@ function _bezier_route(route, points; handle_scale, flatness, max_depth)
 end
 
 function _fit_bezier_layout(H, layout, point_routes;
-                            handle_scale, flatness, max_depth)
+                            handle_scale, flatness, max_depth,
+                            minimum_route_separation)
     scale = handle_scale
     for _ in 1:20
         routes = [_bezier_route(route, point_routes[index];
@@ -696,7 +720,9 @@ function _fit_bezier_layout(H, layout, point_routes;
             start_normal[1] * start_tangent[1] + start_normal[2] * start_tangent[2] >= -1e-12 &&
             end_normal[1] * reverse_end_tangent[1] + end_normal[2] * reverse_end_tangent[2] >= -1e-12
         end for route in routes)
-        if report.valid && endpoint_tangents
+        route_separation = _route_pair_clearance([route.points for route in routes])
+        if report.valid && endpoint_tangents &&
+           route_separation >= minimum_route_separation
             accepted = HeegaardLayout(provisional.diagram_hash, provisional.view, provisional.chart,
                 provisional.punctures, provisional.ports, routes, _route_crossings(routes),
                 provisional.backend_trace, report)
@@ -710,8 +736,7 @@ function _fit_bezier_layout(H, layout, point_routes;
                 end
             end
             return accepted, scale, (
-                minimum_separation=_polyline_clearance(
-                    [route.points for route in routes], layout.punctures),
+                minimum_separation=route_separation,
                 minimum_puncture_margin=minimum_puncture_margin,
                 tolerance=flatness,
                 endpoint_tangents=true)
@@ -733,6 +758,7 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
         max_spacing=0.10, iterations=120, time_step=0.04,
         tension=1.0, bending=0.05,
         route_clearance=0.22, route_repulsion=8.0,
+        minimum_route_separation=0.004,
         puncture_clearance=0.18, puncture_repulsion=10.0,
         density_weight=0.08, spread_range=0.45,
         repulsion_distance=nothing, repulsion_strength=nothing,
@@ -753,6 +779,8 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     repulsion_strength === nothing ||
         (route_repulsion = puncture_repulsion = Float64(repulsion_strength))
     route_clearance > 0 || throw(ArgumentError("route_clearance must be positive"))
+    minimum_route_separation > 0 ||
+        throw(ArgumentError("minimum_route_separation must be positive"))
     puncture_clearance > 0 || throw(ArgumentError("puncture_clearance must be positive"))
     route_repulsion > 0 || throw(ArgumentError("route_repulsion must be positive"))
     puncture_repulsion > 0 || throw(ArgumentError("puncture_repulsion must be positive"))
@@ -762,7 +790,8 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
     source_points = [_route_points(route) for route in layout.routes]
     shortened, shortcuts = _global_shortcut_polylines(H, layout, source_points)
     geodesic, geodesics = _geodesically_tighten_polylines(
-        H, layout, shortened; clearance=puncture_clearance)
+        H, layout, shortened; clearance=puncture_clearance,
+        route_clearance=minimum_route_separation)
     dense = [_densify_route(points; max_spacing) for points in geodesic]
     relaxed, relaxation = _relax_polylines(H, layout, dense;
         iterations, time_step, tension, bending, route_clearance,
@@ -773,12 +802,13 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
         H, layout, relaxed; tolerance=simplify_tolerance)
     tightened, final_geodesics = _geodesically_tighten_polylines(
         H, layout, presimplified; clearance=puncture_clearance,
+        route_clearance=minimum_route_separation,
         minimum_relative_gain=0.05)
     simplified, second_removed = _simplify_polylines(
         H, layout, tightened; tolerance=simplify_tolerance)
     removed = first_removed + second_removed
     result, accepted_handle_scale, certificate = _fit_bezier_layout(H, layout, simplified;
-        handle_scale, flatness, max_depth)
+        handle_scale, flatness, max_depth, minimum_route_separation)
 
     trace = deepcopy(result.backend_trace)
     trace["smoothing"] = Dict{String,Any}(
@@ -814,6 +844,7 @@ function mechanically_relax_layout(H::HeegaardDiagram, layout::HeegaardLayout;
             "max_spacing" => max_spacing, "iterations" => iterations,
             "time_step" => time_step, "tension" => tension, "bending" => bending,
             "route_clearance" => route_clearance,
+            "minimum_route_separation" => minimum_route_separation,
             "route_repulsion" => route_repulsion,
             "puncture_clearance" => puncture_clearance,
             "puncture_repulsion" => puncture_repulsion,

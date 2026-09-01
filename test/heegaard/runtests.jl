@@ -274,6 +274,8 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
     @test metrics["shortcut_count"] > 0
     @test metrics["length_after_shortcut"] <= metrics["length_before_shortcut"]
     @test metrics["length_after_relaxation"] <= metrics["length_after_shortcut"] + 1e-10
+    @test metrics["minimum_flattened_separation"] >=
+          metrics["parameters"]["minimum_route_separation"]
     @test metrics["accepted_steps"] > 0
     @test metrics["final_energy"] < metrics["initial_energy"]
     @test metrics["simplified_points"] < metrics["dense_points"]
