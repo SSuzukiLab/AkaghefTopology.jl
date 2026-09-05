@@ -439,8 +439,7 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
     end
 
     name=basename(path); name=name[1:something(findlast('.',name),length(name)+1)-1]
-    gauss=join(("["*join(c,",")*"]" for c in v.gauss),", ")
-    desc="$(length(vertices)) real crossing(s), $(length(arcs)) arc(s). Gauss $gauss."
+    desc="$(length(vertices)) real crossing(s), $(length(arcs)) arc(s)."
     _write_link_svg(path,join(body,"\n"),(xmin,xmax,ymin,ymax);
                     title=name,desc=desc,
                     meta="crossings=$(length(vertices)); arcs=$(length(arcs)); weighted=$(v.is_weighted)")

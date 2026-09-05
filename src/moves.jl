@@ -236,7 +236,11 @@ function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
             end
         end
     end
-    candidates
+    # For PS, local template matching is only a candidate generator.  The
+    # closed-normal contract makes the explicit validator the single filter;
+    # all other move families retain their historical behavior unchanged.
+    move_type=="PS" ? [candidate for candidate in candidates
+                        if validate_ps_move(v,candidate).valid] : candidates
 end
 
 function movable(v::VirtualLink,type,arg::NamedTuple)
@@ -492,6 +496,83 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate)
     v
 end
 
+"""Validate one frozen PS witness in the closed-normal Julia subcategory.
+
+Callers must use `Topology.validate_ps_move` explicitly; `movable` remains the
+public applicability gate.  This validator checks that the frozen candidate is
+an authentic current-source PS-R witness before applying it, then requires the
+source and tentative target to be closed.  It never calls `movable`, and never
+mutates the source.  Its closed-normal criterion is intentionally not a
+boundary or weighted-PS criterion: those cases retain explicit rejection.
+
+The returned named tuple is deliberately inspectable.  `source_conditions` and
+`target_conditions` are `(C1,C2,C3)`, `target` is an independently constructed
+ tentative link when application reaches that stage, and `error` is `nothing`
+except for an expected tentative-application input failure.
+"""
+function _same_move_pattern(left::MovePattern,right::MovePattern)
+    left.parameter==right.parameter && left.gauss==right.gauss &&
+    left.orientation==right.orientation && left.capacity==right.capacity &&
+    left.gauss_first==right.gauss_first && left.gauss_last==right.gauss_last &&
+    left.vertex_count==right.vertex_count && left.weights==right.weights
+end
+
+function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
+    source_closed,source_conditions=is_closed(v)
+    invalid(reason,target=nothing,target_closed=false,
+            target_conditions=(false,false,false);error=nothing)=
+        (valid=false,reason=reason,source_closed=source_closed,
+         source_conditions=source_conditions,target_closed=target_closed,
+         target_conditions=target_conditions,target=target,error=error)
+    _normalize_move_type(candidate.type)=="PS" || return invalid(:not_ps)
+    v.is_weighted && return invalid(:weighted_unsupported)
+    isempty(candidate.edges) || return invalid(:edge_selected_unsupported)
+    (candidate.before===nothing || candidate.after===nothing) &&
+        return invalid(:malformed_candidate)
+    candidate.direction===:inverse || return invalid(:source_mismatch)
+    parameter=try parse(Int,candidate.parameter) catch; return invalid(:source_mismatch) end
+    1<=parameter<=4 || return invalid(:source_mismatch)
+    data=make_move_data()
+    canonical_before=data["PS-R"][parameter]
+    canonical_after=only(data["PS-L"])
+    _same_move_pattern(candidate.before,canonical_before) &&
+        _same_move_pattern(candidate.after,canonical_after) ||
+        return invalid(:source_mismatch)
+    source_closed || return invalid(:source_not_closed)
+    code,orientation=real_gauss_code(v)
+    code=[_clean_component(component) for component in code]
+    length(candidate.vertices)==2 || return invalid(:source_mismatch)
+    vertices=candidate.vertices
+    all(vertex -> vertex>0 && vertex<=length(orientation),vertices) ||
+        return invalid(:source_mismatch)
+    vertices[1]!=vertices[2] || return invalid(:source_mismatch)
+    candidate.before.orientation==orientation[vertices] || return invalid(:source_mismatch)
+    length(candidate.locations)==length(candidate.before.gauss) ||
+        return invalid(:source_mismatch)
+    mapped_before=[_map_fragment(fragment,vertices) for fragment in candidate.before.gauss]
+    for (fragment,(component,start)) in zip(mapped_before,candidate.locations)
+        1<=component<=length(code) || return invalid(:source_mismatch)
+        n=length(code[component]); 1<=start<=n || return invalid(:source_mismatch)
+        start in _cyclic_occurrences(code[component],fragment) ||
+            return invalid(:source_mismatch)
+    end
+    _locations_compatible(candidate.locations,mapped_before,code) ||
+        return invalid(:source_mismatch)
+    target=deepcopy(v)
+    try
+        _apply_pattern_move!(target,candidate)
+    catch err
+        err isa InterruptException && rethrow()
+        err isa Union{ArgumentError,BoundsError,DimensionMismatch} || rethrow()
+        return invalid(:tentative_application_failed,error=err)
+    end
+    target_closed,target_conditions=is_closed(target)
+    target_closed || return invalid(:target_not_closed,target,target_closed,target_conditions)
+    (valid=true,reason=:closed_local_ps,source_closed=source_closed,
+     source_conditions=source_conditions,target_closed=target_closed,
+     target_conditions=target_conditions,target=target,error=nothing)
+end
+
 function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
     code,orientation=real_gauss_code(v)
     v.is_weighted && throw(ArgumentError("weighted direct 0-2 transport follows MATLAB's unfinished ad-hoc branch"))
@@ -593,7 +674,10 @@ function _apply_hmove!(v::VirtualLink,vertex::Int,amount)
         push!(pairs,(word[mod1(position-1,length(word))],signed_vertex))
         push!(pairs,(signed_vertex,word[mod1(position+1,length(word))]))
     end
-    adjustments=Dict(pair=>delta*Float64(amount) for (pair,delta) in zip(pairs,(-1,1,-1,1)))
+    adjustments=Dict{NTuple{2,Int},Float64}()
+    for (pair,delta) in zip(pairs,(-1,1,-1,1))
+        adjustments[pair]=get(adjustments,pair,0.0)+delta*Float64(amount)
+    end
     table=real_edge_table(v)
     by_strand=[Float64[] for _ in code]
     for edge in table

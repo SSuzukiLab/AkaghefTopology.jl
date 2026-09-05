@@ -108,10 +108,13 @@ function set_data!(v::VirtualLink; gauss=nothing, rgauss=nothing, orientation=no
     end
     v.strand_types = strand_types === nothing ? fill('o', length(v.gauss)) : collect(strand_types)
     if supplied_weights
-        v.is_weighted = true
+        v.is_weighted = false
+        set_weight!(v,odata[3])
     else
         v.is_weighted = false
-        v.weights = [zeros(Float64, length(filter(!=(0), g))) for g in v.gauss]
+        v.weights = [zeros(Float64,
+                           count(entry -> entry != 0 && v.orientation[abs(entry)] != 0,g))
+                     for g in v.gauss]
     end
     v
 end
@@ -357,10 +360,64 @@ function hmove_matrix(v::VirtualLink)
     matrix
 end
 
+function _disk_component_path(nodes::Vector{Int},
+                              edges::Vector{Tuple{Int,Int,Int}},
+                              is_cycle::Bool)
+    isempty(nodes) && return (Int[],Int[])
+    outgoing=Dict{Int,Vector{Tuple{Int,Int}}}()
+    incoming=Dict(node=>0 for node in nodes)
+    for (source,target,coefficient) in edges
+        push!(get!(outgoing,source,Tuple{Int,Int}[]),(target,coefficient))
+        incoming[target]=get(incoming,target,0)+1
+    end
+    all(length(get(outgoing,node,Tuple{Int,Int}[])) <= 1 for node in nodes) ||
+        throw(ArgumentError("disk component has branching outgoing edges"))
+    all(get(incoming,node,0) <= 1 for node in nodes) ||
+        throw(ArgumentError("disk component has branching incoming edges"))
+
+    if is_cycle
+        all(length(get(outgoing,node,Tuple{Int,Int}[])) == 1 for node in nodes) ||
+            throw(ArgumentError("disk cycle has a missing outgoing edge"))
+        all(get(incoming,node,0) == 1 for node in nodes) ||
+            throw(ArgumentError("disk cycle has a missing incoming edge"))
+        start=minimum(nodes)
+    else
+        starts=sort([node for node in nodes if get(incoming,node,0) == 0])
+        length(starts) == 1 ||
+            throw(ArgumentError("open disk component must have one initial node"))
+        start=only(starts)
+    end
+
+    path=Int[]; edge_signs=Int[]; current=start
+    while true
+        push!(path,current)
+        next_edges=get(outgoing,current,Tuple{Int,Int}[])
+        isempty(next_edges) && break
+        target,coefficient=only(next_edges)
+        push!(edge_signs,coefficient)
+        current=target
+        is_cycle && current == start && break
+        current in path && throw(ArgumentError("disk component repeats before closing"))
+    end
+    length(path) == length(nodes) && length(edge_signs) == length(edges) ||
+        throw(ArgumentError("disk component path does not cover its graph"))
+    path,edge_signs
+end
+
+"""Return the MATLAB `getDiskTable` data for a virtual link.
+
+The MATLAB columns `ID`, `paths`, `edges_s`, `Ndots`, `isCycle`, `delta`, and
+`cp` are retained verbatim as NamedTuple fields.  `cp2 == 2cp` is the exact
+integer-scaled form used by Julia's weight solver, and `path_lengths` is kept
+for compatibility with the original Julia port.
+"""
 function disk_table(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
-    vertex_count == 0 && return (delta=zeros(Int,0,0),cp2=Int[],path_lengths=Int[])
+    vertex_count == 0 && return (
+        ID=Int[],paths=Vector{Vector{Int}}(),edges_s=Vector{Vector{Int}}(),
+        Ndots=Int[],isCycle=Bool[],delta=zeros(Int,0,0),
+        cp=Rational{Int}[],cp2=Int[],path_lengths=Int[])
     edges=real_edge_table(v)
     edge_count=length(edges)
     dp=zeros(Int,12); dm=zeros(Int,12)
@@ -390,7 +447,9 @@ function disk_table(v::VirtualLink)
         target_nodes=6*(abs(target)-1) .+ dictionary[orientation[abs(target)]][target_slots]
         for index in 1:3
             coefficient=index == 3 ? -edge.id : edge.id
-            a,b=source_nodes[index],target_nodes[index]
+            a,b=index == 3 ?
+                (target_nodes[index],source_nodes[index]) :
+                (source_nodes[index],target_nodes[index])
             push!(graph_edges,(a,b,coefficient)); unite(a,b)
         end
     end
@@ -401,16 +460,33 @@ function disk_table(v::VirtualLink)
         row=root_index[find_root(a)]
         delta[row,abs(coefficient)] += sign(coefficient)
     end
+    component_nodes=[[node for node in 1:node_count if find_root(node) == root]
+                     for root in roots]
+    component_edges=[[(a,b,coefficient) for (a,b,coefficient) in graph_edges
+                      if find_root(a) == root] for root in roots]
+    is_cycle=[length(edges_) == length(nodes_)
+              for (nodes_,edges_) in zip(component_nodes,component_edges)]
+    paths=Vector{Vector{Int}}(undef,length(roots))
+    edge_signs=Vector{Vector{Int}}(undef,length(roots))
+    for row in eachindex(roots)
+        paths[row],edge_signs[row]=_disk_component_path(
+            component_nodes[row],component_edges[row],is_cycle[row])
+    end
+
     positive_dots=[0,1,0,0,1,0]
     negative_dots=[0,0,1,0,0,1]
-    cp2=fill(2,length(roots))
+    node_dots=zeros(Int,node_count)
     for vertex in 1:vertex_count, local_node in 1:6
-        row=root_index[find_root(6*(vertex-1)+local_node)]
         dots=orientation[vertex] > 0 ? positive_dots : negative_dots
-        cp2[row] -= dots[local_node]
+        node_dots[6*(vertex-1)+local_node]=dots[local_node]
     end
-    path_lengths=[count(==(root),find_root.(1:node_count)) for root in roots]
-    (delta=delta,cp2=cp2,path_lengths=path_lengths)
+    ndots=[sum(node_dots[nodes_]) for nodes_ in component_nodes]
+    cp2=2 .- ndots
+    cp=cp2 .// 2
+    path_lengths=length.(paths)
+    (ID=collect(eachindex(roots)),paths=paths,edges_s=edge_signs,
+     Ndots=ndots,isCycle=is_cycle,delta=delta,cp=cp,cp2=cp2,
+     path_lengths=path_lengths)
 end
 
 function _nullspace_integer(A::Matrix{Int})
@@ -472,11 +548,36 @@ function _rational_particular(A::Matrix{Int},b::Vector{Int})
     for (row,pivot) in enumerate(pivots)
         result[pivot]=augmented[row,end]
     end
-    all(value -> value.den == 1,result) ? Int[value.num for value in result] : nothing
+    result
 end
 
-"""MATLAB `minimizeWeightSolution`: nearest lattice representative in a kernel coset."""
-function _minimize_weight_solution(weight::Vector{Int},kernel::Matrix{Int})
+function _integer_particular(A::Matrix{Int},b::Vector{Int})
+    rows,columns=size(A)
+    model=Model(GLPK.Optimizer); set_silent(model)
+    @variable(model,weight[1:columns],Int)
+    for row in 1:rows
+        @constraint(model,sum(A[row,column]*weight[column] for column in 1:columns)==b[row])
+    end
+    @objective(model,Min,0)
+    optimize!(model)
+    status=termination_status(model)
+    status == MOI.INFEASIBLE && return nothing
+    status == MOI.OPTIMAL ||
+        throw(ArgumentError("integer weight feasibility did not terminate: $status"))
+    candidate=round.(Int,value.(weight))
+    all(A*candidate .== b) ||
+        throw(ArgumentError("integer weight solver returned a non-solution"))
+    candidate
+end
+
+"""MATLAB `minimizeWeightSolution`: nearest lattice representative in a kernel coset.
+
+The particular solution may be rational.  MATLAB's `Matrix(ZZ).solve_right`
+returns that rational solution when the Euler cochain is not in the integral
+image; only the homogeneous kernel and its H-move quotient are integral.
+"""
+function _minimize_weight_solution(weight::AbstractVector{<:Number},kernel::Matrix{Int})
+    weight=collect(weight)
     size(kernel,1)==0 && return weight
     # MATLAB's `-W / H`: minimize ||xH+W|| over real row vectors x.
     coefficients=vec(round.(Int,(-permutedims(Float64.(weight))) / Float64.(kernel)))
@@ -505,27 +606,12 @@ end
 function calculate_weight(v::VirtualLink; assign=false)
     disks=disk_table(v)
     edge_count=size(disks.delta,2)
-    # All audited Live-Script cases have an integral exact particular solution.
-    # Obtain it before constructing an integer-programming model: GLPK's model
-    # compilation dominates this small problem and made the full regression
-    # suite allocate gigabytes per repeated calculation.  The lattice
-    # minimizer below is unchanged, so this preserves the selected coset
-    # representative.  Keep the solver only for genuinely non-integral cases.
     base=_rational_particular(2disks.delta,-disks.cp2)
-    if base === nothing
-        model=Model(GLPK.Optimizer); set_silent(model)
-        @variable(model,weight[1:edge_count],Int)
-        @variable(model,magnitude[1:edge_count] >= 0)
-        @constraint(model,magnitude .>= weight)
-        @constraint(model,magnitude .>= -weight)
-        for row in axes(disks.delta,1)
-            @constraint(model,2sum(disks.delta[row,column]*weight[column] for column in 1:edge_count) == -disks.cp2[row])
-        end
-        @objective(model,Min,sum(magnitude))
-        optimize!(model)
-        termination_status(model) == MOI.OPTIMAL ||
-            throw(ArgumentError("no integral o-graph weight exists"))
-        base=round.(Int,value.(weight))
+    if any(value -> value.den != 1,base)
+        integer_base=_integer_particular(2disks.delta,-disks.cp2)
+        integer_base !== nothing && (base=integer_base)
+    else
+        base=Int[value.num for value in base]
     end
     kernel=_nullspace_integer(disks.delta)
     base=_minimize_weight_solution(base,kernel)
@@ -569,16 +655,26 @@ function calculate_weight(v::VirtualLink; assign=false)
 end
 
 function set_weight!(v::VirtualLink, weight)
+    real_counts=[count(entry -> entry != 0 && v.orientation[abs(entry)] != 0,g)
+                 for g in v.gauss]
     if weight isa AbstractMatrix
-        flat = vec(weight); idx = 1; weights = Vector{Vector{Float64}}()
-        for g in v.gauss
-            n = length(filter(!=(0),g)); push!(weights, Float64.(flat[idx:min(idx+n-1,end)])); idx += n
+        flat=vec(weight)
+        length(flat)==sum(real_counts) ||
+            throw(DimensionMismatch("one weight per real arc is required"))
+        idx=1; weights=Vector{Vector{Float64}}()
+        for n in real_counts
+            push!(weights,Float64.(flat[idx:idx+n-1])); idx += n
         end
         v.weights = weights
     elseif weight isa AbstractVector{<:Number}
         set_weight!(v, reshape(weight,1,:))
     else
-        v.weights = [Float64.(w) for w in weight]
+        weights=[Float64.(w) for w in weight]
+        length(weights)==length(real_counts) ||
+            throw(DimensionMismatch("one weight vector per Gauss component is required"))
+        all(length(values)==count_ for (values,count_) in zip(weights,real_counts)) ||
+            throw(DimensionMismatch("one weight per real arc is required"))
+        v.weights=weights
     end
     v.is_weighted = true; v
 end
@@ -654,14 +750,59 @@ function disjoint_sum!(a::VirtualLink, b::VirtualLink)
     a.weights = [zeros(Float64,length(g)) for g in a.gauss]
     a
 end
-function connected_sum!(v::VirtualLink, strands=(1,2))
+
+function _connected_sum_selection(selection)
+    if selection isa AbstractMatrix
+        size(selection,2) == 2 && size(selection,1) in (1,2) ||
+            throw(ArgumentError("connected-sum selection must have shape 1×2 or 2×2"))
+        all(value -> value isa Integer,selection) ||
+            throw(ArgumentError("connected-sum selection entries must be integers"))
+        strands=(Int(selection[1,1]),Int(selection[1,2]))
+        anchors=size(selection,1) == 2 ?
+            (Int(selection[2,1]),Int(selection[2,2])) : nothing
+        return strands,anchors
+    end
+
+    applicable(iterate,selection) ||
+        throw(ArgumentError("connected-sum selection must contain two strand indices"))
+    values=collect(selection)
+    length(values) == 2 ||
+        throw(ArgumentError("connected-sum selection must contain two strand indices"))
+    all(value -> value isa Integer,values) ||
+        throw(ArgumentError("connected-sum strand indices must be integers"))
+    (Int(values[1]),Int(values[2])),nothing
+end
+
+function _rotate_connected_sum_component(component::Vector{Int},anchor::Int,strand::Int)
+    positions=findall(==(anchor),component)
+    length(positions) == 1 ||
+        throw(ArgumentError("connected-sum anchor $anchor must occur exactly once on strand $strand"))
+    index=only(positions)
+    vcat(component[index:end],component[begin:index-1])
+end
+
+"""Join two real-Gauss components using MATLAB `convert("connectedSum", arg)`.
+
+`selection` may be a two-element strand-index iterable, a `1×2` matrix of
+strand indices, or a `2×2` matrix whose second row gives the signed crossing
+at which each component traversal starts.  Anchor selection is performed on the
+real-Gauss code, matching MATLAB `getRGaussCode()`.
+"""
+function connected_sum!(v::VirtualLink, selection=(1,2))
     code,orientation=real_gauss_code(v)
-    i,j=strands; i==j && throw(ArgumentError("distinct strands required"))
+    (i,j),anchors=_connected_sum_selection(selection)
+    i==j && throw(ArgumentError("distinct strands required"))
     1 <= i <= length(code) && 1 <= j <= length(code) || throw(BoundsError(code,(i,j)))
+    first_component=code[i]
+    second_component=code[j]
+    if anchors !== nothing
+        first_component=_rotate_connected_sum_component(first_component,anchors[1],i)
+        second_component=_rotate_connected_sum_component(second_component,anchors[2],j)
+    end
     vertex_count=length(orientation)
     bridge1=[vertex_count+2,vertex_count+1,-vertex_count-1,-vertex_count-4]
     bridge2=[vertex_count+4,vertex_count+3,-vertex_count-3,-vertex_count-2]
-    code[i]=vcat(code[i],bridge1,code[j],bridge2)
+    code[i]=vcat(first_component,bridge1,second_component,bridge2)
     deleteat!(code,j)
     v.gauss=code
     v.orientation=vcat(orientation,[-1,1,-1,1])

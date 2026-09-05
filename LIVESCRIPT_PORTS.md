@@ -19,6 +19,26 @@ Current evidence:
 - 37 figures embedded in the source Live Scripts were extracted as MATLAB
   reference images under `artifacts/matlab_outputs/`.
 
+## Additive-incidence porting rule, 2026-09-05
+
+MATLAB loops that update every local incidence must remain incidence-wise in a
+port.  Do not first construct `Dict(edge => delta)` (or any unique-key map): a
+self-adjacent vertex can expose the same real edge more than once, and its
+signed contributions must be added, including cancellation to zero.
+
+For every such move, acceptance requires all of the following:
+
+1. compare the actual before/after weight difference with the independently
+   constructed linear move column;
+2. include a repeated-edge/self-incidence fixture;
+3. check the defining constraint before and after (for H moves,
+   `delta * shift == 0` and the framing residual is unchanged); and
+4. source expected values from MATLAB or another independent oracle, not from
+   the Julia port being tested.
+
+This rule was added after `_apply_hmove!` silently overwrote duplicate edge
+keys.  Existing port-derived expectations had then fossilized the same error.
+
 The five legacy SVG files under `artifacts/plots/` are retained only as rejected
 output; they are not fidelity evidence and must not be used for acceptance.
 

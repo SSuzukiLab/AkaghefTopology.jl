@@ -300,6 +300,14 @@ or the router produces a genuinely non-planar embedding. Every affected instance
 has `real_only=true`, so each one passes through the never-compared planariser
 (§8).
 
+**Owner decision — self-loop P6 handling is deferred.** Sage's self-loop drawing
+uses a radius smaller than one lattice unit; when that representation is read as
+an orthogonal polyline, adjacent loop pieces can share a geometric point that
+`check_layout` reports as P6. Until the Sage curve/orthogonal representation is
+modelled explicitly, this is treated as a possible checker over-detection rather
+than an urgent production failure. Keep the conservative P6 diagnostic for now;
+do not add a self-loop exemption or change the acceptance rule in this scope.
+
 ---
 
 ## 6. Corpus status

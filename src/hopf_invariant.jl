@@ -291,13 +291,14 @@ end
 
 function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra)
     edges=real_edge_table(v)
+    integer_weights=v.is_weighted ? _integer_edge_weights(v) : Int[]
     orientation=last(real_gauss_code(v))
     factors=SparseFactor[]
     zero_map=Dict{Int,Int}()
-    for edge in edges
+    for (edge_index,edge) in enumerate(edges)
         labels=4 .* abs.([edge.crossing[1],edge.crossing[2]]) .+
                ([edge.crossing[1] > 0,edge.crossing[2] > 0]) .- [1,3]
-        exponent=v.is_weighted ? round(Int,2edge.weight) : 0
+        exponent=v.is_weighted ? 2integer_weights[edge_index] : 0
         if exponent == 0
             zero_map[labels[1]]=labels[2]
         else

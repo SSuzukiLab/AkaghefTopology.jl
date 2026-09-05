@@ -1,33 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
-<rect width="100%" height="100%" fill="#faf9f7"/>
-<path d="M 146.8 348.0 L 98.8 348.0 Q 70.0 348.0 70.0 319.2 L 70.0 280.8 Q 70.0 252.0 98.8 252.0 L 137.2 252.0 Q 166.0 252.0 194.8 252.0 L 262.0 252.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 61.35999999999999 315.36 L 70.0 300.0 L 78.64 315.36" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 262.0 252.0 L 329.2 252.0 Q 358.0 252.0 386.8 252.0 L 425.2 252.0 Q 454.0 252.0 454.0 280.8 L 454.0 328.79999999999995" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 390.64 243.35999999999999 L 406.0 252.0 L 390.64 260.64" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 454.0 367.20000000000005 L 454.0 415.2 Q 454.0 444.0 425.2 444.0 L 358.0 444.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 462.64 390.24 L 454.0 405.6 L 445.36 390.24" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 166.0 444.0 L 233.2 444.0 Q 262.0 444.0 262.0 415.2 L 262.0 376.8 Q 262.0 348.0 262.0 319.2 L 262.0 271.20000000000005" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 253.36 411.36 L 262.0 396.0 L 270.64 411.36" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 262.0 232.8 L 262.0 184.8 Q 262.0 156.0 262.0 127.2 L 262.0 88.8 Q 262.0 60.0 290.8 60.0 L 329.2 60.0 Q 358.0 60.0 358.0 88.8 L 358.0 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 253.36 123.36000000000001 L 262.0 108.0 L 270.64 123.36000000000001" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 358.0 156.0 L 358.0 223.2 Q 358.0 252.0 358.0 280.8 L 358.0 319.2 Q 358.0 348.0 358.0 376.8 L 358.0 424.79999999999995" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 366.64 284.64 L 358.0 300.0 L 349.36 284.64" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 358.0 463.20000000000005 L 358.0 511.2 Q 358.0 540.0 329.2 540.0 L 194.8 540.0 Q 166.0 540.0 166.0 511.2 L 166.0 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 277.36 548.64 L 262.0 540.0 L 277.36 531.36" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 166.0 348.0 L 166.0 280.8 Q 166.0 252.0 166.0 223.2 L 166.0 184.8 Q 166.0 156.0 194.8 156.0 L 233.2 156.0 Q 262.0 156.0 290.8 156.0 L 338.79999999999995 156.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 157.36 219.35999999999999 L 166.0 204.0 L 174.64000000000001 219.35999999999999" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 377.20000000000005 156.0 L 521.2 156.0 Q 550.0 156.0 550.0 184.8 L 550.0 319.2 Q 550.0 348.0 521.2 348.0 L 454.0 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 558.64 236.64000000000001 L 550.0 252.0 L 541.36 236.64000000000001" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 454.0 348.0 L 386.8 348.0 Q 358.0 348.0 329.2 348.0 L 290.8 348.0 Q 262.0 348.0 233.2 348.0 L 185.2 348.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 325.36 356.64 L 310.0 348.0 L 325.36 339.36" fill="none" stroke="#0000ff" stroke-width="3"/>
-<circle cx="166.0" cy="348.0" r="5" fill="#0000ff"/>
-<text x="174.0" y="340.0" font-family="sans-serif" font-size="17">V1</text>
-<circle cx="358.0" cy="156.0" r="5" fill="#0000ff"/>
-<text x="366.0" y="148.0" font-family="sans-serif" font-size="17">V2</text>
-<circle cx="358.0" cy="444.0" r="5" fill="#0000ff"/>
-<text x="366.0" y="436.0" font-family="sans-serif" font-size="17">V3</text>
-<circle cx="262.0" cy="252.0" r="5" fill="#0000ff"/>
-<text x="270.0" y="244.0" font-family="sans-serif" font-size="17">V4</text>
-<circle cx="454.0" cy="348.0" r="5" fill="#0000ff"/>
-<text x="462.0" y="340.0" font-family="sans-serif" font-size="17">V5</text>
+<svg xmlns="http://www.w3.org/2000/svg" class="ograph" width="460.8" height="460.8" viewBox="-1.7 -4.7 6.4 6.4" role="img" aria-label="figure_002_poincare">
+<title>figure_002_poincare</title>
+<desc>5 real crossing(s), 10 arc(s).</desc>
+<metadata><ograph>crossings=5; arcs=10; weighted=false</ograph></metadata>
+<style>
+.ograph{--ground:#faf9f7;--strand:#1b3bd0;--ink:#12161d}
+@media (prefers-color-scheme:dark){.ograph{--ground:#0e1116;--strand:#7d97ff;--ink:#e6e9ef}}
+.ograph .bg{fill:var(--ground)}
+.ograph .arc,.ograph .arrow{stroke:var(--strand);fill:none}
+.ograph .vertex{fill:var(--strand)}
+.ograph .label{fill:var(--ink);stroke:var(--ground)}
+</style>
+<rect class="bg" x="-1.7" y="-4.7" width="6.4" height="6.4" fill="#faf9f7"/>
+<path class="arc" data-arc="1" d="M -0.18 -0.0 L -0.72 -0.0 Q -1.0 -0.0 -1.0 -0.28 L -1.0 -1.72 Q -1.0 -2.0 -0.72 -2.0 L -0.28 -2.0 Q 0.0 -2.0 0.28 -2.0 L 1.0 -2.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="1" d="M -1.11 -0.8 L -1.0 -1.0 L -0.89 -0.8" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="2" d="M 1.0 -2.0 L 1.72 -2.0 Q 2.0 -2.0 2.2800000000000002 -2.0 L 2.82 -2.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="2" d="M 1.3 -2.11 L 1.5 -2.0 L 1.3 -1.89" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="3" d="M 3.18 -2.0 L 3.7199999999999998 -2.0 Q 4.0 -2.0 4.0 -1.72 L 4.0 -1.28 Q 4.0 -1.0 3.7199999999999998 -1.0 L 3.2800000000000002 -1.0 Q 3.0 -1.0 2.7199999999999998 -1.0 L 2.0 -1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="3" d="M 4.11 -1.7 L 4.0 -1.5 L 3.89 -1.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="4" d="M 2.0 -1.0 L 1.28 -1.0 Q 1.0 -1.0 1.0 -1.28 L 1.0 -1.82" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="4" d="M 1.7 -0.89 L 1.5 -1.0 L 1.7 -1.11" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="5" d="M 1.0 -2.18 L 1.0 -2.7199999999999998 Q 1.0 -3.0 1.0 -3.2800000000000002 L 1.0 -3.7199999999999998 Q 1.0 -4.0 1.28 -4.0 L 1.72 -4.0 Q 2.0 -4.0 2.0 -3.7199999999999998 L 2.0 -3.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="5" d="M 0.89 -3.3 L 1.0 -3.5 L 1.11 -3.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="6" d="M 2.0 -3.0 L 2.0 -2.2800000000000002 Q 2.0 -2.0 2.0 -1.72 L 2.0 -1.18" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="6" d="M 2.11 -2.7 L 2.0 -2.5 L 1.89 -2.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="7" d="M 2.0 -0.8200000000000001 L 2.0 -0.28 Q 2.0 -0.0 2.0 0.28 L 2.0 0.72 Q 2.0 1.0 1.72 1.0 L 0.28 1.0 Q 0.0 1.0 0.0 0.72 L 0.0 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="7" d="M 2.11 0.3 L 2.0 0.5 L 1.89 0.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="8" d="M 0.0 -0.0 L 0.0 -1.72 Q 0.0 -2.0 0.0 -2.2800000000000002 L 0.0 -2.7199999999999998 Q 0.0 -3.0 0.28 -3.0 L 0.72 -3.0 Q 1.0 -3.0 1.28 -3.0 L 1.82 -3.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="8" d="M -0.11 -2.3 L 0.0 -2.5 L 0.11 -2.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="9" d="M 2.18 -3.0 L 2.7199999999999998 -3.0 Q 3.0 -3.0 3.0 -2.7199999999999998 L 3.0 -2.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="9" d="M 2.39 -3.11 L 2.59 -3.0 L 2.39 -2.89" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="10" d="M 3.0 -2.0 L 3.0 -1.28 Q 3.0 -1.0 3.0 -0.72 L 3.0 -0.28 Q 3.0 -0.0 2.7199999999999998 0.0 L 2.2800000000000002 -0.0 Q 2.0 -0.0 1.72 0.0 L 0.18 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="10" d="M 3.11 -0.7 L 3.0 -0.5 L 2.89 -0.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="vertex" cx="0.0" cy="-0.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="2.0" cy="-3.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="2.0" cy="-1.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="1.0" cy="-2.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="3.0" cy="-2.0"
+r="0.115" fill="#1b3bd0"/>
+<text class="label" x="-0.2121" y="0.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V1</text>
+<text class="label" x="2.0824" y="-3.2885" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V2</text>
+<text class="label" x="2.1664" y="-0.7504" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V3</text>
+<text class="label" x="0.7504" y="-2.1664" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V4</text>
+<text class="label" x="3.2885" y="-2.0824" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V5</text>
 </svg>

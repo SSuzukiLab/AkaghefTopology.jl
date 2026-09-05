@@ -343,6 +343,35 @@ function planarize_virtual_gauss(real_gauss,real_orientation;
                         edge_count+=1
                         new_face=length(region_vertices)+1
                         # Pattern 4: cut through edges and add a virtual crossing.
+                        if face1==face2
+                            # Both occurrences lie on one face. Split that face
+                            # according to the cyclic boundary order, as in
+                            # patterns 2/3. Do not run the different-face writes:
+                            # they would update the same face twice and discard
+                            # one boundary arc.
+                            old_vertices=copy(region_vertices[face1])
+                            old_edges=copy(region_edges[face1])
+                            push!(region_vertices,Int[])
+                            push!(region_edges,Int[])
+                            new_face=length(region_vertices)
+                            if vertex_index2<vertex_index
+                                region_vertices[new_face]=old_vertices[vcat(vertex_index2,vertex_index+1:length(old_vertices))]
+                                region_vertices[face1]=old_vertices[vcat(1,vertex_index2:vertex_index-1,vertex_index2,2:vertex_index2)]
+                                region_edges[new_face]=old_edges[vertex_index:end]
+                                region_edges[face1]=vcat(-edge_count,old_edges[vcat(vertex_index2:vertex_index-1,1:vertex_index2-1)],edge_count)
+                            elseif vertex_index<vertex_index2
+                                region_vertices[new_face]=old_vertices[vcat(vertex_index2,2:vertex_index-1)]
+                                region_vertices[face1]=old_vertices[vcat(1,vertex_index2:length(old_vertices),vertex_index2,vertex_index+1:vertex_index2)]
+                                region_edges[new_face]=old_edges[1:vertex_index-1]
+                                region_edges[face1]=vcat(-edge_count,old_edges[vcat(vertex_index2:length(old_edges),vertex_index:vertex_index2-1)],edge_count)
+                            else
+                                throw(ArgumentError("vg2g same-face split has coincident boundary indices for vertex $vertex"))
+                            end
+                            _update_face!(face_graph,abs.(region_edges[new_face]),face1,face2,new_face,edge_count)
+                            push!(strand_edges[strand_index],edge_count)
+                            continue
+                        end
+                        # Different-face pattern 4 (original operation).
                         push!(region_vertices,vcat(-vertex,region_vertices[face1][vertex_index+1:end]))
                         # MATLAB source: `ここの2はなぜ？ 1にしたらどうなる？`
                         region_vertices[face1]=vcat(-vertex,region_vertices[face1][2:vertex_index-1])

@@ -23,6 +23,14 @@ include(joinpath(@__DIR__,"tensor_coefficients.jl"))
 include(joinpath(@__DIR__,"virtual_planarization.jl"))
 include(joinpath(@__DIR__,"arrow_placement.jl"))
 include(joinpath(@__DIR__,"poincare_layout.jl"))
+include(joinpath(@__DIR__,"lens_space_vg2g.jl"))
+include(joinpath(@__DIR__,"weight_moves.jl"))
+include(joinpath(@__DIR__,"ograph_state.jl"))
+include(joinpath(@__DIR__,"ograph_move_db.jl"))
+include(joinpath(@__DIR__,"ograph_invariants.jl"))
+include(joinpath(@__DIR__,"knot_move_db_integration.jl"))
+include(joinpath(@__DIR__,"knot_n5_classification_db.jl"))
+include(joinpath(@__DIR__,"knot_n6_package_integration.jl"))
 
 @testset "URDiagram core and Live Scripts" begin
     d=URDiagram(); set_data_cvw!(d,1,[1,-2,-3,3,-1,2],[sym(:x),sym(:y),sym(:z)])
@@ -84,6 +92,33 @@ end
     disjoint_sum!(summand,deepcopy(summand)); connected_sum!(summand)
     @test summand.gauss==[[1,-1,4,3,-3,-6,2,-2,6,5,-5,-4]]
     @test summand.orientation==[1,1,-1,1,-1,1]
+    row_selected=VirtualLink(); set_data!(row_selected;rgauss=[[1,-1]],orientation=[1])
+    disjoint_sum!(row_selected,deepcopy(row_selected)); connected_sum!(row_selected,[1 2])
+    @test row_selected.gauss==summand.gauss
+    @test row_selected.orientation==summand.orientation
+    anchored=VirtualLink()
+    set_data!(anchored;rgauss=[[1,-2,-1,2],[3,-4,-3,4]],orientation=ones(Int,4))
+    connected_sum!(anchored,[1 2; -1 4])
+    @test anchored.gauss==[[-1,2,1,-2,6,5,-5,-8,4,3,-4,-3,8,7,-7,-6]]
+    @test anchored.orientation==[1,1,1,1,-1,1,-1,1]
+    reversed=VirtualLink()
+    set_data!(reversed;rgauss=[[1,-1],[2,-2],[3,-3]],orientation=ones(Int,3))
+    connected_sum!(reversed,[3 1; -3 1])
+    @test reversed.gauss==[[2,-2],[-3,3,5,4,-4,-7,1,-1,7,6,-6,-5]]
+    @test reversed.orientation==[1,1,1,-1,1,-1,1]
+    invalid_anchor=VirtualLink()
+    set_data!(invalid_anchor;rgauss=[[1,-1],[2,-2]],orientation=ones(Int,2))
+    original_code=gauss_code(invalid_anchor)
+    @test_throws ArgumentError connected_sum!(invalid_anchor,[1 2; 99 2])
+    @test gauss_code(invalid_anchor)==original_code
+    @test invalid_anchor.orientation==[1,1]
+    @test_throws ArgumentError connected_sum!(deepcopy(invalid_anchor),(1,1))
+    @test_throws ArgumentError connected_sum!(deepcopy(invalid_anchor),[1,2,3])
+    @test_throws ArgumentError connected_sum!(deepcopy(invalid_anchor),[1 2 3])
+    @test_throws ArgumentError connected_sum!(deepcopy(invalid_anchor),[1.0,2.0])
+    repeated_anchor=VirtualLink()
+    set_data!(repeated_anchor;rgauss=[[1,1],[2,2]],orientation=ones(Int,2))
+    @test_throws ArgumentError connected_sum!(repeated_anchor,[1 2; 1 2])
     complement=VirtualLink(); set_data!(complement;rgauss=[[1,-1]],orientation=[1])
     knot_complement!(complement)
     @test complement.gauss==[[1,2,-2,-3],[-4,-1,3,4]]
