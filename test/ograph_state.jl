@@ -1,5 +1,6 @@
 using Test
 using Topology
+using Graphs
 
 function _test_ograph_link(code, signs)
     link = VirtualLink()
@@ -46,6 +47,12 @@ end
 end
 
 @testset "closed normal o-graph certification" begin
+    graph_a = ograph_graph_a(_test_ograph_link([1, -1], [1]))
+    @test graph_a isa Graphs.SimpleGraph
+    @test nv(graph_a) == 4
+    @test ne(graph_a) == 4
+    @test length(connected_components(graph_a)) == 1
+
     s3 = certify_closed_ograph(_test_ograph_link([1, -1], [1]))
     @test s3.witness.criteria == (true, true, true)
     @test s3.witness.true_vertices == 1

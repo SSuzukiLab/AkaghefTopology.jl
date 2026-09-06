@@ -693,37 +693,9 @@ function set_weight_by_crossing!(v::VirtualLink,crossings,weights)
 end
 
 function _graph_a_connected(v::VirtualLink)
-    code,orientation=real_gauss_code(v)
-    vertex_count=length(orientation)
-    vertex_count == 0 && return length(code) <= 1
-    source=VirtualLink(); set_data!(source;rgauss=code,orientation=orientation)
-    pd=pd_code(source)
-    parent=collect(1:3vertex_count+1)
-    used=Set{Int}()
-    find_root(node)=begin
-        while parent[node] != node
-            parent[node]=parent[parent[node]]; node=parent[node]
-        end
-        node
-    end
-    unite(a,b)=begin
-        ra,rb=find_root(a),find_root(b); ra != rb && (parent[rb]=ra)
-    end
-    order=[4,1,2,3,4,1]
-    for edge in unique(vec(pd))
-        occurrences=findall(==(edge),pd)
-        length(occurrences) == 2 || throw(ArgumentError("PD edge $edge must occur twice"))
-        endpoints=Vector{Vector{Int}}()
-        for occurrence in occurrences
-            crossing=occurrence[1]; slot=occurrence[2]
-            push!(endpoints,3*(crossing-1) .+ order[slot:slot+2])
-            union!(used,last(endpoints))
-        end
-        for index in 1:3
-            unite(endpoints[1][index],endpoints[2][index])
-        end
-    end
-    length(unique(find_root.(collect(used)))) == 1
+    code, orientation = real_gauss_code(v)
+    isempty(orientation) && return length(code) <= 1
+    length(connected_components(ograph_graph_a(v))) == 1
 end
 
 function is_closed(v::VirtualLink)

@@ -132,40 +132,53 @@ struct ClosednessWitness
     method_circuit_lengths::Tuple{Vararg{Int}}
 end
 
-function _ograph_trivalent_component_count(link::VirtualLink)
+"""Construct the standard `Graphs.jl` object for BP Figure 1.2 (C2).
+
+The vertex set is the local trivalent-node set of the replacement graph.  Each
+PD edge occurs twice; the three local nodes at its two occurrences are joined
+in order.  The returned object is the semantic graph used for C2.  Conversion
+from the o-graph/PD representation is local glue; graph semantics are owned by
+`Graphs.jl`, not by a private graph implementation.
+"""
+function ograph_graph_a(link::VirtualLink)::SimpleGraph
     _, orientation = real_gauss_code(link)
     vertex_count = length(orientation)
-    vertex_count == 0 && return 1
+    vertex_count == 0 && return SimpleGraph(0)
+
     pd = pd_code(link)
-    parent = collect(1:3vertex_count + 1)
-    used = Set{Int}()
-    find_root(node) = begin
-        while parent[node] != node
-            parent[node] = parent[parent[node]]
-            node = parent[node]
-        end
-        node
-    end
-    unite(left, right) = begin
-        left_root, right_root = find_root(left), find_root(right)
-        left_root == right_root || (parent[right_root] = left_root)
-    end
     order = [4, 1, 2, 3, 4, 1]
+    graph_edges = Tuple{Int, Int}[]
+    used = Set{Int}()
+
     for edge in unique(vec(pd))
         occurrences = findall(==(edge), pd)
         length(occurrences) == 2 || throw(ArgumentError(
             "PD edge $edge must occur exactly twice"))
+
         endpoints = Vector{Vector{Int}}()
         for occurrence in occurrences
             crossing, slot = occurrence[1], occurrence[2]
-            push!(endpoints, 3 * (crossing - 1) .+ order[slot:slot + 2])
-            union!(used, last(endpoints))
+            local_nodes = 3 * (crossing - 1) .+ order[slot:slot + 2]
+            push!(endpoints, local_nodes)
+            union!(used, local_nodes)
         end
+
         for index in 1:3
-            unite(endpoints[1][index], endpoints[2][index])
+            push!(graph_edges, (endpoints[1][index], endpoints[2][index]))
         end
     end
-    length(unique(find_root.(collect(used))))
+
+    graph = SimpleGraph(maximum(used))
+    for (left, right) in graph_edges
+        add_edge!(graph, left, right)
+    end
+    graph
+end
+
+function _ograph_trivalent_component_count(link::VirtualLink)
+    _, orientation = real_gauss_code(link)
+    isempty(orientation) && return 1
+    length(connected_components(ograph_graph_a(link)))
 end
 
 function _ograph_virtual_link(state::OGraphState)

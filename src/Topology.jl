@@ -3,6 +3,7 @@ module Topology
 using LinearAlgebra
 using JuMP
 using GLPK
+using Graphs
 
 export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
        LaurentPolynomial, LaurentRational, laurent_variable, laurent_variables, evaluate, limit_zero,
@@ -30,7 +31,7 @@ export OGraphState, ClosednessWitness, ClosedNormalOGraph,
        OGRAPH_CLOSEDNESS_VERIFIER_VERSION, true_vertex_count,
        canonicalize_ograph, ograph_canonical_serialization,
        ograph_canonical_hash, ograph_state, closedness_witness,
-       certify_closed_ograph
+       certify_closed_ograph, ograph_graph_a
 export planarize_virtual_gauss_layer8
 export SparseFactor, FiniteHopfAlgebra, uqsl2_borel_small, sweedler_algebra,
        exterior_algebra, hopf_invariant, label_tensor, contract_network,
