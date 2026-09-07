@@ -13,6 +13,19 @@ struct MoveCandidate
     before::Union{Nothing,MovePattern}
     after::Union{Nothing,MovePattern}
     locations::Vector{Tuple{Int,Int}}
+    ps_split_k::Union{Nothing,BigInt}
+end
+
+# Preserve all existing geometric candidate callers and unweighted evidence.
+MoveCandidate(type,parameter,vertices,edges,direction,before,after,locations)=
+    MoveCandidate(type,parameter,vertices,edges,direction,before,after,locations,nothing)
+
+function _check_candidate_split(v::VirtualLink,candidate::MoveCandidate)
+    candidate.ps_split_k===nothing && return
+    v.is_weighted && candidate.type=="PS" && candidate.direction==:forward ||
+        throw(ArgumentError("a PS split parameter requires a weighted forward PS candidate"))
+    _move_integer(candidate.ps_split_k)
+    nothing
 end
 
 struct _MoveSegment
@@ -128,8 +141,8 @@ function _coerce_edges(edges)
     result
 end
 
-"""Return all data-table matches for a MATLAB-style VirtualLink move request."""
-function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
+"""Enumerate geometric data-table matches before integer transport checks."""
+function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
                  edge_occurrences=nothing,strict=false)
     move_type=_normalize_move_type(type)
     selected=Int.(collect(vertices))
@@ -276,6 +289,24 @@ function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
                         if validate_ps_move(v,candidate).valid] : candidates
 end
 
+"""Enumerate applicable moves; integer-weighted candidates also satisfy transport rules."""
+function movable(v::VirtualLink,type;kwargs...)
+    v.is_weighted || return _movable_geometry(v,type;kwargs...)
+    _check_move_weights(v)
+    move_type=_normalize_move_type(type)
+    move_type in ("MP","H","02","PS") || return MoveCandidate[]
+    candidates=_movable_geometry(move_type=="PS" ? _ps_unweighted(v) : v,move_type;kwargs...)
+    filter(candidates) do candidate
+        try
+            _apply_candidate!(deepcopy(v),candidate)
+            true
+        catch error
+            error isa Union{ArgumentError,DimensionMismatch,BoundsError} || rethrow()
+            false
+        end
+    end
+end
+
 function movable(v::VirtualLink,type,arg::NamedTuple)
     param=haskey(arg,:param) ? arg.param : haskey(arg,:p) ? arg.p : nothing
     vertices=haskey(arg,:vertices) ? arg.vertices : haskey(arg,:v) ? arg.v : Int[]
@@ -330,6 +361,14 @@ end
 
 function _simple_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
                                  old_to_new,after_orientation;weighted=false)
+    if weighted
+        reference=_simple_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
+                                           old_to_new,after_orientation;weighted=false)
+        reference===nothing && return nothing
+        transported,values,_=_weighted_pattern_rewrite(code,weights,candidate,mapped_before,
+            mapped_after,old_to_new,after_orientation)
+        return reference[1],_align_move_weights(reference[1],transported,values),after_orientation
+    end
     # Relabel retained source entries before inserting target fragments.  Target
     # fragments already use the post-move numbering and must not be mapped twice.
     result=[_relabel_word(component,old_to_new) for component in code]
@@ -386,6 +425,13 @@ end
 
 function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                             old_to_new,new_orientation;weighted=false)
+    if weighted
+        reference=_reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
+                                     old_to_new,new_orientation;weighted=false)
+        transported,values,_=_weighted_pattern_rewrite(code,weights,candidate,mapped_before,
+            mapped_after,old_to_new,new_orientation)
+        return reference[1],_align_move_weights(reference[1],transported,values),new_orientation
+    end
     before=candidate.before; after=candidate.after
     common=min(length(before.gauss),length(after.gauss))
     extra_before=collect(common+1:length(before.gauss))
@@ -504,13 +550,211 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
     result,result_weights,new_orientation
 end
 
-function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false)
+# Use exact accumulation even though the public storage is Float64.  Exclude
+# the first ambiguous integer boundary (2^53), not merely nonfinite values.
+const _MOVE_MAX_INTEGER=big(2)^53-1
+function _move_integer(value)
+    value isa Real && isfinite(value) && isinteger(value) ||
+        throw(ArgumentError("weighted moves require finite integer values"))
+    integer=BigInt(value)
+    abs(integer)<=_MOVE_MAX_INTEGER ||
+        throw(ArgumentError("weight exceeds the exact Float64 integer range"))
+    integer
+end
+
+function _check_move_weights(v::VirtualLink)
+    v.is_weighted || throw(ArgumentError("move requires assigned integer weights"))
+    any(component -> 0 in component,v.gauss) &&
+        throw(ArgumentError("weighted moves on cut components require boundary data"))
+    code,orientation=real_gauss_code(v)
+    all(sign -> sign in (-1,1),orientation) || throw(ArgumentError("invalid real crossing orientation"))
+    visits=reduce(vcat,code;init=Int[])
+    all(vertex -> count(==(vertex),visits)==1 && count(==(-vertex),visits)==1,
+        eachindex(orientation)) || throw(ArgumentError("one visit of each sign is required"))
+    length(v.weights)==length(code) &&
+        all(length(w)==length(c) for (w,c) in zip(v.weights,code)) ||
+        throw(DimensionMismatch("one weight per real edge occurrence is required"))
+    foreach(_move_integer,Iterators.flatten(v.weights))
+    nothing
+end
+
+function _commit_move!(v::VirtualLink,target::VirtualLink)
+    for field in fieldnames(VirtualLink)
+        setfield!(v,field,getfield(target,field))
+    end
+    v
+end
+
+function _normalized_02(candidate::MoveCandidate)
+    candidate.type=="02" || return candidate
+    empty=MovePattern("dir",[Int[]],Int[];weights=[[0]])
+    if candidate.direction==:forward
+        # The legacy public request selects two adjacent visits.  Both delimit
+        # ONE insertion edge, unlike the two distinct slots of a PS move.
+        MoveCandidate("02",candidate.parameter,Int[],candidate.edges,:forward,
+                      empty,candidate.after,[candidate.locations[2]])
+    else
+        MoveCandidate("02",candidate.parameter,candidate.vertices,candidate.edges,:inverse,
+                      candidate.before,empty,candidate.locations)
+    end
+end
+
+struct _WeightedMoveSegment
+    start_port::Int
+    end_port::Int
+    word::Vector{Int}
+    # n vertices have n+1 edge portions; concatenation adds the shared portions.
+    edges::Vector{BigInt}
+end
+
+function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
+                                   old_to_new,new_orientation;trace=nothing)
+    before=candidate.before; after=candidate.after
+    rules0=[[_move_integer(x) for x in w] for w in before.weights]
+    rules1=[[_move_integer(x) for x in w] for w in after.weights]
+    for (pattern,rules) in ((before,rules0),(after,rules1))
+        all(length(w)==length(g)+1 for (w,g) in zip(rules,pattern.gauss)) ||
+            throw(DimensionMismatch("weight rules require both boundary edge portions"))
+    end
+    common=min(length(before.gauss),length(after.gauss))
+    removed=Set{Int}()
+    for index in eachindex(mapped_before)
+        component,start=candidate.locations[index]
+        fragment=mapped_before[index]; n=length(code[component])
+        for offset in 1:length(fragment)-1
+            weights[component][mod1(start+offset,n)]==rules0[index][offset+1] ||
+                throw(ArgumentError("source internal weight mismatch at fragment $index, edge $(offset+1)"))
+        end
+        if index>common
+            length(fragment)==n || throw(ArgumentError("source-only fragment must occupy a whole component"))
+            weights[component][start]==first(rules0[index])+last(rules0[index]) ||
+                throw(ArgumentError("source-only component closing weight mismatch"))
+            push!(removed,component)
+        end
+    end
+    affected=sort!(unique([candidate.locations[i][1] for i in 1:common]))
+    segments=_WeightedMoveSegment[]
+    for component in affected
+        component in removed && throw(ArgumentError("source-only component shares an active fragment"))
+        n=length(code[component])
+        indices=[i for i in 1:common if candidate.locations[i][1]==component]
+        sort!(indices;by=i -> (candidate.locations[i][2],-i))
+        for (j,index) in enumerate(indices)
+            next_index=indices[mod1(j+1,length(indices))]
+            start=candidate.locations[index][2]; consumed=length(mapped_before[index])
+            next_start=candidate.locations[next_index][2]
+            # Distinguish a full turn at a single empty slot from the zero path
+            # between two empty slots at the same occurrence.
+            gap_count=next_start+(j==length(indices) ? n : 0)-start-consumed
+            gap_count<0 && (gap_count+=n)
+            positions=[mod1(start+consumed+k,n) for k in 0:gap_count-1]
+            edge_positions=vcat(positions,next_start)
+            exterior=BigInt[_move_integer(weights[component][p]) for p in edge_positions]
+            # An empty source fragment has no consumed incoming edge.  The
+            # edge belongs to its preceding exterior path exactly once.
+            if isempty(mapped_before[index])
+                exterior[1]=0
+            end
+            exterior[1]-=last(rules0[index])
+            exterior[end]-=first(rules0[next_index])
+            trace===nothing || push!(trace,(kind=:exterior,source_fragment=index,
+                next_fragment=next_index,component=component,
+                head_positions=edge_positions,
+                source_weights=BigInt[_move_integer(weights[component][p]) for p in edge_positions],
+                first_portion_omitted=isempty(mapped_before[index]),
+                source_outgoing=last(rules0[index]),source_incoming=first(rules0[next_index]),
+                start_port=before.capacity[index],end_port=-next_index,
+                word=_relabel_word(code[component][positions],old_to_new),portions=copy(exterior)))
+            push!(segments,_WeightedMoveSegment(before.capacity[index],-next_index,
+                  _relabel_word(code[component][positions],old_to_new),exterior))
+        end
+    end
+    for index in 1:common
+        trace===nothing || push!(trace,(kind=:target_fragment,index=index,
+            source_location=candidate.locations[index],source_word=mapped_before[index],
+            source_rule=rules0[index],word=mapped_after[index],portions=rules1[index],
+            start_port=-index,end_port=after.capacity[index]))
+        push!(segments,_WeightedMoveSegment(-index,after.capacity[index],mapped_after[index],rules1[index]))
+    end
+    result=Vector{Vector{Int}}(); result_weights=Vector{Vector{Float64}}()
+    for component in eachindex(code)
+        (component in affected || component in removed) && continue
+        push!(result,_relabel_word(code[component],old_to_new))
+        push!(result_weights,copy(weights[component]))
+    end
+    starts=Dict{Int,Int}()
+    for (index,segment) in enumerate(segments)
+        haskey(starts,segment.start_port) && throw(ArgumentError("ambiguous weighted move capacity"))
+        starts[segment.start_port]=index
+    end
+    used=falses(length(segments))
+    while !all(used)
+        first_index=findfirst(!,used); current=first_index
+        word=Int[]; values=BigInt[]; pending=big(0)
+        while true
+            used[current] && throw(ArgumentError("weighted move capacity joins a used strand"))
+            used[current]=true
+            segment=segments[current]
+            if isempty(segment.word)
+                pending+=only(segment.edges)
+            else
+                append!(word,segment.word)
+                local_values=copy(segment.edges[1:end-1]); local_values[1]+=pending
+                append!(values,local_values); pending=last(segment.edges)
+            end
+            haskey(starts,segment.end_port) || throw(ArgumentError("unmatched weighted move capacity"))
+            current=starts[segment.end_port]
+            current==first_index && break
+        end
+        if isempty(values)
+            pending==0 || throw(ArgumentError("nonzero weight on a vertex-free component cannot be represented"))
+        else
+            values[1]+=pending
+        end
+        push!(result,word)
+        push!(result_weights,Float64.(_move_integer.(values)))
+    end
+    for index in common+1:length(after.gauss)
+        values=copy(rules1[index][1:end-1])
+        isempty(values) ? (only(rules1[index])==0 || throw(ArgumentError("nonzero empty component weight"))) :
+                         (values[1]+=last(rules1[index]))
+        push!(result,copy(mapped_after[index]))
+        push!(result_weights,Float64.(_move_integer.(values)))
+    end
+    result,result_weights,new_orientation
+end
+
+# Transport is cyclic; retain the existing converter's component order and
+# basepoints so the weighted API has the same Gauss output as the unweighted API.
+function _align_move_weights(reference,transported,weights)
+    remaining=collect(eachindex(transported)); result=Vector{Vector{Float64}}()
+    for word in reference
+        found=false
+        for (j,index) in enumerate(remaining)
+            length(word)==length(transported[index]) || continue
+            starts=isempty(word) ? [1] : _cyclic_occurrences(transported[index],word)
+            isempty(starts) && continue
+            push!(result,isempty(word) ? Float64[] : circshift(weights[index],1-first(starts)))
+            deleteat!(remaining,j); found=true; break
+        end
+        found || throw(ArgumentError("weighted transport and Gauss reconnection disagree"))
+    end
+    isempty(remaining) || throw(ArgumentError("weighted transport has unmatched components"))
+    result
+end
+
+function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false,
+                              prepared_weights=false)
+    _check_candidate_split(v,candidate)
+    v.is_weighted && _check_move_weights(v)
+    direct_02=candidate.type=="02" && candidate.direction==:forward ? first(candidate.locations) : nothing
+    candidate=_normalized_02(candidate)
     before=something(candidate.before); after=something(candidate.after)
     code,orientation=real_gauss_code(v)
     code=[_clean_component(component) for component in code]
     weights=v.is_weighted ? deepcopy(v.weights) : [zeros(Float64,length(component)) for component in code]
-    v.is_weighted && candidate.type!="MP" &&
-        throw(ArgumentError("weighted $(candidate.type) move is not implemented in the MATLAB source"))
+    v.is_weighted && !(candidate.type in ("MP","02") || (candidate.type=="PS" && prepared_weights)) &&
+        throw(ArgumentError("integer weight transport is not defined for $(candidate.type)"))
     old_to_new,after_vertices,new_orientation=_vertex_maps(
         orientation,candidate.vertices,before,after;
         role_ordered=candidate.type=="CP" || (candidate.type=="MP" && !legacy_mp_labels))
@@ -519,17 +763,55 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
 
     simple=length(before.gauss)==length(after.gauss) && before.capacity==after.capacity
     converted=simple ? _simple_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
-                                                old_to_new,new_orientation;weighted=v.is_weighted) : nothing
+                                                old_to_new,new_orientation;weighted=false) : nothing
     converted===nothing &&
         (converted=_reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
-                                      old_to_new,new_orientation;weighted=v.is_weighted))
+                                      old_to_new,new_orientation;weighted=false))
     result,result_weights,result_orientation=converted
-    if v.is_weighted
-        set_data!(v;odata=(result,result_orientation,result_weights))
-    else
-        set_data!(v;rgauss=result,orientation=result_orientation)
+    if direct_02!==nothing
+        component,start=direct_02
+        result=deepcopy(code)
+        result[component]=vcat(code[component][1:start],only(mapped_after),code[component][start+1:end])
     end
-    v
+    target=VirtualLink()
+    if v.is_weighted
+        transported,transported_weights,_=_weighted_pattern_rewrite(code,weights,candidate,
+            mapped_before,mapped_after,old_to_new,new_orientation)
+        result_weights=_align_move_weights(result,transported,transported_weights)
+        set_data!(target;odata=(result,result_orientation,result_weights))
+        _check_move_weights(target)
+    else
+        set_data!(target;rgauss=result,orientation=result_orientation)
+    end
+    _commit_move!(v,target)
+end
+
+"Internal recomputable edge-occurrence evidence for integer move transport."
+function _weighted_transport_detail(v::VirtualLink,candidate::MoveCandidate)
+    _check_candidate_split(v,candidate)
+    _check_move_weights(v)
+    code,orientation=real_gauss_code(v)
+    if candidate.type=="H"
+        amount=_move_integer(parse(BigFloat,candidate.parameter))
+        vertex=abs(only(candidate.vertices)); incidences=Any[]
+        for signed in (vertex,-vertex)
+            for (component,word) in enumerate(code), head in findall(==(signed),word)
+                push!(incidences,(component=component,head_position=head,delta=-amount))
+                push!(incidences,(component=component,head_position=mod1(head+1,length(word)),delta=amount))
+            end
+        end
+        return (version=1,kind=:H,incidences=incidences)
+    end
+    candidate=_normalized_02(candidate)
+    before=candidate.before; after=candidate.after
+    mapping,vertices,new_orientation=_vertex_maps(orientation,candidate.vertices,before,after;
+        role_ordered=candidate.type in ("MP","CP"))
+    trace=Any[]
+    _weighted_pattern_rewrite(code,v.weights,candidate,
+        [_map_fragment(g,candidate.vertices) for g in before.gauss],
+        [_map_fragment(g,vertices) for g in after.gauss],mapping,new_orientation;trace=trace)
+    (version=1,kind=:fragment_transport,vertex_mapping=sort!(collect(mapping);by=first),
+     fragments=trace)
 end
 
 """Validate one frozen PS witness in the closed-normal Julia subcategory.
@@ -538,8 +820,9 @@ Callers must use `Topology.validate_ps_move` explicitly; `movable` remains the
 public applicability gate.  This validator checks that the frozen candidate is
 an authentic current-source PS-R witness before applying it, then requires the
 source and tentative target to be closed.  It never calls `movable`, and never
-mutates the source.  Its closed-normal criterion is intentionally not a
-boundary or weighted-PS criterion: those cases retain explicit rejection.
+mutates the source. Integer-weighted input additionally uses the source-specific
+PS rotation plan and exact source/target framing checks. Cut components still
+require a separate boundary contract.
 
 The returned named tuple is deliberately inspectable.  `source_conditions` and
 `target_conditions` are `(C1,C2,C3)`, `target` is an independently constructed
@@ -561,7 +844,19 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
          source_conditions=source_conditions,target_closed=target_closed,
          target_conditions=target_conditions,target=target,error=error)
     _normalize_move_type(candidate.type)=="PS" || return invalid(:not_ps)
-    v.is_weighted && return invalid(:weighted_unsupported)
+    if v.is_weighted
+        try
+            _check_candidate_split(v,candidate)
+            target=_weighted_ps_target(v,candidate)
+            target_closed,target_conditions=is_closed(target)
+            return (valid=true,reason=:weighted_ps,source_closed=source_closed,
+                source_conditions=source_conditions,target_closed=target_closed,
+                target_conditions=target_conditions,target=target,error=nothing)
+        catch error
+            error isa Union{ArgumentError,DimensionMismatch,BoundsError} || rethrow()
+            return invalid(:weighted_ps_inapplicable,error=error)
+        end
+    end
     isempty(candidate.edges) || return invalid(:edge_selected_unsupported)
     (candidate.before===nothing || candidate.after===nothing) &&
         return invalid(:malformed_candidate)
@@ -612,8 +907,8 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
 end
 
 function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
+    v.is_weighted && return _apply_pattern_move!(v,candidate)
     code,orientation=real_gauss_code(v)
-    v.is_weighted && throw(ArgumentError("weighted direct 0-2 transport follows MATLAB's unfinished ad-hoc branch"))
     component,start=candidate.locations[1]
     new_vertices=length(orientation).+(1:2)
     fragment=[-new_vertices[1],-new_vertices[2],new_vertices[2],new_vertices[1]]
@@ -623,6 +918,7 @@ function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
 end
 
 function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
+    v.is_weighted && throw(ArgumentError("integer weight transport is not defined for BMP"))
     parameter in (0,1) || throw(ArgumentError("BMP circle orientation must be 0 or 1"))
     code,orientation=real_gauss_code(v)
     values=Int.(candidate.vertices)
@@ -668,6 +964,7 @@ function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
 end
 
 function _apply_b02_two!(v::VirtualLink,candidate::MoveCandidate)
+    v.is_weighted && throw(ArgumentError("integer weight transport is not defined for B02"))
     code,orientation=real_gauss_code(v)
     values=copy(candidate.vertices)
     nv=length(orientation)
@@ -702,6 +999,8 @@ end
 
 function _apply_hmove!(v::VirtualLink,vertex::Int,amount)
     v.is_weighted || throw(ArgumentError("H move requires a weighted VirtualLink"))
+    _check_move_weights(v)
+    amount=_move_integer(amount)
     code,_=real_gauss_code(v)
     pairs=NTuple{2,Int}[]
     for signed_vertex in (vertex,-vertex)
@@ -712,22 +1011,27 @@ function _apply_hmove!(v::VirtualLink,vertex::Int,amount)
         push!(pairs,(word[mod1(position-1,length(word))],signed_vertex))
         push!(pairs,(signed_vertex,word[mod1(position+1,length(word))]))
     end
-    adjustments=Dict{NTuple{2,Int},Float64}()
+    adjustments=Dict{NTuple{2,Int},BigInt}()
     for (pair,delta) in zip(pairs,(-1,1,-1,1))
-        adjustments[pair]=get(adjustments,pair,0.0)+delta*Float64(amount)
+        adjustments[pair]=get(adjustments,pair,big(0))+delta*amount
     end
     table=real_edge_table(v)
     by_strand=[Float64[] for _ in code]
     for edge in table
-        push!(by_strand[edge.strand],edge.weight+get(adjustments,edge.crossing,0.0))
+        push!(by_strand[edge.strand],Float64(_move_integer(BigInt(edge.weight)+get(adjustments,edge.crossing,big(0)))))
     end
     set_weight!(v,by_strand)
 end
 
 """Apply one MATLAB-style move after strict applicability selection."""
-function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
+function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
                edge_occurrences=nothing,strict=true)
     move_type=_normalize_move_type(type)
+    if v.is_weighted
+        _check_move_weights(v)
+        move_type in ("MP","H","02","PS") ||
+            throw(ArgumentError("integer weight transport is not defined for $move_type"))
+    end
     if move_type in ("R1","R2","R3")
         throw(ArgumentError("$move_type move is not implemented in the MATLAB source"))
     elseif move_type=="H"
@@ -748,8 +1052,14 @@ function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
     elseif move_type=="B02" && length(candidate.vertices)==2 && candidate.before===nothing
         _apply_b02_two!(v,candidate)
     else
-        _apply_pattern_move!(v,candidate)
+        _apply_candidate!(v,candidate)
     end
+end
+
+function move!(v::VirtualLink,type;kwargs...)
+    target=deepcopy(v)
+    _move_unchecked!(target,type;kwargs...)
+    _commit_move!(v,target)
 end
 
 function move!(v::VirtualLink,type,arg::NamedTuple)
@@ -762,10 +1072,62 @@ function move!(v::VirtualLink,type,arg::NamedTuple)
 end
 
 "Apply this exact candidate, without selecting its site again or canonicalizing."
-function move!(v::VirtualLink,candidate::MoveCandidate)
+function _apply_candidate!(v::VirtualLink,candidate::MoveCandidate)
+    _check_candidate_split(v,candidate)
+    if v.is_weighted && candidate.type=="PS"
+        return _commit_move!(v,_weighted_ps_target(v,candidate))
+    elseif candidate.type=="H"
+        amount=tryparse(BigInt,candidate.parameter)
+        amount===nothing && (amount=tryparse(BigFloat,candidate.parameter))
+        amount===nothing && throw(ArgumentError("H move requires an integer parameter"))
+        return _apply_hmove!(v,abs(only(candidate.vertices)),amount)
+    elseif candidate.type=="02" && candidate.direction==:forward
+        return _apply_direct_02!(v,candidate)
+    elseif candidate.type=="BMP" && candidate.before===nothing
+        parameter=tryparse(Int,candidate.parameter)
+        return _apply_bmp_two!(v,candidate,parameter)
+    elseif candidate.type=="B02" && candidate.before===nothing
+        return _apply_b02_two!(v,candidate)
+    end
     candidate.type=="PS" && !validate_ps_move(v,candidate).valid &&
         throw(ArgumentError("PS candidate fails closed-normal applicability"))
     _apply_pattern_move!(v,candidate)
+end
+
+function _same_candidate(left::MoveCandidate,right::MoveCandidate)
+    left.type==right.type && left.parameter==right.parameter &&
+    left.ps_split_k==right.ps_split_k &&
+    left.vertices==right.vertices && left.edges==right.edges &&
+    left.direction==right.direction && left.locations==right.locations &&
+    ((left.before===nothing && right.before===nothing) ||
+     (left.before!==nothing && right.before!==nothing && _same_move_pattern(left.before,right.before))) &&
+    ((left.after===nothing && right.after===nothing) ||
+     (left.after!==nothing && right.after!==nothing && _same_move_pattern(left.after,right.after)))
+end
+
+function move!(v::VirtualLink,candidate::MoveCandidate)
+    _check_candidate_split(v,candidate)
+    v.is_weighted && _check_move_weights(v)
+    # Frozen candidates are untrusted input: authenticate templates, orientation,
+    # vertex roles and exact occurrences against the current geometric source.
+    geometric_source=v.is_weighted && candidate.type=="PS" ? _ps_unweighted(v) : v
+    options=if candidate.type in ("PS","S") && candidate.direction==:forward
+        _movable_geometry(geometric_source,candidate.type;param=candidate.parameter,
+            edge_occurrences=candidate.locations,strict=true)
+    else
+        _movable_geometry(geometric_source,candidate.type;param=candidate.parameter,
+            vertices=candidate.vertices,edges=candidate.edges,strict=true)
+    end
+    # Geometric enumeration does not choose the optional weighted split. Its
+    # validity is checked by the source-specific PS plan after authentication.
+    geometric_candidate=candidate.ps_split_k===nothing ? candidate :
+        MoveCandidate(candidate.type,candidate.parameter,candidate.vertices,candidate.edges,
+            candidate.direction,candidate.before,candidate.after,candidate.locations)
+    any(option -> _same_candidate(option,geometric_candidate),options) ||
+        throw(ArgumentError("move candidate does not match the current source"))
+    target=deepcopy(v)
+    _apply_candidate!(target,candidate)
+    _commit_move!(v,target)
 end
 move(v::VirtualLink,candidate::MoveCandidate)=move!(deepcopy(v),candidate)
 

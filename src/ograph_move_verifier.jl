@@ -573,6 +573,7 @@ end
 
 function _check_candidate_source(source::VirtualLink, candidate::MoveCandidate)
     source.is_weighted && return (:weighted_unsupported, nothing, nothing, nothing)
+    candidate.ps_split_k===nothing || return (:weighted_split_unsupported, nothing, nothing, nothing)
     isempty(candidate.edges) || return (:edge_selected_unsupported, nothing, nothing, nothing)
     expected = _expected_pattern_candidate(candidate)
     expected === nothing && return (:catalogue_mismatch, nothing, nothing, nothing)

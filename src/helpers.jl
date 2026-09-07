@@ -101,10 +101,20 @@ function _mp_patterns(side::Symbol)
             transformed,transformed_orientation=_reverse_template(fragments,orientation,reverse_flags)
             parameter=label*string(number)
             weights=[zeros(Float64,length(fragment)+1) for fragment in transformed]
-            if parameter in ("A4","B4")
-                weights=[Float64[NaN] for _ in transformed]
+            # Integral MP weights: MST25 Fig. 3.4 (Z_framed_MP_move.pdf),
+            # with the individually labelled diagrams in Taguchi's thesis
+            # source, MP_list_AB_int.jpg and MP_list_CD_int.jpg.  Weights
+            # run incoming boundary, internal edges, outgoing boundary.
+            # In A4/B4 fragment 1 runs lower-left -> lower vertex 1 ->
+            # right vertex 3 -> upper vertex 2 -> upper-left.  The source
+            # figure places +1 on its incoming leg and -1 on 1 -> 3;
+            # In A2/B2 the -1 is on 3 -> 2 and +1 on the outgoing leg.
+            # The former fragment-3 rule [1,-1,0] is H-related at vertex 2,
+            # but is not the weights on this signed-port source diagram.
+            if side===:right && parameter in ("A4","B4")
+                weights[1]=Float64[1,-1,0,0]
             elseif side===:right && parameter in ("A2","B2")
-                weights[3]=Float64[1,-1,0]
+                weights[1]=Float64[0,0,-1,1]
             elseif side===:right && parameter=="C3"
                 weights[2]=Float64[0,1,-1]
             elseif side===:right && parameter=="D3"

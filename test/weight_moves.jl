@@ -19,11 +19,16 @@ using Topology
     @test validate_weight(weighted)
     @test weighted.weights==[[-3.0,1.0,1.0],[-1.0]]
 
+    # This assignment has source internal weight 1; the C3 local rule requires
+    # 0.  Previously the move silently discarded it.  Normalize explicitly.
+    @test_throws ArgumentError move!(weighted,"MP";param="C3",vertices=[1,2])
+    @test weighted.weights==[[-3.0,1.0,1.0],[-1.0]]
+    move!(weighted,"H";param=1,vertices=[2])
     move!(weighted,"MP";param="C3",vertices=[1,2])
     @test validate_weight(weighted)
     @test weighted.gauss==[[3,1,2,-3],[-1,-2]]
     @test weighted.orientation==[-1,1,1]
-    @test weighted.weights==[[-3.0,1.0,0.0,0.0],[-1.0,0.0]]
+    @test weighted.weights==[[-2.0,1.0,0.0,0.0],[-1.0,0.0]]
 end
 
 @testset "integral 0-2 inverse weight transport" begin

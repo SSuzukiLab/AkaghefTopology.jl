@@ -75,7 +75,7 @@ end
                                        [(1,5),(1,3)])
     weighted_report = Topology.validate_ps_move(weighted, weighted_candidate)
     @test !weighted_report.valid
-    @test weighted_report.reason == :weighted_unsupported
+    @test weighted_report.reason == :weighted_ps_inapplicable
 
     @test all(Topology.validate_ps_move(source, c).valid for c in movable(source, "PS"; vertices=[1,2]))
 
@@ -113,11 +113,16 @@ end
     @test isempty(movable(source, "PS"; vertices=[1,2], edges=[(99,100)], strict=true))
     @test isempty(movable(weighted, "PS"; vertices=[1,2], strict=true))
 
-    # C260110 LHS prefix: weighted initial state, two C3 MP moves, then
-    # exactly the QMD clear-weight transition before the closed PS check.
+    # The C260110 weighted prefix has a nonzero prescribed C3 internal edge.
+    # Keep its rejection explicit, then use the underlying geometric prefix
+    # for this unweighted PS regression.
     c260 = VirtualLink()
     set_data!(c260; rgauss=[[-1,2,-2,3,-3,1]], orientation=[1,1,1])
     set_weight!(c260, [[1,-2,1,-1,1,-1]])
+    snapshot=deepcopy(c260)
+    @test_throws ArgumentError move!(c260, "MP"; param="C3", vertices=[1,2])
+    @test c260.weights==snapshot.weights && c260.gauss==snapshot.gauss && c260.is_weighted
+    set_data!(c260; rgauss=c260.gauss, orientation=c260.orientation)
     move!(c260, "MP"; param="C3", vertices=[1,2])
     move!(c260, "MP"; param="C3", vertices=[2,3])
     set_data!(c260; rgauss=c260.gauss, orientation=c260.orientation)

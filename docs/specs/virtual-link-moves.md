@@ -144,8 +144,8 @@ file. Unsupported behavior MUST reject explicitly. In particular, the current
 contract does not silently invent:
 
 - R1/R2/R3 execution;
-- weighted PS, CP, BMP, or B02 transport;
-- spin or framed move data;
+- weighted CP, BMP, B02, or INS S transport;
+- a mod-2 spin calculus or a framed equivalence-class classifier;
 - certificates outside the explicit [Area-3 verifier contract](ograph-move-verifier.md).
 
 The Area-3 layer now checks PS-I--IV Method-B conditions and supports
@@ -594,15 +594,22 @@ Component order is presentation data, not a canonical virtual-link invariant.
 
 ### 12.1 Supported weighted moves
 
-The current contract supports move-level weight transport only for MP patterns
-whose source and target rules contain no `NaN`.
+The integer-weighted API supports all 16 MP types, H, 02, and PS I–IV in
+both directions. PS additionally requires closed-normal geometry, the Method-B
+condition and the framing equation. MP/H/02 transport also operates on integral
+presentations that do not satisfy the framing equation; use the evidence entry
+with `framed=true` when those extra conditions are required.
 
-A weighted non-MP pattern move MUST reject explicitly.
+Weights and H parameters MUST be integers in the consecutive exact Float64
+range `[-(2^53-1), 2^53-1]`. Accumulation uses `BigInt`, and an out-of-range
+result MUST reject before mutation. Cut components require boundary data and
+are currently rejected by the weighted entry points.
 
 ### 12.2 Direct MP transport
 
 For every replaced MP fragment:
 
+- check every source internal edge against the rule;
 - retain the old incoming boundary weight;
 - add the target-minus-source incoming boundary delta;
 - assign target internal weights;
@@ -612,9 +619,21 @@ The weighted result MUST remain weighted when installed through `set_data!`.
 
 ### 12.3 Capacity-path transport
 
-Gap segments retain their existing weights. Boundary deltas travel with their
-segments. If a segment is empty, its pending delta propagates to the next
-nonempty segment in the capacity cycle.
+An exterior path with q vertices stores q+1 edge portions. Source boundary
+corrections are subtracted there, then target fragments and exterior paths are
+concatenated through the capacity cycle with exact addition. Shared seams,
+adjacent fragments and empty insertion slots MUST count each old edge once.
+An unrepresentable nonzero weight on a vertex-free component MUST reject.
+
+Direct 02 uses one empty insertion slot in this same transport. Inverse 02
+requires the prescribed internal weights; it MUST NOT discard arbitrary
+weights on deleted edges.
+
+The A2/B2 source rule now places `[0,0,-1,1]` on RHS fragment 1, and A4/B4
+places `[1,-1,0,0]` there. These are the literal assignments in Taguchi's
+`MP_list_AB_int.jpg`. A2/B2 formerly used `[1,-1,0]` on fragment 3; applying
+`H(+1, vertex 2)` to that former output gives the current assignment. Raw
+decorated outputs consequently change, although that explicit H relation holds.
 
 ### 12.4 H move
 
@@ -622,7 +641,7 @@ An H move requires:
 
 - one real vertex;
 - an already weighted `VirtualLink`;
-- a numeric parameter.
+- an integer parameter within the exact range above.
 
 For the two signed visits `v` and `-v`, the four adjacent real edges are updated
 with coefficients:
@@ -633,16 +652,67 @@ with coefficients:
 
 multiplied by the supplied parameter.
 
-### 12.5 Explicit unsupported cases
+### 12.5 Integral PS
+
+The catalogue candidate freezes geometry. Source-specific weights are computed
+from the ordered Method-B disk boundary. If `pT` is the signed integer arc sum
+and `m` counts solid dots including both endpoints, the doubled MST25 rotation
+is `p2=2*pT-m`. The four values of `a` are `(-p2-1)/2`, `(-p2-1)/2`, `p2/2`,
+and `(-p2-2)/2`. Parity is checked exactly.
+
+Two cuts on the same real edge use an explicit ordered split. The default is
+`k=W, l=0`, where W is the old edge weight. Use
+`weighted_ps_candidate(candidate; k=...)` to freeze another integer split in
+`MoveCandidate.ps_split_k`; the original eight-argument constructor remains
+compatible and supplies `nothing`. A split is accepted only for a weighted
+forward PS on the same real edge. Endpoint partial
+edge contributions and repeated full-edge occurrences are recorded separately.
+The no-vertex boundary arc has rotation zero. The six paper edge portions are
+mapped into directed runtime fragments before using the common transport.
+
+An inverse PS contracts the prescribed internal edges, reconstructs the LHS,
+recomputes its Method-B arc and rotation, and verifies that forward reapplication
+reproduces the original decorated edges under the recorded vertex map. Neither
+direction re-solves the weight equation.
+For II/IV the inverse infers the split from its source boundary weights and
+records `forward_split_k`. A forward candidate reconstructed with that value
+reproduces the original raw decoration; silently choosing the default would
+lose that information. I/III's output cochain is independent of this split.
+
+PS currently inherits the existing single real Gauss-component closed-normal
+geometry verifier. Multiple-component and cut PS presentations remain outside
+this API's certified domain; all-four-type support is limited to that domain.
+
+The source comparison and exact literature locators are maintained in PJ260830's
+`260908_weighted_move_requirements` record. Source labels are Taguchi
+`fig:IPS-move` / `prp:PS_framing` and MST25 Fig. 3.7 / Proposition 3.2.
+
+### 12.6 Explicit unsupported cases
 
 The current contract rejects:
 
-- weighted direct 02;
-- weighted PS;
 - weighted CP;
 - weighted BMP;
 - weighted B02;
+- weighted INS S;
 - any pattern whose weight rule contains `NaN`.
+
+### 12.7 Weighted evidence
+
+`verify_weighted_move(source,candidate; framed=false)` applies a frozen candidate
+on a copy and returns a `WeightedMoveVerification`. Successful evidence binds
+the full raw source and target, integer weights, catalogue rule version, vertex
+and edge-occurrence transport, PS arc data where applicable, and exact residuals.
+`weighted_move_evidence_data` produces JSON-compatible data;
+`replay_weighted_move` reconstructs the source and current rules and recomputes
+the whole envelope. Altering a stored result or intermediate value is rejected.
+
+`framed=true` additionally requires closed-normal source and target and exact
+zero residuals. This is executor replay with equation checks, not an independent
+proof of framing preservation. Existing unweighted MP/PS verification is also
+required within its supported single-component closed-normal domain. Other
+inputs explicitly record that they are outside that verifier's scope. Weighted
+raw hashes MUST NOT be used as unweighted canonical state or manifold IDs.
 
 ## 13. Mutation and output contract
 
@@ -667,7 +737,7 @@ Unweighted pattern moves install:
 set_data!(v; rgauss=result, orientation=result_orientation)
 ```
 
-Weighted MP moves install:
+Weighted pattern moves install:
 
 ```julia
 set_data!(v; odata=(result, result_orientation, result_weights))
@@ -707,21 +777,23 @@ The subsystem MUST reject at least these conditions explicitly:
 | Unmatched nonzero capacity | `ArgumentError` |
 | Partial removal of source-only component | `ArgumentError` |
 | Weighted rule contains `NaN` | `ArgumentError` |
+| Noninteger/out-of-range weight or source internal mismatch | `ArgumentError` |
 | H move on unweighted input | `ArgumentError` |
 | R1/R2/R3 execution | explicit unsupported `ArgumentError` |
-| Weighted non-MP pattern move | explicit unsupported `ArgumentError` |
+| Weighted CP/BMP/B02/INS S | explicit unsupported `ArgumentError` |
 
 Errors MUST NOT be reported as successful no-op moves.
+Every failed public mutation MUST preserve the complete source object.
 
 ## 15. Current support matrix
 
 | Move family | Catalogue | Applicability | Forward | Inverse | Weighted |
 |---|---:|---:|---:|---:|---:|
-| MP A1–D4 | yes | yes | yes | yes | partial by data rule |
+| MP A1–D4 | yes | yes | yes | yes | integer rules, all 16 |
 | CP | yes | yes | yes | yes | no |
-| PS-I--IV | yes | local and Method-B | edge occurrences | yes | no |
+| PS-I--IV | yes | local and Method-B | edge occurrences | yes | framed integer inputs |
 | INS S | yes | local; Area-3 verifier checks endpoints | edge occurrence | yes | no |
-| 02 | yes | yes | signed-adjacent direct path | pattern inverse | no |
+| 02 | yes | yes | signed-adjacent direct path | pattern inverse | integer rules |
 | H | not applicable | one-vertex check | weight update | parameter sign supplies reverse | required |
 | BMP E1/F1/E2/F2 | yes | yes | yes | yes | no |
 | B02 1/2 | yes | yes | not exposed | yes | no |
@@ -787,10 +859,12 @@ cases for:
 
 ### 17.4 Weights
 
-- weighted C3 direct and inverse;
+- all 16 MP types in both directions, independently transcribed source rules;
 - H move on the four adjacent real edges;
-- `NaN` rule rejection;
-- weighted non-MP rejection.
+- 02 insertion/removal, shared seams, source internal-weight rejection;
+- PS I–IV, source-dependent rotation, same-edge cuts and inverse reconstruction;
+- noninteger, overflow, stale candidate and undefined weighted-family rejection;
+- separate-process weighted evidence replay and tampering rejection.
 
 ### 17.5 Certification boundary
 

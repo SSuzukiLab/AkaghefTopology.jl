@@ -40,6 +40,12 @@ export OGraphState, ClosednessWitness, ClosedNormalOGraph,
        ograph_raw_hash, verify_ograph_move, ps_global_condition,
        ograph_move_witness_data, ograph_move_witness_from_data,
        replay_ograph_move
+export WeightedMoveEvidence, WeightedMoveVerification,
+       WEIGHTED_MOVE_EVIDENCE_SCHEMA, WEIGHTED_MOVE_VERIFIER_VERSION,
+       WEIGHTED_MOVE_SOURCE_RULE_VERSION,
+       verify_weighted_move, weighted_move_evidence_data,
+       weighted_move_evidence_from_data, replay_weighted_move, weighted_raw_hash
+export weighted_ps_candidate
 export planarize_virtual_gauss_layer8
 export SparseFactor, FiniteHopfAlgebra, uqsl2_borel_small, sweedler_algebra,
        exterior_algebra, hopf_invariant, label_tensor, contract_network,
@@ -125,6 +131,8 @@ include("helpers.jl")
 include("moves.jl")
 include("ograph_move_verifier.jl")
 include("ograph_tetrahedra.jl")
+include("weighted_ps.jl")
+include("weighted_move_verifier.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")
