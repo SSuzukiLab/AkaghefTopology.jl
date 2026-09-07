@@ -7,16 +7,24 @@ function _link(code,orientation;real=false)
     link
 end
 
-"""Raw Virtual-Gauss inputs defined with MATLAB `RGauss` or `odata` in `VLExample.mlx`.
+"""Named Virtual-Gauss inputs used by `VLExample.mlx` and its cited MST examples.
 
 The `lens_3_2` entry records the exact parameters used by `VLExample.mlx`;
 `lens_space_rgauss(s,t)` constructs the full coprime lens-space family.
+`lens_3_1_mst2_example23` is the two-vertex presentation in MST2 Example 23,
+distinct from the three-vertex lens-space-family presentation.
 `matlab_input` preserves whether the source cell used `RGauss` or `odata`,
 although both map to Julia's `set_data!(...; rgauss=...)` boundary.
 """
 function vl_virtual_gauss_inputs()
     lens32=lens_space_rgauss(3,2)
     [
+        (name="s3_abalone",rgauss=[[1,-1]],orientation=[1],
+         matlab_input=:odata),
+        (name="lens_2_1",rgauss=[[-2,-1,1,2]],orientation=[1,1],
+         matlab_input=:RGauss),
+        (name="lens_3_1_mst2_example23",rgauss=[[-1,1,-2,2]],orientation=[1,1],
+         matlab_input=:RGauss,source="MST2 Example 23"),
         (name="lens_3_2",rgauss=lens32.rgauss,orientation=lens32.orientation,
          matlab_input=:RGauss),
         (name="poincare",rgauss=[[4,-5,3,-4,2,-3,1,-2,5,-1]],
@@ -30,11 +38,32 @@ function vl_virtual_gauss_inputs()
     ]
 end
 
+"""List the names accepted by `vl_example_input`, `vl_example`, and `vl_example_disk_table`."""
+vl_example_names()=sort!([input.name for input in vl_virtual_gauss_inputs()])
+
+"""Return the stored raw input for a named `VLExample` link."""
+function vl_example_input(name)
+    key=String(name)
+    for input in vl_virtual_gauss_inputs()
+        input.name==key && return input
+    end
+    throw(KeyError(key))
+end
+
 """Construct fresh `VirtualLink` objects for `vl_virtual_gauss_inputs()`."""
 function vl_virtual_gauss_examples()
     Dict(input.name=>_link(input.rgauss,input.orientation;real=true)
          for input in vl_virtual_gauss_inputs())
 end
+
+"""Return a fresh named `VLExample` link from either a string or symbol."""
+function vl_example(name)
+    input=vl_example_input(name)
+    _link(input.rgauss,input.orientation;real=true)
+end
+
+"""Compute the MATLAB-faithful disk table for a named `VLExample` link."""
+vl_example_disk_table(name)=disk_table(vl_example(name))
 
 """Reproduce the 19 plotting calls in `topology/Manifold/VLExample.mlx`."""
 function run_vl_plot_calls(;output_dir=nothing)

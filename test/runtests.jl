@@ -68,6 +68,20 @@ end
 
 @testset "VirtualLink core and VLExample" begin
     links=run_vl_examples(); @test length(links)==19
+    @test real_gauss_code(vl_example(:s3_abalone))==([[1,-1]],[1])
+    @test real_gauss_code(vl_example(:lens_2_1))==([[-2,-1,1,2]],[1,1])
+    @test "lens_3_1_mst2_example23" in vl_example_names()
+    @test vl_example_input(:lens_3_1_mst2_example23).source=="MST2 Example 23"
+    lens31=vl_example(:lens_3_1_mst2_example23)
+    @test real_gauss_code(lens31)==([[-1,1,-2,2]],[1,1])
+    lens31_disks=vl_example_disk_table(:lens_3_1_mst2_example23)
+    @test lens31_disks.ID==[1,2,3]
+    @test lens31_disks.paths==[[1,3,4,8,11],[2,5,7,9,10],[6,12]]
+    @test lens31_disks.edges_s==[[2,2,3,-4,1],[-2,3,4,4,1],[-1,-3]]
+    @test lens31_disks.Ndots==[2,2,0]
+    @test lens31_disks.isCycle==[true,true,true]
+    @test lens31_disks.delta==[1 2 1 -1;1 -1 1 2;-1 0 -1 0]
+    @test lens31_disks.cp==[0//1,0//1,1//1]
     hopf=links["hopf"]; @test gauss_code(hopf)==[[1,-2],[-1,2]]
     @test size(head_map(hopf))==(2,2); @test size(pd_code(hopf))==(2,4)
     @test pd_code(hopf)==[3 2 4 1; 2 3 1 4]
