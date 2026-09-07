@@ -50,7 +50,9 @@ end
     graph_a = ograph_graph_a(_test_ograph_link([1, -1], [1]))
     @test graph_a isa Graphs.SimpleGraph
     @test nv(graph_a) == 4
-    @test ne(graph_a) == 4
+    # The compatibility projection drops two loops and merges the duplicated
+    # 3--4 edge retained by the authoritative C2 multigraph.
+    @test ne(graph_a) == 3
     @test length(connected_components(graph_a)) == 1
 
     s3 = certify_closed_ograph(_test_ograph_link([1, -1], [1]))
@@ -84,4 +86,76 @@ end
         s3.witness.c3_method_circuits, s3.witness.true_vertices,
         s3.witness.method_circuit_lengths)
     @test_throws ArgumentError ClosedNormalOGraph(s3.state, stale)
+end
+
+@testset "BP Figure 1.2 C2 multigraph" begin
+    one = c2_graph([[1, -1]], [1])
+    @test one.node_count == 4
+    @test one.edges == [(1, 1), (2, 2), (3, 4),
+                        (2, 4), (3, 1), (4, 3)]
+    @test one.origins == [(1, 1, 1), (1, 1, 2), (1, 1, 3),
+                          (1, 2, 1), (1, 2, 2), (1, 2, 3)]
+
+    # One cyclic word exercising +/+ (same), +/- (mixed), -/- (same),
+    # and -/+ (mixed), including the wrap-around pair.
+    four_pairs = c2_graph([[1, 2, -1, -2]], [1, 1])
+    @test four_pairs.node_count == 8
+    @test four_pairs.edges == [
+        (1, 5), (2, 8), (3, 7),
+        (5, 1), (6, 2), (7, 4),
+        (2, 6), (3, 5), (4, 8),
+        (6, 4), (7, 1), (8, 3),
+    ]
+    @test four_pairs.origins == [
+        (1, occurrence, lane)
+        for occurrence in 1:4 for lane in 1:3
+    ]
+
+    degree = zeros(Int, four_pairs.node_count)
+    for (left, right) in four_pairs.edges
+        degree[left] += 1
+        degree[right] += 1
+    end
+    @test all(==(3), degree)
+    @test length(four_pairs.edges) == 6length([1, 1])
+
+    multi = c2_graph([[1, -1], [2, -2]], [1, -1])
+    @test multi.node_count == 8
+    @test length(multi.edges) == 12
+    @test last(multi.origins) == (2, 2, 3)
+
+    state = OGraphState([1, 2, -1, -2], [1, 1])
+    from_state = c2_graph(state)
+    @test from_state.node_count == four_pairs.node_count
+    @test from_state.edges == four_pairs.edges
+    @test from_state.origins == four_pairs.origins
+
+    weighted = _test_ograph_link([1, -1], [1])
+    set_weight!(weighted, [[-2, 1]])
+    saved_weights = deepcopy(weighted.weights)
+    @test c2_graph(weighted).edges == one.edges
+    @test weighted.is_weighted
+    @test weighted.weights == saved_weights
+
+    crossing_free = VirtualLink()
+    set_data!(crossing_free; rgauss=[Int[]], orientation=Int[])
+    @test nv(ograph_graph_a(crossing_free)) == 0
+    @test_throws ArgumentError c2_graph(crossing_free)
+
+    virtual = VirtualLink()
+    set_data!(virtual; gauss=[[1, -1]], orientation=[0])
+    @test_throws ArgumentError c2_graph(virtual)
+    @test is_closed(virtual) == (false, (true, false, false))
+    cut = VirtualLink()
+    set_data!(cut; rgauss=[[1, -1]], orientation=[1], cut=[true])
+    @test_throws ArgumentError c2_graph(cut)
+    @test is_closed(cut) == (false, (true, false, false))
+
+    @test_throws ArgumentError c2_graph(Vector{Vector{Int}}(), Int[])
+    @test_throws ArgumentError c2_graph([Int[]], [1])
+    @test_throws ArgumentError c2_graph([[1, -1]], [0])
+    @test_throws ArgumentError c2_graph([[1, 1]], [1])
+    @test_throws ArgumentError c2_graph([[1, -1, 2, -2]], [1])
+    @test_throws DimensionMismatch C2Graph(4, [(1, 2)], NTuple{3,Int}[])
+    @test_throws ArgumentError C2Graph(4, [(1, 5)], [(1, 1, 1)])
 end

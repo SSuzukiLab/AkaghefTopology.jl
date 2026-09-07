@@ -28,10 +28,18 @@ export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
 export OGraphState, ClosednessWitness, ClosedNormalOGraph,
        OGRAPH_PRESENTATION_SCHEMA, OGRAPH_PRESENTATION_CANON_VERSION,
        OGRAPH_PRESENTATION_CANONICALIZATION, OGRAPH_DEFAULT_CONVENTION,
-       OGRAPH_CLOSEDNESS_VERIFIER_VERSION, true_vertex_count,
+       OGRAPH_CLOSEDNESS_VERIFIER_VERSION, C2_GRAPH_SPEC_VERSION,
+       C2Graph, c2_graph, true_vertex_count,
        canonicalize_ograph, ograph_canonical_serialization,
        ograph_canonical_hash, ograph_state, closedness_witness,
-       certify_closed_ograph, ograph_graph_a
+       certify_closed_ograph, ograph_graph_a,
+       OGRAPH_MOVE_WITNESS_SCHEMA, OGRAPH_MOVE_VERIFIER_VERSION,
+       OGraphOutsideOccurrence, OGraphCanonicalizationWitness,
+       OGraphMethodBLaneStep, OGraphPSGapBoundary, OGraphPSMethodBWitness,
+       OGraphMoveWitness, OGraphMoveVerification,
+       ograph_raw_hash, verify_ograph_move,
+       ograph_move_witness_data, ograph_move_witness_from_data,
+       replay_ograph_move
 export planarize_virtual_gauss_layer8
 export SparseFactor, FiniteHopfAlgebra, uqsl2_borel_small, sweedler_algebra,
        exterior_algebra, hopf_invariant, label_tensor, contract_network,
@@ -65,6 +73,8 @@ export KnotGaussDiagram, KnotGaussEnumeration, ReidemeisterCandidate,
        OGraphProvenance, OGraphRelationProfile,
        OGRAPH_STORE_SCHEMA_VERSION, OGRAPH_IDENTITY_DOMAIN,
        migrate_ograph_store!, ograph_canonical_state, put_closed_ograph!,
+       OGRAPH_TRANSITION_SCHEMA_VERSION, OGRAPH_TRANSITION_EVIDENCE_VERSION,
+       migrate_ograph_transition_store!, insert_ograph_verified_transition!,
        register_ograph_profile!, register_ograph_campaign!,
        verify_ograph_store, ograph_canonical_json,
        OGraphPi1Presentation, OGraphH1Result,
@@ -113,6 +123,7 @@ include("orthogonal_layout.jl")
 include("layout_invariants.jl")
 include("helpers.jl")
 include("moves.jl")
+include("ograph_move_verifier.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")

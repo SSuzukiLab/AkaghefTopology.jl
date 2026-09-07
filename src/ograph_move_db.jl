@@ -123,6 +123,249 @@ function migrate_ograph_store!(store::MoveGraphStoreDB)
     store
 end
 
+const OGRAPH_TRANSITION_SCHEMA_VERSION = 1
+const OGRAPH_TRANSITION_EVIDENCE_VERSION = "ograph-transition-evidence/1"
+
+function _ograph_transition_schema_version(db)
+    table = MoveGraphStore._one(db, """
+        SELECT 1 AS present FROM sqlite_master
+        WHERE type='table' AND name='ograph_transition_schema_meta'
+    """)
+    table === nothing && return nothing
+    row = MoveGraphStore._one(db,
+        "SELECT value FROM ograph_transition_schema_meta WHERE key='schema_version'")
+    row === nothing && return nothing
+    try
+        parse(Int, String(row.value))
+    catch
+        throw(ArgumentError("ograph transition schema version is not an integer"))
+    end
+end
+
+"""Enable the typed Area-3 transition evidence extension.
+
+The base v2 migration intentionally leaves Area-3 transitions disabled.  This
+separate migration is explicit so opening the historical pilot cannot silently
+change its write contract.
+"""
+function migrate_ograph_transition_store!(store::MoveGraphStoreDB)
+    _assert_ograph_schema(store)
+    sql = read(_ograph_schema_path(), String)
+    MoveGraphStore._transaction(store.db) do
+        # This is idempotent and also permits a store created by the base
+        # migration before the extension tables were added.
+        MoveGraphStore._execute_schema!(store.db, sql)
+        version = _ograph_transition_schema_version(store.db)
+        if version === nothing
+            MoveGraphStore._dbexec(store.db, """
+                INSERT INTO ograph_transition_schema_meta(key,value)
+                VALUES ('schema_version',?)
+            """, (string(OGRAPH_TRANSITION_SCHEMA_VERSION),))
+        elseif version != OGRAPH_TRANSITION_SCHEMA_VERSION
+            throw(ArgumentError("unsupported o-graph transition schema version $version"))
+        end
+        # The old guard is intentionally removed only in this explicit
+        # candidate-store migration; all profile/area checks remain active.
+        MoveGraphStore._dbexec(store.db,
+            "DROP TRIGGER IF EXISTS transitions_ograph_v2_disabled_insert")
+        MoveGraphStore._dbexec(store.db,
+            "DROP TRIGGER IF EXISTS transitions_ograph_v2_disabled_update")
+    end
+    _ograph_transition_schema_version(store.db) == OGRAPH_TRANSITION_SCHEMA_VERSION ||
+        throw(ArgumentError("typed o-graph transition migration did not reach v1"))
+    store
+end
+
+function _transition_evidence_dict(value)
+    value isa NamedTuple && return Dict(String(k) => getfield(value, k)
+                                        for k in keys(value))
+    value isa AbstractDict || throw(ArgumentError(
+        "typed transition evidence must be a dictionary or named tuple"))
+    Dict(String(k) => item for (k, item) in value)
+end
+
+function _require_transition_evidence(evidence, source, target, move_type, direction,
+                                     profile_id, parameters_json, location_json)
+    data = _transition_evidence_dict(evidence)
+    required = ("evidence_version", "source_state_id", "target_state_id",
+                "source_state_hash", "target_state_hash", "move_type",
+                "direction", "profile_id", "parameters", "location",
+                "witness", "replay")
+    all(haskey(data, key) for key in required) || throw(ArgumentError(
+        "typed transition evidence is missing a required field"))
+    String(data["source_state_id"]) == source.state_id || throw(ArgumentError(
+        "transition witness source_state_id does not match source state"))
+    String(data["target_state_id"]) == target.state_id || throw(ArgumentError(
+        "transition witness target_state_id does not match target state"))
+    String(data["source_state_hash"]) == source.state_hash || throw(ArgumentError(
+        "transition witness source_state_hash does not match source state"))
+    String(data["target_state_hash"]) == target.state_hash || throw(ArgumentError(
+        "transition witness target_state_hash does not match target state"))
+    String(data["move_type"]) == String(move_type) || throw(ArgumentError(
+        "transition witness move_type does not match transition"))
+    String(data["direction"]) == String(direction) || throw(ArgumentError(
+        "transition witness direction does not match transition"))
+    String(data["profile_id"]) == String(profile_id) || throw(ArgumentError(
+        "transition witness profile_id does not match profile"))
+    _ograph_canonical_json(data["parameters"]) == parameters_json || throw(ArgumentError(
+        "transition witness parameters do not match transition"))
+    if location_json === nothing
+        data["location"] === nothing || throw(ArgumentError(
+            "transition witness location does not match transition"))
+    else
+        _ograph_canonical_json(data["location"]) == location_json || throw(ArgumentError(
+            "transition witness location does not match transition"))
+    end
+    # A PS edge is never accepted merely because its local rewrite and C1-C3
+    # checks pass.  The independent Method-B witness is mandatory.
+    if uppercase(String(move_type)) == "PS"
+        haskey(data, "method_b_witness") || throw(ArgumentError(
+            "PS transition evidence is missing the Method-B witness"))
+    end
+    _ograph_canonical_json(data), data
+end
+
+"""Persist one source-bound, typed, replayable Area-3 relation edge."""
+function insert_ograph_verified_transition!(store::MoveGraphStoreDB,
+        source::CanonicalState, target::CanonicalState, move_type;
+        profile_id::AbstractString, direction=:forward, location=nothing,
+        parameters=Dict{String,Any}(), evidence, engine_version::AbstractString,
+        verifier_version::AbstractString, created_at_utc::AbstractString,
+        verification=nothing)
+    _assert_ograph_schema(store)
+    _ograph_transition_schema_version(store.db) == OGRAPH_TRANSITION_SCHEMA_VERSION ||
+        throw(ArgumentError("typed transition schema v1 is not enabled"))
+    source.area == AREA_3 && target.area == AREA_3 ||
+        throw(ArgumentError("typed o-graph transitions require Area 3 states"))
+    source.representation == "o-graph" && target.representation == "o-graph" ||
+        throw(ArgumentError("typed o-graph transitions require o-graph states"))
+    move_name = String(move_type)
+    direction_name = lowercase(String(direction))
+    direction_name in ("forward", "inverse") || throw(ArgumentError(
+        "transition direction must be forward or inverse"))
+    stored_parameters = _ograph_canonical_json(parameters)
+    stored_location = location === nothing ? nothing : _ograph_canonical_json(location)
+    evidence_json, data = _require_transition_evidence(evidence, source, target,
+        move_name, direction_name, profile_id, stored_parameters, stored_location)
+    String(data["evidence_version"]) == OGRAPH_TRANSITION_EVIDENCE_VERSION ||
+        throw(ArgumentError("unsupported typed transition evidence version"))
+    # A JSON success flag is not a semantic verifier.  Require the typed
+    # source-grounded report and replay its witness before touching SQLite.
+    verification === nothing && throw(ArgumentError(
+        "typed transition persistence requires a semantic move verification report"))
+    getproperty(verification, :valid) === true || throw(ArgumentError(
+        "move verifier did not certify this transition"))
+    witness = getproperty(verification, :witness)
+    witness === nothing && throw(ArgumentError("move verification has no witness"))
+    replay = replay_ograph_move(witness)
+    getproperty(replay, :valid) === true || throw(ArgumentError(
+        "fresh semantic replay rejected the move witness"))
+    witness_data = ograph_move_witness_data(witness)
+    _ograph_canonical_json(data["witness"]) == _ograph_canonical_json(witness_data) ||
+        throw(ArgumentError("stored evidence witness differs from verified witness"))
+    # Bind the replayed canonical endpoints and concrete operation to the
+    # database relation.  A valid witness must not be transplantable to an
+    # unrelated state or site merely by rewriting its outer hashes.
+    source_serialization = ograph_canonical_serialization(witness.source_canonical)
+    target_serialization = ograph_canonical_serialization(witness.target_canonical)
+    source_serialization == source.serialization &&
+        target_serialization == target.serialization || throw(ArgumentError(
+            "move witness canonical endpoints do not match DB endpoints"))
+    bytes2hex(SHA.sha256(codeunits(source_serialization))) == source.state_hash &&
+        bytes2hex(SHA.sha256(codeunits(target_serialization))) == target.state_hash ||
+        throw(ArgumentError("move witness canonical endpoint hashes do not match DB"))
+    String(witness.move_type) == move_name &&
+        String(witness.direction) == direction_name || throw(ArgumentError(
+            "move witness type or direction does not match transition"))
+    pdata = _transition_evidence_dict(parameters)
+    all(haskey(pdata, key) for key in
+        ("operation_id", "parameter", "vertices", "source_locations",
+         "target_locations")) || throw(ArgumentError(
+            "move parameters must carry operation_id, parameter, vertices, and occurrence locations"))
+    String(witness.parameter) == String(pdata["parameter"]) || throw(ArgumentError(
+        "move witness parameter does not match transition operation"))
+    _ograph_canonical_json(witness.vertices) == _ograph_canonical_json(pdata["vertices"]) &&
+        _ograph_canonical_json(witness.source_locations) ==
+            _ograph_canonical_json(pdata["source_locations"]) &&
+        _ograph_canonical_json(witness.target_locations) ==
+            _ograph_canonical_json(pdata["target_locations"]) || throw(ArgumentError(
+                "move witness locations or vertices do not match transition operation"))
+    haskey(data, "operation_id") && String(data["operation_id"]) ==
+        String(pdata["operation_id"]) || throw(ArgumentError(
+            "typed evidence is missing the exact operation identity"))
+    if uppercase(move_name) == "PS"
+        getproperty(witness, :method_b) === nothing && throw(ArgumentError(
+            "PS transition verifier did not provide a Method-B witness"))
+        haskey(data, "method_b_witness") || throw(ArgumentError(
+            "PS typed evidence is missing method_b_witness"))
+        _ograph_canonical_json(data["method_b_witness"]) ==
+            _ograph_canonical_json(witness_data.method_b) || throw(ArgumentError(
+                "PS method_b_witness differs from verified witness"))
+    end
+    fingerprint = _ograph_sha256(evidence_json)
+    witness_json = _ograph_canonical_json(data["witness"])
+    replay_json = _ograph_canonical_json(data["replay"])
+    profile = MoveGraphStore._one(store.db, """
+        SELECT 1 AS present FROM ograph_relation_profile_moves
+        WHERE profile_id=? AND move_type=?
+    """, (String(profile_id), move_name))
+    profile === nothing && throw(ArgumentError(
+        "move $move_name is not allowed by o-graph profile $(profile_id)"))
+    source_row = get_state(store, source.state_id)
+    target_row = get_state(store, target.state_id)
+    source_row !== nothing && target_row !== nothing || throw(ArgumentError(
+        "typed transition endpoints must already be registered"))
+    MoveGraphStore._one(store.db, "SELECT 1 AS present FROM ograph_states WHERE state_id=?",
+                        (source.state_id,)) !== nothing || throw(ArgumentError(
+        "source endpoint is not a registered closed o-graph"))
+    MoveGraphStore._one(store.db, "SELECT 1 AS present FROM ograph_states WHERE state_id=?",
+                        (target.state_id,)) !== nothing || throw(ArgumentError(
+        "target endpoint is not a registered closed o-graph"))
+    transition_id = Ref{Any}(nothing)
+    MoveGraphStore._transaction(store.db) do
+        MoveGraphStore._dbexec(store.db, """
+          INSERT INTO transitions(
+            source_state_id,target_state_id,move_type,direction,location,parameters,
+            engine_version,verifier_version,verification_evidence,verified,
+            relation_profile_id)
+          VALUES (?,?,?,?,?,?,?,?,?,1,?)
+          ON CONFLICT(source_state_id,target_state_id,move_type,direction,parameters)
+          DO NOTHING
+        """, (source.state_id, target.state_id, move_name, direction_name,
+               stored_location, stored_parameters, String(engine_version),
+               String(verifier_version), evidence_json, String(profile_id)))
+        row = MoveGraphStore._one(store.db, """
+          SELECT * FROM transitions
+          WHERE source_state_id=? AND target_state_id=? AND move_type=?
+            AND direction=? AND parameters IS ?
+        """, (source.state_id, target.state_id, move_name, direction_name,
+               stored_parameters))
+        row === nothing && throw(ArgumentError("typed transition was not persisted"))
+        existing = MoveGraphStore._one(store.db,
+            "SELECT * FROM ograph_transition_evidence WHERE transition_id=?",
+            (Int(row.id),))
+        if existing === nothing
+            MoveGraphStore._dbexec(store.db, """
+              INSERT INTO ograph_transition_evidence(
+                transition_id,evidence_version,source_state_id,target_state_id,
+                move_type,direction,source_state_hash,target_state_hash,
+                parameters_json,location_json,witness_json,replay_json,
+                evidence_json,evidence_fingerprint,created_at_utc)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (Int(row.id), String(data["evidence_version"]), source.state_id,
+                   target.state_id, move_name, direction_name, source.state_hash,
+                   target.state_hash, stored_parameters, stored_location,
+                   witness_json, replay_json, evidence_json, fingerprint,
+                   String(created_at_utc)))
+        else
+            String(existing.evidence_json) == evidence_json || throw(ArgumentError(
+                "transition already has different typed evidence"))
+        end
+        transition_id[] = Int(row.id)
+    end
+    transition_id[]
+end
+
 struct OGraphProvenance
     source_id::String
     source_kind::String
@@ -756,16 +999,221 @@ function verify_ograph_store(store::MoveGraphStoreDB)
         "SELECT COUNT(*) AS n FROM ograph_relation_certificates").n)
     certificate_steps = Int(MoveGraphStore._one(store.db,
         "SELECT COUNT(*) AS n FROM ograph_relation_certificate_steps").n)
-    ograph_transitions == 0 || throw(ArgumentError(
-        "Area-3 transition replay is not implemented in o-graph schema v1"))
-    certificates == 0 && certificate_steps == 0 || throw(ArgumentError(
-        "Area-3 certificate replay is not implemented in o-graph schema v1"))
-    for campaign in campaigns
-        counts = JSON.parse(String(campaign.counts_json))
-        haskey(counts, "transitions") && Int(counts["transitions"]) != 0 &&
-            throw(ArgumentError("campaign declares unsupported o-graph transitions"))
-        haskey(counts, "certificates") && Int(counts["certificates"]) != 0 &&
-            throw(ArgumentError("campaign declares unsupported o-graph certificates"))
+    transition_schema_version = _ograph_transition_schema_version(store.db)
+    if transition_schema_version === nothing
+        # Historical v2 pilot semantics: no relation transition/certificate
+        # writer exists and any such rows are a hard failure.
+        ograph_transitions == 0 || throw(ArgumentError(
+            "Area-3 transition replay is not enabled in o-graph schema v2"))
+        certificates == 0 && certificate_steps == 0 || throw(ArgumentError(
+            "Area-3 certificate replay is not enabled in o-graph schema v2"))
+        for campaign in campaigns
+            counts = JSON.parse(String(campaign.counts_json))
+            haskey(counts, "transitions") && Int(counts["transitions"]) != 0 &&
+                throw(ArgumentError("campaign declares unsupported o-graph transitions"))
+            haskey(counts, "certificates") && Int(counts["certificates"]) != 0 &&
+                throw(ArgumentError("campaign declares unsupported o-graph certificates"))
+        end
+    elseif transition_schema_version == OGRAPH_TRANSITION_SCHEMA_VERSION
+        evidence_rows = MoveGraphStore._rows(store.db,
+            "SELECT * FROM ograph_transition_evidence ORDER BY transition_id")
+        length(evidence_rows) == ograph_transitions || throw(ArgumentError(
+            "every Area-3 transition requires exactly one typed evidence row"))
+        for transition in MoveGraphStore._rows(store.db, """
+                SELECT transition.* FROM transitions transition
+                WHERE transition.relation_profile_id IS NOT NULL
+                   OR EXISTS (SELECT 1 FROM ograph_states
+                              WHERE state_id=transition.source_state_id)
+                   OR EXISTS (SELECT 1 FROM ograph_states
+                              WHERE state_id=transition.target_state_id)
+                ORDER BY transition.id
+            """)
+            evidence = MoveGraphStore._one(store.db,
+                "SELECT * FROM ograph_transition_evidence WHERE transition_id=?",
+                (Int(transition.id),))
+            evidence === nothing && throw(ArgumentError(
+                "typed transition is missing evidence"))
+            evidence_json = String(evidence.evidence_json)
+            data = JSON.parse(evidence_json)
+            _ograph_canonical_json(data) == evidence_json || throw(ArgumentError(
+                "typed transition evidence is not canonical JSON"))
+            _ograph_transition_schema_version(store.db) ==
+                OGRAPH_TRANSITION_SCHEMA_VERSION || throw(ArgumentError(
+                    "typed transition schema changed during verification"))
+            data isa AbstractDict || throw(ArgumentError(
+                "typed transition evidence is not an object"))
+            String(data["evidence_version"]) == OGRAPH_TRANSITION_EVIDENCE_VERSION ||
+                throw(ArgumentError("typed transition evidence version mismatch"))
+            String(data["source_state_id"]) == String(transition.source_state_id) ||
+                throw(ArgumentError("typed evidence source endpoint mismatch"))
+            String(data["target_state_id"]) == String(transition.target_state_id) ||
+                throw(ArgumentError("typed evidence target endpoint mismatch"))
+            String(data["move_type"]) == String(transition.move_type) ||
+                throw(ArgumentError("typed evidence move type mismatch"))
+            String(data["direction"]) == String(transition.direction) ||
+                throw(ArgumentError("typed evidence direction mismatch"))
+            String(data["profile_id"]) == String(transition.relation_profile_id) ||
+                throw(ArgumentError("typed evidence profile mismatch"))
+            _ograph_canonical_json(data["parameters"]) == String(evidence.parameters_json) ||
+                throw(ArgumentError("typed evidence parameters mismatch"))
+            transition_parameters = transition.parameters === nothing ||
+                transition.parameters === missing ? nothing : String(transition.parameters)
+            transition_parameters == String(evidence.parameters_json) ||
+                throw(ArgumentError("typed evidence does not match transition parameters"))
+            loc = get(data, "location", nothing)
+            expected_loc = evidence.location_json === nothing ||
+                evidence.location_json === missing ? nothing : String(evidence.location_json)
+            (loc === nothing ? nothing : _ograph_canonical_json(loc)) == expected_loc ||
+                throw(ArgumentError("typed evidence location mismatch"))
+            transition_location = transition.location === nothing ||
+                transition.location === missing ? nothing : String(transition.location)
+            transition_location == expected_loc ||
+                throw(ArgumentError("typed evidence does not match transition location"))
+            _ograph_canonical_json(data["witness"]) == String(evidence.witness_json) ||
+                throw(ArgumentError("typed evidence witness mismatch"))
+            _ograph_canonical_json(data["replay"]) == String(evidence.replay_json) ||
+                throw(ArgumentError("typed evidence replay mismatch"))
+            # Reconstruct the witness from persisted JSON and repeat the
+            # semantic verifier in this process.  Hash/field agreement alone
+            # is not a legality certificate.
+            replay = replay_ograph_move(data["witness"])
+            getproperty(replay, :valid) === true || throw(ArgumentError(
+                "fresh semantic replay rejected stored move evidence"))
+            witness = ograph_move_witness_from_data(data["witness"])
+            source = get_state(store, String(transition.source_state_id))
+            target = get_state(store, String(transition.target_state_id))
+            source !== nothing && target !== nothing || throw(ArgumentError(
+                "typed transition endpoint state is missing"))
+            ograph_canonical_serialization(witness.source_canonical) == source.serialization &&
+                ograph_canonical_serialization(witness.target_canonical) == target.serialization ||
+                throw(ArgumentError("stored move witness was transplanted to another endpoint"))
+            String(witness.move_type) == String(transition.move_type) &&
+                String(witness.direction) == String(transition.direction) ||
+                throw(ArgumentError("stored witness operation type/direction mismatch"))
+            pdata = data["parameters"]
+            pdata isa AbstractDict || throw(ArgumentError("typed parameters are not an object"))
+            all(haskey(pdata, key) for key in
+                ("operation_id", "parameter", "vertices", "source_locations",
+                 "target_locations")) || throw(ArgumentError(
+                    "typed parameters lack exact operation identity"))
+            String(witness.parameter) == String(pdata["parameter"]) &&
+                _ograph_canonical_json(witness.vertices) == _ograph_canonical_json(pdata["vertices"]) &&
+                _ograph_canonical_json(witness.source_locations) ==
+                    _ograph_canonical_json(pdata["source_locations"]) &&
+                _ograph_canonical_json(witness.target_locations) ==
+                    _ograph_canonical_json(pdata["target_locations"]) ||
+                throw(ArgumentError("stored witness operation fields mismatch"))
+            haskey(data, "operation_id") && String(data["operation_id"]) ==
+                String(pdata["operation_id"]) || throw(ArgumentError(
+                    "stored evidence lacks operation identity"))
+            _ograph_sha256(evidence_json) == String(evidence.evidence_fingerprint) ||
+                throw(ArgumentError("typed evidence fingerprint mismatch"))
+            if uppercase(String(transition.move_type)) == "PS"
+                haskey(data, "method_b_witness") || throw(ArgumentError(
+                    "PS transition evidence is missing the Method-B witness"))
+            end
+            String(evidence.source_state_hash) == source.state_hash ||
+                throw(ArgumentError("typed source hash mismatch"))
+            String(evidence.target_state_hash) == target.state_hash ||
+                throw(ArgumentError("typed target hash mismatch"))
+        end
+        orphan_evidence = Int(MoveGraphStore._one(store.db, """
+            SELECT COUNT(*) AS n FROM ograph_transition_evidence evidence
+            WHERE NOT EXISTS (SELECT 1 FROM transitions
+                              WHERE id=evidence.transition_id)
+        """).n)
+        orphan_evidence == 0 || throw(ArgumentError(
+            "typed transition evidence contains orphan rows"))
+        # A certificate is a path over already semantically verified typed
+        # transitions.  A reversed step reflects traversal endpoints only;
+        # its stored witness is still replayed in the transition's direction.
+        certificate_rows = MoveGraphStore._rows(store.db,
+            "SELECT * FROM ograph_relation_certificates ORDER BY certificate_id")
+        for certificate in certificate_rows
+            String(certificate.status) == "verified" || throw(ArgumentError(
+                "stored Area-3 certificate is not verified"))
+            profile_id = String(certificate.profile_id)
+            campaign = MoveGraphStore._one(store.db,
+                "SELECT * FROM ograph_relation_campaigns WHERE campaign_id=?",
+                (String(certificate.campaign_id),))
+            campaign !== nothing && String(campaign.profile_id) == profile_id ||
+                throw(ArgumentError("certificate campaign/profile mismatch"))
+            source_id, target_id = String(certificate.source_state_id),
+                String(certificate.target_state_id)
+            source_id in Set(String(row.state_id) for row in state_rows) ||
+                throw(ArgumentError("certificate source endpoint is not an o-graph state"))
+            target_id in Set(String(row.state_id) for row in state_rows) ||
+                throw(ArgumentError("certificate target endpoint is not an o-graph state"))
+            evidence_json = String(certificate.evidence_json)
+            data = JSON.parse(evidence_json)
+            _ograph_canonical_json(data) == evidence_json || throw(ArgumentError(
+                "certificate evidence is not canonical JSON"))
+            steps = get(data, "steps", nothing)
+            steps isa AbstractVector && !isempty(steps) || throw(ArgumentError(
+                "verified certificate has no path steps"))
+            cert_data = Dict("certificate_id" => String(certificate.certificate_id),
+                             "campaign_id" => String(certificate.campaign_id),
+                             "profile_id" => profile_id,
+                             "source_state_id" => source_id,
+                             "target_state_id" => target_id,
+                             "steps" => steps)
+            _ograph_sha256(_ograph_canonical_json(cert_data)) ==
+                String(certificate.certificate_fingerprint) || throw(ArgumentError(
+                    "certificate fingerprint mismatch"))
+            stored_steps = MoveGraphStore._rows(store.db, """
+                SELECT * FROM ograph_relation_certificate_steps
+                WHERE certificate_id=? ORDER BY ordinal
+            """, (String(certificate.certificate_id),))
+            length(stored_steps) == length(steps) || throw(ArgumentError(
+                "certificate step count mismatch"))
+            previous_target = source_id
+            seen_transition_ids = Set{Int}()
+            for (ordinal, step) in enumerate(steps)
+                step isa AbstractDict || throw(ArgumentError(
+                    "certificate step is not an object"))
+                required = ("transition_id", "reversed", "source_state_id", "target_state_id")
+                all(haskey(step, key) for key in required) || throw(ArgumentError(
+                    "certificate step lacks traversal endpoints"))
+                step["transition_id"] isa Integer && !(step["transition_id"] isa Bool) ||
+                    throw(ArgumentError("certificate transition_id must be an integer"))
+                step["reversed"] isa Bool || throw(ArgumentError(
+                    "certificate reversed must be a boolean"))
+                all(step[key] isa AbstractString for key in ("source_state_id", "target_state_id")) ||
+                    throw(ArgumentError("certificate traversal endpoints must be strings"))
+                stored = stored_steps[ordinal]
+                Int(stored.ordinal) == ordinal - 1 || throw(ArgumentError(
+                    "certificate step ordinals are not contiguous"))
+                step_json = String(stored.step_evidence_json)
+                _ograph_canonical_json(step) == step_json || throw(ArgumentError(
+                    "certificate step evidence mismatch"))
+                transition_id = Int(step["transition_id"])
+                transition_id in seen_transition_ids && throw(ArgumentError(
+                    "certificate repeats a transition"))
+                push!(seen_transition_ids, transition_id)
+                transition = MoveGraphStore._one(store.db,
+                    "SELECT * FROM transitions WHERE id=?", (transition_id,))
+                transition !== nothing && String(transition.relation_profile_id) == profile_id ||
+                    throw(ArgumentError("certificate step profile/transition mismatch"))
+                path_source, path_target = String(step["source_state_id"]),
+                    String(step["target_state_id"])
+                path_source == previous_target || throw(ArgumentError(
+                    "certificate path endpoints are not contiguous"))
+                stored_source, stored_target = String(transition.source_state_id),
+                    String(transition.target_state_id)
+                if Bool(step["reversed"])
+                    path_source == stored_target && path_target == stored_source ||
+                        throw(ArgumentError("reversed certificate step endpoint mismatch"))
+                else
+                    path_source == stored_source && path_target == stored_target ||
+                        throw(ArgumentError("certificate step endpoint mismatch"))
+                end
+                previous_target = path_target
+            end
+            previous_target == target_id || throw(ArgumentError(
+                "certificate final endpoint mismatch"))
+        end
+    else
+        throw(ArgumentError("unsupported o-graph transition schema version $transition_schema_version"))
     end
 
     (

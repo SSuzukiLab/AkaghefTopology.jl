@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 720" width="1040" height="720">
+  <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #111827; }
+    .title { font-size: 22px; font-weight: 600; }
+    .subtitle { font-size: 13px; fill: #6b7280; }
+    .label { font-size: 14px; font-weight: 600; }
+    .small { font-size: 12px; fill: #374151; }
+    .tiny { font-size: 11px; fill: #6b7280; }
+    .frame { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.5; rx: 8; }
+    .panel { fill: #f9fafb; stroke: #d1d5db; stroke-width: 1.5; rx: 8; }
+    .stub { stroke: #6b7280; stroke-width: 1.5; }
+    .wire { fill: none; stroke-width: 3; stroke-linecap: round; }
+  </style>
+  <defs>
+    <marker id="arrow-gray" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#4b5563"/>
+    </marker>
+  </defs>
+  <rect width="1040" height="720" fill="#ffffff"/>
+  <text x="40" y="42" class="title">Method B — positive-frame index overlay</text>
+  <text x="40" y="66" class="subtitle">Implementation gauge traced against MST25 Figures 2.13–2.14; crossings of colored curves are not nodes.</text>
+
+  <rect x="40" y="92" width="550" height="500" class="panel"/>
+  <text x="60" y="123" class="label">Physical source frame</text>
+  <text x="60" y="145" class="tiny">U/D: west→east; L/R: top→bottom. Lane numbers are viewed upward.</text>
+  <rect x="180" y="205" width="270" height="270" class="frame"/>
+
+  <!-- boundary stubs and labels -->
+  <line x1="245" y1="205" x2="245" y2="180" class="stub" marker-end="url(#arrow-gray)"/><text x="228" y="171" class="small">U1</text><text x="220" y="192" class="tiny">−o:7</text>
+  <line x1="315" y1="205" x2="315" y2="180" class="stub" marker-end="url(#arrow-gray)"/><text x="298" y="171" class="small">U2</text><text x="290" y="192" class="tiny">−o:8</text>
+  <line x1="385" y1="180" x2="385" y2="205" class="stub" marker-end="url(#arrow-gray)"/><text x="368" y="171" class="small">U3</text><text x="360" y="192" class="tiny">−o:9</text>
+
+  <line x1="245" y1="500" x2="245" y2="475" class="stub" marker-end="url(#arrow-gray)"/><text x="229" y="520" class="small">D1</text><text x="220" y="539" class="tiny">−i:1</text>
+  <line x1="315" y1="500" x2="315" y2="475" class="stub" marker-end="url(#arrow-gray)"/><text x="299" y="520" class="small">D2</text><text x="290" y="539" class="tiny">−i:2</text>
+  <line x1="385" y1="475" x2="385" y2="500" class="stub" marker-end="url(#arrow-gray)"/><text x="369" y="520" class="small">D3</text><text x="360" y="539" class="tiny">−i:3</text>
+
+  <line x1="155" y1="270" x2="180" y2="270" class="stub" marker-end="url(#arrow-gray)"/><text x="101" y="275" class="small">L1</text><text x="55" y="275" class="tiny">+i:4</text>
+  <line x1="155" y1="340" x2="180" y2="340" class="stub" marker-end="url(#arrow-gray)"/><text x="101" y="345" class="small">L2</text><text x="55" y="345" class="tiny">+i:5</text>
+  <line x1="180" y1="410" x2="155" y2="410" class="stub" marker-end="url(#arrow-gray)"/><text x="101" y="415" class="small">L3</text><text x="55" y="415" class="tiny">+i:6</text>
+
+  <line x1="450" y1="270" x2="475" y2="270" class="stub" marker-end="url(#arrow-gray)"/><text x="484" y="275" class="small">R1</text><text x="518" y="275" class="tiny">+o:10</text>
+  <line x1="450" y1="340" x2="475" y2="340" class="stub" marker-end="url(#arrow-gray)"/><text x="484" y="345" class="small">R2</text><text x="518" y="345" class="tiny">+o:11</text>
+  <line x1="475" y1="410" x2="450" y2="410" class="stub" marker-end="url(#arrow-gray)"/><text x="484" y="415" class="small">R3</text><text x="518" y="415" class="tiny">+o:12</text>
+
+  <!-- six local curves; crossings are deliberately unmarked -->
+  <path d="M245 205 C220 280 220 400 245 475" class="wire" stroke="#2563eb"/>
+  <path d="M315 475 C295 415 235 420 180 410" class="wire" stroke="#dc2626"/>
+  <path d="M315 205 C290 250 240 260 180 270" class="wire" stroke="#16a34a"/>
+  <path d="M180 340 C260 315 370 365 450 340" class="wire" stroke="#9333ea"/>
+  <path d="M385 205 C410 225 425 250 450 270" class="wire" stroke="#ea580c"/>
+  <path d="M385 475 C405 455 425 430 450 410" class="wire" stroke="#0891b2"/>
+
+  <text x="60" y="552" class="tiny">Physical-to-port map: D = −i, U = −o, L = +i, R = +o.</text>
+  <text x="60" y="572" class="tiny">Gray arrows show circuit direction: lanes 1,2 forward; lane 3 reverse.</text>
+
+  <rect x="620" y="92" width="380" height="500" class="panel"/>
+  <text x="640" y="123" class="label">Array pairing in the positive gauge</text>
+  <text x="640" y="148" class="small">blocks: (−i, +i, −o, +o) × lanes (1,2,3)</text>
+
+  <g transform="translate(650,180)">
+    <rect x="0" y="0" width="320" height="48" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+    <line x1="22" y1="24" x2="80" y2="24" class="wire" stroke="#2563eb"/><text x="98" y="29" class="small">node 1: (1,7) = D1–U1</text>
+    <rect x="0" y="58" width="320" height="48" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+    <line x1="22" y1="82" x2="80" y2="82" class="wire" stroke="#dc2626"/><text x="98" y="87" class="small">node 2: (2,6) = D2–L3</text>
+    <rect x="0" y="116" width="320" height="48" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <line x1="22" y1="140" x2="80" y2="140" class="wire" stroke="#16a34a"/><text x="98" y="145" class="small">node 3: (4,8) = L1–U2</text>
+    <rect x="0" y="174" width="320" height="48" rx="8" fill="#faf5ff" stroke="#e9d5ff"/>
+    <line x1="22" y1="198" x2="80" y2="198" class="wire" stroke="#9333ea"/><text x="98" y="203" class="small">node 4: (5,11) = L2–R2</text>
+    <rect x="0" y="232" width="320" height="48" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+    <line x1="22" y1="256" x2="80" y2="256" class="wire" stroke="#ea580c"/><text x="98" y="261" class="small">node 5: (9,10) = U3–R1</text>
+    <rect x="0" y="290" width="320" height="48" rx="8" fill="#f0fdfa" stroke="#99f6e4"/>
+    <line x1="22" y1="314" x2="80" y2="314" class="wire" stroke="#0891b2"/><text x="98" y="319" class="small">node 6: (3,12) = D3–R3</text>
+  </g>
+  <text x="640" y="554" class="small">dp = [1,2,6, 3,4,2, 1,3,5, 5,4,6]</text>
+  <text x="640" y="575" class="tiny">Node IDs are arbitrary; the six stub pairings are the invariant content.</text>
+
+  <rect x="40" y="620" width="960" height="62" rx="8" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="60" y="647" class="small">Negative gauge: keep under ports fixed; exchange +i ↔ +o and reverse over-lane order k ↦ 4−k.</text>
+  <text x="60" y="669" class="small">pairs = (1,7), (2,10), (3,4), (5,11), (6,9), (8,12)  →  dm = [1,2,3, 3,4,5, 1,6,5, 2,4,6]</text>
+</svg>

@@ -693,14 +693,21 @@ function set_weight_by_crossing!(v::VirtualLink,crossings,weights)
 end
 
 function _graph_a_connected(v::VirtualLink)
+    all(!=(0), v.orientation) || return false
+    any(word -> any(==(0), word), v.gauss) && return false
     code, orientation = real_gauss_code(v)
     isempty(orientation) && return length(code) <= 1
+    any(isempty, code) && return false
     length(connected_components(ograph_graph_a(v))) == 1
 end
 
 function is_closed(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     c1 = length(code) == 1
+    unsupported = any(==(0), v.orientation) ||
+                  any(word -> any(==(0), word), v.gauss) ||
+                  (!isempty(orientation) && any(isempty, code))
+    unsupported && return false, (c1, false, false)
     c2 = _graph_a_connected(v)
     c3 = size(disk_table(v).delta,1) == length(orientation)+1
     all((c1,c2,c3)), (c1,c2,c3)

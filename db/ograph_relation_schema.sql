@@ -116,6 +116,43 @@ CREATE INDEX IF NOT EXISTS ograph_campaigns_profile_idx
 CREATE INDEX IF NOT EXISTS ograph_certificates_profile_idx
   ON ograph_relation_certificates(profile_id);
 
+-- Transition evidence is a separately enabled v1 extension.  The table is
+-- created by the ordinary schema migration so an old pilot remains readable,
+-- but `ograph_transition_schema_meta` is populated only by the explicit typed
+-- transition migration.  Until then the v2 disabled triggers below remain in
+-- force and no Area-3 relation can be written.
+CREATE TABLE IF NOT EXISTS ograph_transition_schema_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ograph_transition_evidence (
+  transition_id INTEGER PRIMARY KEY REFERENCES transitions(id) ON DELETE RESTRICT,
+  evidence_version TEXT NOT NULL,
+  source_state_id TEXT NOT NULL REFERENCES ograph_states(state_id) ON DELETE RESTRICT,
+  target_state_id TEXT NOT NULL REFERENCES ograph_states(state_id) ON DELETE RESTRICT,
+  move_type TEXT NOT NULL,
+  direction TEXT NOT NULL CHECK (direction IN ('forward', 'inverse')),
+  source_state_hash TEXT NOT NULL,
+  target_state_hash TEXT NOT NULL,
+  parameters_json TEXT NOT NULL,
+  location_json TEXT,
+  witness_json TEXT NOT NULL,
+  replay_json TEXT NOT NULL,
+  evidence_json TEXT NOT NULL,
+  evidence_fingerprint TEXT NOT NULL UNIQUE,
+  created_at_utc TEXT NOT NULL,
+  CHECK (length(trim(evidence_version)) > 0),
+  CHECK (length(trim(witness_json)) > 0),
+  CHECK (length(trim(replay_json)) > 0),
+  CHECK (length(trim(evidence_json)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS ograph_transition_evidence_source_idx
+  ON ograph_transition_evidence(source_state_id);
+CREATE INDEX IF NOT EXISTS ograph_transition_evidence_target_idx
+  ON ograph_transition_evidence(target_state_id);
+
 CREATE TRIGGER IF NOT EXISTS ograph_states_domain_insert
 BEFORE INSERT ON ograph_states
 WHEN COALESCE((SELECT area FROM states WHERE state_id=NEW.state_id), -1.0) <> 3.0
@@ -294,6 +331,13 @@ BEGIN SELECT RAISE(ABORT, 'o-graph certificates are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS ograph_certificate_steps_immutable_delete
 BEFORE DELETE ON ograph_relation_certificate_steps
 BEGIN SELECT RAISE(ABORT, 'o-graph certificates are append-only'); END;
+
+CREATE TRIGGER IF NOT EXISTS ograph_transition_evidence_immutable_update
+BEFORE UPDATE ON ograph_transition_evidence
+BEGIN SELECT RAISE(ABORT, 'o-graph transition evidence is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS ograph_transition_evidence_immutable_delete
+BEFORE DELETE ON ograph_transition_evidence
+BEGIN SELECT RAISE(ABORT, 'o-graph transition evidence is append-only'); END;
 
 CREATE TRIGGER IF NOT EXISTS states_ograph_immutable_update
 BEFORE UPDATE ON states

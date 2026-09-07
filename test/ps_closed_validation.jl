@@ -45,8 +45,9 @@ end
     @test open_report.reason == :source_not_closed
     @test isempty(movable(open_source, "PS"; vertices=[1,2], strict=true))
 
-    # A locally valid, closed source can still have a nonclosed tentative
-    # target: this is why the target half of the validator is not redundant.
+    # Under the source-confirmed C2 graph, this former tiny fixture is not a
+    # closed source.  Keep the rejection explicit; do not infer target-side
+    # behavior from a source that fails the frozen C2 closedness check.
     tiny = VirtualLink()
     set_data!(tiny; rgauss=[[1,2,-1,-2]], orientation=[1,-1])
     tiny_data = Topology.make_move_data()
@@ -54,9 +55,9 @@ end
                                    tiny_data["PS-R"][1], tiny_data["PS-L"][1],
                                    [(1,1),(1,3)])
     tiny_report = Topology.validate_ps_move(tiny, tiny_candidate)
-    @test tiny_report.source_closed
+    @test !tiny_report.source_closed
     @test !tiny_report.target_closed
-    @test tiny_report.reason == :target_not_closed
+    @test tiny_report.reason == :source_not_closed
 
     nonps = MoveCandidate("CP", "", [1,2], NTuple{2,Int}[], :forward,
                           candidate.before, candidate.after, candidate.locations)

@@ -12,7 +12,8 @@ const OGRAPH_PRESENTATION_SCHEMA = "akaghef.ograph/1"
 const OGRAPH_PRESENTATION_CANON_VERSION = 1
 const OGRAPH_PRESENTATION_CANONICALIZATION = "ograph-presentation/1"
 const OGRAPH_DEFAULT_CONVENTION = "virtual-link-rgauss/1"
-const OGRAPH_CLOSEDNESS_VERIFIER_VERSION = "virtual-link-c1-c3/1"
+const OGRAPH_CLOSEDNESS_VERIFIER_VERSION = "virtual-link-c1-c3/2"
+const C2_GRAPH_SPEC_VERSION = "bp97-fig1.2-pd-slots/1"
 
 struct OGraphState
     gauss::Tuple{Vararg{Int}}
@@ -132,45 +133,132 @@ struct ClosednessWitness
     method_circuit_lengths::Tuple{Vararg{Int}}
 end
 
-"""Construct the standard `Graphs.jl` object for BP Figure 1.2 (C2).
+"""Duplicate-preserving BP Figure 1.2 graph and GC-edge provenance.
 
-The vertex set is the local trivalent-node set of the replacement graph.  Each
-PD edge occurs twice; the three local nodes at its two occurrences are joined
-in order.  The returned object is the semantic graph used for C2.  Conversion
-from the o-graph/PD representation is local glue; graph semantics are owned by
-`Graphs.jl`, not by a private graph implementation.
+`origins[i] == (component, tail_occurrence, lane)` describes `edges[i]`.
+`lane` is the source-triple position before the pair permutation is applied.
+"""
+struct C2Graph
+    node_count::Int
+    edges::Vector{NTuple{2,Int}}
+    origins::Vector{NTuple{3,Int}}
+
+    function C2Graph(node_count::Integer,
+                     edges::Vector{NTuple{2,Int}},
+                     origins::Vector{NTuple{3,Int}})
+        node_count >= 0 || throw(ArgumentError("C2 node count must be non-negative"))
+        length(edges) == length(origins) || throw(DimensionMismatch(
+            "each C2 edge occurrence must have one origin"))
+        all(edge -> all(node -> 1 <= node <= node_count, edge), edges) ||
+            throw(ArgumentError("C2 edge endpoint is outside the declared node set"))
+        new(Int(node_count), edges, origins)
+    end
+end
+
+# Source and index trace: docs/specs/ograph-c2.md.  Port columns are
+# (+i, -i, +o, -o); the two rows are vertex signs +1 and -1.
+const _C2_LOCAL_TRIPLES = (
+    ((3, 4, 1), (4, 1, 2), (1, 2, 3), (2, 3, 4)),
+    ((1, 2, 3), (4, 1, 2), (3, 4, 1), (2, 3, 4)),
+)
+const _C2_PAIR_PERMUTATIONS = ((3, 2, 1), (2, 3, 1)) # same, mixed
+
+function _validate_c2_gc(component_words, vertex_signs)
+    words = [Int.(collect(word)) for word in component_words]
+    signs = Int.(collect(vertex_signs))
+    n = length(signs)
+    n >= 1 || throw(ArgumentError("C2 is defined here only for n >= 1"))
+    !isempty(words) && all(!isempty, words) || throw(ArgumentError(
+        "C2 component words must be nonempty cyclic words"))
+    all(sign -> sign in (-1, 1), signs) || throw(ArgumentError(
+        "C2 vertex signs must be +1 or -1"))
+    entries = reduce(vcat, words; init=Int[])
+    length(entries) == 2n || throw(ArgumentError(
+        "C2 GC must contain exactly two entries per vertex"))
+    all(entry -> entry != 0 && abs(entry) <= n, entries) || throw(ArgumentError(
+        "C2 GC labels must be nonzero and lie in 1:n"))
+    for label in 1:n
+        count(==(label), entries) == 1 && count(==(-label), entries) == 1 ||
+            throw(ArgumentError(
+                "C2 vertex $label must occur once positive and once negative"))
+    end
+    words, signs
+end
+
+"""Construct the BP Figure 1.2 C2 multigraph directly from a complete GC.
+
+The returned edge vector retains loops, parallel edges, and row-aligned origins.
+The construction does not pass through PD.  See `docs/specs/ograph-c2.md`.
+"""
+function c2_graph(component_words, vertex_signs)
+    words, signs = _validate_c2_gc(component_words, vertex_signs)
+    n = length(signs)
+    edge_count = 3sum(length, words)
+    edges = Vector{NTuple{2,Int}}(undef, edge_count)
+    origins = Vector{NTuple{3,Int}}(undef, edge_count)
+    row = 0
+
+    for (component, word) in enumerate(words), tail_occurrence in eachindex(word)
+        a = word[tail_occurrence]
+        b = word[mod1(tail_occurrence + 1, length(word))]
+        left_port = a > 0 ? 3 : 4       # +o / -o
+        right_port = b > 0 ? 1 : 2      # +i / -i
+        left = _C2_LOCAL_TRIPLES[signs[abs(a)] > 0 ? 1 : 2][left_port]
+        right = _C2_LOCAL_TRIPLES[signs[abs(b)] > 0 ? 1 : 2][right_port]
+        permutation = _C2_PAIR_PERMUTATIONS[sign(a) == sign(b) ? 1 : 2]
+
+        for lane in 1:3
+            row += 1
+            edges[row] = (
+                4 * (abs(a) - 1) + left[lane],
+                4 * (abs(b) - 1) + right[permutation[lane]],
+            )
+            origins[row] = (component, tail_occurrence, lane)
+        end
+    end
+    C2Graph(4n, edges, origins)
+end
+
+c2_graph(state::OGraphState) =
+    c2_graph([collect(state.gauss)], collect(state.vertex_signs))
+
+"""Construct C2 from the underlying o-graph of a `VirtualLink`.
+
+Edge weights do not occur in BP condition C2.  A weighted input is therefore
+read without mutation and with its GC/sign data unchanged; this function does
+not claim or perform any weighted-move equivalence.
+"""
+function c2_graph(link::VirtualLink)
+    all(!=(0), link.orientation) || throw(ArgumentError(
+        "C2 requires a real o-graph; virtual crossings are unsupported"))
+    all(word -> all(!=(0), word), link.gauss) || throw(ArgumentError(
+        "C2 requires closed cyclic words; cut markers are unsupported"))
+    code, signs = real_gauss_code(link)
+    c2_graph(code, signs)
+end
+
+"""Lossy `SimpleGraph` projection retained for legacy connectivity callers.
+
+The authoritative C2 representation is `c2_graph`; this projection drops loops
+and parallel-edge multiplicity and must not be stored as the C2 graph.
 """
 function ograph_graph_a(link::VirtualLink)::SimpleGraph
     _, orientation = real_gauss_code(link)
-    vertex_count = length(orientation)
-    vertex_count == 0 && return SimpleGraph(0)
-
-    pd = pd_code(link)
-    order = [4, 1, 2, 3, 4, 1]
-    graph_edges = Tuple{Int, Int}[]
-    used = Set{Int}()
-
-    for edge in unique(vec(pd))
-        occurrences = findall(==(edge), pd)
-        length(occurrences) == 2 || throw(ArgumentError(
-            "PD edge $edge must occur exactly twice"))
-
-        endpoints = Vector{Vector{Int}}()
-        for occurrence in occurrences
-            crossing, slot = occurrence[1], occurrence[2]
-            local_nodes = 3 * (crossing - 1) .+ order[slot:slot + 2]
-            push!(endpoints, local_nodes)
-            union!(used, local_nodes)
-        end
-
-        for index in 1:3
-            push!(graph_edges, (endpoints[1][index], endpoints[2][index]))
-        end
+    isempty(orientation) && return SimpleGraph(0)
+    c2 = c2_graph(link)
+    graph = SimpleGraph(c2.node_count)
+    for (left, right) in c2.edges
+        left == right || add_edge!(graph, left, right)
     end
+    graph
+end
 
-    graph = SimpleGraph(maximum(used))
-    for (left, right) in graph_edges
-        add_edge!(graph, left, right)
+function ograph_graph_a(state::OGraphState)::SimpleGraph
+    isempty(state.vertex_signs) && return SimpleGraph(0)
+    c2 = c2_graph(state)
+    graph = SimpleGraph(c2.node_count)
+    for (left, right) in c2.edges
+        left == right || add_edge!(graph, left, right)
     end
     graph
 end
