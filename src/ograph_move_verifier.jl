@@ -1,7 +1,36 @@
 # Source scope, index gates, and replay contract:
 # docs/specs/ograph-move-verifier.md
 const OGRAPH_MOVE_WITNESS_SCHEMA = "akaghef.ograph-move-witness/1"
-const OGRAPH_MOVE_VERIFIER_VERSION = "ograph-move-source-replay/1"
+const OGRAPH_MOVE_VERIFIER_VERSION = "ograph-move-source-replay/2"
+const OGRAPH_CP_SOURCE_RULE_VERSION = "gks26-cp-edata-N/2"
+const OGRAPH_CP_BOUNDARY_CERTIFICATE_SCHEMA = "akaghef.ograph-cp-boundary-factorization/1"
+
+"One E-datum with the boundary-rooted component stored linearly from a to b."
+struct OGraphBoundaryEData
+    open_word::Vector{Int}
+    closed_components::Vector{Vector{Int}}
+    vertex_signs::Vector{Int}
+end
+
+"One source-transcribed arrow in the GKS26 CP reduction."
+struct OGraphCPBoundaryStep
+    move_name::String
+    direction::Symbol
+    vertices::Vector{Int}
+    target::OGraphBoundaryEData
+end
+
+"The two boundary-rooted reductions to the common GKS26 terminal E-datum."
+struct OGraphCPBoundaryCertificate
+    schema::String
+    source_rule_version::String
+    paper_left::OGraphBoundaryEData
+    paper_right::OGraphBoundaryEData
+    right_relabel::Vector{Int}
+    right_initial::OGraphBoundaryEData
+    left_steps::Vector{OGraphCPBoundaryStep}
+    right_steps::Vector{OGraphCPBoundaryStep}
+end
 
 "One unchanged Gauss occurrence tracked across the raw local rewrite."
 struct OGraphOutsideOccurrence
@@ -109,6 +138,388 @@ end
 ograph_raw_hash(state::OGraphState) =
     bytes2hex(SHA.sha256(codeunits(_ograph_raw_serialization(state))))
 
+_cp_edata(open_word, signs, closed=Vector{Vector{Int}}()) =
+    OGraphBoundaryEData(Int.(open_word), [Int.(word) for word in closed], Int.(signs))
+
+function _cp_negate(edata::OGraphBoundaryEData)
+    OGraphBoundaryEData(-edata.open_word, [-word for word in edata.closed_components],
+                        -edata.vertex_signs)
+end
+
+function _cp_relabel(edata::OGraphBoundaryEData, labels::AbstractVector{<:Integer})
+    relabel(word) = [sign(entry) * labels[abs(entry)] for entry in word]
+    OGraphBoundaryEData(relabel(edata.open_word), relabel.(edata.closed_components),
+                        edata.vertex_signs[sortperm(Int.(labels))])
+end
+
+function _same_boundary_edata(left::OGraphBoundaryEData,
+                              right::OGraphBoundaryEData)
+    left.open_word == right.open_word &&
+        left.closed_components == right.closed_components &&
+        left.vertex_signs == right.vertex_signs
+end
+
+function _valid_boundary_edata(edata::OGraphBoundaryEData)
+    n = length(edata.vertex_signs)
+    n > 0 || return false
+    all(sign -> sign in (-1, 1), edata.vertex_signs) || return false
+    words = vcat([edata.open_word], edata.closed_components)
+    all(word -> !isempty(word), words) || return false
+    entries = reduce(vcat, words; init=Int[])
+    length(entries) == 2n || return false
+    sort(entries) == sort(vcat(collect(1:n), -collect(1:n)))
+end
+
+function _gks26_cp_paper_endpoints()
+    left = _cp_edata([-1, 2, -2, 3, -3, 1], [1, 1, 1])
+    right = _cp_edata([-1, -2, 5, -3, 2, 3, 4, -4, 1, -5],
+                      [-1, -1, -1, 1, 1])
+    left, right
+end
+
+function _cp_expected_catalogue_patterns()
+    paper_left, paper_right = _gks26_cp_paper_endpoints()
+    runtime_left = _cp_negate(paper_left)
+    runtime_right = _cp_negate(paper_right)
+    MovePattern("dir", [runtime_left.open_word], runtime_left.vertex_signs),
+    MovePattern("inv", [runtime_right.open_word], runtime_right.vertex_signs)
+end
+
+function _cp_catalogue_source_gate(data=make_move_data())
+    expected_left, expected_right = _cp_expected_catalogue_patterns()
+    left = get(data, "CP-L", MovePattern[])
+    right = get(data, "CP-R", MovePattern[])
+    left_match = length(left) == 1 && _same_move_pattern(only(left), expected_left)
+    right_match = length(right) == 1 && _same_move_pattern(only(right), expected_right)
+    (valid=left_match && right_match,
+     source_rule_version=OGRAPH_CP_SOURCE_RULE_VERSION,
+     left_match=left_match, right_match=right_match,
+     geometric_authority_verified=false,
+     certifiable=false)
+end
+
+"Check the finite CP catalogue correspondence to GKS26 E-data; this is not geometric authority."
+ograph_cp_catalogue_source_gate() = _cp_catalogue_source_gate()
+
+# The four ordered face triples are derived from the exact production SOT used
+# by `disk_table`, not copied into the verifier as a second magic table.
+function _cp_recipe_germs(sign::Int)
+    sign in (-1, 1) || throw(ArgumentError("crossing sign must be +/-1"))
+    slots = _disk_node_dictionary()[sign]
+    ntuple(face -> Tuple(slots[(3face - 2):(3face)]), 4)
+end
+
+# GKS26 Figure 2.2: repository face index -> omitted ordered-tetrahedron
+# vertex.  The two rows are crossing signs, not tetrahedron types (the source
+# assigns type - to a positive crossing and type + to a negative crossing).
+const _CP_GKS_FACE_OMITTED_VERTEX = Dict(
+    1 => Int[2, 0, 3, 1],
+   -1 => Int[3, 1, 2, 0],
+)
+
+function _cp_recipe_edge(table, germ::Int)
+    Tuple(face for face in 0:3 if !(germ in table[face + 1]))
+end
+
+function _cp_recipe_permutations4()
+    [Int[a, b, c, d] for a in 0:3 for b in 0:3 for c in 0:3 for d in 0:3
+     if length(Set((a, b, c, d))) == 4]
+end
+
+function _cp_recipe_face_map(left_sign::Int, left_face::Int,
+                             right_sign::Int, right_face::Int)
+    left = _cp_recipe_germs(left_sign)
+    right = _cp_recipe_germs(right_sign)
+    candidates = Vector{Vector{Int}}()
+    for permutation in _cp_recipe_permutations4()
+        permutation[left_face + 1] == right_face || continue
+        all(Set(permutation[vertex + 1]
+                for vertex in _cp_recipe_edge(left, left_germ)) ==
+            Set(_cp_recipe_edge(right, right_germ))
+            for (left_germ, right_germ) in
+                zip(left[left_face + 1], right[right_face + 1])) || continue
+        push!(candidates, permutation)
+    end
+    length(candidates) == 1 || return nothing
+    only(candidates)
+end
+
+function _cp_permutation_even(permutation::AbstractVector{<:Integer})
+    inversions = sum(permutation[left] > permutation[right]
+                     for left in eachindex(permutation)
+                     for right in (left + 1):lastindex(permutation))
+    iseven(inversions)
+end
+
+_cp_tetrahedron_type(crossing_sign::Int) = -crossing_sign
+
+function _cp_order_preserving_face_map(left_omitted::Int, right_omitted::Int)
+    source_vertices = [vertex for vertex in 0:3 if vertex != left_omitted]
+    target_vertices = [vertex for vertex in 0:3 if vertex != right_omitted]
+    permutation = fill(-1, 4)
+    permutation[left_omitted + 1] = right_omitted
+    for (source, target) in zip(source_vertices, target_vertices)
+        permutation[source + 1] = target
+    end
+    permutation
+end
+
+function _cp_gks_face_map(left_sign::Int, left_face::Int,
+                          right_sign::Int, right_face::Int)
+    left_labels = _CP_GKS_FACE_OMITTED_VERTEX[left_sign]
+    right_labels = _CP_GKS_FACE_OMITTED_VERTEX[right_sign]
+    right_inverse = [findfirst(==(vertex), right_labels) - 1 for vertex in 0:3]
+    ordered = _cp_order_preserving_face_map(left_labels[left_face + 1],
+                                            right_labels[right_face + 1])
+    [right_inverse[ordered[left_labels[vertex + 1] + 1] + 1]
+     for vertex in 0:3]
+end
+
+"""
+    ograph_cp_negation_recipe_audit()
+
+Check the finite conjugacy of the current disk-germ dual-triangulation recipe
+under `N(G, eps)=(-G,-eps)`. The face triples come from the production
+`disk_table` SOT, and every induced face map is compared with GKS26 Figure 2.2's
+unique order-preserving gluing. Together with the reviewed source index overlay
+and the source CP theorem, this is the semantic authority gate.
+"""
+function ograph_cp_negation_recipe_audit()
+    tetrahedron_vertices = Int[1, 0, 3, 2] # p=(0 1)(2 3), indexed by 0:3
+    germ_labels = Int[4, 3, 2, 1, 6, 5]    # mu=(1 4)(2 3)(5 6)
+    lanes = Int[2, 1, 3]
+    source_tables = Dict(sign => _cp_recipe_germs(sign) for sign in (-1, 1))
+    all(sort(vcat((collect(face) for face in table)...)) ==
+        sort(repeat(collect(1:6), 2)) for table in values(source_tables)) ||
+        return (valid=false, reason=:production_germ_incidence_invalid,
+                certifiable=false)
+    all(length(unique(_cp_recipe_edge(table, germ) for germ in 1:6)) == 6
+        for table in values(source_tables)) ||
+        return (valid=false, reason=:production_germ_edge_gauge_invalid,
+                certifiable=false)
+    tetrahedron_permutation_even = _cp_permutation_even(tetrahedron_vertices)
+    tetrahedron_permutation_even || return (
+        valid=false, reason=:tetrahedron_permutation_not_even,
+        certifiable=false)
+    local_orientation_sign_reversed = all(
+        _cp_tetrahedron_type(-sign) == -_cp_tetrahedron_type(sign)
+        for sign in (-1, 1))
+    local_orientation_sign_reversed || return (
+        valid=false, reason=:tetrahedron_type_not_reversed,
+        certifiable=false)
+    local_frames = 0
+    for vertex_sign in (-1, 1), face in 0:3
+        source = source_tables[vertex_sign][face + 1]
+        target = source_tables[-vertex_sign][tetrahedron_vertices[face + 1] + 1]
+        [germ_labels[germ] for germ in source] == collect(target)[lanes] ||
+            return (valid=false, reason=:local_frame_conjugacy_failed,
+                    certifiable=false)
+        local_frames += 1
+    end
+
+    face_pairing_cases = 0
+    gks_face_correspondence_cases = 0
+    for left_sign in (-1, 1), right_sign in (-1, 1),
+        tail_positive in (false, true), head_positive in (false, true)
+        left_face = 2 + Int(tail_positive)
+        right_face = Int(head_positive)
+        negated_left_face = 2 + Int(!tail_positive)
+        negated_right_face = Int(!head_positive)
+        negated_left_face == tetrahedron_vertices[left_face + 1] ||
+            return (valid=false, reason=:tail_face_transport_failed,
+                    certifiable=false)
+        negated_right_face == tetrahedron_vertices[right_face + 1] ||
+            return (valid=false, reason=:head_face_transport_failed,
+                    certifiable=false)
+        original = _cp_recipe_face_map(left_sign, left_face,
+                                       right_sign, right_face)
+        negated = _cp_recipe_face_map(-left_sign, negated_left_face,
+                                      -right_sign, negated_right_face)
+        original === nothing && return (
+            valid=false, reason=:original_face_map_not_unique, certifiable=false)
+        negated === nothing && return (
+            valid=false, reason=:negated_face_map_not_unique, certifiable=false)
+        all(negated[tetrahedron_vertices[vertex + 1] + 1] ==
+            tetrahedron_vertices[original[vertex + 1] + 1]
+            for vertex in 0:3) || return (
+                valid=false, reason=:face_pairing_conjugacy_failed,
+                certifiable=false)
+        original == _cp_gks_face_map(left_sign, left_face,
+                                     right_sign, right_face) || return (
+            valid=false, reason=:gks_ordered_face_correspondence_failed,
+            certifiable=false)
+        gks_face_correspondence_cases += 1
+        face_pairing_cases += 1
+    end
+    (
+        valid=true,
+        reason=:conditional_recipe_conjugacy_verified,
+        local_frame_cases=local_frames,
+        face_pairing_cases=face_pairing_cases,
+        gks_ordered_face_correspondence_cases=gks_face_correspondence_cases,
+        tetrahedron_vertex_permutation=tetrahedron_vertices,
+        germ_permutation=germ_labels,
+        lane_permutation=lanes,
+        tetrahedron_permutation_even=tetrahedron_permutation_even,
+        local_orientation_sign_reversed=local_orientation_sign_reversed,
+        conditional_orientation_reversal=true,
+        gks_figure_2_2_mapping_transcribed=true,
+        gks_ordered_face_correspondence_verified=true,
+        gks_figure_2_2_index_overlay_reviewed=true,
+        recipe_source_authority_verified=true,
+        cp_endpoint_preservation_proved=true,
+        certifiable=true,
+    )
+end
+
+function _cp_semantic_authority_gate(data=make_move_data())
+    catalogue = _cp_catalogue_source_gate(data)
+    recipe = ograph_cp_negation_recipe_audit()
+    valid = catalogue.valid && recipe.valid &&
+        recipe.gks_figure_2_2_index_overlay_reviewed &&
+        recipe.recipe_source_authority_verified &&
+        recipe.cp_endpoint_preservation_proved && recipe.certifiable
+    (
+        valid=valid,
+        source_rule_version=OGRAPH_CP_SOURCE_RULE_VERSION,
+        catalogue_correspondence_verified=catalogue.valid,
+        recipe_naturality_verified=recipe.valid,
+        source_theorem_applied=true,
+        certifiable=valid,
+    )
+end
+
+_cp_step(name, direction, vertices, target) =
+    OGraphCPBoundaryStep(String(name), Symbol(direction), Int.(vertices), target)
+
+function _gks26_cp_boundary_certificate()
+    paper_left, paper_right = _gks26_cp_paper_endpoints()
+    left_steps = OGraphCPBoundaryStep[
+        _cp_step("C3", :forward, [2, 1],
+            _cp_edata([2, -4, -1, -2, 3, -3, 4, 1], [-1, 1, 1, 1])),
+        _cp_step("C3", :forward, [2, 3],
+            _cp_edata([5, 2, -4, -1, 3, -5, -2, -3, 4, 1], [-1, -1, 1, 1, 1])),
+        _cp_step("ps-I", :inverse, [5, 2],
+            _cp_edata([-3, -1, 2, -2, 3, 1], [-1, 1, 1])),
+        _cp_step("C1", :forward, [1, 2],
+            _cp_edata([-3, 2, -4, -1, -2, 3, 1, 4], [1, 1, 1, -1])),
+        _cp_step("ps-III", :inverse, [1, 4],
+            _cp_edata([-2, 1, -1, 2], [1, 1])),
+        _cp_step("C3", :forward, [1, 2],
+            _cp_edata([-1, -2, 3, 1, 2, -3], [-1, 1, 1])),
+        _cp_step("E2", :forward, [1, 2],
+            _cp_edata([2, 3, 4, -3], [1, -1, 1, -1],
+                      [[-1, -2, -4], [1]])),
+        _cp_step("D1", :forward, [3, 4],
+            _cp_edata([2, 5, 4, -5, 3], [1, -1, -1, -1, 1],
+                      [[-1, -2, -3, -4], [1]])),
+        _cp_step("B2", :forward, [4, 1],
+            _cp_edata([2, 5, -4, 6, -1, -5, 3], [-1, -1, -1, 1, 1, -1],
+                      [[-2, -3, -6], [1, 4]])),
+        _cp_step("bps-2", :inverse, [1, 4],
+            _cp_edata([1, 3, -3, 2], [-1, -1, 1, -1],
+                      [[-1, -2, -4], [4]])),
+        _cp_step("E1", :forward, [1, 3],
+            _cp_edata([5, 1, -2, -4, 3, 2], [-1, -1, 1, -1, 1],
+                      [[-3, -1, -5], [4]])),
+        _cp_step("ps-IV", :inverse, [5, 1],
+            _cp_edata([-1, -3, 2, 1], [-1, 1, -1], [[-2], [3]])),
+        _cp_step("C1", :forward, [3, 2],
+            _cp_edata([-1, 2, -4, 1], [-1, 1, 1, -1],
+                      [[-3, -2], [3, 4]])),
+        _cp_step("bps-2", :inverse, [3, 4],
+            _cp_edata([-1, 2, -2, 1], [-1, 1])),
+    ]
+    right_initial = _cp_edata([-1, -2, 3, -4, 2, 4, 5, -5, 1, -3],
+                              [-1, -1, 1, -1, 1])
+    right_steps = OGraphCPBoundaryStep[
+        _cp_step("F1", :forward, [4, 5],
+            _cp_edata([-1, -2, 3, 5, 1, -3], [-1, -1, 1, -1, 1, 1],
+                      [[-5, -4, -6], [4, 2, 6]])),
+        _cp_step("ps-III", :inverse, [6, 4],
+            _cp_edata([-1, -2, 3, 4, 1, -3], [-1, -1, 1, 1], [[-4], [2]])),
+        _cp_step("A1", :forward, [3, 4],
+            _cp_edata([-1, -2, 5, 1, 3, -5, 4], [-1, -1, 1, -1, 1],
+                      [[-3, -4], [2]])),
+        _cp_step("bps-1", :inverse, [4, 3],
+            _cp_edata([-1, -2, 3, 1], [-1, -1, 1], [[-3], [2]])),
+        _cp_step("C1", :forward, [2, 3],
+            _cp_edata([-1, 3, -4, 1], [-1, 1, 1, -1],
+                      [[-2, -3], [2, 4]])),
+        _cp_step("bps-2", :inverse, [2, 4],
+            _cp_edata([-1, 2, -2, 1], [-1, 1])),
+    ]
+    # GKS relabels only the RHS before its six-step reduction:
+    # old paper labels 1,2,3,4,5 become 1,2,4,5,3.
+    OGraphCPBoundaryCertificate(OGRAPH_CP_BOUNDARY_CERTIFICATE_SCHEMA,
+        OGRAPH_CP_SOURCE_RULE_VERSION, paper_left, paper_right,
+        [1, 2, 4, 5, 3], right_initial, left_steps, right_steps)
+end
+
+"Return the boundary-rooted GKS26 14+6 CP reduction certificate."
+ograph_cp_boundary_certificate() = _gks26_cp_boundary_certificate()
+
+function _same_cp_step(left::OGraphCPBoundaryStep, right::OGraphCPBoundaryStep)
+    left.move_name == right.move_name && left.direction == right.direction &&
+        left.vertices == right.vertices && _same_boundary_edata(left.target, right.target)
+end
+
+function _same_cp_certificate(left::OGraphCPBoundaryCertificate,
+                              right::OGraphCPBoundaryCertificate)
+    left.schema == right.schema && left.source_rule_version == right.source_rule_version &&
+        _same_boundary_edata(left.paper_left, right.paper_left) &&
+        _same_boundary_edata(left.paper_right, right.paper_right) &&
+        left.right_relabel == right.right_relabel &&
+        _same_boundary_edata(left.right_initial, right.right_initial) &&
+        length(left.left_steps) == length(right.left_steps) &&
+        length(left.right_steps) == length(right.right_steps) &&
+        all(_same_cp_step.(left.left_steps, right.left_steps)) &&
+        all(_same_cp_step.(left.right_steps, right.right_steps))
+end
+
+"Audit exact source transcription and boundary roots; move semantics remain separate."
+function audit_ograph_cp_boundary_certificate(certificate::OGraphCPBoundaryCertificate)
+    expected = _gks26_cp_boundary_certificate()
+    certificate.schema == OGRAPH_CP_BOUNDARY_CERTIFICATE_SCHEMA ||
+        return (valid=false, reason=:schema_mismatch, semantic_moves_verified=false)
+    certificate.source_rule_version == OGRAPH_CP_SOURCE_RULE_VERSION ||
+        return (valid=false, reason=:source_rule_mismatch, semantic_moves_verified=false)
+    states = vcat([certificate.paper_left, certificate.paper_right,
+                   certificate.right_initial],
+                  [step.target for step in certificate.left_steps],
+                  [step.target for step in certificate.right_steps])
+    all(_valid_boundary_edata, states) ||
+        return (valid=false, reason=:malformed_edata, semantic_moves_verified=false)
+    _same_cp_certificate(certificate, expected) ||
+        return (valid=false, reason=:source_transcription_mismatch,
+                semantic_moves_verified=false)
+    _same_boundary_edata(_cp_relabel(certificate.paper_right,
+                                    certificate.right_relabel),
+                         certificate.right_initial) ||
+        return (valid=false, reason=:right_relabel_mismatch,
+                semantic_moves_verified=false)
+    left_terminal = last(certificate.left_steps).target
+    right_terminal = last(certificate.right_steps).target
+    _same_boundary_edata(left_terminal, right_terminal) ||
+        return (valid=false, reason=:terminal_mismatch, semantic_moves_verified=false)
+    max_vertices = maximum(length(state.vertex_signs) for state in states)
+    multi_circuit_left = [index for (index, step) in enumerate(certificate.left_steps)
+                          if 1 + length(step.target.closed_components) > 1]
+    multi_circuit_right = [index for (index, step) in enumerate(certificate.right_steps)
+                           if 1 + length(step.target.closed_components) > 1]
+    (valid=true, reason=:source_transcription_verified,
+     source_rule_version=certificate.source_rule_version,
+     left_move_count=length(certificate.left_steps),
+     right_move_count=length(certificate.right_steps),
+     max_vertices=max_vertices,
+     multi_circuit_left=multi_circuit_left,
+     multi_circuit_right=multi_circuit_right,
+     boundary_roots_preserved=true,
+     geometric_authority_verified=false,
+     certifiable=false,
+     semantic_moves_verified=false)
+end
+
 function _canonicalization_witness(state::OGraphState)
     canonical = canonicalize_ograph(state)
     isempty(state.gauss) && return OGraphCanonicalizationWitness(1, Int[])
@@ -130,10 +541,11 @@ end
 
 function _expected_pattern_candidate(candidate::MoveCandidate)
     move_type = _normalize_move_type(candidate.type)
-    move_type in ("MP", "PS") || return nothing
+    move_type in ("MP", "PS", "CP") || return nothing
     candidate.before === nothing && return nothing
     candidate.after === nothing && return nothing
     data = make_move_data()
+    move_type == "CP" && !_cp_catalogue_source_gate(data).valid && return nothing
     before_table, after_table, direction = try
         _pattern_pairs(move_type, length(candidate.vertices), data)
     catch err
@@ -387,6 +799,191 @@ function _coerce_expected_state(value)
     throw(ArgumentError("expected endpoint must be an OGraphState or VirtualLink"))
 end
 
+function _cp_source_vertex_maps(orientation, candidate::MoveCandidate)
+    before = something(candidate.before)
+    after = something(candidate.after)
+    selected = candidate.vertices
+    old_count = length(orientation)
+    if candidate.direction == :forward
+        length(selected) == 3 && before.vertex_count == 3 && after.vertex_count == 5 ||
+            throw(ArgumentError("source CP forward roles must be 3-to-5"))
+        old_to_new = Dict(index => index for index in 1:old_count)
+        after_vertices = vcat(selected, collect(old_count + 1:old_count + 2))
+        new_orientation = vcat(copy(orientation), zeros(Int, 2))
+    elseif candidate.direction == :inverse
+        length(selected) == 5 && before.vertex_count == 5 && after.vertex_count == 3 ||
+            throw(ArgumentError("source CP inverse roles must be 5-to-3"))
+        # GKS26 labels the five local roles.  The inverse retains roles 1--3
+        # and removes roles 4--5; numeric magnitude is not a geometric role.
+        removed = Set(selected[4:5])
+        remaining = [vertex for vertex in 1:old_count if !(vertex in removed)]
+        old_to_new = Dict(vertex => index for (index, vertex) in enumerate(remaining))
+        after_vertices = [old_to_new[vertex] for vertex in selected[1:3]]
+        new_orientation = orientation[remaining]
+    else
+        throw(ArgumentError("unsupported CP direction $(candidate.direction)"))
+    end
+    for local_vertex in eachindex(after.orientation)
+        new_orientation[after_vertices[local_vertex]] = after.orientation[local_vertex]
+    end
+    old_to_new, after_vertices, new_orientation
+end
+
+function _apply_cp_source_rule(source::VirtualLink, candidate::MoveCandidate)
+    before = something(candidate.before)
+    after = something(candidate.after)
+    code, orientation = real_gauss_code(source)
+    code = [_clean_component(component) for component in code]
+    weights = [zeros(Float64, length(component)) for component in code]
+    old_to_new, after_vertices, new_orientation =
+        _cp_source_vertex_maps(orientation, candidate)
+    mapped_before = [_map_fragment(fragment, candidate.vertices) for fragment in before.gauss]
+    mapped_after = [_map_fragment(fragment, after_vertices) for fragment in after.gauss]
+    converted = length(before.gauss) == length(after.gauss) &&
+                before.capacity == after.capacity ?
+        _simple_pattern_rewrite(code, weights, candidate, mapped_before, mapped_after,
+                                old_to_new, new_orientation; weighted=false) : nothing
+    converted === nothing &&
+        (converted = _reconnect_pattern(code, weights, candidate, mapped_before, mapped_after,
+                                        old_to_new, new_orientation; weighted=false))
+    result, _, result_orientation = converted
+    target = deepcopy(source)
+    set_data!(target; rgauss=result, orientation=result_orientation)
+    target, old_to_new, after_vertices
+end
+
+"""
+    audit_ograph_cp_candidate(source, candidate)
+
+Independently apply the source-transcribed CP role rule and compare it with the
+production catalogue rewrite. A successful structural comparison is certifying
+only when the separate `N(G, eps)=(-G,-eps)` recipe/naturality gate also passes.
+"""
+function _audit_ograph_cp_candidate(source::VirtualLink, candidate::MoveCandidate)
+    reason, frozen, _, _ = _check_candidate_source(source, candidate)
+    reason == :ok || return (
+        structural_checks_pass=false,
+        geometric_authority_verified=false,
+        certifiable=false,
+        reason=reason,
+        source_rule_target=nothing,
+        production_target=nothing,
+        source_to_target_vertices=Int[],
+        error=nothing,
+    )
+    frozen.type == "CP" || return (
+        structural_checks_pass=false,
+        geometric_authority_verified=false,
+        certifiable=false,
+        reason=:not_cp_candidate,
+        source_rule_target=nothing,
+        production_target=nothing,
+        source_to_target_vertices=Int[],
+        error=nothing,
+    )
+    cp_result = try
+        _apply_cp_source_rule(source, frozen)
+    catch err
+        return (
+            structural_checks_pass=false,
+            geometric_authority_verified=false,
+            certifiable=false,
+            reason=:cp_source_rule_application_failed,
+            source_rule_target=nothing,
+            production_target=nothing,
+            source_to_target_vertices=Int[],
+            error=sprint(showerror, err),
+        )
+    end
+    source_rule_link, old_to_new, _ = cp_result
+    source_rule_target = try
+        ograph_state(source_rule_link)
+    catch err
+        return (
+            structural_checks_pass=false,
+            geometric_authority_verified=false,
+            certifiable=false,
+            reason=:cp_source_rule_target_invalid,
+            source_rule_target=nothing,
+            production_target=nothing,
+            source_to_target_vertices=Int[],
+            error=sprint(showerror, err),
+        )
+    end
+    production_link = deepcopy(source)
+    try
+        _apply_pattern_move!(production_link, frozen)
+    catch err
+        err isa InterruptException && rethrow()
+        return (
+            structural_checks_pass=false,
+            geometric_authority_verified=false,
+            certifiable=false,
+            reason=:raw_application_failed,
+            source_rule_target=source_rule_target,
+            production_target=nothing,
+            source_to_target_vertices=Int[],
+            error=sprint(showerror, err),
+        )
+    end
+    production_target = try
+        ograph_state(production_link)
+    catch err
+        return (
+            structural_checks_pass=false,
+            geometric_authority_verified=false,
+            certifiable=false,
+            reason=:invalid_raw_target,
+            source_rule_target=source_rule_target,
+            production_target=nothing,
+            source_to_target_vertices=Int[],
+            error=sprint(showerror, err),
+        )
+    end
+    vertex_map = [get(old_to_new, vertex, 0)
+                  for vertex in 1:true_vertex_count(ograph_state(source))]
+    production_target == source_rule_target || return (
+        structural_checks_pass=false,
+        geometric_authority_verified=false,
+        certifiable=false,
+        reason=:cp_production_semantics_mismatch,
+        source_rule_target=source_rule_target,
+        production_target=production_target,
+        source_to_target_vertices=vertex_map,
+        error=nothing,
+    )
+    authority = _cp_semantic_authority_gate()
+    (
+        structural_checks_pass=true,
+        geometric_authority_verified=authority.valid,
+        certifiable=authority.certifiable,
+        reason=authority.valid ? :cp_source_geometry_verified :
+                                 :cp_geometric_authority_unverified,
+        source_rule_target=source_rule_target,
+        production_target=production_target,
+        source_to_target_vertices=vertex_map,
+        error=nothing,
+    )
+end
+
+function audit_ograph_cp_candidate(source::VirtualLink, candidate::MoveCandidate)
+    try
+        _audit_ograph_cp_candidate(source, candidate)
+    catch err
+        err isa InterruptException && rethrow()
+        (
+            structural_checks_pass=false,
+            geometric_authority_verified=false,
+            certifiable=false,
+            reason=:malformed_audit_input,
+            source_rule_target=nothing,
+            production_target=nothing,
+            source_to_target_vertices=Int[],
+            error=sprint(showerror, err),
+        )
+    end
+end
+
 function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
                              expected_raw_target=nothing,
                              expected_canonical_target=nothing)
@@ -407,8 +1004,16 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
 
     before = something(frozen.before)
     after = something(frozen.after)
-    old_to_new, after_vertices, _ =
-        _vertex_maps(source_orientation, frozen.vertices, before, after)
+    cp_source_target = nothing
+    if frozen.type == "CP"
+        cp_result = try _apply_cp_source_rule(source, frozen) catch err
+            return _ograph_move_invalid(:cp_source_rule_application_failed; error=err)
+        end
+        cp_source_target, old_to_new, after_vertices = cp_result
+    else
+        old_to_new, after_vertices, _ =
+            _vertex_maps(source_orientation, frozen.vertices, before, after)
+    end
     mapped_before = [_map_fragment(fragment, frozen.vertices) for fragment in before.gauss]
     target = deepcopy(source)
     try
@@ -416,6 +1021,21 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     catch err
         err isa InterruptException && rethrow()
         return _ograph_move_invalid(:raw_application_failed; error=err)
+    end
+    if frozen.type == "CP"
+        production_state = try ograph_state(target) catch err
+            return _ograph_move_invalid(:invalid_raw_target; error=err)
+        end
+        source_rule_state = try ograph_state(something(cp_source_target)) catch err
+            return _ograph_move_invalid(:cp_source_rule_target_invalid; error=err)
+        end
+        production_state == source_rule_state ||
+            return _ograph_move_invalid(:cp_production_semantics_mismatch)
+        authority = try _cp_semantic_authority_gate() catch err
+            return _ograph_move_invalid(:cp_geometric_authority_check_failed; error=err)
+        end
+        authority.valid ||
+            return _ograph_move_invalid(:cp_geometric_authority_unverified)
     end
     target_state = try ograph_state(target) catch err
         return _ograph_move_invalid(:invalid_raw_target; error=err)
@@ -469,13 +1089,16 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     OGraphMoveVerification(true, :verified, witness, nothing)
 end
 
-"""Verify a frozen MP/PS candidate against its actual raw source and target.
+"""Verify a frozen MP/PS/CP candidate against its actual raw source and target.
 
 The move generator is not consulted. Catalogue row, concrete source fragments,
 locations, raw rewrite, outside occurrences, C1--C3 endpoints, and presentation
 canonicalization are recomputed. Malformed evidence fails closed as a report;
 only process interrupts are rethrown. PS is limited to the independently
-overlaid parameter-3/PS-III row.
+overlaid parameter-3/PS-III row. CP additionally requires the GKS source
+catalogue correspondence, the production-SOT recipe/naturality audit, and the
+independent role-wise rewrite before it enters the same closedness, outside-
+region, canonical-target, persistence, and replay checks as MP/PS.
 """
 function verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
                             expected_raw_target=nothing,

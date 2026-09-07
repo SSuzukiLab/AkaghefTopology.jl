@@ -76,6 +76,138 @@ end
           :mp_parameter_not_source_audited
 end
 
+@testset "GKS26 CP source gate and boundary-rooted certificate" begin
+    gate = Topology.ograph_cp_catalogue_source_gate()
+    @test gate.valid
+    @test gate.source_rule_version == Topology.OGRAPH_CP_SOURCE_RULE_VERSION
+    @test !gate.geometric_authority_verified
+    @test !gate.certifiable
+    tampered_catalogue = make_move_data()
+    tampered_catalogue["CP-R"] = [MovePattern("inv", [[1, 2, -5, 3, -2,
+        -3, -4, 4, -1, 5]], [1, 1, 1, -1, 1])]
+    @test !Topology._cp_catalogue_source_gate(tampered_catalogue).valid
+
+    recipe_audit = Topology.ograph_cp_negation_recipe_audit()
+    @test recipe_audit.valid
+    @test recipe_audit.reason == :conditional_recipe_conjugacy_verified
+    @test recipe_audit.local_frame_cases == 8
+    @test recipe_audit.face_pairing_cases == 16
+    @test recipe_audit.gks_ordered_face_correspondence_cases == 16
+    @test recipe_audit.tetrahedron_vertex_permutation == [1, 0, 3, 2]
+    @test recipe_audit.germ_permutation == [4, 3, 2, 1, 6, 5]
+    @test recipe_audit.lane_permutation == [2, 1, 3]
+    @test recipe_audit.tetrahedron_permutation_even
+    @test recipe_audit.local_orientation_sign_reversed
+    @test recipe_audit.conditional_orientation_reversal
+    @test recipe_audit.gks_figure_2_2_mapping_transcribed
+    @test recipe_audit.gks_ordered_face_correspondence_verified
+    @test recipe_audit.gks_figure_2_2_index_overlay_reviewed
+    @test recipe_audit.recipe_source_authority_verified
+    @test recipe_audit.cp_endpoint_preservation_proved
+    @test recipe_audit.certifiable
+    semantic_gate = Topology._cp_semantic_authority_gate()
+    @test semantic_gate.valid
+    @test semantic_gate.catalogue_correspondence_verified
+    @test semantic_gate.recipe_naturality_verified
+    @test semantic_gate.source_theorem_applied
+    @test semantic_gate.certifiable
+
+    certificate = Topology.ograph_cp_boundary_certificate()
+    audit = Topology.audit_ograph_cp_boundary_certificate(certificate)
+    @test audit.valid
+    @test audit.left_move_count == 14
+    @test audit.right_move_count == 6
+    @test audit.max_vertices == 6
+    @test audit.multi_circuit_left == collect(7:13)
+    @test audit.multi_circuit_right == collect(1:5)
+    @test audit.boundary_roots_preserved
+    @test !audit.geometric_authority_verified
+    @test !audit.certifiable
+    @test !audit.semantic_moves_verified
+
+    cyclically_rerooted = deepcopy(certificate)
+    open_word = cyclically_rerooted.left_steps[10].target.open_word
+    open_word[:] = circshift(open_word, 1)
+    bad = Topology.audit_ograph_cp_boundary_certificate(cyclically_rerooted)
+    @test !bad.valid
+    @test bad.reason == :source_transcription_mismatch
+end
+
+@testset "source-grounded CP candidate and inverse replay" begin
+    source = VirtualLink()
+    set_data!(source; rgauss=[[-1, 1, -2, 2, -3, 3]],
+              orientation=[-1, -1, -1])
+    candidate = only(movable(source, "CP"; vertices=[1, 2, 3], strict=true))
+    @test candidate.parameter == "dir"
+    @test candidate.direction == :forward
+    @test candidate.locations == [(1, 2)]
+    expected_canonical = OGraphState(
+        [-1, -2, -3, 3, -4, 5, 4, 1, -5, 2], [1, 1, -1, 1, -1])
+    audit = Topology.audit_ograph_cp_candidate(source, candidate)
+    @test audit.structural_checks_pass
+    @test audit.geometric_authority_verified
+    @test audit.certifiable
+    @test audit.reason == :cp_source_geometry_verified
+    @test canonicalize_ograph(something(audit.source_rule_target)) == expected_canonical
+    @test audit.production_target == audit.source_rule_target
+    @test audit.source_to_target_vertices == [1, 2, 3]
+    report = verify_ograph_move(source, candidate;
+        expected_canonical_target=expected_canonical)
+    @test report.valid
+    @test report.reason == :verified
+    @test report.witness !== nothing
+    @test replay_ograph_move(something(report.witness)).valid
+
+    inverse_source = VirtualLink()
+    raw_target = something(audit.source_rule_target)
+    set_data!(inverse_source; rgauss=[collect(raw_target.gauss)],
+              orientation=collect(raw_target.vertex_signs))
+    inverse = only(movable(inverse_source, "CP";
+        vertices=[1, 2, 3, 4, 5], strict=true))
+    inverse_audit = Topology.audit_ograph_cp_candidate(inverse_source, inverse)
+    @test inverse_audit.structural_checks_pass
+    @test canonicalize_ograph(something(inverse_audit.source_rule_target)) ==
+          canonicalize_ograph(ograph_state(source))
+    @test inverse_audit.source_to_target_vertices == [1, 2, 3, 0, 0]
+    @test inverse_audit.certifiable
+    inverse_report = verify_ograph_move(inverse_source, inverse;
+        expected_canonical_target=canonicalize_ograph(ograph_state(source)))
+    @test inverse_report.valid
+    @test replay_ograph_move(something(inverse_report.witness)).valid
+
+    # Relabel so the source-defined removed roles 4--5 are concrete labels 1--2.
+    # Production must retain roles 1--3 rather than sorting global labels.
+    labels = [4, 5, 3, 1, 2]
+    relabel_word(word) = [sign(entry) * labels[abs(entry)] for entry in word]
+    relabel_signs = zeros(Int, 5)
+    for old in 1:5
+        relabel_signs[labels[old]] = raw_target.vertex_signs[old]
+    end
+    relabelled = VirtualLink()
+    set_data!(relabelled; rgauss=[relabel_word(raw_target.gauss)],
+              orientation=relabel_signs)
+    inverse_roles = only(movable(relabelled, "CP"; vertices=labels, strict=true))
+    relabelled_audit = Topology.audit_ograph_cp_candidate(relabelled, inverse_roles)
+    @test relabelled_audit.structural_checks_pass
+    @test relabelled_audit.certifiable
+    @test relabelled_audit.source_to_target_vertices == [0, 0, 1, 2, 3]
+    relabelled_report = verify_ograph_move(relabelled, inverse_roles)
+    @test relabelled_report.valid
+    @test replay_ograph_move(something(relabelled_report.witness)).valid
+
+    # Swapping source-defined roles 4 and 5 while reusing the frozen location is
+    # not a permissible global-label permutation and must fail at source match.
+    wrong_roles = MoveCandidate(
+        inverse_roles.type, inverse_roles.parameter,
+        vcat(inverse_roles.vertices[1:3], reverse(inverse_roles.vertices[4:5])),
+        copy(inverse_roles.edges), inverse_roles.direction,
+        inverse_roles.before, inverse_roles.after, copy(inverse_roles.locations))
+    negative = Topology.audit_ograph_cp_candidate(relabelled, wrong_roles)
+    @test !negative.structural_checks_pass
+    @test !negative.certifiable
+    @test negative.reason != :cp_source_geometry_verified
+end
+
 @testset "Method-B PS-III occurrence/lane witness" begin
     source = VirtualLink()
     set_data!(source;

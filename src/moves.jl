@@ -251,7 +251,7 @@ function movable(v::VirtualLink,type,arg::NamedTuple)
     movable(v,type;param=param,vertices=vertices,edges=edges,strict=strict)
 end
 
-function _vertex_maps(orientation,selected,before,after)
+function _vertex_maps(orientation,selected,before,after;role_ordered=false)
     old_count=length(orientation)
     delta=after.vertex_count-before.vertex_count
     if delta>=0
@@ -260,11 +260,11 @@ function _vertex_maps(orientation,selected,before,after)
         new_orientation=vcat(copy(orientation),zeros(Int,delta))
     else
         remove_count=-delta
-        sorted_selected=sort(selected)
-        removed=Set(sorted_selected[end-remove_count+1:end])
+        ordered_selected=role_ordered ? selected : sort(selected)
+        removed=Set(ordered_selected[end-remove_count+1:end])
         remaining=[vertex for vertex in 1:old_count if !(vertex in removed)]
         old_to_new=Dict(vertex=>index for (index,vertex) in enumerate(remaining))
-        kept=sorted_selected[1:after.vertex_count]
+        kept=ordered_selected[1:after.vertex_count]
         after_vertices=[old_to_new[vertex] for vertex in kept]
         new_orientation=orientation[remaining]
     end
@@ -477,7 +477,9 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate)
     weights=v.is_weighted ? deepcopy(v.weights) : [zeros(Float64,length(component)) for component in code]
     v.is_weighted && candidate.type!="MP" &&
         throw(ArgumentError("weighted $(candidate.type) move is not implemented in the MATLAB source"))
-    old_to_new,after_vertices,new_orientation=_vertex_maps(orientation,candidate.vertices,before,after)
+    old_to_new,after_vertices,new_orientation=_vertex_maps(
+        orientation,candidate.vertices,before,after;
+        role_ordered=candidate.type=="CP")
     mapped_before=[_map_fragment(fragment,candidate.vertices) for fragment in before.gauss]
     mapped_after=[_map_fragment(fragment,after_vertices) for fragment in after.gauss]
 

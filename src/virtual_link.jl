@@ -411,6 +411,13 @@ The MATLAB columns `ID`, `paths`, `edges_s`, `Ndots`, `isCycle`, `delta`, and
 integer-scaled form used by Julia's weight solver, and `path_lengths` is kept
 for compatibility with the original Julia port.
 """
+function _disk_node_dictionary()
+    dp=zeros(Int,12); dm=zeros(Int,12)
+    dp[[1,2,4,5,9,12,7,6,8,11,10,3]]=repeat(1:6,2)
+    dm[[1,2,4,5,9,12,7,10,3,11,6,8]]=repeat(1:6,2)
+    Dict(1=>dp,-1=>dm)
+end
+
 function disk_table(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
@@ -420,10 +427,7 @@ function disk_table(v::VirtualLink)
         cp=Rational{Int}[],cp2=Int[],path_lengths=Int[])
     edges=real_edge_table(v)
     edge_count=length(edges)
-    dp=zeros(Int,12); dm=zeros(Int,12)
-    dp[[1,2,4,5,9,12,7,6,8,11,10,3]]=repeat(1:6,2)
-    dm[[1,2,4,5,9,12,7,10,3,11,6,8]]=repeat(1:6,2)
-    dictionary=Dict(1=>dp,-1=>dm)
+    dictionary=_disk_node_dictionary()
 
     node_count=6vertex_count
     parent=collect(1:node_count)

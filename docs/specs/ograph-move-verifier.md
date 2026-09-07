@@ -2,6 +2,9 @@
 
 Status: operational candidate specification; MP-D2 and the parameter-3/PS-III
 row are source-audited within the explicit gauges and finite fixtures below.
+CP is accepted only when the GKS/BP source theorem, reviewed Figure 2.2 index
+map, production-SOT recipe/naturality audit, independent local-role rewrite,
+and the common raw-target/outside/C1--C3/canonical/replay gates all pass.
 
 This specification is adjacent to
 [`virtual-link-moves.md`](virtual-link-moves.md). That document defines move
@@ -177,6 +180,226 @@ Before rows 1, 2, or 4 are enabled, the specification and tests must add:
 - the geometry-derived mapping from implementation parameters `1..4` to paper
   types I, II, and IV, not merely their common row order;
 - positive circuit traces for those rows and lane/occurrence/type mutations.
+
+## CP boundary certificate and semantic gate
+
+The CP source used here is the managed GKS26 Work
+`w-804a7f2e-a181-49f6-a6f5-6ac4fddd2857`, specifically Figures 2.2 and 3.13
+and the boundary-rooted E-data in `ordered_pachner_moves_v2.tex` 920--991. The
+Work's bibliographic metadata is still degraded; that limits citation status
+but does not change the bytes used by this finite transcription audit.
+
+`OGraphBoundaryEData` stores one distinguished component linearly from the
+right endpoint `a` to the left endpoint `b`, plus any closed components and the
+vertex-sign vector. The `a,b` root is not quotiented by cyclic rotation. The
+GKS26 certificate records the 14-step reduction of the CP left side and the
+6-step reduction of the relabelled right side to their common terminal E-datum.
+`audit_ograph_cp_boundary_certificate` checks exact source transcription,
+syntax, the right-side relabelling, the two fixed boundary roots, and equality
+of the terminal E-data. It intentionally returns
+`semantic_moves_verified=false`: the individual arrows have not yet been
+replayed by source-grounded MP/PS/BMP/BPS verifiers.
+
+Steps 7--13 on the left and 1--5 on the right contain two additional closed
+components besides the `a`--`b` component. They are therefore a DB-external
+boundary certificate, not a path through the current one-circuit closed-normal
+state table. Increasing only the vertex cutoff does not remove this category
+boundary.
+
+The paper-frame CP endpoint E-data agree with the frozen runtime catalogue only
+after the componentwise algebraic transformation
+`N(G, eps) = (-G, -eps)`. `ograph_cp_catalogue_source_gate` checks that finite
+array correspondence and reports `geometric_authority_verified=false` and
+`certifiable=false`. Finite equality of arrays is not a proof that `N`
+transports the paper CP move into the runtime o-graph convention; in particular,
+it must not be described as a geometric mirror or identified with the INS
+`S`-move without a separate derivation.
+
+### Recipe-naturality lemma
+
+The remaining paper-frame change is not a mirror convention. It is the
+involution
+
+```text
+N(G, eps) = (-G, -eps),       N^2 = id,
+```
+
+applied to the whole o-graph, with boundary roots `a,b` held fixed. The following
+derivation is the semantic gate.
+
+1. The production `_disk_node_dictionary()` is the single source of truth used
+   by `disk_table`; the verifier derives, rather than copies, its twelve local
+   slots grouped into the four repository faces
+   repository faces
+
+   ```text
+   T+ = ((1,2,6), (3,4,2), (1,3,5), (5,4,6))
+   T- = ((1,2,3), (3,4,5), (1,6,5), (2,4,6)).
+   ```
+
+   Every germ label occurs in exactly two triples. The complementary pair of
+   face indices therefore identifies one of the six tetrahedron edges. This is
+   a gauge: renaming all six germs does not change the induced face gluing.
+
+2. For an oriented Gauss-code edge, the production slots select outgoing face
+   `2 + (tail>0)` and incoming face `(head>0)`. Zipping the two three-entry face
+   triples determines a unique permutation `sigma` of tetrahedron vertices.
+   Under the reviewed Figure 2.2 maps
+
+   ```text
+   rho+ = (2,0,3,1),    rho- = (3,1,2,0),
+   ```
+
+   this `sigma` equals the unique order-preserving face identification required
+   by GKS26 `^anonnd-blk-0077`. The audit exhausts the sixteen choices of the two
+   vertex signs and the two endpoint passage signs. Thus the implementation
+   recipe is not being validated against a second copy of its own CP table: its
+   induced face maps are compared to the source's ordered-tetrahedron rule.
+
+3. Negating a passage sign sends its incident face through
+   `p=(0 1)(2 3)`. For every vertex sign and face,
+
+   ```text
+   mu(T_eps(f,k)) = T_-eps(p(f),tau(k)),
+   mu=(1 4)(2 3)(5 6),    tau=(1 2).
+   ```
+
+   The same lane permutation `tau` occurs at both ends of every o-graph edge,
+   so it cancels in the zipped face pairing. Equivalently, the sixteen cases
+   satisfy `sigma_N p = p sigma`. Hence the copy of `p` on every tetrahedron
+   descends to a global simplicial isomorphism between the underlying
+   triangulations of `Gamma` and `N(Gamma)`.
+
+4. GKS26 `^anonnd-blk-0032` defines tetrahedron type by compatibility of the
+   vertex ordering with the manifold orientation, while Figure 2.2 assigns
+   crossing signs `+ -> type -` and `- -> type +`. The map `p` is even, but `N`
+   reverses every crossing sign and hence every tetrahedron type. The global
+   simplicial isomorphism is therefore orientation-reversing:
+
+   ```text
+   M(N(Gamma)) = -M(Gamma).
+   ```
+
+   For a closed normal o-graph the ideal triangulation is the closed manifold
+   with one ball removed and standard sutured `S^2` boundary. The induced map
+   restricts to a homeomorphism of that boundary sphere, hence extends over the
+   filling ball; the orientation-reversal conclusion is therefore a statement
+   about the filled closed manifold used by the database.
+
+5. BP97 Theorem 6.3.1 and fact II (`^bp97-blk-0232`, with the proof conclusion
+   at `^bp97-blk-0235`) state directly that two closed normal o-graphs related
+   by combinatorial Pontryagin move define the same oriented manifold. GKS26
+   `^anonnd-blk-0116` and `^anonnd-blk-0124` provide the matching modern
+   formulation. For an arbitrary runtime context `Gamma` containing the runtime
+   left pattern, apply `N` globally. The local pattern becomes the source CP
+   left E-datum, with the same `a,b` boundary roots. Apply source CP, then apply
+   `N` again. Because `N` is global and involutive, the result is the runtime
+   right pattern in the unchanged runtime context. Both runtime endpoints
+   represent the orientation reversal of the same source manifold.
+
+`ograph_cp_negation_recipe_audit` checks Steps 1--4 finitely: eight local-frame
+identities, sixteen face-pairing naturality identities, and all sixteen
+comparisons with the GKS order-preserving face map. Step 5 is the source theorem
+plus the displayed involution argument. This proves CP endpoint preservation
+without identifying `N` with the INS `S`-move and without requiring the
+twenty-step factorization to stay inside the one-circuit database category.
+The present mathematical status is `proved/agent`: the load-bearing source
+statements have exact locators and the finite implementation obligations pass,
+but the argument has not been promoted to `proved/owner-checked`.
+
+The source-to-repository face correspondence is fixed visibly in the following
+overlay. Black pixels are a crop of managed GKS26 Figure 2.2; blue face/port
+labels are repository annotations. In repository order
+`(f0,f1,f2,f3)=(-i,+i,-o,+o)`, the source-printed omitted tetrahedron vertices
+are exactly the two `rho` vectors above.
+
+![GKS26 Figure 2.2 repository face/port overlay](../../../../threads/PJ260830/docs/reports/assets/260907_cp_gks26_fig2_2_recipe_overlay.png)
+
+The indexed overlay has an independent visual PASS recorded in
+`threads/PJ260830/data/260907_rq6_astra_visual_review.json`: all eight
+face/port-to-source-triple assignments, both `rho` vectors, the displayed
+conjugacy equation, and non-occlusion were checked. Accordingly the audit
+reports `gks_figure_2_2_index_overlay_reviewed=true`. That review covers the
+source face/port numbering only; it does not by itself check the ordered
+three-lane germ recipe, all sixteen gluing cases, or global CP naturality.
+The lane/gluing part is instead discharged by deriving the triples from the
+production SOT and comparing every induced face map with GKS's unique
+order-preserving map. Consequently the recipe audit reports
+`recipe_source_authority_verified=true` and `certifiable=true`. This is the CP
+semantic-authority gate; the visual PASS is not being inflated into a lane or
+global proof. The twenty-step factorization's still-unverified individual
+arrows and INS Figure 34 panel C are separate questions and do not weaken this
+direct CP proof.
+
+`audit_ograph_cp_candidate` applies an independent role-wise CP rule and compares
+its raw target with the production catalogue rewrite. For the inverse move it
+retains local roles 1--3 and removes local roles 4--5, irrespective of the
+numeric magnitudes of the selected global vertex labels. This catches the
+historical implementation rule that removed the two numerically largest labels.
+The audit is certifying only when that independent target agrees with the
+production raw target and the recipe-naturality gate passes. The ordinary
+verifier then continues through target C1--C3, explicit outside occurrences,
+canonical target, persistence, and replay; CP does not bypass the common
+verification path.
+
+## INS S-move is an auxiliary relation, not the CP catalogue row
+
+The managed [INS24 Work](../../../../references/items/article/w-48ec88c2-87f9-4f52-bd67-a563d1bf3d32/INS24.md),
+§4 Figure 16 (`^ins24-blk-0009`), calls its local surgery move the `S`-move and
+says that it is *essentially equivalent* to the BP combinatorial Pontryagin
+move. This prose does not identify their local arrays. In the repository
+crossing convention, the boundary-rooted Figure 16 candidate is
+
+```text
+left:  []
+right: [1,2,-3,-4,4,3,-2,-1]; vertex signs: [-,-,-,-]
+```
+
+with `IN` at the left endpoint and `OUT` at the right endpoint. Thus INS `S` is
+a `0 <-> 4` pattern, while the BP/GKS CP row is `3 <-> 5`. They must not share
+a `MovePattern` merely because both remove the dependence on a combing.
+
+![INS24 Figure 16](../../../../references/items/article/w-48ec88c2-87f9-4f52-bd67-a563d1bf3d32/assets/INS24-page-09-fig16.png)
+
+Appendix B, Lemma B.2 and Figures 33--34 (`^ins24-blk-0020` and
+`^ins24-blk-0021`) establish a different precise claim:
+the surgery move of Ishii (1992) is realizable by one INS `S`-move together
+with finitely many INS `I`-moves, `R2`-moves, and virtual Reidemeister moves.
+The printed endpoints of that older surgery move transcribe to the candidates
+
+```text
+left:  [1,-2,-3,3,4,2,-4,-1]; vertex signs: [-,-,-,+]
+right: [1,2,-2,-1];             vertex signs: [+,-]
+```
+
+so this relation is `4 <-> 2`, again not a direct CP row. Figure 34 contains
+eight diagrams and seven arrow groups, with exactly one `S` arrow; it is a
+factorization witness, not permission to replace the endpoints by a single
+runtime move. In the boundary-rooted partial transcription, the three R2
+stages already have unique outside-label maps: the first adds intermediate
+roles `3,4`, the pre-`S` cleanup removes roles `5,6`, and the final stage adds
+the two crossings of the old-surgery right side. The intervening `I`/
+`(R2,VR2)` panels are not yet a semantic certificate. In particular, Figure 34
+panel C remains unresolved: its short central printed fragments cannot safely
+be inferred from the desired B-to-D relation. Flattened handwritten annotations
+on the archival PDF are not used as source evidence.
+
+![INS24 Figure 34](../../../../references/items/article/w-48ec88c2-87f9-4f52-bd67-a563d1bf3d32/assets/INS24-page-21-fig34.png)
+
+BP97 Theorem 6.3.1 gives the complementary bridge: Figure 1.6 is the
+combinatorial Pontryagin move, its endpoints define the same oriented manifold,
+and §6.3 connects the flow-section o-graphs of Figures 6.3 and 6.8 to Figure 1.6
+by planar isotopy and Reidemeister-type moves. A source-grounded LA1 certificate
+therefore needs two explicit boundary-preserving comparison paths:
+
+1. BP Figure 1.6 to its §6.3 flow-section representatives; and
+2. the Ishii (1992) surgery endpoints through INS Figure 34 to INS Figure 16.
+
+The remaining identification between those two flow-spine presentations must
+be displayed with its local indices and auxiliary moves. Until that comparison
+is supplied, `S`, old surgery, and CP remain three typed move names connected by
+the proved relations above, not aliases. No INS move is accepted by the present
+verifier.
 
 ## Persistence and replay
 
