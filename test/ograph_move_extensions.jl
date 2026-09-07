@@ -59,6 +59,30 @@ end
     @test canonicalize_ograph(ograph_state(move(target,inverse)))==canonicalize_ograph(ograph_state(source))
 end
 
+@testset "INS S registers only in the Area-3 manifold profile" begin
+    @test Topology.MoveGraphStore.DomainTaxonomy.validate_topological_move("S",3)
+    @test_throws ArgumentError Topology.MoveGraphStore.DomainTaxonomy.validate_topological_move("S",2)
+    store=open_store()
+    try
+        migrate_ograph_store!(store)
+        stamp="2026-09-08T00:00:00Z"
+        presentation=OGraphRelationProfile("presentation";moves_complete=true,
+            evidence_status="identity-only",created_at_utc=stamp)
+        combed=OGraphRelationProfile("combed";parent_profile_id=presentation.profile_id,
+            created_at_utc=stamp)
+        manifold=OGraphRelationProfile("manifold";profile_version=2,
+            parent_profile_id=combed.profile_id,created_at_utc=stamp)
+        for profile in (presentation,combed,manifold)
+            register_ograph_profile!(store,profile)
+        end
+        @test "S" in manifold.moves
+        @test !("S" in combed.moves)
+        @test verify_ograph_store(store).profiles==3
+    finally
+        close_store!(store)
+    end
+end
+
 if abspath(PROGRAM_FILE)==abspath(@__FILE__) && !isempty(ARGS)
     @testset "All MP types on small existing closed states" begin
         store=open_store(ARGS[1];migrate=false)

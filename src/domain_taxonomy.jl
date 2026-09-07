@@ -27,10 +27,10 @@ normalize_representation(x) = lowercase(strip(String(x)))
 const _AREA2 = Set(["r1", "r2", "r3", "reidemeister1", "reidemeister2", "reidemeister3"])
 const _AREA25 = Set(["mixed", "mixed_move", "mixed_link", "lo", "lo_graph", "lo-graph",
                      "mixed/lo-graph", "mixed/lo-graph link", "lo-graph link"])
-const _AREA3 = Set(["mp", "ps", "cp", "0-2", "02", "0_2",
-                    "mp_inverse", "ps_inverse", "cp_inverse",
+const _AREA3 = Set(["mp", "ps", "cp", "s", "0-2", "02", "0_2",
+                    "mp_inverse", "ps_inverse", "cp_inverse", "s_inverse",
                     "bmp", "b02", "h",
-                    "3-manifold mp", "3-manifold ps", "3-manifold cp"])
+                    "3-manifold mp", "3-manifold ps", "3-manifold cp", "3-manifold s"])
 
 "Return whether a move name denotes a permitted topological move." 
 function is_topological_move(move)
