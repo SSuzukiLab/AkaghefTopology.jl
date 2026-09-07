@@ -44,6 +44,20 @@ end
         ([[3,4,-1,-4,-3,2,-2,1]],[-1,1,1,-1])
     @test ps_global_condition(source,candidate).reason==:different_method_b_circuits
     @test real_gauss_code(source)==([[-1,2,-2,1]],[-1,1])
+    # Existing fixed-store row 193: the legacy vertex-selected deletion entry
+    # also rejects a genuine local PS-III occurrence on a closed input.
+    inverse_source=VirtualLink()
+    set_data!(inverse_source;rgauss=[[-1,-2,2,1,-3,-4,4,3]],
+        orientation=[-1,1,1,-1])
+    @test first(is_closed(inverse_source))
+    @test_throws ArgumentError move(inverse_source,"PS";param="3",
+        vertices=[2,1],strict=true)
+    inverse=MoveCandidate("PS","3",[2,1],NTuple{2,Int}[],:inverse,
+        data["PS-R"][3],only(data["PS-L"]),[(1,3),(1,1)])
+    inverse_validation=Topology.validate_ps_move(inverse_source,inverse)
+    @test inverse_validation.reason==:target_not_closed
+    @test real_gauss_code(inverse_validation.target)==([[-1,-2,2,1]],[1,-1])
+    @test ps_global_condition(inverse_source,inverse).reason==:different_method_b_circuits
 end
 
 @testset "INS S is a separate zero-to-four move" begin
