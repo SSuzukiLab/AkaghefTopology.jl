@@ -16,7 +16,7 @@ export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
        rank, odata, weight_expression, unicode_art, trans_knot_complement,
        gauss_code, real_gauss_code, real_edge_table, RealEdge, pd_code, edge_directions, regions,
        head_map, is_closed,
-       hmove_matrix, disk_table, calculate_weight, weight_equation, weight_residual,
+       hmove_matrix, disk_table, disk_tetrahedra, calculate_weight, weight_equation, weight_residual,
        validate_weight, is_framed_weight, first_betti_number, mirror_manifold!, cyclic_shift!,
        MoveCandidate, movable, move, move!, mp_move!,
        connected_sum!, disjoint_sum!, knot_complement!, vl_to_urdiagram,
@@ -124,6 +124,7 @@ include("layout_invariants.jl")
 include("helpers.jl")
 include("moves.jl")
 include("ograph_move_verifier.jl")
+include("ograph_tetrahedra.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")

@@ -11,6 +11,10 @@ through a thin Julia-facing boundary rather than reimplemented here.
 
 ## Algebra units
 
+`disk_tetrahedra(v)` supplies the ordered tetrahedral edge data dual to a
+nonempty closed normal o-graph, reusing `disk_table` and the reviewed face
+recipe. See [the input, orientation and validation contract](docs/specs/ograph-tetrahedra.md).
+
 Finite group algebras can be built without the topology pipeline:
 
 ```julia
