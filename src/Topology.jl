@@ -37,7 +37,7 @@ export OGraphState, ClosednessWitness, ClosedNormalOGraph,
        OGraphOutsideOccurrence, OGraphCanonicalizationWitness,
        OGraphMethodBLaneStep, OGraphPSGapBoundary, OGraphPSMethodBWitness,
        OGraphMoveWitness, OGraphMoveVerification,
-       ograph_raw_hash, verify_ograph_move,
+       ograph_raw_hash, verify_ograph_move, ps_global_condition,
        ograph_move_witness_data, ograph_move_witness_from_data,
        replay_ograph_move
 export planarize_virtual_gauss_layer8

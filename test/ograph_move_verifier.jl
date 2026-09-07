@@ -66,14 +66,13 @@ end
     @test !tampered_report.valid
     @test tampered_report.reason == :witness_mismatch
 
-    unaudited = VirtualLink()
-    set_data!(unaudited;
+    a2_source = VirtualLink()
+    set_data!(a2_source;
         rgauss=[[-1, -2, 3, 4, -4, -3, 2, 1]],
         orientation=[-1, 1, -1, 1])
-    a2 = only(movable(unaudited, "MP";
+    a2 = only(movable(a2_source, "MP";
         param="A2", vertices=[2, 1], strict=true))
-    @test verify_ograph_move(unaudited, a2).reason ==
-          :mp_parameter_not_source_audited
+    @test verify_ograph_move(a2_source, a2).valid
 end
 
 @testset "GKS26 CP source gate and boundary-rooted certificate" begin
@@ -264,5 +263,5 @@ end
     row1 = MoveCandidate("PS", "1", [1, 2], NTuple{2,Int}[], :inverse,
                          data["PS-R"][1], only(data["PS-L"]), [(1, 1), (1, 3)])
     @test verify_ograph_move(tiny, row1).reason ==
-          :ps_parameter_not_source_audited
+          :source_not_closed
 end

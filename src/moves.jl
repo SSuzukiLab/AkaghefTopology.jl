@@ -91,7 +91,11 @@ function _pattern_pairs(type::String,count::Int,data)
         count==3 && return data["CP-L"],data["CP-R"],:forward
         count==5 && return data["CP-R"],data["CP-L"],:inverse
     elseif type=="PS"
+        count==0 && return data["PS-L"],data["PS-R"],:forward
         count==2 && return data["PS-R"],data["PS-L"],:inverse
+    elseif type=="S"
+        count==0 && return data["S-L"],data["S-R"],:forward
+        count==4 && return data["S-R"],data["S-L"],:inverse
     elseif type=="02"
         count==2 && return data["02-R"],data["02-L"],:inverse
     elseif type=="BMP"
@@ -125,12 +129,41 @@ function _coerce_edges(edges)
 end
 
 """Return all data-table matches for a MATLAB-style VirtualLink move request."""
-function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,strict=false)
+function movable(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
+                 edge_occurrences=nothing,strict=false)
     move_type=_normalize_move_type(type)
     selected=Int.(collect(vertices))
     edge_list=_coerce_edges(edges)
     code,orientation=real_gauss_code(v)
     code=[_clean_component(component) for component in code]
+
+    if move_type in ("PS","S") && (edge_occurrences!==nothing || !isempty(edge_list))
+        isempty(selected) || (edge_occurrences===nothing ? (return MoveCandidate[]) :
+            throw(ArgumentError("insertion selects edges, not vertices")))
+        # Explicit occurrence is (component, head position): insert before head.
+        locations = if edge_occurrences!==nothing
+            _coerce_edges(edge_occurrences)
+        else
+            mapped=Tuple{Int,Int}[]
+            for (tail,head) in edge_list
+                matches=[(c,p) for (c,w) in enumerate(code) for p in eachindex(w)
+                         if w[p]==head && w[mod1(p-1,length(w))]==tail]
+                length(matches)==1 || return MoveCandidate[]
+                push!(mapped,only(matches))
+            end
+            mapped
+        end
+        required=move_type=="PS" ? 2 : 1
+        length(locations)==required || throw(ArgumentError("$move_type insertion requires $required edge occurrences"))
+        all(cp -> 1<=cp[1]<=length(code) && 1<=cp[2]<=length(code[cp[1]]),locations) ||
+            return MoveCandidate[]
+        data=make_move_data()
+        return [candidate for after in data[move_type*"-R"]
+                if param===nothing || string(param)==after.parameter
+                for candidate in [MoveCandidate(move_type,after.parameter,Int[],NTuple{2,Int}[],
+                    :forward,only(data[move_type*"-L"]),after,copy(locations))]
+                if move_type!="PS" || validate_ps_move(v,candidate).valid]
+    end
 
     if move_type in ("R1","R2","R3")
         return MoveCandidate[]
@@ -247,8 +280,9 @@ function movable(v::VirtualLink,type,arg::NamedTuple)
     param=haskey(arg,:param) ? arg.param : haskey(arg,:p) ? arg.p : nothing
     vertices=haskey(arg,:vertices) ? arg.vertices : haskey(arg,:v) ? arg.v : Int[]
     edges=haskey(arg,:edges) ? arg.edges : haskey(arg,:e) ? arg.e : nothing
+    occurrences=haskey(arg,:edge_occurrences) ? arg.edge_occurrences : nothing
     strict=haskey(arg,:strict) ? arg.strict : false
-    movable(v,type;param=param,vertices=vertices,edges=edges,strict=strict)
+    movable(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,strict=strict)
 end
 
 function _vertex_maps(orientation,selected,before,after;role_ordered=false)
@@ -470,7 +504,7 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
     result,result_weights,new_orientation
 end
 
-function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate)
+function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false)
     before=something(candidate.before); after=something(candidate.after)
     code,orientation=real_gauss_code(v)
     code=[_clean_component(component) for component in code]
@@ -479,7 +513,7 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate)
         throw(ArgumentError("weighted $(candidate.type) move is not implemented in the MATLAB source"))
     old_to_new,after_vertices,new_orientation=_vertex_maps(
         orientation,candidate.vertices,before,after;
-        role_ordered=candidate.type=="CP")
+        role_ordered=candidate.type=="CP" || (candidate.type=="MP" && !legacy_mp_labels))
     mapped_before=[_map_fragment(fragment,candidate.vertices) for fragment in before.gauss]
     mapped_after=[_map_fragment(fragment,after_vertices) for fragment in after.gauss]
 
@@ -516,7 +550,7 @@ function _same_move_pattern(left::MovePattern,right::MovePattern)
     left.parameter==right.parameter && left.gauss==right.gauss &&
     left.orientation==right.orientation && left.capacity==right.capacity &&
     left.gauss_first==right.gauss_first && left.gauss_last==right.gauss_last &&
-    left.vertex_count==right.vertex_count && left.weights==right.weights
+    left.vertex_count==right.vertex_count && isequal(left.weights,right.weights)
 end
 
 function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
@@ -531,23 +565,23 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     isempty(candidate.edges) || return invalid(:edge_selected_unsupported)
     (candidate.before===nothing || candidate.after===nothing) &&
         return invalid(:malformed_candidate)
-    candidate.direction===:inverse || return invalid(:source_mismatch)
+    candidate.direction in (:forward,:inverse) || return invalid(:source_mismatch)
     parameter=try parse(Int,candidate.parameter) catch; return invalid(:source_mismatch) end
     1<=parameter<=4 || return invalid(:source_mismatch)
     data=make_move_data()
-    canonical_before=data["PS-R"][parameter]
-    canonical_after=only(data["PS-L"])
+    canonical_before=candidate.direction==:inverse ? data["PS-R"][parameter] : only(data["PS-L"])
+    canonical_after=candidate.direction==:inverse ? only(data["PS-L"]) : data["PS-R"][parameter]
     _same_move_pattern(candidate.before,canonical_before) &&
         _same_move_pattern(candidate.after,canonical_after) ||
         return invalid(:source_mismatch)
     source_closed || return invalid(:source_not_closed)
     code,orientation=real_gauss_code(v)
     code=[_clean_component(component) for component in code]
-    length(candidate.vertices)==2 || return invalid(:source_mismatch)
+    length(candidate.vertices)==canonical_before.vertex_count || return invalid(:source_mismatch)
     vertices=candidate.vertices
     all(vertex -> vertex>0 && vertex<=length(orientation),vertices) ||
         return invalid(:source_mismatch)
-    vertices[1]!=vertices[2] || return invalid(:source_mismatch)
+    length(unique(vertices))==length(vertices) || return invalid(:source_mismatch)
     candidate.before.orientation==orientation[vertices] || return invalid(:source_mismatch)
     length(candidate.locations)==length(candidate.before.gauss) ||
         return invalid(:source_mismatch)
@@ -555,7 +589,7 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     for (fragment,(component,start)) in zip(mapped_before,candidate.locations)
         1<=component<=length(code) || return invalid(:source_mismatch)
         n=length(code[component]); 1<=start<=n || return invalid(:source_mismatch)
-        start in _cyclic_occurrences(code[component],fragment) ||
+        (isempty(fragment) || start in _cyclic_occurrences(code[component],fragment)) ||
             return invalid(:source_mismatch)
     end
     _locations_compatible(candidate.locations,mapped_before,code) ||
@@ -570,6 +604,8 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     end
     target_closed,target_conditions=is_closed(target)
     target_closed || return invalid(:target_not_closed,target,target_closed,target_conditions)
+    ps_global_condition(v,candidate).valid ||
+        return invalid(:ps_method_b_condition_failed,target,target_closed,target_conditions)
     (valid=true,reason=:closed_local_ps,source_closed=source_closed,
      source_conditions=source_conditions,target_closed=target_closed,
      target_conditions=target_conditions,target=target,error=nothing)
@@ -689,7 +725,8 @@ function _apply_hmove!(v::VirtualLink,vertex::Int,amount)
 end
 
 """Apply one MATLAB-style move after strict applicability selection."""
-function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,strict=true)
+function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
+               edge_occurrences=nothing,strict=true)
     move_type=_normalize_move_type(type)
     if move_type in ("R1","R2","R3")
         throw(ArgumentError("$move_type move is not implemented in the MATLAB source"))
@@ -699,7 +736,8 @@ function move!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,st
         isempty(candidates) && throw(ArgumentError("No valid moves found."))
         return _apply_hmove!(v,abs(only(candidates).vertices[1]),param)
     end
-    candidates=movable(v,move_type;param=param,vertices=vertices,edges=edges,strict=strict)
+    candidates=movable(v,move_type;param=param,vertices=vertices,edges=edges,
+                       edge_occurrences=edge_occurrences,strict=strict)
     isempty(candidates) && throw(ArgumentError("No valid moves found."))
     length(candidates)>1 && @warn "moves may be ambiguous; applying the first strict candidate" count=length(candidates)
     candidate=first(candidates)
@@ -719,8 +757,17 @@ function move!(v::VirtualLink,type,arg::NamedTuple)
     vertices=haskey(arg,:vertices) ? arg.vertices : haskey(arg,:v) ? arg.v : Int[]
     edges=haskey(arg,:edges) ? arg.edges : haskey(arg,:e) ? arg.e : nothing
     strict=haskey(arg,:strict) ? arg.strict : true
-    move!(v,type;param=param,vertices=vertices,edges=edges,strict=strict)
+    occurrences=haskey(arg,:edge_occurrences) ? arg.edge_occurrences : nothing
+    move!(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,strict=strict)
 end
+
+"Apply this exact candidate, without selecting its site again or canonicalizing."
+function move!(v::VirtualLink,candidate::MoveCandidate)
+    candidate.type=="PS" && !validate_ps_move(v,candidate).valid &&
+        throw(ArgumentError("PS candidate fails closed-normal applicability"))
+    _apply_pattern_move!(v,candidate)
+end
+move(v::VirtualLink,candidate::MoveCandidate)=move!(deepcopy(v),candidate)
 
 """Pure-value wrapper around MATLAB-compatible `move!`."""
 function move(v::VirtualLink,type;kwargs...)

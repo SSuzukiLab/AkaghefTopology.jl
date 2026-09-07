@@ -125,6 +125,10 @@ function make_move_data()
         "02-R" => [MovePattern("inv",[[-1,-2,2,1]],[1,-1];weights=[Float64[0,0,1,-1,0]])],
         "CP-L" => [MovePattern("dir",[[1,-2,2,-3,3,-1]],[-1,-1,-1])],
         "CP-R" => [MovePattern("inv",[[1,2,-5,3,-2,-3,-4,4,-1,5]],[1,1,1,-1,-1])],
+        # INS24 Fig.16, independently transcribed in the source visual record.
+        # S is not an alias for BP's 3-to-5 CP: its local patch is 0-to-4.
+        "S-L" => [MovePattern("INS",[Int[]],Int[])],
+        "S-R" => [MovePattern("INS",[[1,2,-3,-4,4,3,-2,-1]],[-1,-1,-1,-1])],
         "PS-L" => [MovePattern("",[Int[],Int[]],Int[])],
         "PS-R" => [
             MovePattern("1",[[1,2],[-1,-2]],[1,-1]),

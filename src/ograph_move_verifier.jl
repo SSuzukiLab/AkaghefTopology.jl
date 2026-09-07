@@ -1,7 +1,7 @@
 # Source scope, index gates, and replay contract:
 # docs/specs/ograph-move-verifier.md
 const OGRAPH_MOVE_WITNESS_SCHEMA = "akaghef.ograph-move-witness/1"
-const OGRAPH_MOVE_VERIFIER_VERSION = "ograph-move-source-replay/2"
+const OGRAPH_MOVE_VERIFIER_VERSION = "ograph-move-source-replay/3"
 const OGRAPH_CP_SOURCE_RULE_VERSION = "gks26-cp-edata-N/2"
 const OGRAPH_CP_BOUNDARY_CERTIFICATE_SCHEMA = "akaghef.ograph-cp-boundary-factorization/1"
 
@@ -541,11 +541,13 @@ end
 
 function _expected_pattern_candidate(candidate::MoveCandidate)
     move_type = _normalize_move_type(candidate.type)
-    move_type in ("MP", "PS", "CP") || return nothing
+    move_type in ("MP", "PS", "CP", "S") || return nothing
     candidate.before === nothing && return nothing
     candidate.after === nothing && return nothing
     data = make_move_data()
     move_type == "CP" && !_cp_catalogue_source_gate(data).valid && return nothing
+    move_type=="S" && !(only(data["S-R"]).gauss==[[1,2,-3,-4,4,3,-2,-1]] &&
+                         only(data["S-R"]).orientation==[-1,-1,-1,-1]) && return nothing
     before_table, after_table, direction = try
         _pattern_pairs(move_type, length(candidate.vertices), data)
     catch err
@@ -553,7 +555,8 @@ function _expected_pattern_candidate(candidate::MoveCandidate)
         return nothing
     end
     direction == candidate.direction || return nothing
-    before = findfirst(pattern -> pattern.parameter == candidate.parameter, before_table)
+    before = findfirst(pattern -> pattern.parameter == candidate.parameter ||
+                       (move_type=="PS" && direction==:forward && isempty(pattern.parameter)), before_table)
     before === nothing && return nothing
     canonical_before = before_table[before]
     after = findfirst(pattern -> _same_move_pattern(pattern, candidate.after),
@@ -594,7 +597,7 @@ function _check_candidate_source(source::VirtualLink, candidate::MoveCandidate)
         1 <= component <= length(code) || return (:source_mismatch, nothing, nothing, nothing)
         1 <= start <= length(code[component]) ||
             return (:source_mismatch, nothing, nothing, nothing)
-        start in _cyclic_occurrences(code[component], fragment) ||
+        (isempty(fragment) || start in _cyclic_occurrences(code[component], fragment)) ||
             return (:source_mismatch, nothing, nothing, nothing)
     end
     _locations_compatible(expected.locations, mapped_before, code) ||
@@ -646,6 +649,8 @@ function _outside_witness(source_code, target_code, candidate::MoveCandidate,
     adjacencies = NTuple{4,Int}[]
     for (component, word) in enumerate(source_code), position in eachindex(word)
         next_position = mod1(position + 1, length(word))
+        candidate.type in ("PS","S") && candidate.direction==:forward &&
+            (component,next_position) in candidate.locations && continue
         haskey(source_to_target, (component, position)) || continue
         haskey(source_to_target, (component, next_position)) || continue
         target_component, target_position = source_to_target[(component, position)]
@@ -765,16 +770,14 @@ end
 function _ps_method_b_witness(target::VirtualLink, target_state::OGraphState,
                               candidate::MoveCandidate,
                               boundaries::Vector{OGraphPSGapBoundary})
-    # Parameter 3 is the only current template row independently overlaid on
-    # MST25 v3 Fig. 2.15. Rows 1, 2, and 4 remain fail-closed below.
-    rules = Dict("3" => ("PS-III", 1, 2))
+    # MST25 definition 0083 and figure 0084. Row II swaps catalogue fragments.
+    rules = Dict("1" => ("PS-I",3,2), "2" => ("PS-II",3,1),
+                 "3" => ("PS-III",1,2), "4" => ("PS-IV",3,3))
     haskey(rules, candidate.parameter) || return nothing
-    before = something(candidate.before)
-    length(before.gauss) == 2 && all(fragment -> length(fragment) == 2, before.gauss) ||
-        return nothing
     length(boundaries) == 2 || return nothing
     steps = _method_b_steps(target)
     selected_edges = [boundary.target_edge_id for boundary in boundaries]
+    candidate.parameter=="2" && reverse!(selected_edges)
     paper_type, left_lane, right_lane = rules[candidate.parameter]
     left_matches = [step for step in steps
                     if step.edge_id == selected_edges[1] && step.lane == left_lane]
@@ -786,10 +789,46 @@ function _ps_method_b_witness(target::VirtualLink, target_state::OGraphState,
     trace === nothing && return nothing
     any(step -> step.edge_id == right.edge_id && step.lane == right.lane, trace) || return nothing
     circuit_id = minimum(min(step.from_node, step.to_node) for step in trace)
-    OGraphPSMethodBWitness(paper_type, candidate.parameter, :target_raw,
+    OGraphPSMethodBWitness(paper_type, candidate.parameter,
+                           candidate.direction==:forward ? :source_raw : :target_raw,
                            ograph_raw_hash(target_state), copy(boundaries),
                            left.edge_id, right.edge_id, left_lane, right_lane,
                            circuit_id, trace)
+end
+
+function _ps_source_gap_boundaries(source::VirtualLink, candidate::MoveCandidate)
+    code,_=real_gauss_code(source)
+    steps=_method_b_steps(source)
+    result=OGraphPSGapBoundary[]
+    for (i,(component,head)) in enumerate(candidate.locations)
+        word=code[component]; tail=mod1(head-1,length(word))
+        ids=unique(s.edge_id for s in steps if s.component==component &&
+                   s.tail_occurrence==tail && s.head_occurrence==head)
+        length(ids)==1 || return nothing
+        push!(result,OGraphPSGapBoundary(i,component,Int[],tail,head,
+            word[tail],word[head],component,tail,head,word[tail],word[head],only(ids)))
+    end
+    result
+end
+
+"Inspect the actual PS lane circuits; unlike closed-state validation this also handles a nonclosed normal diagram."
+function ps_global_condition(source::VirtualLink,candidate::MoveCandidate)
+    reason,frozen,code,orientation=_check_candidate_source(source,candidate)
+    reason==:ok && frozen.type=="PS" || return (valid=false,reason=reason,witness=nothing)
+    lhs=source
+    boundaries=if frozen.direction==:forward
+        _ps_source_gap_boundaries(source,frozen)
+    else
+        lhs=deepcopy(source); _apply_pattern_move!(lhs,frozen)
+        mapping,_,_=_vertex_maps(orientation,frozen.vertices,frozen.before,frozen.after)
+        target_code,_=real_gauss_code(lhs)
+        _ps_target_gap_boundaries(code,lhs,target_code,frozen,
+            [_map_fragment(f,frozen.vertices) for f in frozen.before.gauss],mapping)
+    end
+    boundaries===nothing && return (valid=false,reason=:ps_gap_transport_failed,witness=nothing)
+    witness=_ps_method_b_witness(lhs,ograph_state(lhs),frozen,boundaries)
+    (valid=witness!==nothing,reason=witness===nothing ? :different_method_b_circuits : :same_method_b_circuit,
+     witness=witness)
 end
 
 function _coerce_expected_state(value)
@@ -986,14 +1025,10 @@ end
 
 function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
                              expected_raw_target=nothing,
-                             expected_canonical_target=nothing)
+                             expected_canonical_target=nothing,legacy_mp_labels=false)
     reason, frozen, source_code, source_orientation =
         _check_candidate_source(source, candidate)
     reason == :ok || return _ograph_move_invalid(reason)
-    frozen.type == "MP" && frozen.parameter != "D2" &&
-        return _ograph_move_invalid(:mp_parameter_not_source_audited)
-    frozen.type == "PS" && frozen.parameter != "3" &&
-        return _ograph_move_invalid(:ps_parameter_not_source_audited)
     source_state = try ograph_state(source) catch err
         return _ograph_move_invalid(:invalid_source_state; error=err)
     end
@@ -1012,12 +1047,13 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
         cp_source_target, old_to_new, after_vertices = cp_result
     else
         old_to_new, after_vertices, _ =
-            _vertex_maps(source_orientation, frozen.vertices, before, after)
+            _vertex_maps(source_orientation, frozen.vertices, before, after;
+                         role_ordered=frozen.type=="MP" && !legacy_mp_labels)
     end
     mapped_before = [_map_fragment(fragment, frozen.vertices) for fragment in before.gauss]
     target = deepcopy(source)
     try
-        _apply_pattern_move!(target, frozen)
+        _apply_pattern_move!(target, frozen;legacy_mp_labels=legacy_mp_labels)
     catch err
         err isa InterruptException && rethrow()
         return _ograph_move_invalid(:raw_application_failed; error=err)
@@ -1067,12 +1103,14 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     vertex_map = [get(old_to_new, vertex, 0) for vertex in eachindex(source_orientation)]
 
     gap_boundaries = frozen.type == "PS" ?
-        _ps_target_gap_boundaries(source_code, target, target_code, frozen,
-                                  mapped_before, old_to_new) : nothing
+        (frozen.direction==:forward ? _ps_source_gap_boundaries(source,frozen) :
+         _ps_target_gap_boundaries(source_code, target, target_code, frozen,
+                                  mapped_before, old_to_new)) : nothing
     frozen.type == "PS" && gap_boundaries === nothing &&
         return _ograph_move_invalid(:ps_target_gap_transport_failed)
     method_b = frozen.type == "PS" ?
-        _ps_method_b_witness(target, target_state, frozen, gap_boundaries) : nothing
+        (frozen.direction==:forward ? _ps_method_b_witness(source,source_state,frozen,gap_boundaries) :
+         _ps_method_b_witness(target, target_state, frozen, gap_boundaries)) : nothing
     frozen.type == "PS" && method_b === nothing &&
         return _ograph_move_invalid(:ps_method_b_condition_failed)
 
@@ -1094,8 +1132,8 @@ end
 The move generator is not consulted. Catalogue row, concrete source fragments,
 locations, raw rewrite, outside occurrences, C1--C3 endpoints, and presentation
 canonicalization are recomputed. Malformed evidence fails closed as a report;
-only process interrupts are rethrown. PS is limited to the independently
-overlaid parameter-3/PS-III row. CP additionally requires the GKS source
+only process interrupts are rethrown. PS-I--IV require the prescribed
+Method-B lane connection on the pre-insertion state. CP additionally requires the GKS source
 catalogue correspondence, the production-SOT recipe/naturality audit, and the
 independent role-wise rewrite before it enters the same closedness, outside-
 region, canonical-target, persistence, and replay checks as MP/PS.
@@ -1124,7 +1162,8 @@ function _candidate_from_witness(witness::OGraphMoveWitness)
     before_table, after_table, direction =
         _pattern_pairs(witness.move_type, length(witness.vertices), data)
     before = only(pattern for pattern in before_table
-                  if pattern.parameter == witness.parameter)
+                  if pattern.parameter == witness.parameter ||
+                     (witness.move_type=="PS" && direction==:forward && isempty(pattern.parameter)))
     after = only(_after_patterns(before, after_table, witness.parameter))
     MoveCandidate(witness.move_type, witness.parameter, copy(witness.vertices),
                   NTuple{2,Int}[], direction, before, after,
@@ -1316,7 +1355,7 @@ function _move_data_method(value, label)
     _move_data_object(value, fields)
     side_string = _move_data_string(_move_data_field(value, "evaluated_state_side"),
                                     "$label.evaluated_state_side")
-    side_string == "target_raw" ||
+    side_string in ("target_raw","source_raw") ||
         throw(ArgumentError("$label.evaluated_state_side is unsupported"))
     gaps = _move_data_vector(_move_data_field(value, "gap_boundaries"), 2,
         (entry, item_label) -> _move_data_gap(entry, item_label),
@@ -1351,7 +1390,7 @@ function ograph_move_witness_from_data(value)
         throw(ArgumentError("unsupported move witness schema $schema"))
     verifier = _move_data_string(_move_data_field(value, "verifier_version"),
                                  "verifier_version")
-    verifier == OGRAPH_MOVE_VERIFIER_VERSION ||
+    verifier in (OGRAPH_MOVE_VERIFIER_VERSION,"ograph-move-source-replay/2") ||
         throw(ArgumentError("unsupported move verifier version $verifier"))
     direction_string = _move_data_string(_move_data_field(value, "direction"), "direction")
     direction_string in ("forward", "inverse") ||
@@ -1400,9 +1439,20 @@ function replay_ograph_move(witness::OGraphMoveWitness)
     replay = verify_ograph_move(source, candidate;
         expected_raw_target=witness.target_raw,
         expected_canonical_target=witness.target_canonical)
+    if witness.verifier_version=="ograph-move-source-replay/2" &&
+       witness.move_type=="MP" && witness.parameter=="D2"
+        # v2 numbered retained patch roles by sorted source labels. First
+        # verify the current source-role move gives the SAME canonical target;
+        # only then reproduce the v2 raw numbering for exact historical replay.
+        modern=verify_ograph_move(source,candidate;
+            expected_canonical_target=witness.target_canonical)
+        modern.valid || return modern
+        replay=_verify_ograph_move(source,candidate;expected_raw_target=witness.target_raw,
+            expected_canonical_target=witness.target_canonical,legacy_mp_labels=true)
+    end
     replay.valid || return replay
-    ograph_move_witness_data(something(replay.witness)) ==
-        ograph_move_witness_data(witness) ||
+    merge(ograph_move_witness_data(something(replay.witness)),
+          (verifier_version=witness.verifier_version,)) == ograph_move_witness_data(witness) ||
         return _ograph_move_invalid(:witness_mismatch)
     replay
 end

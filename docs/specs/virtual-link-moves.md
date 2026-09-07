@@ -145,9 +145,12 @@ contract does not silently invent:
 
 - R1/R2/R3 execution;
 - weighted PS, CP, BMP, or B02 transport;
-- paper-level PS disk conditions;
 - spin or framed move data;
-- move-invariance certificates.
+- certificates outside the explicit [Area-3 verifier contract](ograph-move-verifier.md).
+
+The Area-3 layer now checks PS-I--IV Method-B conditions and supports
+occurrence-selected insertion. These are explicit additions, not inferred
+from the legacy MATLAB dispatch table.
 
 ## 3. Normative language
 
@@ -396,6 +399,9 @@ The number of selected vertices chooses the source and target side:
 | CP | 3 | `CP-L` | `CP-R` | `:forward` |
 | CP | 5 | `CP-R` | `CP-L` | `:inverse` |
 | PS | 2 | `PS-R` | `PS-L` | `:inverse` |
+| PS | none; two edge occurrences | `PS-L` | `PS-R` | `:forward` |
+| S | none; one edge occurrence | `S-L` | `S-R` | `:forward` |
+| S | 4 ordered roles | `S-R` | `S-L` | `:inverse` |
 | 02 | 2 positive vertices | `02-R` | `02-L` | `:inverse` |
 | 02 | 2 signed adjacent visits, `param="dir"` | `02-L` | `02-R` | `:forward` |
 | BMP | 2 | `BMP-L` | `BMP-R` | `:forward` |
@@ -713,7 +719,8 @@ Errors MUST NOT be reported as successful no-op moves.
 |---|---:|---:|---:|---:|---:|
 | MP A1–D4 | yes | yes | yes | yes | partial by data rule |
 | CP | yes | yes | yes | yes | no |
-| PS | yes | yes | not exposed | yes | no |
+| PS-I--IV | yes | local and Method-B | edge occurrences | yes | no |
+| INS S | yes | local; Area-3 verifier checks endpoints | edge occurrence | yes | no |
 | 02 | yes | yes | signed-adjacent direct path | pattern inverse | no |
 | H | not applicable | one-vertex check | weight update | parameter sign supplies reverse | required |
 | BMP E1/F1/E2/F2 | yes | yes | yes | yes | no |
@@ -722,6 +729,12 @@ Errors MUST NOT be reported as successful no-op moves.
 
 “yes” in this matrix specifies API behavior. It does not assert exhaustive
 mathematical verification of every catalogue row.
+
+`edge_occurrences` is a vector of `(component,head_position)` pairs. Insertion
+is immediately before each selected head. PS requires two selections, including
+coincident selections when appropriate; S requires one. A frozen candidate can
+be applied with `move(source,candidate)` without selecting its site again.
+Canonicalization remains a separate operation after the raw move.
 
 ## 16. Conformance levels
 
@@ -847,7 +860,7 @@ This specification does not define:
 - equality between different Gauss presentations;
 - a proof that any move preserves a named invariant;
 - paper-level primary-D2/PS decomposition sequences;
-- global Method-B PS conditions;
+- global Method-B PS conventions (owned by [the verifier specification](ograph-move-verifier.md));
 - framed or spin move calculus;
 - stable PD-edge identity across representation conversion;
 - final immutable `VirtualLink` storage types;

@@ -538,12 +538,28 @@ struct OGraphRelationProfile
     created_at_utc::String
 end
 
-function _expected_profile_moves(name::String)
+function _expected_profile_moves(name::String,version::Int=1)
     name == "presentation" && return ()
     name == "combed" && return ("MP", "PS")
-    name == "manifold" && return ("CP", "MP", "PS")
+    name == "manifold" && return version>=2 ? ("CP", "MP", "PS", "S") : ("CP", "MP", "PS")
     throw(ArgumentError(
         "weighted framed/spin profiles require a separate typed state adapter"))
+end
+
+"Per-type/per-direction unweighted support, distinct from calculus completeness."
+function ograph_move_capabilities(profile_name::AbstractString="manifold")
+    result=Dict{String,Any}[]
+    profile_name=="presentation" && return result
+    for kind in _expected_profile_moves(String(profile_name),2)
+        parameters=kind=="MP" ? [string(a,b) for a in 'A':'D' for b in 1:4] :
+                   kind=="PS" ? string.(1:4) : kind=="S" ? ["INS"] : ["BP-GKS"]
+        for parameter in parameters, direction in ("forward","inverse")
+            push!(result,Dict("move_type"=>kind,"parameter"=>parameter,
+                "direction"=>direction,"candidate_generator"=>true,"semantic_verifier"=>true,
+                "weighted"=>false,"verifier_version"=>OGRAPH_MOVE_VERIFIER_VERSION))
+        end
+    end
+    result
 end
 
 function OGraphRelationProfile(profile_name::AbstractString;
@@ -553,7 +569,7 @@ function OGraphRelationProfile(profile_name::AbstractString;
     name = lowercase(strip(String(profile_name)))
     version = Int(profile_version)
     version > 0 || throw(ArgumentError("profile_version must be positive"))
-    moves = _expected_profile_moves(name)
+    moves = _expected_profile_moves(name,version)
     parent = parent_profile_id === nothing ? nothing : String(parent_profile_id)
     status = String(evidence_status)
     if name == "presentation"
@@ -567,6 +583,13 @@ function OGraphRelationProfile(profile_name::AbstractString;
             "relation profile evidence_status must be unimplemented or verified"))
         moves_complete == (status == "verified") || throw(ArgumentError(
             "verified relation profiles must be complete and incomplete profiles unimplemented"))
+    end
+    if version>=2
+        conventions=Dict(String(k)=>v for (k,v) in pairs(conventions))
+        # A stored profile is an immutable snapshot, not the current runtime.
+        get!(conventions,"move_capabilities") do
+            ograph_move_capabilities(name)
+        end
     end
     conventions_json = _ograph_canonical_json(conventions)
     fingerprint_input = _ograph_canonical_json(Dict(
