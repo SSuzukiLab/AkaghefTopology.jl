@@ -1454,7 +1454,11 @@ function replay_ograph_move(witness::OGraphMoveWitness)
     merge(ograph_move_witness_data(something(replay.witness)),
           (verifier_version=witness.verifier_version,)) == ograph_move_witness_data(witness) ||
         return _ograph_move_invalid(:witness_mismatch)
-    replay
+    # Historical patch numbering belongs to the historical verifier version.
+    # Returning that numbering under /3 would produce a witness which cannot
+    # itself be replayed or safely persisted again.
+    witness.verifier_version==OGRAPH_MOVE_VERIFIER_VERSION ? replay :
+        OGraphMoveVerification(true,replay.reason,deepcopy(witness),nothing)
 end
 
 

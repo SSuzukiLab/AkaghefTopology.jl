@@ -137,6 +137,13 @@ if abspath(PROGRAM_FILE)==abspath(@__FILE__) && !isempty(ARGS)
         store=open_store(ARGS[1];migrate=false)
         try
             @test verify_ograph_store(store).transitions>=254
+            for row in Topology.MoveGraphStore._rows(store.db,
+                    "SELECT witness_json FROM ograph_transition_evidence WHERE transition_id IN (18,198)")
+                saved=JSON.parse(String(row.witness_json))
+                replayed=replay_ograph_move(saved)
+                @test replayed.witness.verifier_version==saved["verifier_version"]
+                @test replay_ograph_move(ograph_move_witness_data(replayed.witness)).valid
+            end
         finally
             close_store!(store)
         end

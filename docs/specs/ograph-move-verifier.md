@@ -444,3 +444,5 @@ current source-role rewrite must first give the recorded canonical target;
 then the old sorted-label patch numbering is reproduced to compare every
 historical raw field. Old evidence is not rewritten. Profile v2 records a
 type/direction capability snapshot separately from calculus completeness.
+The witness returned by replay retains the historical verifier version too,
+so serializing and replaying that returned witness remains valid.
