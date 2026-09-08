@@ -386,7 +386,9 @@ MUST use different IDs from the actual cut `real_edge_table`; their endpoints
 are `(strand,:in)` and `(strand,:out)`, never one shared crossing numbered zero.
 The temporary closure is a coordinate scaffold only and MUST NOT be used for
 disk equations, move semantics or invariants. Boundary markers and labels are
-rendered explicitly. Pure open intervals have their own line geometry.
+rendered explicitly. Boundary labels participate in collision avoidance and
+have leader lines to their exact endpoints, so labels on different cut strands
+remain distinguishable. Pure open intervals have their own line geometry.
 
 Direct `orthogonal_layout` and the closed-PD face helpers remain closed-only;
 callers of cut diagrams use `plot_svg`. Replay polylines have one entry per

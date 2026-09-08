@@ -693,13 +693,18 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
             end
             label_radius=S.font*(0.30+0.26*length(record.text))
             distance=max(label_radius+0.20,S.font+0.20)
-            push!(placed,(pos=record.point+direction*distance,text=record.text,fixed=true))
+            push!(placed,(pos=record.point+direction*distance,text=record.text,
+                          boundary_origin=record.point))
         end
     end
 
     _spread_labels!(placed)
     for item in placed
         lx,ly=_pt(item.pos)
+        if haskey(item,:boundary_origin)
+            bx,by=_pt(item.boundary_origin)
+            push!(body,"<line class=\"boundary-label-leader\" x1=\"$(_num(bx))\" y1=\"$(_num(by))\" x2=\"$(_num(lx))\" y2=\"$(_num(ly))\" stroke=\"#777\" stroke-width=\"0.012\"/>")
+        end
         push!(body,_label(lx,ly,item.text))
         xmin=min(xmin,real(item.pos)); xmax=max(xmax,real(item.pos))
         ymin=min(ymin,imag(item.pos)); ymax=max(ymax,imag(item.pos))

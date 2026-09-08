@@ -5,8 +5,10 @@ It is not an independent mathematical proof of framing transport. Its hashes bin
 the full raw presentation and integer weights; they are NOT canonical state IDs.
 """
 const WEIGHTED_MOVE_EVIDENCE_SCHEMA = "akaghef.weighted-move-evidence/2"
-const WEIGHTED_MOVE_VERIFIER_VERSION = "weighted-executor-replay/2"
-const WEIGHTED_MOVE_SOURCE_RULE_VERSION = "integer-mp-h-02-ps-runtime-cut/1"
+const WEIGHTED_MOVE_VERIFIER_VERSION = "weighted-executor-replay/3"
+const WEIGHTED_MOVE_SOURCE_RULE_VERSION = "integer-mp-h-02-ps-runtime-cut/2"
+const WEIGHTED_RELATIVE_RESULT_SCHEMA = "akaghef.weighted-relative-result/2"
+const WEIGHTED_BOUNDARY_TRANSPORT_VERSION = 1
 
 struct WeightedMoveEvidence
     data::Dict{String,Any}
@@ -223,6 +225,40 @@ function _weighted_topological_data(source,target,candidate)
     (status="verified-by-existing-unweighted-verifier",witness=ograph_move_witness_data(result.witness))
 end
 
+"""Recompute and encode the actual open-end lineage of a frozen move.
+
+The transport executor works on the unweighted presentation because CP/BMP/B02
+have no assigned integer transport rule.  The returned target is nevertheless
+checked against the weighted executor target by the callers.  Thus this record
+binds endpoint identity to the executed geometry, while leaving measured and
+prescribed boundary weights in their separate equation fields.
+"""
+function _weighted_boundary_transport_data(source::VirtualLink,
+                                           candidate::MoveCandidate)
+    geometric_source=candidate.type=="H" ? source : _weighted_unweight(source)
+    geometric_candidate=candidate.ps_split_k===nothing ? candidate :
+        MoveCandidate(candidate.type,candidate.parameter,candidate.vertices,candidate.edges,
+            candidate.direction,candidate.before,candidate.after,candidate.locations)
+    transport=move_boundary_transport(geometric_source,geometric_candidate)
+    (version=WEIGHTED_BOUNDARY_TRANSPORT_VERSION,
+     kind="endpoint-lineage",
+     source_cut_count=count(_is_cut_component,geometric_source.gauss),
+     target_cut_count=count(_is_cut_component,transport.target.gauss),
+     endpoints=transport.endpoints,
+     target=_weighted_topology_raw(transport.target))
+end
+
+function _weighted_checked_boundary_transport_data(source::VirtualLink,
+                                                   target::VirtualLink,
+                                                   candidate::MoveCandidate)
+    detail=_weighted_boundary_transport_data(source,candidate)
+    expected=_weighted_topology_raw(target)
+    actual=_weighted_detail_data(detail.target)
+    ograph_canonical_json(actual)==ograph_canonical_json(_weighted_detail_data(expected)) ||
+        throw(ArgumentError("boundary endpoint trace and executed move disagree"))
+    detail
+end
+
 function _weighted_boundary_pair(boundary)
     boundary===nothing && return (nothing,nothing)
     if boundary isa NamedTuple && haskey(boundary,:source) && haskey(boundary,:target)
@@ -282,6 +318,7 @@ function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
         end
         stage=:topological_verification_failed
         topological=_weighted_topological_data(source,target,frozen)
+        boundary_transport=_weighted_checked_boundary_transport_data(source,target,frozen)
         stage=:evidence_encoding_failed
         data=_weighted_json_copy((schema=WEIGHTED_MOVE_EVIDENCE_SCHEMA,
             verifier_version=WEIGHTED_MOVE_VERIFIER_VERSION,
@@ -294,7 +331,8 @@ function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
             boundary=(source=source_equation.boundary_targets_supplied ? source_equation.boundary_targets : nothing,
                       target=target_equation.boundary_targets_supplied ? target_equation.boundary_targets : nothing),
             topological=topological,
-            transport_detail=_weighted_detail_data(details)))
+            transport_detail=_weighted_detail_data(merge(details,
+                (boundary_transport=boundary_transport,)))))
         WeightedMoveVerification(true,:verified,WeightedMoveEvidence(data),target,nothing)
     catch error
         error isa InterruptException && rethrow()
@@ -319,16 +357,19 @@ function verify_weighted_relative_result(source::VirtualLink,target::VirtualLink
         _weighted_digest(_weighted_topology_raw(expected_topology)) ==
             _weighted_digest(_weighted_topology_raw(target)) ||
             return _weighted_invalid(:raw_target_mismatch)
+        boundary_transport=_weighted_checked_boundary_transport_data(source,target,candidate)
         source_equation=_weighted_equation_data(source;framed=false,boundary=source_boundary)
         target_equation=_weighted_equation_data(target;framed=false,boundary=target_boundary)
-        data=_weighted_json_copy((schema="akaghef.weighted-relative-result/1",
+        data=_weighted_json_copy((schema=WEIGHTED_RELATIVE_RESULT_SCHEMA,
             evidence_kind="assigned-result-with-boundary-evidence",
             source_raw=source_raw,target_raw=target_raw,
             source_raw_sha256=weighted_raw_hash(source),target_raw_sha256=weighted_raw_hash(target),
             candidate=_weighted_candidate_data(candidate),
             boundary=(source=source_equation.boundary_targets_supplied ? source_equation.boundary_targets : nothing,
                       target=target_equation.boundary_targets_supplied ? target_equation.boundary_targets : nothing),
-            source_equation=source_equation,target_equation=target_equation))
+            source_equation=source_equation,target_equation=target_equation,
+            transport_detail=_weighted_detail_data((coordinate_system="real-gauss-components/head-occurrences",
+                boundary_transport=boundary_transport))))
         WeightedMoveVerification(true,:assigned_result,WeightedMoveEvidence(data),deepcopy(target),nothing)
     catch error
         error isa InterruptException && rethrow()
@@ -339,7 +380,10 @@ end
 function replay_weighted_relative_result(value)
     try
         data=value isa WeightedMoveEvidence ? value.data : value
-        data["schema"]=="akaghef.weighted-relative-result/1" || return _weighted_invalid(:malformed_evidence)
+        data["schema"]==WEIGHTED_RELATIVE_RESULT_SCHEMA || return _weighted_invalid(:malformed_evidence)
+        _move_data_object(data,("schema","evidence_kind","source_raw","target_raw",
+            "source_raw_sha256","target_raw_sha256","candidate","boundary",
+            "source_equation","target_equation","transport_detail"))
         source=_weighted_link_from_data(data["source_raw"])
         target=_weighted_link_from_data(data["target_raw"])
         weighted_raw_hash(source)==data["source_raw_sha256"] || return _weighted_invalid(:source_hash_mismatch)

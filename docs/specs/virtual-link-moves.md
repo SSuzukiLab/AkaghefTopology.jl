@@ -652,9 +652,31 @@ Weights and H parameters MUST be integers in the consecutive exact Float64
 range `[-(2^53-1), 2^53-1]`. Accumulation uses `BigInt`, and an out-of-range
 result MUST reject before mutation. Raw MP/H/02 transport accepts cut components;
 equation validation additionally requires boundary targets. A generic pattern
-replacement currently supports at most one affected cut component. It MUST NOT
+replacement supports multiple affected cut components. It MUST NOT
 match a nonempty fragment across the cut or remove a cut component as a source-only
 fragment.
+
+Each affected incoming and outgoing endpoint has a distinct connection marker.
+The executor cuts the source words into exterior fragments, inserts the target
+fragments, and follows matching markers to reconstruct paths and cycles. An open
+path terminates at its actual outgoing marker; it is never cyclically closed to
+perform a rewrite. Open results occupy their incoming source strand order. The
+outgoing endpoint can come from a different source strand. Closed results follow
+the retained components. Empty open intervals retain their terminal marker and
+their single edge weight.
+
+`move_boundary_transport(source, candidate)` returns the executed `target` and
+an `endpoints` vector mapping source `(strand, side)` to target `(strand, side)`.
+Each source and target endpoint occurs exactly once. Circuit-B lane numbers are
+preserved at these endpoints. Consumers composing moves must compose these maps,
+rather than infer endpoint identity from a component index or the entry `0`.
+
+BMP parameters `0` and `1` use this same fragment executor. With two vertex
+roles they implement the dedicated MATLAB forward convention; with three roles
+they implement its reverse. The catalogue parameters E1/F1/E2/F2 remain separate:
+their fixed-role conventions must not be substituted for the numeric inverse.
+B02 also uses fragment reconnection and consumes only an actual closed source
+circle, never a cut interval with the same nonzero entries.
 
 ### 12.2 Direct MP transport
 
@@ -736,14 +758,17 @@ records `forward_split_k`. A forward candidate reconstructed with that value
 reproduces the original raw decoration; silently choosing the default would
 lose that information. I/III's output cochain is independent of this split.
 
-PS uses the single real Gauss-component geometry verifier, including its cut
-Method-B path support. For an open circuit the witness retains the full directed
+For cut inputs PS authenticates source fragments across the real Gauss components
+and queries their actual Method-B paths. For an open circuit the witness retains the full directed
 boundary-to-boundary trace; rotation uses the selected subpath within that trace.
 It MUST NOT rotate an open trace as though it were a cycle. Boundary nodes carry
 no vertex dot. Pass `boundary=(source=source_targets,target=target_targets)` to
 freeze the two relative contracts; a single target specification applies to both.
-Multiple affected cut components remain unsupported. Closed all-four-type tests
-do not establish all-four-type cut coverage; the cut regression fixtures and
+An empty fragment may select the incoming or outgoing edge, including the sole
+edge of `[0]`, through its explicit `(component, head occurrence)`. Inverse gap
+transport follows the appropriate in-end or out-end lineage when a gap touches
+a boundary. A zero crossing label alone cannot identify an endpoint.
+Closed all-four-type tests do not establish all-four-type cut coverage; the cut regression fixtures and
 experiment records state their finite coverage separately.
 
 The source comparison and exact literature locators are maintained in PJ260830's
@@ -783,6 +808,12 @@ assigned CP/BMP/B02 results use `verify_weighted_relative_result` and
 `replay_weighted_relative_result`; these bind the actual unweighted target and
 assigned weights but do not assert a weight transport rule. Weighted
 raw hashes MUST NOT be used as unweighted canonical state or manifold IDs.
+
+Executor version `weighted-executor-replay/3` records the recomputed endpoint
+map in `transport_detail.boundary_transport.endpoints`; replay authenticates
+this map as part of the envelope. Assigned results use
+`akaghef.weighted-relative-result/2`. An older executor packet must be regenerated
+under the current executor rather than relabelled with the new version.
 
 ## 13. Mutation and output contract
 

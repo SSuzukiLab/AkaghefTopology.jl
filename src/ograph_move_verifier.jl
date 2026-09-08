@@ -621,6 +621,65 @@ function _check_candidate_source(source::VirtualLink, candidate::MoveCandidate)
     (:ok, expected, code, orientation)
 end
 
+"""Authenticate a PS source patch when the raw diagram has cut components.
+
+The OGraph verifier above intentionally remains a closed, one-circuit API.  A
+Method-B PS witness only needs the local source patch and the actual lane
+trace, so its source gate can admit several components, including several
+open strands.  Cut components use linear (nonwrapping) occurrence checks;
+closed components retain cyclic occurrence semantics.
+"""
+function _check_open_ps_candidate_source(source::VirtualLink,
+                                         candidate::MoveCandidate)
+    source.is_weighted && return (:weighted_unsupported, nothing, nothing, nothing)
+    _normalize_move_type(candidate.type) == "PS" ||
+        return (:not_ps, nothing, nothing, nothing)
+    candidate.ps_split_k === nothing ||
+        return (:weighted_split_unsupported, nothing, nothing, nothing)
+    isempty(candidate.edges) ||
+        return (:edge_selected_unsupported, nothing, nothing, nothing)
+    expected = _expected_pattern_candidate(candidate)
+    expected === nothing && return (:catalogue_mismatch, nothing, nothing, nothing)
+    code, orientation = real_gauss_code(source)
+    isempty(code) && return (:non_ograph_source, nothing, nothing, nothing)
+    all(!=(0), source.orientation) &&
+        all(word -> all(!=(0), _component_visits(word)), source.gauss) ||
+        return (:non_ograph_source, nothing, nothing, nothing)
+    vertices = expected.vertices
+    length(vertices) == length(something(expected.before).orientation) ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    length(unique(vertices)) == length(vertices) ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    all(vertex -> 1 <= vertex <= length(orientation), vertices) ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    orientation[vertices] == something(expected.before).orientation ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    mapped_before = [_map_fragment(fragment, vertices)
+                     for fragment in something(expected.before).gauss]
+    length(expected.locations) == length(mapped_before) ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    for (fragment, (component, start)) in zip(mapped_before, expected.locations)
+        1 <= component <= length(code) ||
+            return (:source_mismatch, nothing, nothing, nothing)
+        word = code[component]
+        n = _is_cut_component(word) ? length(word) - 1 : length(word)
+        # Empty fragments select edges, including the outgoing boundary edge
+        # n+1 and the sole edge of a crossing-free interval. Nonempty source
+        # fragments must stay strictly within the real visits.
+        last_start=n+Int(isempty(fragment) && _is_cut_component(word))
+        1 <= start <= last_start || return (:source_mismatch, nothing, nothing, nothing)
+        (isempty(fragment) || start in _pattern_occurrences(word, fragment)) ||
+            return (:source_mismatch, nothing, nothing, nothing)
+        if _is_cut_component(word) && !isempty(fragment) &&
+           start + length(fragment) - 1 > n
+            return (:source_mismatch, nothing, nothing, nothing)
+        end
+    end
+    _locations_compatible(expected.locations, mapped_before, code) ||
+        return (:source_mismatch, nothing, nothing, nothing)
+    (:ok, expected, code, orientation)
+end
+
 function _target_fragment_locations(target::VirtualLink, candidate::MoveCandidate,
                                     after_vertices::AbstractVector)
     code, _ = real_gauss_code(target)
@@ -770,8 +829,20 @@ function _method_b_circuit_trace(steps, selected::OGraphMethodBLaneStep)
     trace
 end
 
+function _ps_lineage_target_component(boundary_trace, source_component, side)
+    boundary_trace === nothing && return nothing
+    sources = [entry.target.strand for entry in boundary_trace
+               if hasproperty(entry, :source) && hasproperty(entry, :target) &&
+                  hasproperty(entry.source, :strand) &&
+                  entry.source.strand == source_component && entry.source.side == side]
+    isempty(sources) && return nothing
+    unique_sources = unique(sources)
+    length(unique_sources) == 1 ? only(unique_sources) : nothing
+end
+
 function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code,
-                                   candidate::MoveCandidate, mapped_before, old_to_new)
+                                   candidate::MoveCandidate, mapped_before, old_to_new;
+                                   boundary_trace=nothing)
     consumed = Set{Tuple{Int,Int}}()
     fragment_positions = Vector{Vector{Int}}()
     for (fragment, (component, start)) in zip(mapped_before, candidate.locations)
@@ -791,15 +862,30 @@ function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code
         raw_n = length(source_code[component])
         cut = _is_cut_component(source_code[component])
         n = cut ? raw_n - 1 : raw_n
-        length(positions) < n || return nothing
-        predecessor = cut && start == 1 ? raw_n : mod1(start - 1, n)
-        while (component, predecessor) in consumed
-            predecessor = mod1(predecessor - 1, n)
-        end
-        successor = cut && start + length(positions) > n ? raw_n :
-            mod1(start + length(positions), n)
-        while (component, successor) in consumed
-            successor = mod1(successor + 1, n)
+        if cut
+            # A cut strand is an interval.  Search only inside its real
+            # visits and stop at the corresponding source endpoint; never
+            # wrap a consumed interval through the opposite endpoint.
+            predecessor = start - 1
+            while predecessor >= 1 && (component, predecessor) in consumed
+                predecessor -= 1
+            end
+            predecessor = predecessor >= 1 ? predecessor : raw_n
+            successor = start + length(positions)
+            while successor <= n && (component, successor) in consumed
+                successor += 1
+            end
+            successor = successor <= n ? successor : raw_n
+        else
+            length(positions) < n || return nothing
+            predecessor = mod1(start - 1, n)
+            while (component, predecessor) in consumed
+                predecessor = mod1(predecessor - 1, n)
+            end
+            successor = mod1(start + length(positions), n)
+            while (component, successor) in consumed
+                successor = mod1(successor + 1, n)
+            end
         end
         predecessor_entry = source_code[component][predecessor]
         successor_entry = source_code[component][successor]
@@ -810,8 +896,20 @@ function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code
         target_head_entry = successor_entry == 0 ? 0 :
             sign(successor_entry) * old_to_new[abs(successor_entry)]
         target_matches = Tuple{Int,Int,Int}[]
+        # A gap touching a boundary follows that particular endpoint. The
+        # source in-end and out-end may reach different target strands.
+        hints=Int[]
+        if cut && boundary_trace !== nothing
+            for (entry,side) in ((predecessor_entry,:in),(successor_entry,:out))
+                entry==0 || continue
+                hint=_ps_lineage_target_component(boundary_trace,component,side)
+                hint===nothing && return nothing
+                push!(hints,hint)
+            end
+        end
         target_edges = real_edge_table(target)
         for step in steps
+            all(==(step.component),hints) || continue
             edge = target_edges[step.edge_id]
             edge.crossing == (target_tail_entry, target_head_entry) || continue
             push!(target_matches, (step.component, step.tail_occurrence,
@@ -878,17 +976,24 @@ end
 
 "Inspect the actual PS lane circuits; unlike closed-state validation this also handles a nonclosed normal diagram."
 function ps_global_condition(source::VirtualLink,candidate::MoveCandidate)
-    reason,frozen,code,orientation=_check_candidate_source(source,candidate)
+    open_ps = _normalize_move_type(candidate.type) == "PS" &&
+              any(_is_cut_component, source.gauss)
+    reason,frozen,code,orientation = open_ps ?
+        _check_open_ps_candidate_source(source,candidate) :
+        _check_candidate_source(source,candidate)
     reason==:ok && frozen.type=="PS" || return (valid=false,reason=reason,witness=nothing)
     lhs=source
     boundaries=if frozen.direction==:forward
         _ps_source_gap_boundaries(source,frozen)
     else
-        lhs=deepcopy(source); _apply_pattern_move!(lhs,frozen)
+        lhs=deepcopy(source)
+        boundary_trace=Any[]
+        _apply_pattern_move!(lhs,frozen;boundary_trace=boundary_trace)
         mapping,_,_=_vertex_maps(orientation,frozen.vertices,frozen.before,frozen.after)
         target_code,_=real_gauss_code(lhs)
         _ps_target_gap_boundaries(code,lhs,target_code,frozen,
-            [_map_fragment(f,frozen.vertices) for f in frozen.before.gauss],mapping)
+            [_map_fragment(f,frozen.vertices) for f in frozen.before.gauss],mapping;
+            boundary_trace=boundary_trace)
     end
     boundaries===nothing && return (valid=false,reason=:ps_gap_transport_failed,witness=nothing)
     closed_state = try

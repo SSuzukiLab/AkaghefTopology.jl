@@ -36,21 +36,93 @@ struct _MoveSegment
     leading_weight::Float64
 end
 
+# Capacity labels describe interior seams; boundary labels describe actual
+# source endpoints and must never identify two different cut ends.
+_move_boundary_port(common,strand,side)=-(common+2strand-Int(side==:in))
+function _move_boundaries(code,affected,common)
+    Dict(_move_boundary_port(common,strand,side)=>(strand=strand,side=side)
+         for strand in affected if _is_cut_component(code[strand]) for side in (:in,:out))
+end
+
+function _move_segment_paths(segments,boundaries)
+    starts=Dict{Int,Int}(); ends=Dict{Int,Int}()
+    for (index,segment) in enumerate(segments)
+        haskey(starts,segment.start_port) && throw(ArgumentError("duplicate fragment start marker"))
+        haskey(ends,segment.end_port) && throw(ArgumentError("duplicate fragment end marker"))
+        starts[segment.start_port]=index; ends[segment.end_port]=index
+    end
+    for (port,index) in starts
+        if haskey(boundaries,port)
+            boundaries[port].side==:in || throw(ArgumentError("outgoing boundary used as fragment start"))
+        else
+            haskey(ends,port) || throw(ArgumentError("unmatched fragment start marker $port"))
+        end
+    end
+    for port in keys(ends)
+        if haskey(boundaries,port)
+            boundaries[port].side==:out || throw(ArgumentError("incoming boundary used as fragment end"))
+        else
+            haskey(starts,port) || throw(ArgumentError("unmatched fragment end marker $port"))
+        end
+    end
+    roots=sort!([index for (port,index) in starts if haskey(boundaries,port)];
+                by=index->boundaries[segments[index].start_port].strand)
+    append!(roots,eachindex(segments))
+    used=falses(length(segments)); paths=NamedTuple[]
+    for root in roots
+        used[root] && continue
+        incoming=get(boundaries,segments[root].start_port,nothing)
+        indices=Int[]; current=root; outgoing=nothing
+        while true
+            used[current] && throw(ArgumentError("fragment path enters an already consumed segment"))
+            used[current]=true; push!(indices,current)
+            port=segments[current].end_port
+            if haskey(boundaries,port)
+                outgoing=boundaries[port]
+                incoming===nothing && throw(ArgumentError("open path has no incoming boundary"))
+                break
+            end
+            current=starts[port]
+            current==root && break
+        end
+        (incoming===nothing)==(outgoing===nothing) || throw(ArgumentError("boundary path closed before its endpoint"))
+        push!(paths,(indices=indices,incoming=incoming,outgoing=outgoing))
+    end
+    paths
+end
+
+function _install_move_paths(code,weights,affected,removed,mapping,paths,words,values;
+                             boundary_trace=nothing)
+    result=Vector{Vector{Int}}(); result_weights=Vector{Vector{Float64}}()
+    open_by_source=Dict(path.incoming.strand=>index for (index,path) in enumerate(paths)
+                        if path.incoming!==nothing)
+    function record_endpoint(source,side)
+        boundary_trace===nothing || push!(boundary_trace,
+            (source=source,target=(strand=length(result),side=side)))
+    end
+    for strand in eachindex(code)
+        if haskey(open_by_source,strand)
+            index=open_by_source[strand]; path=paths[index]
+            push!(result,words[index]); push!(result_weights,values[index])
+            record_endpoint(path.incoming,:in); record_endpoint(path.outgoing,:out)
+        elseif !(strand in affected || strand in removed)
+            push!(result,_relabel_word(code[strand],mapping)); push!(result_weights,copy(weights[strand]))
+            if _is_cut_component(code[strand])
+                record_endpoint((strand=strand,side=:in),:in)
+                record_endpoint((strand=strand,side=:out),:out)
+            end
+        end
+    end
+    for (index,path) in enumerate(paths)
+        path.incoming===nothing || continue
+        push!(result,words[index]); push!(result_weights,values[index])
+    end
+    result,result_weights
+end
+
 _normalize_move_type(type)=uppercase(String(type))
 _clean_component(component)=filter(!=(0),Int.(component))
 _is_cut_component(component)=!isempty(component) && last(component)==0
-
-"""Move a transported cut marker back to canonical trailing position."""
-function _canonicalize_cut_markers!(code)
-    for index in eachindex(code)
-        word=code[index]
-        marker=findfirst(==(0),word)
-        marker===nothing && continue
-        visits=vcat(word[marker+1:end],word[1:marker-1])
-        code[index]=vcat(visits,0)
-    end
-    code
-end
 
 function _permutations(values::Vector{Int})
     length(values)<=1 && return [copy(values)]
@@ -190,10 +262,10 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
             mapped=Tuple{Int,Int}[]
             for (tail,head) in edge_list
                 matches=[(c,p) for (c,w) in enumerate(code)
-                         for p in 1:(_is_cut_component(w) ? length(w)-1 : length(w))
+                         for p in 1:length(w)
                          if w[p]==head &&
                             ((p>1 && w[p-1]==tail) ||
-                             (p==1 && !_is_cut_component(w) && w[end]==tail))]
+                             (p==1 && w[end]==tail))]
                 length(matches)==1 || return MoveCandidate[]
                 push!(mapped,only(matches))
             end
@@ -202,7 +274,7 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         required=move_type=="PS" ? 2 : 1
         length(locations)==required || throw(ArgumentError("$move_type insertion requires $required edge occurrences"))
         all(cp -> 1<=cp[1]<=length(code) &&
-                  1<=cp[2]<=(_is_cut_component(code[cp[1]]) ? length(code[cp[1]])-1 : length(code[cp[1]])),locations) ||
+                  1<=cp[2]<=length(code[cp[1]]),locations) ||
             return MoveCandidate[]
         data=make_move_data()
         return [candidate for after in data[move_type*"-R"]
@@ -265,7 +337,7 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         else
             any(acceptable) || return MoveCandidate[]
         end
-        return [MoveCandidate(move_type,"",Int.(values),edge_list,:forward,
+        return [MoveCandidate(move_type,param===nothing ? "" : string(param),Int.(values),edge_list,:forward,
                               nothing,nothing,Tuple{Int,Int}[])]
     elseif move_type=="B02" && length(selected)==2
         all(selected .> 0) || throw(ArgumentError("B02 vertices must be positive"))
@@ -274,18 +346,30 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         all(vertex -> vertex<=length(orientation),values) || return MoveCandidate[]
         orientation[values[1]]*orientation[values[2]]==-1 || return MoveCandidate[]
         orientation[values[1]]==-1 && (values=reverse(values))
-        clean_code=[_clean_component(component) for component in code]
         matches=any(component -> component==values || component==-values ||
-                         component==reverse(values) || component==-reverse(values),clean_code)
+                         component==reverse(values) || component==-reverse(values),code)
         matches || return MoveCandidate[]
         return [MoveCandidate(move_type,"",copy(selected),edge_list,:inverse,
                               nothing,nothing,Tuple{Int,Int}[])]
     end
 
+    numeric_bmp_inverse=move_type=="BMP" && length(selected)==3 && string(param) in ("0","1")
+    bmp_sign=numeric_bmp_inverse && 1<=abs(first(selected))<=length(orientation) ?
+        (string(param)=="0" ? -orientation[abs(first(selected))] : orientation[abs(first(selected))]) : 1
+    numeric_bmp_inverse && (selected=abs.(selected))
     isempty(selected) && throw(ArgumentError("$move_type move requires selected vertices"))
     all(vertex -> vertex>0 && vertex<=length(orientation),selected) || return MoveCandidate[]
     data=make_move_data()
-    before_table,after_table,direction=_pattern_pairs(move_type,length(selected),data)
+    before_table,after_table,direction=if numeric_bmp_inverse
+        p=parse(Int,string(param)); s=bmp_sign
+        circle=p==0 ? [-2,-1,-3] : [-1,-2,-3]
+        ori=p==0 ? [-1,1,1].*s : [1,-1,-1].*s
+        b=MovePattern(string(p),[s.*word for word in [[3],[2],[1],circle]],ori,[1,3,2,0])
+        a=MovePattern(string(p),[s.*word for word in [[1,2],[-1],[-2]]],[-s,s],[1,2,3])
+        ([b],[a],:inverse)
+    else
+        _pattern_pairs(move_type,length(selected),data)
+    end
     orders=strict ? [selected] : _permutations(selected)
     candidates=MoveCandidate[]
     seen=Set{Any}()
@@ -464,7 +548,7 @@ function _append_segment!(word,weights,segment,pending)
 end
 
 function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
-                            old_to_new,new_orientation;weighted=false)
+                            old_to_new,new_orientation;weighted=false,boundary_trace=nothing)
     if weighted
         reference=_reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                                      old_to_new,new_orientation;weighted=false)
@@ -489,13 +573,11 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
     end
 
     segments=_MoveSegment[]
-    affected=Set(component for (index,(component,_)) in enumerate(candidate.locations) if index<=common)
-    open_affected=filter(component -> _is_cut_component(code[component]),collect(affected))
-    length(open_affected)<=1 ||
-        throw(ArgumentError("reconnection requires explicit identities for multiple cut components"))
+    affected=sort!(unique([component for (index,(component,_)) in enumerate(candidate.locations) if index<=common]))
+    boundaries=_move_boundaries(code,affected,common)
     for component in affected
         indices=[index for index in 1:common if candidate.locations[index][1]==component]
-        sort!(indices;by=index -> candidate.locations[index][2])
+        sort!(indices;by=index -> (candidate.locations[index][2],-index))
         if _is_cut_component(code[component])
             n=length(code[component])-1
             first_index=first(indices)
@@ -503,7 +585,7 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
             prefix_positions=first_start>1 ? collect(1:first_start-1) : Int[]
             prefix=_relabel_word(code[component][prefix_positions],old_to_new)
             prefix_weights=weighted ? copy(weights[component][prefix_positions]) : zeros(Float64,length(prefix))
-            push!(segments,_MoveSegment(0,-first_index,prefix,prefix_weights,0.0))
+            push!(segments,_MoveSegment(_move_boundary_port(common,component,:in),-first_index,prefix,prefix_weights,0.0))
         end
         for (position,index) in enumerate(indices)
             start=candidate.locations[index][2]
@@ -517,7 +599,10 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                 n_start=start+length(mapped_before[index])
                 n_start<next_start ? collect(n_start:next_start-1) : Int[]
             else
-                _cyclic_gap_positions(start,length(mapped_before[index]),next_start,length(code[component]))
+                n_closed=length(code[component])
+                gap_count=next_start+(position==length(indices) ? n_closed : 0)-start-length(mapped_before[index])
+                gap_count<0 && throw(ArgumentError("overlapping cyclic move fragments"))
+                [mod1(start+length(mapped_before[index])+offset,n_closed) for offset in 0:gap_count-1]
             end
             gap=_relabel_word(code[component][gap_positions],old_to_new)
             gap_weights=weighted ? copy(weights[component][gap_positions]) : zeros(Float64,length(gap))
@@ -528,7 +613,7 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                 delta=last(after_rule)-last(before_rule)
                 isempty(gap_weights) ? (leading=delta) : (gap_weights[1]+=delta)
             end
-            push!(segments,_MoveSegment(before.capacity[index],is_last ? 0 : -next_index,
+            push!(segments,_MoveSegment(before.capacity[index],is_last ? _move_boundary_port(common,component,:out) : -next_index,
                                         gap,gap_weights,leading))
         end
     end
@@ -554,70 +639,15 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
         push!(segments,_MoveSegment(-index,after.capacity[index],word,fragment_weights,leading))
     end
 
-    result=Vector{Vector{Int}}()
-    result_weights=Vector{Vector{Float64}}()
-    for component in eachindex(code)
-        (component in affected || component in removed_components) && continue
-        push!(result,_relabel_word(code[component],old_to_new))
-        push!(result_weights,weighted ? copy(weights[component]) : zeros(Float64,length(code[component])))
+    paths=_move_segment_paths(segments,boundaries)
+    words=Vector{Vector{Int}}(); values=Vector{Vector{Float64}}()
+    for path in paths
+        word=reduce(vcat,(segments[index].word for index in path.indices);init=Int[])
+        path.incoming===nothing || push!(word,0)
+        push!(words,word); push!(values,zeros(Float64,length(word)))
     end
-    generated_open=Vector{Vector{Int}}()
-    generated_open_weights=Vector{Vector{Float64}}()
-    generated_closed=Vector{Vector{Int}}()
-    generated_closed_weights=Vector{Vector{Float64}}()
-
-    starts=Dict{Int,Int}()
-    for (index,segment) in enumerate(segments)
-        haskey(starts,segment.start_port) && throw(ArgumentError("ambiguous move capacity $(segment.start_port)"))
-        starts[segment.start_port]=index
-    end
-    used=falses(length(segments))
-    while !all(used)
-        first_index=haskey(starts,0) && !used[starts[0]] ? starts[0] : findfirst(!,used)
-        current=first_index
-        word=Int[]; component_weights=Float64[]; pending=0.0
-        open_component=false
-        while true
-            used[current] && current!=first_index && throw(ArgumentError("move capacity graph joins an already used strand"))
-            used[current]=true
-            segment=segments[current]
-            pending=_append_segment!(word,component_weights,segment,pending)
-            if segment.end_port==0
-                open_component=true
-                break
-            end
-            haskey(starts,segment.end_port) || throw(ArgumentError("unmatched move capacity $(segment.end_port)"))
-            next=starts[segment.end_port]
-            next==first_index && break
-            current=next
-        end
-        if weighted && pending!=0 && !isempty(component_weights)
-            component_weights[1]+=pending
-        end
-        if open_component
-            push!(word,0)
-            push!(generated_open,word)
-            push!(generated_open_weights,component_weights)
-        else
-            push!(generated_closed,word)
-            push!(generated_closed_weights,component_weights)
-        end
-    end
-
-    # Keep the actual cut strand in its source component slot.  A generic
-    # append-after-unchanged-components policy silently moved the marker onto
-    # a newly created closed component during B2/BMP reconnections.
-    if !isempty(generated_open)
-        length(generated_open)==1 ||
-            throw(ArgumentError("reconnection produced multiple cut strands"))
-        open_source=only(open_affected)
-        insert_at=count(index -> !(index in affected || index in removed_components),
-                        1:open_source)+1
-        insert!(result, min(insert_at,length(result)+1), first(generated_open))
-        insert!(result_weights,min(insert_at,length(result_weights)+1),first(generated_open_weights))
-    end
-    append!(result,generated_closed)
-    append!(result_weights,generated_closed_weights)
+    result,result_weights=_install_move_paths(code,weights,affected,removed_components,
+        old_to_new,paths,words,values;boundary_trace=boundary_trace)
 
     for index in common+1:length(after.gauss)
         word=mapped_after[index]
@@ -724,8 +754,7 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
         end
     end
     affected=sort!(unique([candidate.locations[i][1] for i in 1:common]))
-    count(component -> _is_cut_component(code[component]),affected)<=1 ||
-        throw(ArgumentError("reconnection requires explicit identities for multiple cut components"))
+    boundaries=_move_boundaries(code,affected,common)
     segments=_WeightedMoveSegment[]
     for component in affected
         component in removed && throw(ArgumentError("source-only component shares an active fragment"))
@@ -740,10 +769,10 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
             exterior=BigInt[_move_integer(weights[component][p]) for p in edge_positions]
             exterior[end]-=first(rules0[first_index])
             word=_relabel_word(code[component][positions],old_to_new)
-            push!(segments,_WeightedMoveSegment(0,-first_index,word,exterior))
+            push!(segments,_WeightedMoveSegment(_move_boundary_port(common,component,:in),-first_index,word,exterior))
             trace===nothing || push!(trace,(kind=:boundary_prefix,component=component,
                 head_positions=edge_positions,word=word,portions=copy(exterior),
-                start_port=0,end_port=-first_index))
+                start_port=_move_boundary_port(common,component,:in),end_port=-first_index))
         end
         for (j,index) in enumerate(indices)
             terminal=cut && j==length(indices)
@@ -775,9 +804,9 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
                 source_weights=BigInt[_move_integer(weights[component][p]) for p in edge_positions],
                 first_portion_omitted=isempty(mapped_before[index]),
                 source_outgoing=last(rules0[index]),source_incoming=incoming,
-                start_port=before.capacity[index],end_port=-next_index,
+                start_port=before.capacity[index],end_port=terminal ? _move_boundary_port(common,component,:out) : -next_index,
                 word=_relabel_word(code[component][positions],old_to_new),portions=copy(exterior)))
-            push!(segments,_WeightedMoveSegment(before.capacity[index],-next_index,
+            push!(segments,_WeightedMoveSegment(before.capacity[index],terminal ? _move_boundary_port(common,component,:out) : -next_index,
                   _relabel_word(code[component][positions],old_to_new),exterior))
         end
     end
@@ -788,25 +817,11 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
             start_port=-index,end_port=after.capacity[index]))
         push!(segments,_WeightedMoveSegment(-index,after.capacity[index],mapped_after[index],rules1[index]))
     end
-    result=Vector{Vector{Int}}(); result_weights=Vector{Vector{Float64}}()
-    for component in eachindex(code)
-        (component in affected || component in removed) && continue
-        push!(result,_relabel_word(code[component],old_to_new))
-        push!(result_weights,copy(weights[component]))
-    end
-    starts=Dict{Int,Int}()
-    for (index,segment) in enumerate(segments)
-        haskey(starts,segment.start_port) && throw(ArgumentError("ambiguous weighted move capacity"))
-        starts[segment.start_port]=index
-    end
-    used=falses(length(segments))
-    while !all(used)
-        first_index=haskey(starts,0) && !used[starts[0]] ? starts[0] : findfirst(!,used)
-        current=first_index; open_component=false
+    paths=_move_segment_paths(segments,boundaries)
+    words=Vector{Vector{Int}}(); output_weights=Vector{Vector{Float64}}()
+    for path in paths
         word=Int[]; values=BigInt[]; pending=big(0)
-        while true
-            used[current] && throw(ArgumentError("weighted move capacity joins a used strand"))
-            used[current]=true
+        for current in path.indices
             segment=segments[current]
             if isempty(segment.word)
                 pending+=only(segment.edges)
@@ -815,15 +830,8 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
                 local_values=copy(segment.edges[1:end-1]); local_values[1]+=pending
                 append!(values,local_values); pending=last(segment.edges)
             end
-            if segment.end_port==0
-                open_component=true
-                break
-            end
-            haskey(starts,segment.end_port) || throw(ArgumentError("unmatched weighted move capacity"))
-            current=starts[segment.end_port]
-            current==first_index && break
         end
-        if open_component
+        if path.incoming!==nothing
             push!(word,0)
             push!(values,pending)
         elseif isempty(values)
@@ -831,9 +839,13 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
         else
             values[1]+=pending
         end
-        push!(result,word)
-        push!(result_weights,Float64.(_move_integer.(values)))
+        push!(words,word)
+        push!(output_weights,Float64.(_move_integer.(values)))
     end
+    endpoint_trace=trace===nothing ? nothing : NamedTuple[]
+    result,result_weights=_install_move_paths(code,weights,affected,removed,old_to_new,
+        paths,words,output_weights;boundary_trace=endpoint_trace)
+    trace===nothing || push!(trace,(kind=:boundary_transport,endpoints=endpoint_trace))
     for index in common+1:length(after.gauss)
         values=copy(rules1[index][1:end-1])
         isempty(values) ? (only(rules1[index])==0 || throw(ArgumentError("nonzero empty component weight"))) :
@@ -868,23 +880,8 @@ function _align_move_weights(reference,transported,weights)
     result
 end
 
-"""Reattach open strand markers and their terminal edge portions after transport."""
-function _restore_cut_components!(code,weights,cut_flags,terminal_weights)
-    for strand in eachindex(cut_flags)
-        cut_flags[strand] || continue
-        strand<=length(code) || continue
-        _is_cut_component(code[strand]) || push!(code[strand],0)
-        if weights!==nothing && strand<=length(weights)
-            terminal=terminal_weights[strand]
-            length(weights[strand])==length(code[strand])-1 &&
-                push!(weights[strand],terminal)
-        end
-    end
-    code,weights
-end
-
 function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false,
-                              prepared_weights=false)
+                              prepared_weights=false,boundary_trace=nothing)
     _check_candidate_split(v,candidate)
     v.is_weighted && _check_move_weights(v)
     direct_02=candidate.type=="02" && candidate.direction==:forward ? first(candidate.locations) : nothing
@@ -892,9 +889,6 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
     before=something(candidate.before); after=something(candidate.after)
     raw_code,orientation=real_gauss_code(v)
     cut_flags=[_is_cut_component(component) for component in raw_code]
-    terminal_weights=v.is_weighted ?
-        [flag && !isempty(v.weights[strand]) ? last(v.weights[strand]) : 0.0
-         for (strand,flag) in enumerate(cut_flags)] : zeros(Float64,length(raw_code))
     code=raw_code
     weights=v.is_weighted ? deepcopy(v.weights) :
         [zeros(Float64,length(component)) for component in code]
@@ -902,17 +896,17 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
         throw(ArgumentError("integer weight transport is not defined for $(candidate.type)"))
     old_to_new,after_vertices,new_orientation=_vertex_maps(
         orientation,candidate.vertices,before,after;
-        role_ordered=candidate.type=="CP" || (candidate.type=="MP" && !legacy_mp_labels))
+        role_ordered=candidate.type=="CP" || (candidate.type=="MP" && !legacy_mp_labels) ||
+                     (candidate.type=="BMP" && candidate.parameter in ("0","1")))
     mapped_before=[_map_fragment(fragment,candidate.vertices) for fragment in before.gauss]
     mapped_after=[_map_fragment(fragment,after_vertices) for fragment in after.gauss]
 
-    simple=length(before.gauss)==length(after.gauss) && before.capacity==after.capacity
+    simple=!any(cut_flags) && length(before.gauss)==length(after.gauss) && before.capacity==after.capacity
     converted=simple ? _simple_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
                                                 old_to_new,new_orientation;weighted=false) : nothing
-    converted_simple=converted!==nothing
     converted===nothing &&
         (converted=_reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
-                                      old_to_new,new_orientation;weighted=false))
+                                      old_to_new,new_orientation;weighted=false,boundary_trace=boundary_trace))
     result,result_weights,result_orientation=converted
     if direct_02!==nothing
         component,start=direct_02
@@ -927,7 +921,6 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
         set_data!(target;odata=(result,result_orientation,result_weights))
         _check_move_weights(target)
     else
-        converted_simple && _restore_cut_components!(result,nothing,cut_flags,terminal_weights)
         set_data!(target;rgauss=result,orientation=result_orientation)
     end
     _commit_move!(v,target)
@@ -1065,7 +1058,7 @@ function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
     set_data!(v;rgauss=code,orientation=vcat(orientation,[1,-1]))
 end
 
-function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
+function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter;boundary_trace=nothing)
     v.is_weighted && throw(ArgumentError("integer weight transport is not defined for BMP"))
     parameter in (0,1) || throw(ArgumentError("BMP circle orientation must be 0 or 1"))
     code,orientation=real_gauss_code(v)
@@ -1078,17 +1071,7 @@ function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
         length(locations)==1 || throw(ArgumentError("BMP vertex occurrence is ambiguous"))
         only(locations)
     end
-    component1,position1=locate(-values[1])
-    word=code[component1]
-    code[component1]=vcat(word[position1+1:end],word[1:position1-1])
-    component2,_=locate(-values[2])
-    component0,position0=locate(values[1])
-    new_vertex=S*(maximum(reduce(vcat,code;init=Int[]))+1)
-    code[component0][position0]=new_vertex
-    position0=findfirst(==(values[2]),code[component0])
-    position0===nothing && throw(ArgumentError("BMP second vertex disappeared during rotation"))
-    deleteat!(code[component0],position0)
-    component2,position2=locate(-values[2])
+    new_vertex=S*(length(orientation)+1)
     circle=parameter==1 ? [-values[1],-values[2],-new_vertex] :
                            [-values[2],-values[1],-new_vertex]
     new_orientation=vcat(orientation,0)
@@ -1096,54 +1079,50 @@ function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
     for (vertex,value) in zip((v1,v2,abs(new_vertex)),circle_orientation)
         new_orientation[vertex]=value
     end
-    if component1==component2
-        word=code[component2]
-        code=vcat(code,
-                  [[values[1];word[1:position2-1]],
-                   [values[2];word[position2+1:end]]])
-        code[component2]=circle
-    else
-        word=code[component2]
-        code[component2]=vcat([values[2]],word[position2+1:end],word[1:position2-1],
-                              [values[1]],code[component1])
-        code[component1]=circle
-    end
-    _canonicalize_cut_markers!(code)
-    set_data!(v;rgauss=code,orientation=new_orientation)
+    # Replace the adjacent passage, interchange the opposite passage ports,
+    # and add the new closed circle.  The same capacity graph handles circles,
+    # intervals, and any number of boundary endpoints.
+    before=MovePattern("BMP",[[1,2],[-1],[-2]],orientation[[v1,v2]],[1,2,3])
+    after=MovePattern("BMP",[[3],[2],[1],[-1,-2,-3]],circle_orientation,[1,3,2,4])
+    locations=[locate(values[1]),locate(-values[1]),locate(-values[2])]
+    local_candidate=MoveCandidate("BMP",string(parameter),values,candidate.edges,:forward,
+                                  before,after,locations)
+    mapped_before=[copy(values),[-values[1]],[-values[2]]]
+    mapped_after=[[new_vertex],[values[2]],[values[1]],circle]
+    weights=[zeros(Float64,length(word)) for word in code]
+    mapping=Dict(index=>index for index in eachindex(orientation))
+    result,_,_=_reconnect_pattern(code,weights,local_candidate,mapped_before,mapped_after,
+                                  mapping,new_orientation;boundary_trace=boundary_trace)
+    set_data!(v;rgauss=result,orientation=new_orientation)
 end
 
-function _apply_b02_two!(v::VirtualLink,candidate::MoveCandidate)
+function _apply_b02_two!(v::VirtualLink,candidate::MoveCandidate;boundary_trace=nothing)
     v.is_weighted && throw(ArgumentError("integer weight transport is not defined for B02"))
     code,orientation=real_gauss_code(v)
     values=copy(candidate.vertices)
     nv=length(orientation)
     mapping=Dict(old=>new for (new,old) in enumerate(setdiff(1:nv,values)))
-    is_positive=any(component -> component==values || component==-values,code)
-    is_positive && (values=-values)
+    circle_index=findfirst(word -> length(word)==2 &&
+        Set(abs.(word))==Set(values) && sign(word[1])==sign(word[2]),code)
+    circle_index===nothing && throw(ArgumentError("B02 requires its actual closed two-vertex circle"))
+    circle=code[circle_index]
+    values=-circle
     locate(value)=begin
         locations=[(component,position) for (component,word) in enumerate(code)
                    for position in findall(==(value),word)]
         length(locations)==1 || throw(ArgumentError("B02 vertex occurrence is ambiguous"))
         only(locations)
     end
-    component0,_=locate(-values[1])
-    component2,position2=locate(values[2])
-    word=code[component2]
-    code[component2]=vcat(word[position2+1:end],word[1:position2-1])
-    component1,position1=locate(values[1])
-    if component1==component2
-        word=code[component1]
-        code[component0]=word[1:position1-1]
-        code[component1]=word[position1+1:end]
-    else
-        word1=code[component1]; word2=code[component2]
-        code[component0]=vcat(word2,word1[position1+1:end],word1[1:position1-1])
-        deleteat!(code,sort([component1,component2]))
-    end
-    result=[_relabel_word(word,mapping) for word in code]
     new_orientation=copy(orientation)
     deleteat!(new_orientation,sort(abs.(values)))
-    _canonicalize_cut_markers!(result)
+    before=MovePattern("B02",[[1],[2],[-1,-2]],orientation[abs.(values)],[2,1,3])
+    after=MovePattern("B02",[Int[],Int[]],Int[],[1,2])
+    locations=[locate(values[1]),locate(values[2]),(circle_index,1)]
+    local_candidate=MoveCandidate("B02",candidate.parameter,candidate.vertices,candidate.edges,
+                                  :inverse,before,after,locations)
+    weights=[zeros(Float64,length(word)) for word in code]
+    result,_,_=_reconnect_pattern(code,weights,local_candidate,[[values[1]],[values[2]],circle],
+        [Int[],Int[]],mapping,new_orientation;boundary_trace=boundary_trace)
     set_data!(v;rgauss=result,orientation=new_orientation)
 end
 
@@ -1284,6 +1263,48 @@ function move!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
 end
 move(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)=
     move!(deepcopy(v),candidate;boundary=boundary)
+
+"""Apply a frozen move on a copy and expose its actual boundary endpoint map.
+
+Each row of `endpoints` maps one source `(strand,side)` to one target
+`(strand,side)`.  In particular, a target out-end need not descend from the
+same source strand as its in-end.  Endpoint lanes retain their lane number.
+"""
+function move_boundary_transport(source::VirtualLink,candidate::MoveCandidate;boundary=nothing)
+    target=move(source,candidate;boundary=boundary)
+    trace=NamedTuple[]
+    probe=VirtualLink()
+    code,orientation=real_gauss_code(source)
+    set_data!(probe;rgauss=deepcopy(code),orientation=copy(orientation))
+    if candidate.type=="H" || (candidate.type=="02" && candidate.direction==:forward)
+        for strand in eachindex(code), side in (:in,:out)
+            _is_cut_component(code[strand]) || continue
+            endpoint=(strand=strand,side=side)
+            push!(trace,(source=endpoint,target=endpoint))
+        end
+    elseif candidate.type=="BMP" && candidate.before===nothing
+        _apply_bmp_two!(probe,candidate,parse(Int,candidate.parameter);boundary_trace=trace)
+    elseif candidate.type=="B02" && candidate.before===nothing
+        _apply_b02_two!(probe,candidate;boundary_trace=trace)
+    else
+        _apply_pattern_move!(probe,candidate;boundary_trace=trace)
+    end
+    if !(candidate.type=="H" || (candidate.type=="02" && candidate.direction==:forward))
+        probe.gauss==target.gauss && probe.orientation==target.orientation ||
+            throw(ArgumentError("boundary trace and executed move disagree"))
+    end
+    length(trace)==2count(_is_cut_component,code) || throw(ArgumentError("move lost a source boundary endpoint"))
+    length(unique(row.source for row in trace))==length(trace) || throw(ArgumentError("duplicate source boundary endpoint"))
+    length(unique(row.target for row in trace))==length(trace) || throw(ArgumentError("duplicate target boundary endpoint"))
+    length(trace)==2count(_is_cut_component,target.gauss) || throw(ArgumentError("move changed the boundary endpoint count"))
+    (target=target,endpoints=trace)
+end
+
+function move_boundary_transport(source::VirtualLink,type;boundary=nothing,kwargs...)
+    candidates=movable(source,type;boundary=boundary,kwargs...)
+    length(candidates)==1 || throw(ArgumentError("boundary transport requires one explicit move candidate"))
+    move_boundary_transport(source,only(candidates);boundary=boundary)
+end
 
 """Pure-value wrapper around MATLAB-compatible `move!`."""
 function move(v::VirtualLink,type;kwargs...)
