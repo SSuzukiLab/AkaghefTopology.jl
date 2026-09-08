@@ -57,7 +57,80 @@ function _normalize_gauss(code)
     [Int.(c) for c in code]
 end
 
+_is_cut_component(component::AbstractVector{<:Integer}) =
+    !isempty(component) && component[end] == 0
+
+function _component_visits(component::AbstractVector{<:Integer})
+    _is_cut_component(component) ? Int.(component[begin:end-1]) : Int.(component)
+end
+
+function _validate_cut_markers(code::Vector{Vector{Int}})
+    for (strand,component) in enumerate(code)
+        length(component) > 1 && any(==(0),@view component[1:end-1]) &&
+            throw(ArgumentError("cut marker 0 is allowed only at the end of strand $strand"))
+    end
+    true
+end
+
+function _validate_cut_flags(flags, strand_count::Integer)
+    flags isa AbstractVector || throw(ArgumentError("cut flags must be a vector of Bool"))
+    all(flag -> flag isa Bool, flags) ||
+        throw(ArgumentError("cut flags must contain actual Bool values"))
+    length(flags) == strand_count ||
+        throw(DimensionMismatch("one cut flag per Gauss strand is required"))
+    Bool[flags...]
+end
+
+"""Return one cut flag per strand, derived from its trailing zero marker."""
+function strand_cuts(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
+    Bool[_is_cut_component(component) for component in v.gauss]
+end
+
+function _strand_arc_count(v::VirtualLink, strand::Integer)
+    visits = _component_visits(v.gauss[strand])
+    real_count = count(entry -> entry != 0 &&
+                              abs(entry) <= length(v.orientation) &&
+                              v.orientation[abs(entry)] != 0, visits)
+    real_count + (_is_cut_component(v.gauss[strand]) ? 1 : 0)
+end
+
+"""Set trailing-zero cut markers on an unweighted link.
+
+Existing arc-vector prefixes are retained while the derived vector shape is
+resized. A weighted link must be cleared and assigned explicit new arc weights
+before its cut status is changed.
+"""
+function set_cuts!(v::VirtualLink, flags)
+    new_flags = _validate_cut_flags(flags, length(v.gauss))
+    _validate_cut_markers(v.gauss)
+    old_flags = Bool[_is_cut_component(component) for component in v.gauss]
+    old_flags == new_flags && return v
+    v.is_weighted &&
+        throw(ArgumentError("changing cuts on a weighted link requires clearing weights and assigning explicit open-arc weights"))
+    old_weights = deepcopy(v.weights)
+    for (strand,cut) in enumerate(new_flags)
+        component = v.gauss[strand]
+        currently_cut = _is_cut_component(component)
+        if cut && !currently_cut
+            push!(component, 0)
+        elseif !cut && currently_cut
+            pop!(component)
+        end
+    end
+    v.weights = [begin
+        count_ = _strand_arc_count(v, strand)
+        values = zeros(Float64, count_)
+        old = strand <= length(old_weights) ? old_weights[strand] : Float64[]
+        copy_count = min(length(old), count_)
+        copy_count > 0 && (values[1:copy_count] = Float64.(old[1:copy_count]))
+        values
+    end for strand in eachindex(v.gauss)]
+    v
+end
+
 function _validate_gauss(code::Vector{Vector{Int}}, ori::Vector{Int}; real_only=false)
+    _validate_cut_markers(code)
     labels = filter(!=(0), reduce(vcat, code; init=Int[]))
     isempty(labels) && return true
     maximum(abs.(labels)) <= length(ori) || throw(ArgumentError("orientation is missing a crossing"))
@@ -91,8 +164,12 @@ function set_data!(v::VirtualLink; gauss=nothing, rgauss=nothing, orientation=no
         if isempty(pd)
             v.gauss = [Int[]]; v.orientation = Int[]; v.real_only = false
         else
-            v.gauss = _pd_to_gauss(Int.(pd))
             v.orientation = orientation === nothing ? fill(1, size(pd,1)) : Int.(orientation)
+            length(v.orientation) == size(pd,1) ||
+                throw(DimensionMismatch("one orientation value per PD crossing is required"))
+            all(sign -> sign in (-1,0,1), v.orientation) ||
+                throw(ArgumentError("PD orientation values must be -1, 0, or 1"))
+            v.gauss = _pd_to_gauss(Int.(pd); orientation=v.orientation)
             v.real_only = false
         end
     elseif gauss !== nothing || rgauss !== nothing
@@ -103,77 +180,133 @@ function set_data!(v::VirtualLink; gauss=nothing, rgauss=nothing, orientation=no
     else
         throw(ArgumentError("one input representation is required"))
     end
-    for i in eachindex(cut)
-        cut[i] && !isempty(v.gauss[i]) && v.gauss[i][end] != 0 && push!(v.gauss[i], 0)
-    end
+    v.is_weighted = false
+    isempty(cut) || set_cuts!(v, cut)
     v.strand_types = strand_types === nothing ? fill('o', length(v.gauss)) : collect(strand_types)
     if supplied_weights
         v.is_weighted = false
         set_weight!(v,odata[3])
     else
         v.is_weighted = false
-        v.weights = [zeros(Float64,
-                           count(entry -> entry != 0 && v.orientation[abs(entry)] != 0,g))
-                     for g in v.gauss]
+        v.weights = [zeros(Float64,_strand_arc_count(v,strand))
+                     for strand in eachindex(v.gauss)]
     end
     v
 end
 
-function _pd_to_gauss(pd::Matrix{Int})
+function _pd_to_gauss(pd::Matrix{Int}; orientation=nothing)
     # PD edges form oriented components. Crossing sign is encoded by under/over slots.
+    signs = orientation === nothing ? fill(1, size(pd,1)) : Int.(orientation)
+    length(signs) == size(pd,1) ||
+        throw(DimensionMismatch("one orientation value per PD crossing is required"))
     next = Dict{Int,Tuple{Int,Int}}()
     for (i,row) in enumerate(eachrow(pd))
         next[row[1]] = (row[3], -i)
-        next[row[2]] = (row[4], i)
+        # The over-strand transition follows the local PD frame.  Positive
+        # (and virtual) rows enter at slot 4 and leave at slot 2; negative
+        # rows enter at slot 2 and leave at slot 4.  Keeping this directed
+        # incidence avoids self-crossing edge IDs overwriting the transition.
+        if signs[i] == -1
+            next[row[2]] = (row[4], i)
+        else
+            next[row[4]] = (row[2], i)
+        end
     end
     result = Vector{Vector{Int}}(); unseen = Set(keys(next))
-    while !isempty(unseen)
-        start = first(unseen); edge = start; code = Int[]
+    outgoing = Set(first(value) for value in values(next))
+    starts = sort!(collect(setdiff(Set(keys(next)), outgoing)))
+    function walk!(start, open)
+        edge = start; code = Int[]
         while edge in unseen
-            delete!(unseen, edge); edge, crossing = next[edge]; push!(code, crossing)
+            delete!(unseen, edge)
+            edge, crossing = next[edge]
+            push!(code, crossing)
         end
+        open && push!(code, 0)
         push!(result, code)
+    end
+    for start in starts
+        walk!(start, true)
+    end
+    while !isempty(unseen)
+        walk!(minimum(unseen), false)
     end
     result
 end
 
-gauss_code(v::VirtualLink) = deepcopy(v.gauss)
+function gauss_code(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
+    deepcopy(v.gauss)
+end
 function real_gauss_code(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
     real = findall(!=(0), v.orientation); mapping = Dict(x=>i for (i,x) in enumerate(real))
-    code = [[sign(x)*mapping[abs(x)] for x in g if x != 0 && haskey(mapping, abs(x))] for g in v.gauss]
+    code = Vector{Vector{Int}}()
+    for component in v.gauss
+        visits = _component_visits(component)
+        filtered = [sign(x)*mapping[abs(x)] for x in visits
+                    if x != 0 && haskey(mapping, abs(x))]
+        _is_cut_component(component) && push!(filtered, 0)
+        push!(code, filtered)
+    end
     code, v.orientation[real]
 end
 
 """Return the stable fields of MATLAB `REdgeTable` in traversal order."""
 function real_edge_table(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
     real_indices=findall(!=(0),v.orientation)
     mapping=Dict(index=>mapped for (mapped,index) in enumerate(real_indices))
     result=RealEdge[]
     edge_id=0
     for (strand,component0) in enumerate(v.gauss)
-        component=filter(!=(0),component0)
-        isempty(component) && continue
+        component=_component_visits(component0)
+        cut=_is_cut_component(component0)
         real_positions=findall(position -> haskey(mapping,abs(component[position])),eachindex(component))
-        for (weight_index,target_position) in enumerate(real_positions)
-            previous_position=real_positions[mod1(weight_index-1,length(real_positions))]
-            arc=Int[component[previous_position]]
-            cursor=previous_position
-            while cursor != target_position
-                cursor=mod1(cursor+1,length(component))
-                push!(arc,component[cursor])
-            end
-            convert_crossing(x)=sign(x)*mapping[abs(x)]
-            crossing=(convert_crossing(first(arc)),convert_crossing(last(arc)))
-            weights=strand <= length(v.weights) ? v.weights[strand] : Float64[]
-            weight=weight_index <= length(weights) ? weights[weight_index] : NaN
+        weights=strand <= length(v.weights) ? v.weights[strand] : Float64[]
+        convert_crossing(x)=x == 0 ? 0 : sign(x)*mapping[abs(x)]
+        push_edge!(crossing,arc,weight_index)=begin
             edge_id += 1
-            push!(result,RealEdge(edge_id,crossing,weight,strand,arc))
+            weight=weight_index <= length(weights) ? weights[weight_index] : NaN
+            push!(result,RealEdge(edge_id,crossing,weight,strand,Int.(arc)))
+        end
+        if cut
+            if isempty(real_positions)
+                push_edge!((0,0),component,1)
+            else
+                first_position=first(real_positions)
+                push_edge!((0,convert_crossing(component[first_position])),
+                           component[1:first_position],1)
+                for weight_index in 2:length(real_positions)
+                    previous_position=real_positions[weight_index-1]
+                    target_position=real_positions[weight_index]
+                    push_edge!((convert_crossing(component[previous_position]),
+                                convert_crossing(component[target_position])),
+                               component[previous_position:target_position],weight_index)
+                end
+                last_position=last(real_positions)
+                push_edge!((convert_crossing(component[last_position]),0),
+                           component[last_position:end],length(real_positions)+1)
+            end
+        elseif !isempty(real_positions)
+            for (weight_index,target_position) in enumerate(real_positions)
+                previous_position=real_positions[mod1(weight_index-1,length(real_positions))]
+                arc=Int[component[previous_position]]
+                cursor=previous_position
+                while cursor != target_position
+                    cursor=mod1(cursor+1,length(component))
+                    push!(arc,component[cursor])
+                end
+                crossing=(convert_crossing(first(arc)),convert_crossing(last(arc)))
+                push_edge!(crossing,arc,weight_index)
+            end
         end
     end
     result
 end
 
 function head_map(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
     n = length(v.orientation); hm = fill(0, n, 2)
     for component in v.gauss
         clean = filter(!=(0), component); isempty(clean) && continue
@@ -190,21 +323,32 @@ end
 function pd_code(v::VirtualLink)
     # Sage 10.1+ convention: start at the entering under-strand and walk
     # counter-clockwise. This is the convention used by the MATLAB oracle.
-    code = [filter(!=(0), component) for component in v.gauss]
-    code = filter(!isempty, code)
+    _validate_cut_markers(v.gauss)
+    code = Vector{Vector{Int}}()
+    cuts = Bool[]
+    for component in v.gauss
+        visits = _component_visits(component)
+        isempty(visits) && continue
+        push!(code,visits); push!(cuts,_is_cut_component(component))
+    end
     isempty(code) && return zeros(Int,0,4)
 
     edge_at_visit = Dict{Int,NTuple{2,Int}}()
     edge = 0
-    for component in code
+    for (component,cut) in zip(code,cuts)
         first_edge = edge+1
+        cut && (edge = first_edge)
         for crossing in component
             edge += 1
             edge_at_visit[crossing] = (edge,edge+1)
         end
-        last_crossing = last(component)
-        incoming,outgoing = edge_at_visit[last_crossing]
-        edge_at_visit[last_crossing] = (incoming,first_edge)
+        if !cut
+            last_crossing = last(component)
+            incoming,outgoing = edge_at_visit[last_crossing]
+            edge_at_visit[last_crossing] = (incoming,first_edge)
+        else
+            edge += 1 # reserve the outgoing boundary edge
+        end
     end
 
     pd = zeros(Int,length(v.orientation),4)
@@ -224,7 +368,15 @@ function pd_code(v::VirtualLink)
 end
 
 """Return edge => crossing-index maps for tails and heads of a PD code."""
+function _pd_has_boundary(pd::AbstractMatrix{<:Integer})
+    isempty(pd) && return false
+    values=vec(Int.(pd))
+    any(count(==(edge),values)==1 for edge in unique(values))
+end
+
 function edge_directions(pd::AbstractMatrix{<:Integer})
+    _pd_has_boundary(pd) &&
+        throw(ArgumentError("edge directions require a closed PD code; boundary edge IDs are present"))
     tails = Dict{Int,Int}()
     heads = Dict{Int,Int}()
     rows = [Int.(collect(row)) for row in eachrow(pd)]
@@ -279,6 +431,8 @@ consumes after a stable sort by length. Verified on the hopf link; see
 `PLOT_PIPELINE.md` section 4.
 """
 function regions(pd::AbstractMatrix{<:Integer})
+    _pd_has_boundary(pd) &&
+        throw(ArgumentError("regions require a closed PD code; boundary edge IDs are present"))
     rows = [Int.(collect(row)) for row in eachrow(pd)]
     isempty(rows) && return Vector{Vector{Int}}()
     if length(rows) == 1
@@ -329,11 +483,15 @@ function hmove_matrix(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
     head=zeros(Int,vertex_count,2)
-    for component in code
+    for (strand,component0) in enumerate(code)
+        component=_component_visits(component0)
         isempty(component) && continue
+        cut=_is_cut_component(v.gauss[strand])
         for index in eachindex(component)
             vertex=component[index]
-            head[abs(vertex),vertex > 0 ? 2 : 1]=component[mod1(index+1,length(component))]
+            successor = cut && index == lastindex(component) ? 0 :
+                component[mod1(index+1,length(component))]
+            head[abs(vertex),vertex > 0 ? 2 : 1]=successor
         end
     end
     predecessor(vertex)=begin
@@ -408,8 +566,9 @@ end
 
 The MATLAB columns `ID`, `paths`, `edges_s`, `Ndots`, `isCycle`, `delta`, and
 `cp` are retained verbatim as NamedTuple fields.  `cp2 == 2cp` is the exact
-integer-scaled form used by Julia's weight solver, and `path_lengths` is kept
-for compatibility with the original Julia port.
+integer-scaled form used by Julia's weight solver.  For open paths it uses the
+implementation convention `2*isCycle - Ndots`; boundary lane identities are
+reported separately and are not folded into a closed framing claim.
 """
 function _disk_node_dictionary()
     dp=zeros(Int,12); dm=zeros(Int,12)
@@ -418,18 +577,41 @@ function _disk_node_dictionary()
     Dict(1=>dp,-1=>dm)
 end
 
+function _empty_disk_table()
+    (ID=Int[],paths=Vector{Vector{Int}}(),edges_s=Vector{Vector{Int}}(),
+     Ndots=Int[],isCycle=Bool[],delta=zeros(Int,0,0),
+     cp=Rational{Int}[],cp2=Int[],path_lengths=Int[],
+     boundary_start=Union{Nothing,NamedTuple}[],
+     boundary_end=Union{Nothing,NamedTuple}[],
+     boundary_nodes=NamedTuple[],boundary_lanes=NamedTuple[],
+     open_paths=Vector{Vector{Int}}(),
+     open_path_rows=Int[])
+end
+
 function disk_table(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
-    vertex_count == 0 && return (
-        ID=Int[],paths=Vector{Vector{Int}}(),edges_s=Vector{Vector{Int}}(),
-        Ndots=Int[],isCycle=Bool[],delta=zeros(Int,0,0),
-        cp=Rational{Int}[],cp2=Int[],path_lengths=Int[])
     edges=real_edge_table(v)
     edge_count=length(edges)
+    vertex_count == 0 && isempty(edges) && return _empty_disk_table()
     dictionary=_disk_node_dictionary()
 
-    node_count=6vertex_count
+    endpoint_records=NamedTuple[]
+    endpoint_by_edge=Dict{Tuple{Int,Symbol},Int}()
+    next_boundary_node=6vertex_count+1
+    for edge in edges
+        for (side,endpoint) in ((:start,edge.crossing[1]),(:end,edge.crossing[2]))
+            endpoint == 0 || continue
+            public_side=side == :start ? :in : :out
+            ids=(next_boundary_node,next_boundary_node+1,next_boundary_node+2)
+            next_boundary_node += 3
+            record=(strand=edge.strand,side=public_side,lane=0,node_ids=ids,edge_id=edge.id)
+            record_index=length(endpoint_records)+1
+            push!(endpoint_records,record)
+            endpoint_by_edge[(edge.id,side)]=record_index
+        end
+    end
+    node_count=next_boundary_node-1
     parent=collect(1:node_count)
     find_root(node)=begin
         while parent[node] != node
@@ -445,10 +627,18 @@ function disk_table(v::VirtualLink)
     graph_edges=Tuple{Int,Int,Int}[]
     for edge in edges
         source,target=edge.crossing
-        source_slots=(1:3) .+ 6 .+ 3*(source > 0)
-        target_slots=(1:3) .+ 3*(target > 0)
-        source_nodes=6*(abs(source)-1) .+ dictionary[orientation[abs(source)]][source_slots]
-        target_nodes=6*(abs(target)-1) .+ dictionary[orientation[abs(target)]][target_slots]
+        source_nodes = if source == 0
+            endpoint_records[endpoint_by_edge[(edge.id,:start)]].node_ids
+        else
+            source_slots=(1:3) .+ 6 .+ 3*(source > 0)
+            Tuple(6*(abs(source)-1) .+ dictionary[orientation[abs(source)]][source_slots])
+        end
+        target_nodes = if target == 0
+            endpoint_records[endpoint_by_edge[(edge.id,:end)]].node_ids
+        else
+            target_slots=(1:3) .+ 3*(target > 0)
+            Tuple(6*(abs(target)-1) .+ dictionary[orientation[abs(target)]][target_slots])
+        end
         for index in 1:3
             coefficient=index == 3 ? -edge.id : edge.id
             a,b=index == 3 ?
@@ -485,12 +675,36 @@ function disk_table(v::VirtualLink)
         node_dots[6*(vertex-1)+local_node]=dots[local_node]
     end
     ndots=[sum(node_dots[nodes_]) for nodes_ in component_nodes]
-    cp2=2 .- ndots
+    cp2=2 .* Int.(is_cycle) .- ndots
     cp=cp2 .// 2
     path_lengths=length.(paths)
-    (ID=collect(eachindex(roots)),paths=paths,edges_s=edge_signs,
-     Ndots=ndots,isCycle=is_cycle,delta=delta,cp=cp,cp2=cp2,
-     path_lengths=path_lengths)
+    ids=collect(eachindex(roots))
+    endpoint_at(node) = begin
+        for record in endpoint_records
+            lane=findfirst(==(node),record.node_ids)
+            lane === nothing || return (strand=record.strand,side=record.side,lane=lane)
+        end
+        nothing
+    end
+    boundary_start=Union{Nothing,NamedTuple}[
+        is_cycle[row] ? nothing : endpoint_at(first(paths[row])) for row in ids]
+    boundary_end=Union{Nothing,NamedTuple}[
+        is_cycle[row] ? nothing : endpoint_at(last(paths[row])) for row in ids]
+    boundary_nodes=[(strand=record.strand,side=record.side,
+                     node_ids=record.node_ids,edge_id=record.edge_id)
+                    for record in endpoint_records]
+    boundary_lanes=[(strand=record.strand,side=record.side,lane=lane,
+                     node_id=record.node_ids[lane],node_ids=record.node_ids,
+                     edge_id=record.edge_id)
+                    for record in endpoint_records for lane in 1:3]
+    open_path_rows=findall(!,is_cycle)
+    open_paths=paths[open_path_rows]
+    (ID=ids,paths=paths,edges_s=edge_signs,Ndots=ndots,isCycle=is_cycle,
+     delta=delta,cp=cp,cp2=cp2,path_lengths=path_lengths,
+     boundary_start=boundary_start,boundary_end=boundary_end,
+     boundary_nodes=boundary_nodes,boundary_lanes=boundary_lanes,
+     open_paths=open_paths,
+     open_path_rows=open_path_rows)
 end
 
 function _nullspace_integer(A::Matrix{Int})
@@ -617,6 +831,8 @@ Use `solve_integer_weights` for a complete certified integer solution lattice.
 The historical small representative is retained for existing invariant callers.
 """
 function calculate_weight(v::VirtualLink; assign=false)
+    any(strand_cuts(v)) &&
+        throw(ArgumentError("calculate_weight currently requires closed strands; use disk_table boundary metadata for open data"))
     if assign
         exact=solve_integer_weights(v)
         exact.status==:integer_solution ||
@@ -669,7 +885,8 @@ function calculate_weight(v::VirtualLink; assign=false)
         weights = Vector{Vector{Float64}}(); offset = 1
         code,_=real_gauss_code(v)
         for g in code
-            n=length(g); push!(weights,Float64.(base[offset:offset+n-1])); offset += n
+            n=length(g)
+            push!(weights,Float64.(base[offset:offset+n-1])); offset += n
         end
         set_weight!(v, weights)
     end
@@ -677,8 +894,7 @@ function calculate_weight(v::VirtualLink; assign=false)
 end
 
 function set_weight!(v::VirtualLink, weight)
-    real_counts=[count(entry -> entry != 0 && v.orientation[abs(entry)] != 0,g)
-                 for g in v.gauss]
+    real_counts=[_strand_arc_count(v,strand) for strand in eachindex(v.gauss)]
     if weight isa AbstractMatrix
         flat=vec(weight)
         length(flat)==sum(real_counts) ||
@@ -736,19 +952,25 @@ function is_closed(v::VirtualLink)
 end
 
 function mirror_manifold!(v::VirtualLink)
+    _validate_cut_markers(v.gauss)
     v.gauss = [-g for g in v.gauss]; v.orientation .*= -1; v
 end
 function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
+    _validate_cut_markers(v.gauss)
+    _is_cut_component(v.gauss[strand]) && amount != 0 &&
+        throw(ArgumentError("cyclic_shift! on a cut strand is undefined; only amount=0 is allowed"))
     v.gauss[strand] = circshift(v.gauss[strand], amount); v
 end
 
 function disjoint_sum!(a::VirtualLink, b::VirtualLink)
+    _validate_cut_markers(a.gauss); _validate_cut_markers(b.gauss)
     offset=length(a.orientation)
     append!(a.gauss, [[sign(x)*offset+x for x in g] for g in b.gauss])
     append!(a.orientation,b.orientation)
-    a.real_only = true
+    a.real_only = a.real_only && b.real_only
     a.is_weighted = false
-    a.weights = [zeros(Float64,length(g)) for g in a.gauss]
+    a.weights = [zeros(Float64,_strand_arc_count(a,strand))
+                 for strand in eachindex(a.gauss)]
     a
 end
 
@@ -790,6 +1012,8 @@ at which each component traversal starts.  Anchor selection is performed on the
 real-Gauss code, matching MATLAB `getRGaussCode()`.
 """
 function connected_sum!(v::VirtualLink, selection=(1,2))
+    any(strand_cuts(v)) &&
+        throw(ArgumentError("connected_sum! currently requires closed strands; open boundaries would be discarded"))
     code,orientation=real_gauss_code(v)
     (i,j),anchors=_connected_sum_selection(selection)
     i==j && throw(ArgumentError("distinct strands required"))
@@ -815,6 +1039,8 @@ end
 
 """Convert a knot diagram to the version-2 knot-complement o-graph."""
 function knot_complement!(v::VirtualLink)
+    any(strand_cuts(v)) &&
+        throw(ArgumentError("knot_complement! currently requires closed strands"))
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
     expand(vertex,inverted)=begin
@@ -835,6 +1061,8 @@ end
 
 """Convert a VirtualLink to the URDiagram ordering used by MATLAB `VL2URD`."""
 function vl_to_urdiagram(v::VirtualLink)
+    any(strand_cuts(v)) &&
+        throw(ArgumentError("vl_to_urdiagram currently requires closed strands"))
     code,orientation=real_gauss_code(v)
     vertices=Int[]
     for (index,component) in enumerate(code)
@@ -851,6 +1079,8 @@ end
 
 """Direct determinant form of MATLAB `calcInvariant("UR_")`."""
 function ur_prime_invariant(v::VirtualLink)
+    any(strand_cuts(v)) &&
+        throw(ArgumentError("ur_prime_invariant currently requires closed strands"))
     code,orientation=real_gauss_code(v)
     length(code) == 1 || throw(ArgumentError("UR_ invariant currently requires one strand"))
     component=code[1]

@@ -24,8 +24,8 @@ end
 
 function _ps_unweighted(v::VirtualLink)
     result=VirtualLink()
-    set_data!(result;rgauss=deepcopy(first(real_gauss_code(v))),
-              orientation=copy(last(real_gauss_code(v))))
+    code,orientation=real_gauss_code(v)
+    set_data!(result;rgauss=deepcopy(code),orientation=copy(orientation))
 end
 
 function _ps_pattern_weights(pattern,weights)
@@ -34,12 +34,20 @@ function _ps_pattern_weights(pattern,weights)
                 weights=weights)
 end
 
-function _ps_check_framed(v)
-    weights=BigInt.(_integer_edge_weights(v))
-    disks=disk_table(v)
-    residual=2BigInt.(disks.delta)*weights+BigInt.(disks.cp2)
-    all(iszero,residual) || throw(ArgumentError("PS weights do not satisfy the framed integral equation"))
+function _ps_check_framed(v;boundary=nothing)
+    validate_weight(v;framed=true,boundary=boundary)
     true
+end
+
+function _ps_boundary_pair(boundary)
+    boundary isa NamedTuple && haskey(boundary,:source) && haskey(boundary,:target) &&
+        return (boundary.source,boundary.target)
+    boundary isa AbstractDict && haskey(boundary,"source") && haskey(boundary,"target") &&
+        return (boundary["source"],boundary["target"])
+    boundary isa Tuple && length(boundary)==2 &&
+        !(boundary[1] isa Integer && boundary[2] isa Integer) &&
+        return (boundary[1],boundary[2])
+    (boundary,boundary)
 end
 
 function _ps_candidate_weights(candidate,before_weights,after_weights)
@@ -50,6 +58,7 @@ function _ps_candidate_weights(candidate,before_weights,after_weights)
 end
 
 _ps_node_dot(orientation,node)=begin
+    (node<=0 || node>6length(orientation)) && return 0
     vertex=div(node-1,6)+1; local_node=mod1(node,6)
     orientation[vertex]>0 ? Int(local_node in (2,5)) : Int(local_node in (3,6))
 end
@@ -61,15 +70,19 @@ function _ps_integral_a(parameter,p2::Integer)
     div(numerator,2)
 end
 
-function _ps_forward_rotation(v,candidate;split_k=nothing)
+function _ps_forward_rotation(v,candidate;split_k=nothing,boundary=nothing)
     condition=ps_global_condition(_ps_unweighted(v),_ps_geometry_candidate(candidate))
     condition.valid || throw(ArgumentError("PS Method-B condition failed: $(condition.reason)"))
     witness=condition.witness
     trace=witness.circuit_trace
-    left=first(trace)
+    left_index=findfirst(s -> s.edge_id==witness.left_edge_id &&
+                              s.lane==witness.left_lane,trace)
     right_index=findfirst(s -> s.edge_id==witness.right_edge_id &&
                               s.lane==witness.right_lane,trace)
+    left_index===nothing && throw(ArgumentError("PS left boundary is absent from circuit"))
     right_index===nothing && throw(ArgumentError("PS right boundary is absent from circuit"))
+    right_index>=left_index || throw(ArgumentError("PS boundary order is not directed"))
+    left=trace[left_index]
     right=trace[right_index]
     edge_weights=BigInt.(_integer_edge_weights(v))
     same_edge=left.edge_id==right.edge_id
@@ -83,7 +96,7 @@ function _ps_forward_rotation(v,candidate;split_k=nothing)
     fragment_left=candidate.parameter=="2" ? 2 : 1
     fragment_right=3-fragment_left
     no_vertex=same_edge && left.lane==right.lane
-    middle=no_vertex ? eltype(trace)[] : trace[2:right_index-1]
+    middle=no_vertex ? eltype(trace)[] : trace[left_index+1:right_index-1]
     nodes=no_vertex ? Int[] : vcat(left.to_node,[s.to_node for s in middle])
     contributions=[(edge_id=s.edge_id,lane=s.lane,
         component=s.component,tail_occurrence=s.tail_occurrence,
@@ -117,7 +130,13 @@ function _ps_forward_rotation(v,candidate;split_k=nothing)
     a=_ps_integral_a(candidate.parameter,p2)
     full_rotation2=2sum((s.lane==3 ? -1 : 1)*edge_weights[s.edge_id] for s in trace)-
         sum(_ps_node_dot(v.orientation,s.from_node) for s in trace)
-    full_rotation2==-2 || throw(ArgumentError("PS selected disk has nonframed full rotation"))
+    source_boundary,_=_ps_boundary_pair(boundary)
+    open_source=any(_is_cut_component,first(real_gauss_code(v)))
+    if open_source
+        source_boundary===nothing && throw(ArgumentError("open PS transport requires explicit boundary targets"))
+    else
+        full_rotation2==-2 || throw(ArgumentError("PS selected disk has nonframed full rotation"))
+    end
     (version=1,source="MST25 Section;IPS / Taguchi23 IPS-move",parameter=candidate.parameter,
      left_edge_id=left.edge_id,right_edge_id=right.edge_id,
      left_lane=left.lane,right_lane=right.lane,k=k,l=l,p2=p2,a=a,
@@ -128,8 +147,9 @@ function _ps_forward_rotation(v,candidate;split_k=nothing)
      integer_arc_sum=integral_sum,dot_count=sum(dots),full_rotation2=full_rotation2)
 end
 
-function _ps_forward_plan(v,candidate;split_k=candidate.ps_split_k)
-    detail=_ps_forward_rotation(v,candidate;split_k=split_k)
+function _ps_forward_plan(v,candidate;split_k=candidate.ps_split_k,boundary=nothing)
+    source_boundary,target_boundary=_ps_boundary_pair(boundary)
+    detail=_ps_forward_rotation(v,candidate;split_k=split_k,boundary=source_boundary)
     a,k,l=detail.a,detail.k,detail.l
     # Read in oriented catalogue fragment order, NOT left-to-right page order.
     rules=candidate.parameter=="1" ? [[-a,0,a+k],[0,0,l]] :
@@ -147,18 +167,20 @@ function _ps_forward_plan(v,candidate;split_k=candidate.ps_split_k)
     prepared=_ps_candidate_weights(candidate,[[0],[0]],rules)
     target=deepcopy(v)
     _apply_pattern_move!(target,prepared;prepared_weights=true)
-    _ps_check_framed(target)
+    _ps_check_framed(target;boundary=target_boundary)
     (candidate=prepared,detail=detail,target=target)
 end
 
-function _ps_inverse_plan(v,candidate)
+function _ps_inverse_plan(v,candidate;boundary=nothing)
+    source_boundary,target_boundary=_ps_boundary_pair(boundary)
     internal=candidate.parameter=="3" ? [1,0] : candidate.parameter=="4" ? [0,-1] : [0,0]
     # Contract by exact sums, including nonzero internal 1/-1. This recovers
     # the LHS cochain before p is calculated; no weight equation is re-solved.
     contraction=_ps_candidate_weights(candidate,[[0,x,0] for x in internal],[[x] for x in internal])
     lhs=deepcopy(v)
     _apply_pattern_move!(lhs,contraction;prepared_weights=true)
-    _ps_check_framed(lhs)
+    _ps_check_framed(v;boundary=source_boundary)
+    _ps_check_framed(lhs;boundary=target_boundary)
     condition=ps_global_condition(_ps_unweighted(v),candidate)
     condition.valid || throw(ArgumentError("inverse PS Method-B condition failed"))
     boundaries=condition.witness.gap_boundaries
@@ -166,7 +188,7 @@ function _ps_inverse_plan(v,candidate)
     forward=MoveCandidate("PS",candidate.parameter,Int[],NTuple{2,Int}[],:forward,
         only(data["PS-L"]),data["PS-R"][parse(Int,candidate.parameter)],
         [(b.target_component,b.target_head_occurrence) for b in boundaries])
-    plan=_ps_forward_plan(lhs,forward)
+    plan=_ps_forward_plan(lhs,forward;boundary=(source=target_boundary,target=source_boundary))
     if plan.detail.left_edge_id==plan.detail.right_edge_id && candidate.parameter in ("2","4")
         # These two types can retain the chosen k/l split as different edge
         # cochains after insertion. Infer it from the source figure instead of
@@ -178,7 +200,8 @@ function _ps_inverse_plan(v,candidate)
             component,start=candidate.locations[1] # paper left upper edge=a+k
             recovered_k=BigInt(v.weights[component][mod1(start+2,length(v.gauss[component]))])-plan.detail.a
         end
-        plan=_ps_forward_plan(lhs,forward;split_k=recovered_k)
+        plan=_ps_forward_plan(lhs,forward;split_k=recovered_k,
+                              boundary=(source=target_boundary,target=source_boundary))
     end
     # Undo the inverse deletion's label map, including nontrailing selected IDs.
     _,orientation=real_gauss_code(v)
@@ -196,15 +219,20 @@ function _ps_inverse_plan(v,candidate)
 end
 
 "Recompute the source-specific integral PS plan, with no persistent candidate cache."
-function _weighted_ps_plan(v::VirtualLink,candidate::MoveCandidate)
+function _weighted_ps_plan(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     v.is_weighted || throw(ArgumentError("integral PS requires assigned weights"))
     _check_move_weights(v)
     candidate.ps_split_k!==nothing && candidate.direction!=:forward &&
         throw(ArgumentError("inverse PS infers its split from the actual source"))
-    validation=validate_ps_move(_ps_unweighted(v),_ps_geometry_candidate(candidate))
+    source_boundary,target_boundary=_ps_boundary_pair(boundary)
+    validation=validate_ps_move(_ps_unweighted(v),_ps_geometry_candidate(candidate);
+                                boundary=source_boundary)
     validation.valid || throw(ArgumentError("PS applicability failed: $(validation.reason)"))
-    _ps_check_framed(v)
-    candidate.direction==:forward ? _ps_forward_plan(v,candidate) : _ps_inverse_plan(v,candidate)
+    candidate.direction==:forward ? _ps_forward_plan(v,candidate;
+        boundary=(source=source_boundary,target=target_boundary)) :
+        _ps_inverse_plan(v,candidate;
+        boundary=(source=source_boundary,target=target_boundary))
 end
 
-_weighted_ps_target(v,candidate)=_weighted_ps_plan(v,candidate).target
+_weighted_ps_target(v,candidate;boundary=nothing)=
+    _weighted_ps_plan(v,candidate;boundary=boundary).target

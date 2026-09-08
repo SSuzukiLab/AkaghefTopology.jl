@@ -290,6 +290,7 @@ function _contract(factors::Vector{SparseFactor})
 end
 
 function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra)
+    _require_closed_ograph_input(v, "hopf_invariant")
     edges=real_edge_table(v)
     integer_weights=v.is_weighted ? _integer_edge_weights(v) : Int[]
     orientation=last(real_gauss_code(v))

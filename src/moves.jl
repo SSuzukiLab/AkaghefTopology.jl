@@ -40,6 +40,18 @@ _normalize_move_type(type)=uppercase(String(type))
 _clean_component(component)=filter(!=(0),Int.(component))
 _is_cut_component(component)=!isempty(component) && last(component)==0
 
+"""Move a transported cut marker back to canonical trailing position."""
+function _canonicalize_cut_markers!(code)
+    for index in eachindex(code)
+        word=code[index]
+        marker=findfirst(==(0),word)
+        marker===nothing && continue
+        visits=vcat(word[marker+1:end],word[1:marker-1])
+        code[index]=vcat(visits,0)
+    end
+    code
+end
+
 function _permutations(values::Vector{Int})
     length(values)<=1 && return [copy(values)]
     result=Vector{Vector{Int}}()
@@ -60,14 +72,33 @@ function _cyclic_occurrences(component::Vector{Int},pattern::Vector{Int})
                for offset in 0:length(pattern)-1)]
 end
 
+"""Contiguous occurrences on the linear prefix of an open component."""
+function _linear_occurrences(component::Vector{Int},pattern::Vector{Int})
+    isempty(pattern) && return Int[]
+    n=_is_cut_component(component) ? length(component)-1 : length(component)
+    length(pattern)<=n || return Int[]
+    [start for start in 1:(n-length(pattern)+1)
+        if component[start:start+length(pattern)-1]==pattern]
+end
+
+_pattern_occurrences(component,pattern)=
+    _is_cut_component(component) ? _linear_occurrences(component,pattern) :
+                                    _cyclic_occurrences(component,pattern)
+
 _interval_positions(start,length_,component_length)=
     Set(mod1(start+offset,component_length) for offset in 0:length_-1)
 
 function _locations_compatible(locations,fragments,code)
     occupied=Set{Tuple{Int,Int}}()
     for (fragment,(component,start)) in zip(fragments,locations)
-        n=length(code[component])
-        for position in _interval_positions(start,length(fragment),n)
+        n=_is_cut_component(code[component]) ? length(code[component])-1 : length(code[component])
+        positions=if _is_cut_component(code[component])
+            start>=1 && start+length(fragment)-1<=n ? collect(start:start+length(fragment)-1) : Int[]
+        else
+            collect(_interval_positions(start,length(fragment),n))
+        end
+        isempty(fragment) || isempty(positions) && return false
+        for position in positions
             key=(component,position)
             key in occupied && return false
             push!(occupied,key)
@@ -148,7 +179,6 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
     selected=Int.(collect(vertices))
     edge_list=_coerce_edges(edges)
     code,orientation=real_gauss_code(v)
-    code=[_clean_component(component) for component in code]
 
     if move_type in ("PS","S") && (edge_occurrences!==nothing || !isempty(edge_list))
         isempty(selected) || (edge_occurrences===nothing ? (return MoveCandidate[]) :
@@ -159,8 +189,11 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         else
             mapped=Tuple{Int,Int}[]
             for (tail,head) in edge_list
-                matches=[(c,p) for (c,w) in enumerate(code) for p in eachindex(w)
-                         if w[p]==head && w[mod1(p-1,length(w))]==tail]
+                matches=[(c,p) for (c,w) in enumerate(code)
+                         for p in 1:(_is_cut_component(w) ? length(w)-1 : length(w))
+                         if w[p]==head &&
+                            ((p>1 && w[p-1]==tail) ||
+                             (p==1 && !_is_cut_component(w) && w[end]==tail))]
                 length(matches)==1 || return MoveCandidate[]
                 push!(mapped,only(matches))
             end
@@ -168,7 +201,8 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         end
         required=move_type=="PS" ? 2 : 1
         length(locations)==required || throw(ArgumentError("$move_type insertion requires $required edge occurrences"))
-        all(cp -> 1<=cp[1]<=length(code) && 1<=cp[2]<=length(code[cp[1]]),locations) ||
+        all(cp -> 1<=cp[1]<=length(code) &&
+                  1<=cp[2]<=(_is_cut_component(code[cp[1]]) ? length(code[cp[1]])-1 : length(code[cp[1]])),locations) ||
             return MoveCandidate[]
         data=make_move_data()
         return [candidate for after in data[move_type*"-R"]
@@ -196,7 +230,10 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         end
         first_location,second_location=locations
         same_component=first_location[1]==second_location[1]
-        adjacent=same_component && mod1(first_location[2]+1,length(code[first_location[1]]))==second_location[2]
+        adjacent=same_component &&
+            (first_location[2]+1==second_location[2] ||
+             (!_is_cut_component(code[first_location[1]]) &&
+              mod1(first_location[2]+1,length(code[first_location[1]]))==second_location[2]))
         adjacent || return MoveCandidate[]
         data=make_move_data()
         return [MoveCandidate(move_type,"dir",selected,edge_list,:forward,
@@ -237,8 +274,9 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         all(vertex -> vertex<=length(orientation),values) || return MoveCandidate[]
         orientation[values[1]]*orientation[values[2]]==-1 || return MoveCandidate[]
         orientation[values[1]]==-1 && (values=reverse(values))
+        clean_code=[_clean_component(component) for component in code]
         matches=any(component -> component==values || component==-values ||
-                         component==reverse(values) || component==-reverse(values),code)
+                         component==reverse(values) || component==-reverse(values),clean_code)
         matches || return MoveCandidate[]
         return [MoveCandidate(move_type,"",copy(selected),edge_list,:inverse,
                               nothing,nothing,Tuple{Int,Int}[])]
@@ -264,7 +302,7 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
                 locations=Tuple{Int,Int}[]
                 for (component_index,component) in enumerate(code)
                     append!(locations,[(component_index,start)
-                                       for start in _cyclic_occurrences(component,fragment)])
+                                       for start in _pattern_occurrences(component,fragment)])
                 end
                 isempty(locations) && (valid=false; break)
                 push!(options,locations)
@@ -290,7 +328,7 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
 end
 
 """Enumerate applicable moves; integer-weighted candidates also satisfy transport rules."""
-function movable(v::VirtualLink,type;kwargs...)
+function movable(v::VirtualLink,type;boundary=nothing,kwargs...)
     v.is_weighted || return _movable_geometry(v,type;kwargs...)
     _check_move_weights(v)
     move_type=_normalize_move_type(type)
@@ -298,7 +336,7 @@ function movable(v::VirtualLink,type;kwargs...)
     candidates=_movable_geometry(move_type=="PS" ? _ps_unweighted(v) : v,move_type;kwargs...)
     filter(candidates) do candidate
         try
-            _apply_candidate!(deepcopy(v),candidate)
+            _apply_candidate!(deepcopy(v),candidate;boundary=boundary)
             true
         catch error
             error isa Union{ArgumentError,DimensionMismatch,BoundsError} || rethrow()
@@ -313,7 +351,9 @@ function movable(v::VirtualLink,type,arg::NamedTuple)
     edges=haskey(arg,:edges) ? arg.edges : haskey(arg,:e) ? arg.e : nothing
     occurrences=haskey(arg,:edge_occurrences) ? arg.edge_occurrences : nothing
     strict=haskey(arg,:strict) ? arg.strict : false
-    movable(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,strict=strict)
+    boundary=haskey(arg,:boundary) ? arg.boundary : nothing
+    movable(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,
+            strict=strict,boundary=boundary)
 end
 
 function _vertex_maps(orientation,selected,before,after;role_ordered=false)
@@ -439,24 +479,46 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
     for index in extra_before
         component,start=candidate.locations[index]
         fragment=mapped_before[index]
-        length(code[component])==length(fragment) ||
+        _is_cut_component(code[component]) &&
+            throw(ArgumentError("a source-only fragment cannot remove cut endpoints"))
+        (_is_cut_component(code[component]) ? length(code[component])-1 : length(code[component]))==length(fragment) ||
             throw(ArgumentError("a source-only move fragment must occupy its whole component"))
-        _cyclic_occurrences(code[component],fragment)==[start] ||
+        _pattern_occurrences(code[component],fragment)==[start] ||
             throw(ArgumentError("cannot remove a partially matched component"))
         push!(removed_components,component)
     end
 
     segments=_MoveSegment[]
     affected=Set(component for (index,(component,_)) in enumerate(candidate.locations) if index<=common)
+    open_affected=filter(component -> _is_cut_component(code[component]),collect(affected))
+    length(open_affected)<=1 ||
+        throw(ArgumentError("reconnection requires explicit identities for multiple cut components"))
     for component in affected
-        _is_cut_component(code[component]) && throw(ArgumentError("cap reconnection on cut components is not supported by MATLAB move data"))
         indices=[index for index in 1:common if candidate.locations[index][1]==component]
         sort!(indices;by=index -> candidate.locations[index][2])
+        if _is_cut_component(code[component])
+            n=length(code[component])-1
+            first_index=first(indices)
+            first_start=candidate.locations[first_index][2]
+            prefix_positions=first_start>1 ? collect(1:first_start-1) : Int[]
+            prefix=_relabel_word(code[component][prefix_positions],old_to_new)
+            prefix_weights=weighted ? copy(weights[component][prefix_positions]) : zeros(Float64,length(prefix))
+            push!(segments,_MoveSegment(0,-first_index,prefix,prefix_weights,0.0))
+        end
         for (position,index) in enumerate(indices)
-            next_index=indices[mod1(position+1,length(indices))]
             start=candidate.locations[index][2]
-            next_start=candidate.locations[next_index][2]
-            gap_positions=_cyclic_gap_positions(start,length(mapped_before[index]),next_start,length(code[component]))
+            is_last=_is_cut_component(code[component]) && position==length(indices)
+            next_index=is_last ? 0 : indices[mod1(position+1,length(indices))]
+            next_start=is_last ? 0 : candidate.locations[next_index][2]
+            gap_positions=if is_last
+                n_start=start+length(mapped_before[index])
+                n_start<=n ? collect(n_start:n) : Int[]
+            elseif _is_cut_component(code[component])
+                n_start=start+length(mapped_before[index])
+                n_start<next_start ? collect(n_start:next_start-1) : Int[]
+            else
+                _cyclic_gap_positions(start,length(mapped_before[index]),next_start,length(code[component]))
+            end
             gap=_relabel_word(code[component][gap_positions],old_to_new)
             gap_weights=weighted ? copy(weights[component][gap_positions]) : zeros(Float64,length(gap))
             leading=0.0
@@ -466,7 +528,8 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                 delta=last(after_rule)-last(before_rule)
                 isempty(gap_weights) ? (leading=delta) : (gap_weights[1]+=delta)
             end
-            push!(segments,_MoveSegment(before.capacity[index],-next_index,gap,gap_weights,leading))
+            push!(segments,_MoveSegment(before.capacity[index],is_last ? 0 : -next_index,
+                                        gap,gap_weights,leading))
         end
     end
 
@@ -498,6 +561,10 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
         push!(result,_relabel_word(code[component],old_to_new))
         push!(result_weights,weighted ? copy(weights[component]) : zeros(Float64,length(code[component])))
     end
+    generated_open=Vector{Vector{Int}}()
+    generated_open_weights=Vector{Vector{Float64}}()
+    generated_closed=Vector{Vector{Int}}()
+    generated_closed_weights=Vector{Vector{Float64}}()
 
     starts=Dict{Int,Int}()
     for (index,segment) in enumerate(segments)
@@ -506,7 +573,7 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
     end
     used=falses(length(segments))
     while !all(used)
-        first_index=findfirst(!,used)
+        first_index=haskey(starts,0) && !used[starts[0]] ? starts[0] : findfirst(!,used)
         current=first_index
         word=Int[]; component_weights=Float64[]; pending=0.0
         open_component=false
@@ -527,10 +594,30 @@ function _reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
         if weighted && pending!=0 && !isempty(component_weights)
             component_weights[1]+=pending
         end
-        open_component && push!(word,0)
-        push!(result,word)
-        push!(result_weights,component_weights)
+        if open_component
+            push!(word,0)
+            push!(generated_open,word)
+            push!(generated_open_weights,component_weights)
+        else
+            push!(generated_closed,word)
+            push!(generated_closed_weights,component_weights)
+        end
     end
+
+    # Keep the actual cut strand in its source component slot.  A generic
+    # append-after-unchanged-components policy silently moved the marker onto
+    # a newly created closed component during B2/BMP reconnections.
+    if !isempty(generated_open)
+        length(generated_open)==1 ||
+            throw(ArgumentError("reconnection produced multiple cut strands"))
+        open_source=only(open_affected)
+        insert_at=count(index -> !(index in affected || index in removed_components),
+                        1:open_source)+1
+        insert!(result, min(insert_at,length(result)+1), first(generated_open))
+        insert!(result_weights,min(insert_at,length(result_weights)+1),first(generated_open_weights))
+    end
+    append!(result,generated_closed)
+    append!(result_weights,generated_closed_weights)
 
     for index in common+1:length(after.gauss)
         word=mapped_after[index]
@@ -564,15 +651,14 @@ end
 
 function _check_move_weights(v::VirtualLink)
     v.is_weighted || throw(ArgumentError("move requires assigned integer weights"))
-    any(component -> 0 in component,v.gauss) &&
-        throw(ArgumentError("weighted moves on cut components require boundary data"))
-    code,orientation=real_gauss_code(v)
+    raw_code,orientation=real_gauss_code(v)
+    code=[_clean_component(component) for component in raw_code]
     all(sign -> sign in (-1,1),orientation) || throw(ArgumentError("invalid real crossing orientation"))
     visits=reduce(vcat,code;init=Int[])
     all(vertex -> count(==(vertex),visits)==1 && count(==(-vertex),visits)==1,
         eachindex(orientation)) || throw(ArgumentError("one visit of each sign is required"))
-    length(v.weights)==length(code) &&
-        all(length(w)==length(c) for (w,c) in zip(v.weights,code)) ||
+    length(v.weights)==length(raw_code) &&
+        all(length(w)==length(c) for (w,c) in zip(v.weights,raw_code)) ||
         throw(DimensionMismatch("one weight per real edge occurrence is required"))
     foreach(_move_integer,Iterators.flatten(v.weights))
     nothing
@@ -620,12 +706,17 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
     removed=Set{Int}()
     for index in eachindex(mapped_before)
         component,start=candidate.locations[index]
-        fragment=mapped_before[index]; n=length(code[component])
+        fragment=mapped_before[index]; cut=_is_cut_component(code[component])
+        n=length(code[component])-Int(cut)
+        cut && start+length(fragment)-1>n &&
+            throw(ArgumentError("weighted source fragment crosses a cut boundary"))
         for offset in 1:length(fragment)-1
-            weights[component][mod1(start+offset,n)]==rules0[index][offset+1] ||
+            position=cut ? start+offset : mod1(start+offset,n)
+            weights[component][position]==rules0[index][offset+1] ||
                 throw(ArgumentError("source internal weight mismatch at fragment $index, edge $(offset+1)"))
         end
         if index>common
+            cut && throw(ArgumentError("a source-only fragment cannot remove cut endpoints"))
             length(fragment)==n || throw(ArgumentError("source-only fragment must occupy a whole component"))
             weights[component][start]==first(rules0[index])+last(rules0[index]) ||
                 throw(ArgumentError("source-only component closing weight mismatch"))
@@ -633,21 +724,41 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
         end
     end
     affected=sort!(unique([candidate.locations[i][1] for i in 1:common]))
+    count(component -> _is_cut_component(code[component]),affected)<=1 ||
+        throw(ArgumentError("reconnection requires explicit identities for multiple cut components"))
     segments=_WeightedMoveSegment[]
     for component in affected
         component in removed && throw(ArgumentError("source-only component shares an active fragment"))
-        n=length(code[component])
+        cut=_is_cut_component(code[component])
+        n=length(code[component])-Int(cut)
         indices=[i for i in 1:common if candidate.locations[i][1]==component]
         sort!(indices;by=i -> (candidate.locations[i][2],-i))
+        if cut
+            first_index=first(indices); first_start=candidate.locations[first_index][2]
+            positions=collect(1:first_start-1)
+            edge_positions=collect(1:first_start)
+            exterior=BigInt[_move_integer(weights[component][p]) for p in edge_positions]
+            exterior[end]-=first(rules0[first_index])
+            word=_relabel_word(code[component][positions],old_to_new)
+            push!(segments,_WeightedMoveSegment(0,-first_index,word,exterior))
+            trace===nothing || push!(trace,(kind=:boundary_prefix,component=component,
+                head_positions=edge_positions,word=word,portions=copy(exterior),
+                start_port=0,end_port=-first_index))
+        end
         for (j,index) in enumerate(indices)
-            next_index=indices[mod1(j+1,length(indices))]
+            terminal=cut && j==length(indices)
+            next_index=terminal ? 0 : indices[mod1(j+1,length(indices))]
             start=candidate.locations[index][2]; consumed=length(mapped_before[index])
-            next_start=candidate.locations[next_index][2]
+            next_start=terminal ? n+1 : candidate.locations[next_index][2]
             # Distinguish a full turn at a single empty slot from the zero path
             # between two empty slots at the same occurrence.
-            gap_count=next_start+(j==length(indices) ? n : 0)-start-consumed
-            gap_count<0 && (gap_count+=n)
-            positions=[mod1(start+consumed+k,n) for k in 0:gap_count-1]
+            gap_count=next_start+(!cut && j==length(indices) ? n : 0)-start-consumed
+            if cut
+                gap_count>=0 || throw(ArgumentError("overlapping weighted cut fragments"))
+            else
+                gap_count<0 && (gap_count+=n)
+            end
+            positions=[cut ? start+consumed+k : mod1(start+consumed+k,n) for k in 0:gap_count-1]
             edge_positions=vcat(positions,next_start)
             exterior=BigInt[_move_integer(weights[component][p]) for p in edge_positions]
             # An empty source fragment has no consumed incoming edge.  The
@@ -656,13 +767,14 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
                 exterior[1]=0
             end
             exterior[1]-=last(rules0[index])
-            exterior[end]-=first(rules0[next_index])
+            incoming=terminal ? big(0) : first(rules0[next_index])
+            exterior[end]-=incoming
             trace===nothing || push!(trace,(kind=:exterior,source_fragment=index,
                 next_fragment=next_index,component=component,
                 head_positions=edge_positions,
                 source_weights=BigInt[_move_integer(weights[component][p]) for p in edge_positions],
                 first_portion_omitted=isempty(mapped_before[index]),
-                source_outgoing=last(rules0[index]),source_incoming=first(rules0[next_index]),
+                source_outgoing=last(rules0[index]),source_incoming=incoming,
                 start_port=before.capacity[index],end_port=-next_index,
                 word=_relabel_word(code[component][positions],old_to_new),portions=copy(exterior)))
             push!(segments,_WeightedMoveSegment(before.capacity[index],-next_index,
@@ -689,7 +801,8 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
     end
     used=falses(length(segments))
     while !all(used)
-        first_index=findfirst(!,used); current=first_index
+        first_index=haskey(starts,0) && !used[starts[0]] ? starts[0] : findfirst(!,used)
+        current=first_index; open_component=false
         word=Int[]; values=BigInt[]; pending=big(0)
         while true
             used[current] && throw(ArgumentError("weighted move capacity joins a used strand"))
@@ -702,11 +815,18 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
                 local_values=copy(segment.edges[1:end-1]); local_values[1]+=pending
                 append!(values,local_values); pending=last(segment.edges)
             end
+            if segment.end_port==0
+                open_component=true
+                break
+            end
             haskey(starts,segment.end_port) || throw(ArgumentError("unmatched weighted move capacity"))
             current=starts[segment.end_port]
             current==first_index && break
         end
-        if isempty(values)
+        if open_component
+            push!(word,0)
+            push!(values,pending)
+        elseif isempty(values)
             pending==0 || throw(ArgumentError("nonzero weight on a vertex-free component cannot be represented"))
         else
             values[1]+=pending
@@ -724,14 +844,19 @@ function _weighted_pattern_rewrite(code,weights,candidate,mapped_before,mapped_a
     result,result_weights,new_orientation
 end
 
-# Transport is cyclic; retain the existing converter's component order and
-# basepoints so the weighted API has the same Gauss output as the unweighted API.
+# Retain the unweighted converter's component order and basepoints.  Only a
+# closed component may be shifted cyclically; a cut word has an anchored root.
 function _align_move_weights(reference,transported,weights)
     remaining=collect(eachindex(transported)); result=Vector{Vector{Float64}}()
     for word in reference
         found=false
         for (j,index) in enumerate(remaining)
             length(word)==length(transported[index]) || continue
+            if _is_cut_component(word) || _is_cut_component(transported[index])
+                word==transported[index] || continue
+                push!(result,copy(weights[index]))
+                deleteat!(remaining,j); found=true; break
+            end
             starts=isempty(word) ? [1] : _cyclic_occurrences(transported[index],word)
             isempty(starts) && continue
             push!(result,isempty(word) ? Float64[] : circshift(weights[index],1-first(starts)))
@@ -743,6 +868,21 @@ function _align_move_weights(reference,transported,weights)
     result
 end
 
+"""Reattach open strand markers and their terminal edge portions after transport."""
+function _restore_cut_components!(code,weights,cut_flags,terminal_weights)
+    for strand in eachindex(cut_flags)
+        cut_flags[strand] || continue
+        strand<=length(code) || continue
+        _is_cut_component(code[strand]) || push!(code[strand],0)
+        if weights!==nothing && strand<=length(weights)
+            terminal=terminal_weights[strand]
+            length(weights[strand])==length(code[strand])-1 &&
+                push!(weights[strand],terminal)
+        end
+    end
+    code,weights
+end
+
 function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false,
                               prepared_weights=false)
     _check_candidate_split(v,candidate)
@@ -750,9 +890,14 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
     direct_02=candidate.type=="02" && candidate.direction==:forward ? first(candidate.locations) : nothing
     candidate=_normalized_02(candidate)
     before=something(candidate.before); after=something(candidate.after)
-    code,orientation=real_gauss_code(v)
-    code=[_clean_component(component) for component in code]
-    weights=v.is_weighted ? deepcopy(v.weights) : [zeros(Float64,length(component)) for component in code]
+    raw_code,orientation=real_gauss_code(v)
+    cut_flags=[_is_cut_component(component) for component in raw_code]
+    terminal_weights=v.is_weighted ?
+        [flag && !isempty(v.weights[strand]) ? last(v.weights[strand]) : 0.0
+         for (strand,flag) in enumerate(cut_flags)] : zeros(Float64,length(raw_code))
+    code=raw_code
+    weights=v.is_weighted ? deepcopy(v.weights) :
+        [zeros(Float64,length(component)) for component in code]
     v.is_weighted && !(candidate.type in ("MP","02") || (candidate.type=="PS" && prepared_weights)) &&
         throw(ArgumentError("integer weight transport is not defined for $(candidate.type)"))
     old_to_new,after_vertices,new_orientation=_vertex_maps(
@@ -764,6 +909,7 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
     simple=length(before.gauss)==length(after.gauss) && before.capacity==after.capacity
     converted=simple ? _simple_pattern_rewrite(code,weights,candidate,mapped_before,mapped_after,
                                                 old_to_new,new_orientation;weighted=false) : nothing
+    converted_simple=converted!==nothing
     converted===nothing &&
         (converted=_reconnect_pattern(code,weights,candidate,mapped_before,mapped_after,
                                       old_to_new,new_orientation;weighted=false))
@@ -781,6 +927,7 @@ function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_
         set_data!(target;odata=(result,result_orientation,result_weights))
         _check_move_weights(target)
     else
+        converted_simple && _restore_cut_components!(result,nothing,cut_flags,terminal_weights)
         set_data!(target;rgauss=result,orientation=result_orientation)
     end
     _commit_move!(v,target)
@@ -790,7 +937,8 @@ end
 function _weighted_transport_detail(v::VirtualLink,candidate::MoveCandidate)
     _check_candidate_split(v,candidate)
     _check_move_weights(v)
-    code,orientation=real_gauss_code(v)
+    raw_code,orientation=real_gauss_code(v)
+    code=raw_code
     if candidate.type=="H"
         amount=_move_integer(parse(BigFloat,candidate.parameter))
         vertex=abs(only(candidate.vertices)); incidences=Any[]
@@ -836,8 +984,9 @@ function _same_move_pattern(left::MovePattern,right::MovePattern)
     left.vertex_count==right.vertex_count && isequal(left.weights,right.weights)
 end
 
-function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
+function validate_ps_move(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     source_closed,source_conditions=is_closed(v)
+    cut_source=any(_is_cut_component, v.gauss)
     invalid(reason,target=nothing,target_closed=false,
             target_conditions=(false,false,false);error=nothing)=
         (valid=false,reason=reason,source_closed=source_closed,
@@ -847,7 +996,7 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     if v.is_weighted
         try
             _check_candidate_split(v,candidate)
-            target=_weighted_ps_target(v,candidate)
+            target=_weighted_ps_target(v,candidate;boundary=boundary)
             target_closed,target_conditions=is_closed(target)
             return (valid=true,reason=:weighted_ps,source_closed=source_closed,
                 source_conditions=source_conditions,target_closed=target_closed,
@@ -869,9 +1018,7 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     _same_move_pattern(candidate.before,canonical_before) &&
         _same_move_pattern(candidate.after,canonical_after) ||
         return invalid(:source_mismatch)
-    source_closed || return invalid(:source_not_closed)
     code,orientation=real_gauss_code(v)
-    code=[_clean_component(component) for component in code]
     length(candidate.vertices)==canonical_before.vertex_count || return invalid(:source_mismatch)
     vertices=candidate.vertices
     all(vertex -> vertex>0 && vertex<=length(orientation),vertices) ||
@@ -884,7 +1031,7 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
     for (fragment,(component,start)) in zip(mapped_before,candidate.locations)
         1<=component<=length(code) || return invalid(:source_mismatch)
         n=length(code[component]); 1<=start<=n || return invalid(:source_mismatch)
-        (isempty(fragment) || start in _cyclic_occurrences(code[component],fragment)) ||
+        (isempty(fragment) || start in _pattern_occurrences(code[component],fragment)) ||
             return invalid(:source_mismatch)
     end
     _locations_compatible(candidate.locations,mapped_before,code) ||
@@ -898,11 +1045,12 @@ function validate_ps_move(v::VirtualLink,candidate::MoveCandidate)
         return invalid(:tentative_application_failed,error=err)
     end
     target_closed,target_conditions=is_closed(target)
-    target_closed || return invalid(:target_not_closed,target,target_closed,target_conditions)
-    ps_global_condition(v,candidate).valid ||
+    !source_closed && !cut_source && return invalid(:source_not_closed,target,target_closed,target_conditions)
+    source_closed && !target_closed && return invalid(:target_not_closed,target,target_closed,target_conditions)
+    source_closed && !ps_global_condition(v,candidate).valid &&
         return invalid(:ps_method_b_condition_failed,target,target_closed,target_conditions)
-    (valid=true,reason=:closed_local_ps,source_closed=source_closed,
-     source_conditions=source_conditions,target_closed=target_closed,
+    (valid=true,reason=source_closed ? :closed_local_ps : :open_local_ps,
+     source_closed=source_closed,source_conditions=source_conditions,target_closed=target_closed,
      target_conditions=target_conditions,target=target,error=nothing)
 end
 
@@ -960,6 +1108,7 @@ function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter)
                               [values[1]],code[component1])
         code[component1]=circle
     end
+    _canonicalize_cut_markers!(code)
     set_data!(v;rgauss=code,orientation=new_orientation)
 end
 
@@ -994,6 +1143,7 @@ function _apply_b02_two!(v::VirtualLink,candidate::MoveCandidate)
     result=[_relabel_word(word,mapping) for word in code]
     new_orientation=copy(orientation)
     deleteat!(new_orientation,sort(abs.(values)))
+    _canonicalize_cut_markers!(result)
     set_data!(v;rgauss=result,orientation=new_orientation)
 end
 
@@ -1025,7 +1175,7 @@ end
 
 """Apply one MATLAB-style move after strict applicability selection."""
 function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
-               edge_occurrences=nothing,strict=true)
+               edge_occurrences=nothing,strict=true,boundary=nothing)
     move_type=_normalize_move_type(type)
     if v.is_weighted
         _check_move_weights(v)
@@ -1036,12 +1186,13 @@ function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges
         throw(ArgumentError("$move_type move is not implemented in the MATLAB source"))
     elseif move_type=="H"
         param===nothing && throw(ArgumentError("H move requires a weight parameter"))
-        candidates=movable(v,move_type;param=param,vertices=vertices,edges=edges,strict=strict)
+        candidates=movable(v,move_type;param=param,vertices=vertices,edges=edges,strict=strict,
+                           boundary=boundary)
         isempty(candidates) && throw(ArgumentError("No valid moves found."))
         return _apply_hmove!(v,abs(only(candidates).vertices[1]),param)
     end
     candidates=movable(v,move_type;param=param,vertices=vertices,edges=edges,
-                       edge_occurrences=edge_occurrences,strict=strict)
+                       edge_occurrences=edge_occurrences,strict=strict,boundary=boundary)
     isempty(candidates) && throw(ArgumentError("No valid moves found."))
     length(candidates)>1 && @warn "moves may be ambiguous; applying the first strict candidate" count=length(candidates)
     candidate=first(candidates)
@@ -1052,7 +1203,7 @@ function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges
     elseif move_type=="B02" && length(candidate.vertices)==2 && candidate.before===nothing
         _apply_b02_two!(v,candidate)
     else
-        _apply_candidate!(v,candidate)
+        _apply_candidate!(v,candidate;boundary=boundary)
     end
 end
 
@@ -1068,14 +1219,16 @@ function move!(v::VirtualLink,type,arg::NamedTuple)
     edges=haskey(arg,:edges) ? arg.edges : haskey(arg,:e) ? arg.e : nothing
     strict=haskey(arg,:strict) ? arg.strict : true
     occurrences=haskey(arg,:edge_occurrences) ? arg.edge_occurrences : nothing
-    move!(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,strict=strict)
+    boundary=haskey(arg,:boundary) ? arg.boundary : nothing
+    move!(v,type;param=param,vertices=vertices,edges=edges,edge_occurrences=occurrences,
+          strict=strict,boundary=boundary)
 end
 
 "Apply this exact candidate, without selecting its site again or canonicalizing."
-function _apply_candidate!(v::VirtualLink,candidate::MoveCandidate)
+function _apply_candidate!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _check_candidate_split(v,candidate)
     if v.is_weighted && candidate.type=="PS"
-        return _commit_move!(v,_weighted_ps_target(v,candidate))
+        return _commit_move!(v,_weighted_ps_target(v,candidate;boundary=boundary))
     elseif candidate.type=="H"
         amount=tryparse(BigInt,candidate.parameter)
         amount===nothing && (amount=tryparse(BigFloat,candidate.parameter))
@@ -1105,7 +1258,7 @@ function _same_candidate(left::MoveCandidate,right::MoveCandidate)
      (left.after!==nothing && right.after!==nothing && _same_move_pattern(left.after,right.after)))
 end
 
-function move!(v::VirtualLink,candidate::MoveCandidate)
+function move!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _check_candidate_split(v,candidate)
     v.is_weighted && _check_move_weights(v)
     # Frozen candidates are untrusted input: authenticate templates, orientation,
@@ -1126,10 +1279,11 @@ function move!(v::VirtualLink,candidate::MoveCandidate)
     any(option -> _same_candidate(option,geometric_candidate),options) ||
         throw(ArgumentError("move candidate does not match the current source"))
     target=deepcopy(v)
-    _apply_candidate!(target,candidate)
+    _apply_candidate!(target,candidate;boundary=boundary)
     _commit_move!(v,target)
 end
-move(v::VirtualLink,candidate::MoveCandidate)=move!(deepcopy(v),candidate)
+move(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)=
+    move!(deepcopy(v),candidate;boundary=boundary)
 
 """Pure-value wrapper around MATLAB-compatible `move!`."""
 function move(v::VirtualLink,type;kwargs...)

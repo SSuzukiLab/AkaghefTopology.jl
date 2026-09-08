@@ -70,9 +70,20 @@ function _spread_labels!(placed; passes=40)
             delta=placed[j].pos-placed[i].pos
             gap=abs(delta)
             gap >= want && continue
-            push_by = gap < 1e-6 ? complex(0.0,want/2) : (want-gap)/2*delta/gap
-            placed[i]=(pos=placed[i].pos-push_by,text=placed[i].text)
-            placed[j]=(pos=placed[j].pos+push_by,text=placed[j].text)
+            fixed_i=get(placed[i],:fixed,false)
+            fixed_j=get(placed[j],:fixed,false)
+            push_by = gap < 1e-6 ? complex(0.0,want-gap) : (want-gap)*delta/gap
+            if fixed_i && fixed_j
+                continue
+            elseif fixed_i
+                placed[j]=merge(placed[j],(pos=placed[j].pos+push_by,))
+            elseif fixed_j
+                placed[i]=merge(placed[i],(pos=placed[i].pos-push_by,))
+            else
+                push_by /= 2
+                placed[i]=merge(placed[i],(pos=placed[i].pos-push_by,))
+                placed[j]=merge(placed[j],(pos=placed[j].pos+push_by,))
+            end
             moved=true
         end
         moved || break
@@ -304,15 +315,179 @@ function _real_arc_layouts(v::VirtualLink,layout::LinkLayout;planarization=:matl
             component_weights=component_index <= length(v.weights) ? v.weights[component_index] : Float64[]
             weight=weight_index <= length(component_weights) ? component_weights[weight_index] : NaN
             push!(arcs,(id=arc_id,points=points,source=component[previous_position],
-                        target=component[target_position],weight=weight))
+                        target=component[target_position],weight=weight,boundary=false))
         end
     end
     arcs
 end
 
+_has_cut_component(v::VirtualLink) =
+    any(!isempty(component) && last(component)==0 for component in v.gauss)
+
+"""Split a polyline at half its arclength, leaving a small cut gap.
+
+The closed layout is used here only as a coordinate scaffold.  In particular,
+the point at which the closure is split is never used to derive a Gauss edge,
+weight, or disk boundary.
+"""
+function _split_cut_closure(points::Vector{ComplexF64};gap=0.34)
+    length(points) >= 2 || throw(ArgumentError("a cut closure needs at least two scaffold points"))
+    spans=[abs(points[i+1]-points[i]) for i in 1:length(points)-1]
+    total=sum(spans)
+    total > 0 || return (ComplexF64[points[1]],ComplexF64[points[end]])
+    half=total/2
+    walked=0.0
+    index=1
+    while index < length(spans) && (spans[index] == 0 || walked+spans[index] < half)
+        walked += spans[index]
+        index += 1
+    end
+    span=spans[index]
+    span == 0 && throw(ArgumentError("cut closure contains no positive segment at its midpoint"))
+    direction=(points[index+1]-points[index])/span
+    split=points[index]+direction*(half-walked)
+    left=ComplexF64[points[1:index]...]
+    push!(left,split)
+    right=ComplexF64[split,points[index+1:end]...]
+    # Leave two distinct geometric endpoints at the cut.  This is deliberately
+    # a rendering seam; the two boundary occurrences remain separate records.
+    left[end]=split-direction*gap/2
+    right[1]=split+direction*gap/2
+    left,right
+end
+
+"""Return a closed geometric scaffold for a possibly cut presentation."""
+function _cut_scaffold(v::VirtualLink)
+    scaffold=VirtualLink()
+    gauss=[filter(!=(0),component) for component in v.gauss]
+    if v.real_only
+        set_data!(scaffold;rgauss=gauss,orientation=copy(v.orientation))
+    else
+        set_data!(scaffold;gauss=gauss,orientation=copy(v.orientation))
+    end
+    scaffold
+end
+
+"""Build SVG arcs for open components from the actual boundary-edge table.
+
+Each cut component is routed by closing it temporarily, then splitting that
+scaffold's closure arc into two half-arcs.  Metadata and ordering come from
+`real_edge_table(v)`, so the two boundary edges cannot be merged by geometry.
+"""
+function _cut_arc_layouts(v::VirtualLink,layout::LinkLayout;planarization=:matlab)
+    scaffold=_cut_scaffold(v)
+    closed=_real_arc_layouts(scaffold,layout;planarization=planarization)
+    table=real_edge_table(v)
+    table_by_strand=Dict{Int,Vector{RealEdge}}()
+    for edge in table
+        push!(get!(table_by_strand,edge.strand,RealEdge[]),edge)
+    end
+    result=NamedTuple[]
+    closed_cursor=1
+    synthetic_id=isempty(table) ? 0 : maximum(edge.id for edge in table)
+    for (strand,component0) in enumerate(v.gauss)
+        component=filter(!=(0),component0)
+        real_positions=findall(position -> abs(component[position]) <= length(v.orientation) &&
+                                         v.orientation[abs(component[position])] != 0,
+                               eachindex(component))
+        edges=get(table_by_strand,strand,RealEdge[])
+        if isempty(real_positions)
+            # A `[0]` component is a genuine open interval.  The core edge
+            # table normally supplies its (0,0) record; retain a fallback so
+            # plotting remains useful for legacy in-memory values as well.
+            isempty(component0) && continue
+            last(component0)==0 || continue
+            synthetic_id += 1
+            edge=isempty(edges) ? (id=synthetic_id,source=0,target=0,weight=NaN,
+                                   strand=strand) : first(edges)
+            x=4.0*(length(result)+1)
+            push!(result,(id=edge.id,points=ComplexF64[x-1.5+0im,x+1.5+0im],
+                          source=0,target=0,weight=edge.weight,boundary=true))
+            continue
+        end
+        closed_cursor+length(real_positions)-1 <= length(closed) ||
+            throw(ArgumentError("closed cut scaffold has fewer arcs than real edge table"))
+        group=closed[closed_cursor:closed_cursor+length(real_positions)-1]
+        closed_cursor += length(real_positions)
+        if last(component0)==0
+            length(edges)==length(real_positions)+1 ||
+                throw(ArgumentError("cut real edge table does not contain two distinct boundary edges"))
+            left,right=_split_cut_closure(group[1].points)
+            first_edge=first(edges)
+            push!(result,(id=first_edge.id,points=right,source=first_edge.crossing[1],
+                          target=first_edge.crossing[2],weight=first_edge.weight,
+                          strand=first_edge.strand,boundary=true))
+            for (arc,edge) in zip(group[2:end],edges[2:end-1])
+                push!(result,(id=edge.id,points=arc.points,source=edge.crossing[1],
+                              target=edge.crossing[2],weight=edge.weight,
+                              strand=edge.strand,boundary=false))
+            end
+            last_edge=last(edges)
+            push!(result,(id=last_edge.id,points=left,source=last_edge.crossing[1],
+                          target=last_edge.crossing[2],weight=last_edge.weight,
+                          strand=last_edge.strand,boundary=true))
+        else
+            length(edges)==length(real_positions) ||
+                throw(ArgumentError("closed real edge table disagrees with scaffold arcs"))
+            for (arc,edge) in zip(group,edges)
+                push!(result,(id=edge.id,points=arc.points,source=edge.crossing[1],
+                              target=edge.crossing[2],weight=edge.weight,
+                              strand=edge.strand,boundary=false))
+            end
+        end
+    end
+    result
+end
+
+"""Route disconnected Gauss components independently as a rendering fallback.
+
+The orthogonal router's historical coordinate scaffold assumes one connected
+PD graph.  Cut plots may legitimately mix a disconnected open strand and a
+closed component, so each component is renumbered locally for routing and its
+geometry is then placed beside the preceding component.  Real-edge metadata
+is restored from the original strand table after routing.
+"""
+function _cut_arc_layouts_disconnected(v::VirtualLink;planarization=:matlab)
+    result=NamedTuple[]
+    x_cursor=0.0
+    for (strand,component0) in enumerate(v.gauss)
+        component=filter(!=(0),component0)
+        isempty(component) && continue
+        labels=sort!(unique(abs.(component)))
+        mapping=Dict(label=>index for (index,label) in enumerate(labels))
+        local_component=[sign(x)*mapping[abs(x)] for x in component]
+        local_orientation=v.orientation[labels]
+        local_link=VirtualLink()
+        local_gauss=[v.gauss[strand][end]==0 ? [local_component...,0] : local_component]
+        if v.real_only
+            set_data!(local_link;rgauss=local_gauss,orientation=local_orientation)
+        else
+            set_data!(local_link;gauss=local_gauss,orientation=local_orientation)
+        end
+        local_scaffold=_cut_scaffold(local_link)
+        local_layout=orthogonal_layout(local_scaffold)
+        local_arcs=_cut_arc_layouts(local_link,local_layout;planarization=planarization)
+        global_edges=[edge for edge in real_edge_table(v) if edge.strand==strand]
+        length(local_arcs)==length(global_edges) ||
+            throw(ArgumentError("disconnected cut scaffold disagrees with real edge table"))
+        all_points=reduce(vcat,(arc.points for arc in local_arcs))
+        xmin=minimum(real.(all_points)); xmax=maximum(real.(all_points))
+        offset=complex(x_cursor-xmin,0.0)
+        x_cursor=xmax+real(offset)+2.0
+        for (arc,edge) in zip(local_arcs,global_edges)
+            push!(result,(id=edge.id,points=ComplexF64[p+offset for p in arc.points],
+                          source=edge.crossing[1],target=edge.crossing[2],
+                          weight=edge.weight,strand=edge.strand,boundary=arc.boundary))
+        end
+    end
+    result
+end
+
 """Stable MATLAB `REdgeTable` arc metadata, without invoking the layout solver."""
 function _replay_arc_metadata(v::VirtualLink)
-    [(id=edge.id,source=edge.crossing[1],target=edge.crossing[2],weight=edge.weight)
+    [(id=edge.id,source=edge.crossing[1],target=edge.crossing[2],weight=edge.weight,
+      strand=edge.strand,
+      boundary=edge.crossing[1]==0 || edge.crossing[2]==0)
      for edge in real_edge_table(v)]
 end
 
@@ -337,7 +512,9 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
                   edge_labels=:weight,replay_positions=nothing,
                   planarization=:matlab)
     body=String[]
-    if isempty(v.orientation)
+    cut=_has_cut_component(v)
+    pure_cut=cut && all(isempty(filter(!=(0),component)) for component in v.gauss)
+    if isempty(v.orientation) && !cut
         S=LINK_STYLE
         push!(body,"<circle class=\"arc\" cx=\"0\" cy=\"0\" r=\"1\" fill=\"none\" ",
                    "stroke=\"#1b3bd0\" stroke-width=\"$(_num(S.strand))\"/>")
@@ -348,10 +525,53 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
                                meta="crossings=0; arcs=0; weighted=false")
     end
     layout=nothing
+    closed_empty_centres=ComplexF64[]
+    for (strand,component) in enumerate(v.gauss)
+        isempty(component) && push!(closed_empty_centres,complex(3.0*(strand-1),0.0))
+    end
     arcs=if replay_positions === nothing
-        layout=orthogonal_layout(v;bending_numbers=bending_numbers,
-                                 planarization=planarization)
-        _real_arc_layouts(v,layout;planarization=planarization)
+        if pure_cut
+            # A `[0]` component has no crossing scaffold.  Keep one explicit
+            # interval per cut component, with boundary markers at both ends.
+            table=real_edge_table(v)
+            bystrand=Dict{Int,Vector{RealEdge}}()
+            for edge in table
+                push!(get!(bystrand,edge.strand,RealEdge[]),edge)
+            end
+            synthetic_id=isempty(table) ? 0 : maximum(edge.id for edge in table)
+            pure_arcs=NamedTuple[]
+            for strand in eachindex(v.gauss)
+                if isempty(v.gauss[strand])
+                    continue
+                end
+                last(v.gauss[strand])==0 || continue
+                synthetic_id += 1
+                edges=get(bystrand,strand,RealEdge[])
+                edge=isempty(edges) ? (id=synthetic_id,weight=NaN,crossing=(0,0)) : first(edges)
+                x=3.0*(strand-1)
+                push!(pure_arcs,(id=edge.id,points=ComplexF64[x-1.2+0im,x+1.2+0im],
+                            source=edge.crossing[1],target=edge.crossing[2],weight=edge.weight,
+                            strand=strand,boundary=true))
+            end
+            pure_arcs
+        elseif cut
+            scaffold=_cut_scaffold(v)
+            try
+                layout=orthogonal_layout(scaffold;bending_numbers=bending_numbers,
+                                         planarization=planarization)
+                _cut_arc_layouts(v,layout;planarization=planarization)
+            catch error
+                disconnected=error isa ArgumentError &&
+                    occursin("disconnected PD component",sprint(showerror,error))
+                disconnected || rethrow()
+                layout=nothing
+                _cut_arc_layouts_disconnected(v;planarization=planarization)
+            end
+        else
+            layout=orthogonal_layout(v;bending_numbers=bending_numbers,
+                                     planarization=planarization)
+            _real_arc_layouts(v,layout;planarization=planarization)
+        end
     else
         metadata=_replay_arc_metadata(v)
         length(replay_positions)==length(metadata) || throw(ArgumentError("one MATLAB Position polyline is required for each real arc"))
@@ -365,6 +585,13 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
     S=LINK_STYLE
     placed=NamedTuple[]
 
+    for centre in closed_empty_centres
+        x,y=_pt(centre)
+        push!(body,"<circle class=\"arc\" cx=\"$(_num(x))\" cy=\"$(_num(y))\" r=\"1\" fill=\"none\" stroke=\"#1b3bd0\" stroke-width=\"$(_num(S.strand))\"/>")
+        xmin=min(xmin,real(centre)-1); xmax=max(xmax,real(centre)+1)
+        ymin=min(ymin,imag(centre)-1); ymax=max(ymax,imag(centre)+1)
+    end
+
     for arc in arcs
         points=copy(arc.points)
         # Under-strand ends are shortened to open the crossing gap. In lattice
@@ -376,7 +603,8 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
             points[end] += S.gap*(points[end-1]-points[end])/abs(points[end-1]-points[end])
         end
         data=_rounded_svg_path([_pt(point) for point in points];radius=S.radius)
-        push!(body,"<path class=\"arc\" data-arc=\"$(arc.id)\" d=\"$data\" fill=\"none\" ",
+        boundary_attr=get(arc,:boundary,false) ? " data-boundary=\"true\"" : ""
+        push!(body,"<path class=\"arc\" data-arc=\"$(arc.id)\"$boundary_attr d=\"$data\" fill=\"none\" ",
                    "stroke=\"#1b3bd0\" stroke-width=\"$(_num(S.strand))\" ",
                    "stroke-linejoin=\"round\" stroke-linecap=\"round\"/>")
 
@@ -402,7 +630,7 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
     end
 
     vertices=ComplexF64[]
-    if replay_positions === nothing
+    if replay_positions === nothing && layout !== nothing
         for (index,point) in enumerate(layout.crossings)
             layout.orientation[index] == 0 && continue
             push!(vertices,point)
@@ -411,6 +639,7 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
         crossings=Dict{Int,ComplexF64}()
         for arc in arcs
             for (crossing,point) in ((abs(arc.source),first(arc.points)),(abs(arc.target),last(arc.points)))
+                crossing == 0 && continue
                 haskey(crossings,crossing) && !isapprox(crossings[crossing],point;atol=1e-9) &&
                     throw(ArgumentError("MATLAB Position polylines disagree at crossing $crossing"))
                 crossings[crossing]=point
@@ -428,6 +657,44 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
         away = point - centre
         away = abs(away) < 1e-9 ? complex(0.7071,0.7071) : away/abs(away)
         push!(placed,(pos=point + away*0.30,text="V$real_index"))
+    end
+
+    # A boundary occurrence is an endpoint of one particular real edge.  Draw
+    # and label each occurrence independently, even when several happen to
+    # share the same coordinate in replay data.
+    boundary_index=0
+    boundary_records=NamedTuple[]
+    for arc in arcs
+        get(arc,:boundary,false) || continue
+        for (side,point) in ((:source,first(arc.points)),(:target,last(arc.points)))
+            ((side==:source && arc.source==0) || (side==:target && arc.target==0)) || continue
+            boundary_index += 1
+            x,y=_pt(point)
+            side_name=side==:source ? "in" : "out"
+            strand=get(arc,:strand,0)
+            label=strand > 0 ? "S$(strand) $side_name" : "boundary $side_name"
+            push!(body,"<circle class=\"boundary-endpoint\" data-edge=\"E$(arc.id)\" data-boundary=\"$(label)\" data-strand=\"$strand\" data-side=\"$side_name\" cx=\"$(_num(x))\" cy=\"$(_num(y))\" r=\"$(_num(S.vertex*0.9))\" fill=\"#faf9f7\" stroke=\"#1b3bd0\" stroke-width=\"$(_num(S.arrow))\"/>")
+            segment=side==:source ? arc.points[min(2,length(arc.points))]-point :
+                                    point-arc.points[max(1,length(arc.points)-1)]
+            unit=abs(segment) < 1e-9 ? complex(1.0,0.0) : segment/abs(segment)
+            push!(boundary_records,(strand=strand,side=side,point=point,unit=unit,text=label))
+        end
+    end
+    for strand in unique(record.strand for record in boundary_records)
+        records=filter(record -> record.strand==strand,boundary_records)
+        centre=length(records) >= 2 ? sum(record.point for record in records)/length(records) : nothing
+        for record in records
+            direction=centre === nothing ?
+                record.unit*im*(record.side==:source ? 1 : -1) : record.point-centre
+            if abs(direction) < 1e-9
+                direction=record.unit*im*(record.side==:source ? 1 : -1)
+            else
+                direction /= abs(direction)
+            end
+            label_radius=S.font*(0.30+0.26*length(record.text))
+            distance=max(label_radius+0.20,S.font+0.20)
+            push!(placed,(pos=record.point+direction*distance,text=record.text,fixed=true))
+        end
     end
 
     _spread_labels!(placed)

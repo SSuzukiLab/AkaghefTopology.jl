@@ -88,7 +88,8 @@ For every nonzero crossing label `i`:
 
 - `abs(i)` MUST be in `1:length(v.orientation)`;
 - `i` MUST occur exactly twice across all components, ignoring sign;
-- zero MAY appear as an open/cut component marker and is not a crossing.
+- zero MAY appear exactly once at the end of an open/cut component and is not a crossing.
+  `Int[]` is a crossing-free closed circle; `[0]` is a crossing-free open interval.
 
 The sign of a Gauss entry records the local signed crossing visit used by
 `pd_code` and real-arc traversal.
@@ -104,7 +105,8 @@ The sign of a Gauss entry records the local signed crossing visit used by
   a virtual crossing. For those representation-only calculations, `0` MUST use
   the `+1` slot/turn convention, matching Sage `Link.orientation()` and MATLAB's
   `ori_(ori_==0)=1`. This MUST NOT reclassify the crossing as real.
-- If `v.orientation == Int[]`, the crossing-free unknot branch is selected.
+- If `v.orientation == Int[]`, crossing-free circles and open intervals are
+  distinguished by their component markers.
 - If `v.orientation` is nonempty, it MUST contain at least one nonzero entry and
   the diagram MUST induce at least one real arc. An all-virtual nonempty diagram
   is outside the current rendering contract.
@@ -358,7 +360,7 @@ are upward in layout space. Projection to SVG reverses the y axis.
 `_real_arc_layouts` MUST aggregate routed PD edges into oriented real arcs
 matching `real_edge_table(v)` traversal semantics.
 
-For each component:
+For each closed component:
 
 1. remove zero cut markers;
 2. identify visits whose crossing orientation is nonzero;
@@ -374,6 +376,26 @@ SVG stage.
 
 If no directed PD piece exists for a required Gauss pair, aggregation MUST raise
 an `ArgumentError` rather than omit the arc.
+
+### 7.1 Cut components
+
+`plot_svg` keeps actual cut real-edge identities and weights. For a component
+with real crossings it may obtain coordinates from a temporary closed layout,
+then split the closure arc into two separated half-arcs. The two boundary edges
+MUST use different IDs from the actual cut `real_edge_table`; their endpoints
+are `(strand,:in)` and `(strand,:out)`, never one shared crossing numbered zero.
+The temporary closure is a coordinate scaffold only and MUST NOT be used for
+disk equations, move semantics or invariants. Boundary markers and labels are
+rendered explicitly. Pure open intervals have their own line geometry.
+
+Direct `orthogonal_layout` and the closed-PD face helpers remain closed-only;
+callers of cut diagrams use `plot_svg`. Replay polylines have one entry per
+actual real edge, including both boundary edges, and distinct zero endpoints
+are not required to coincide.
+
+`plot_circuit_b_svg` is a separate combinatorial view of actual directed disk
+paths: every signed edge occurrence is retained, and its endpoint lane labels
+come from `disk_table.boundary_start/end`. It is not an o-graph embedding.
 
 ## 8. Replay branch
 

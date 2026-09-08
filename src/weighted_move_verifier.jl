@@ -4,9 +4,9 @@ This envelope certifies deterministic executor replay and records equation check
 It is not an independent mathematical proof of framing transport. Its hashes bind
 the full raw presentation and integer weights; they are NOT canonical state IDs.
 """
-const WEIGHTED_MOVE_EVIDENCE_SCHEMA = "akaghef.weighted-move-evidence/1"
-const WEIGHTED_MOVE_VERIFIER_VERSION = "weighted-executor-replay/1"
-const WEIGHTED_MOVE_SOURCE_RULE_VERSION = "integer-mp-h-02-ps-runtime/1"
+const WEIGHTED_MOVE_EVIDENCE_SCHEMA = "akaghef.weighted-move-evidence/2"
+const WEIGHTED_MOVE_VERIFIER_VERSION = "weighted-executor-replay/2"
+const WEIGHTED_MOVE_SOURCE_RULE_VERSION = "integer-mp-h-02-ps-runtime-cut/1"
 
 struct WeightedMoveEvidence
     data::Dict{String,Any}
@@ -24,6 +24,8 @@ _weighted_invalid(reason; error=nothing) = WeightedMoveVerification(
     false, reason, nothing, nothing, error===nothing ? nothing : sprint(showerror,error))
 _weighted_json_copy(value) = JSON.parse(ograph_canonical_json(value); dicttype=Dict{String,Any})
 _weighted_digest(value) = bytes2hex(SHA.sha256(codeunits(ograph_canonical_json(value))))
+_weighted_decode_int(value) = value isa AbstractString ? parse(BigInt,value) : BigInt(value)
+_weighted_decode_targets(value) = value===nothing ? nothing : _weighted_decode_int.(value)
 
 function _weighted_exact_int(value)
     value isa Real && !(value isa Bool) && isfinite(value) && isinteger(value) ||
@@ -40,21 +42,27 @@ function _weighted_raw_data(v::VirtualLink)
         throw(ArgumentError("invalid crossing orientations"))
     length(v.weights)==length(v.gauss)==length(v.strand_types) ||
         throw(DimensionMismatch("raw component metadata does not match Gauss components"))
-    for (word,weights) in zip(v.gauss,v.weights)
-        length(weights)==count(x -> x!=0 && v.orientation[abs(x)]!=0,word) ||
+    code,_=real_gauss_code(v)
+    for (word,weights) in zip(code,v.weights)
+        length(weights)==length(word) ||
             throw(DimensionMismatch("raw weights must follow real crossing occurrences"))
     end
     (gauss=deepcopy(v.gauss), orientation=copy(v.orientation),
      weights=[_weighted_exact_int.(w) for w in v.weights], real_only=v.real_only,
-     strand_types=string.(v.strand_types), is_weighted=true)
+     strand_types=string.(v.strand_types), is_weighted=true,
+     cuts=[_is_cut_component(word) for word in v.gauss],
+     boundary_weights=[_is_cut_component(word) ?
+         [_weighted_exact_int(first(v.weights[index])),_weighted_exact_int(last(v.weights[index]))] : nothing
+         for (index,word) in enumerate(v.gauss)])
 end
 
 "Hash a raw weighted presentation, without cyclic/relabeling canonicalization."
 weighted_raw_hash(v::VirtualLink) = _weighted_digest((
-    schema="akaghef.raw-integer-weighted-virtual-link/1",state=_weighted_raw_data(v)))
+    schema="akaghef.raw-integer-weighted-virtual-link/2",state=_weighted_raw_data(v)))
 
 function _weighted_link_from_data(value)
-    _move_data_object(value,("gauss","orientation","weights","real_only","strand_types","is_weighted"))
+    _move_data_object(value,("gauss","orientation","weights","real_only","strand_types","is_weighted",
+                             "cuts","boundary_weights"))
     field(key)=_move_data_field(value,key)
     _move_data_bool(field("is_weighted"),"is_weighted") ||
         throw(ArgumentError("unweighted states do not belong to this evidence schema"))
@@ -65,6 +73,14 @@ function _weighted_link_from_data(value)
     real_only=_move_data_bool(field("real_only"),"real_only")
     strands=_move_data_vector(field("strand_types"),length(code),_move_data_string,"strand_types")
     all(s -> length(s)==1,strands) || throw(ArgumentError("strand types must be single characters"))
+    cuts=_move_data_vector(field("cuts"),length(code),_move_data_bool,"cuts")
+    boundary=_move_data_vector(field("boundary_weights"),length(code),
+        (entry,label)->begin
+            entry===nothing && return nothing
+            _move_data_vector(entry,2,_move_data_int,label)
+        end,"boundary_weights")
+    all(cuts[i] == _is_cut_component(code[i]) for i in eachindex(code)) ||
+        throw(ArgumentError("raw cut flags do not match trailing markers"))
     link=VirtualLink(code,signs,[Float64.(w) for w in weights],real_only,true,first.(strands))
     _weighted_raw_data(link)
     link
@@ -146,17 +162,31 @@ _weighted_detail_data(value::AbstractDict)=Dict(String(k)=>_weighted_detail_data
 _weighted_detail_data(value::Union{Tuple,AbstractVector})=[_weighted_detail_data(v) for v in value]
 _weighted_detail_data(value)=value
 
-function _weighted_equation_data(v;framed)
+function _weighted_equation_data(v;framed,boundary=nothing)
     # Accumulate in BigInt independently of the machine-Int public residual.
-    weights=BigInt[_weighted_exact_int(e.weight) for e in real_edge_table(v)]
+    measurement_only=boundary===nothing && any(_is_cut_component, v.gauss) && !framed
+    equation=if measurement_only
+        data=boundary_weight_data(v)
+        (edge_weights=data.edge_weights, residual=data.measured,
+         boundary_targets=nothing,
+         boundary_start=data.boundary_start,boundary_end=data.boundary_end,
+         delta=data.delta,cp2=data.cp2)
+    else
+        weight_equation(v;boundary=boundary)
+    end
+    measured=measurement_only ? equation.residual : boundary_weight_data(v).measured
     disks=disk_table(v)
-    residual=2*BigInt.(disks.delta)*weights+BigInt.(disks.cp2)
+    residual=BigInt.(equation.residual)
     closed=all(!=(0),v.orientation) && all(w->all(!=(0),w),v.gauss) && is_closed(v)[1]
-    framed && !closed && throw(ArgumentError("framed evidence requires a closed normal o-graph"))
+    framed && !closed && boundary===nothing && throw(ArgumentError("open framed evidence requires explicit boundary targets"))
     framed && any(!=(0),residual) && throw(ArgumentError("nonzero framing residual"))
-    # Strings retain arbitrary-size exact residuals in JSON without overflow.
     (framed_requested=framed,closed_normal=closed,residual=string.(residual),
-     real_edge_weights=Int.(weights))
+     real_edge_weights=Int.(equation.edge_weights),
+     measured_boundary_residual=string.(measured),
+     boundary_targets=equation.boundary_targets===nothing ? nothing : string.(equation.boundary_targets),
+     boundary_targets_supplied=boundary!==nothing,
+     boundary_start=_weighted_detail_data(equation.boundary_start),
+     boundary_end=_weighted_detail_data(equation.boundary_end))
 end
 
 function _weighted_unweight(v)
@@ -164,6 +194,21 @@ function _weighted_unweight(v)
     result.is_weighted=false
     result.weights=[zeros(length(w)) for w in v.weights]
     result
+end
+
+"""Return the raw presentation fields that a relative weighted result must share."""
+function _weighted_topology_raw(v::VirtualLink)
+    _validate_gauss(v.gauss,v.orientation;real_only=v.real_only)
+    (gauss=deepcopy(v.gauss),orientation=copy(v.orientation),real_only=v.real_only,
+     strand_types=string.(v.strand_types),
+     cuts=[_is_cut_component(word) for word in v.gauss])
+end
+
+"""Replay a relative candidate on the source after discarding assigned weights."""
+function _weighted_relative_topology_target(source::VirtualLink,candidate::MoveCandidate)
+    replay_source=_weighted_unweight(source)
+    _apply_candidate!(replay_source,candidate)
+    replay_source
 end
 
 function _weighted_topological_data(source,target,candidate)
@@ -178,6 +223,19 @@ function _weighted_topological_data(source,target,candidate)
     (status="verified-by-existing-unweighted-verifier",witness=ograph_move_witness_data(result.witness))
 end
 
+function _weighted_boundary_pair(boundary)
+    boundary===nothing && return (nothing,nothing)
+    if boundary isa NamedTuple && haskey(boundary,:source) && haskey(boundary,:target)
+        return (boundary.source,boundary.target)
+    elseif boundary isa AbstractDict && haskey(boundary,"source") && haskey(boundary,"target")
+        return (boundary["source"],boundary["target"])
+    elseif boundary isa Tuple && length(boundary)==2 &&
+           !(boundary[1] isa Integer && boundary[2] isa Integer)
+        return (boundary[1],boundary[2])
+    end
+    (boundary,boundary)
+end
+
 """Apply a frozen weighted candidate on a copy, check it, and produce raw evidence.
 
 `framed=true` checks closed-normal source and target plus the exact framing
@@ -185,7 +243,7 @@ equation. Residual zero alone does not prove preservation of the same framing.
 Unsupported/unmatched moves return an invalid report without modifying source.
 """
 function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
-                              framed=false,expected_raw_target=nothing)
+                              framed=false,expected_raw_target=nothing,boundary=nothing)
     candidate.type in ("MP","H","02","PS") || return _weighted_invalid(:unsupported_move)
     # Current supported weighted sites use vertices or explicit occurrences.
     # An ignored endpoint selector must not become unauthenticated evidence.
@@ -196,24 +254,27 @@ function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
     stage=:invalid_source
     try
         framed isa Bool || throw(ArgumentError("framed must be Boolean"))
+        source_boundary,target_boundary=_weighted_boundary_pair(boundary)
         raw_source=_weighted_raw_data(source)
-        source_equation=_weighted_equation_data(source;framed=framed)
+        source_equation=_weighted_equation_data(source;framed=framed,boundary=source_boundary)
         stage=:candidate_mismatch
         frozen=_weighted_catalogue_candidate(source,candidate)
         frozen===nothing && return _weighted_invalid(:candidate_mismatch)
         stage=:application_failed
         details = if frozen.type=="PS"
-            plan=_weighted_ps_plan(source,frozen)
+            plan=_weighted_ps_plan(source,frozen;
+                boundary=(source=source_boundary,target=target_boundary))
             (coordinate_system="real-gauss-components/head-occurrences",
              ps=plan.detail,transport=_weighted_transport_detail(source,plan.candidate))
         else
             (coordinate_system="real-gauss-components/head-occurrences",
              ps=nothing,transport=_weighted_transport_detail(source,frozen))
         end
-        target=move(source,frozen)
+        target=move(source,frozen;
+            boundary=(source=source_boundary,target=target_boundary))
         stage=:invalid_target
         raw_target=_weighted_raw_data(target)
-        target_equation=_weighted_equation_data(target;framed=framed)
+        target_equation=_weighted_equation_data(target;framed=framed,boundary=target_boundary)
         if expected_raw_target!==nothing
             expected=expected_raw_target isa VirtualLink ? _weighted_raw_data(expected_raw_target) : expected_raw_target
             ograph_canonical_json(expected)==ograph_canonical_json(raw_target) ||
@@ -229,12 +290,72 @@ function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
             source_raw=raw_source,target_raw=raw_target,
             source_raw_sha256=weighted_raw_hash(source),target_raw_sha256=weighted_raw_hash(target),
             candidate=_weighted_candidate_data(frozen),source_equation=source_equation,
-            target_equation=target_equation,topological=topological,
+            target_equation=target_equation,
+            boundary=(source=source_equation.boundary_targets_supplied ? source_equation.boundary_targets : nothing,
+                      target=target_equation.boundary_targets_supplied ? target_equation.boundary_targets : nothing),
+            topological=topological,
             transport_detail=_weighted_detail_data(details)))
         WeightedMoveVerification(true,:verified,WeightedMoveEvidence(data),target,nothing)
     catch error
         error isa InterruptException && rethrow()
         _weighted_invalid(stage;error=error)
+    end
+end
+
+"""Record an externally assigned CP/BMP/B02 result with raw boundary evidence.
+
+This interface deliberately does not claim a generic weighted transport rule:
+the caller supplies the target produced by its experiment, while this envelope
+binds both raw states, the frozen move witness, and the measured boundary data.
+"""
+function verify_weighted_relative_result(source::VirtualLink,target::VirtualLink,
+                                         candidate::MoveCandidate;boundary=nothing)
+    candidate.type in ("CP","BMP","B02") || return _weighted_invalid(:unsupported_move)
+    source.is_weighted && target.is_weighted || return _weighted_invalid(:invalid_source)
+    try
+        source_boundary,target_boundary=_weighted_boundary_pair(boundary)
+        source_raw=_weighted_raw_data(source); target_raw=_weighted_raw_data(target)
+        expected_topology=_weighted_relative_topology_target(source,candidate)
+        _weighted_digest(_weighted_topology_raw(expected_topology)) ==
+            _weighted_digest(_weighted_topology_raw(target)) ||
+            return _weighted_invalid(:raw_target_mismatch)
+        source_equation=_weighted_equation_data(source;framed=false,boundary=source_boundary)
+        target_equation=_weighted_equation_data(target;framed=false,boundary=target_boundary)
+        data=_weighted_json_copy((schema="akaghef.weighted-relative-result/1",
+            evidence_kind="assigned-result-with-boundary-evidence",
+            source_raw=source_raw,target_raw=target_raw,
+            source_raw_sha256=weighted_raw_hash(source),target_raw_sha256=weighted_raw_hash(target),
+            candidate=_weighted_candidate_data(candidate),
+            boundary=(source=source_equation.boundary_targets_supplied ? source_equation.boundary_targets : nothing,
+                      target=target_equation.boundary_targets_supplied ? target_equation.boundary_targets : nothing),
+            source_equation=source_equation,target_equation=target_equation))
+        WeightedMoveVerification(true,:assigned_result,WeightedMoveEvidence(data),deepcopy(target),nothing)
+    catch error
+        error isa InterruptException && rethrow()
+        _weighted_invalid(:assigned_result_invalid;error=error)
+    end
+end
+
+function replay_weighted_relative_result(value)
+    try
+        data=value isa WeightedMoveEvidence ? value.data : value
+        data["schema"]=="akaghef.weighted-relative-result/1" || return _weighted_invalid(:malformed_evidence)
+        source=_weighted_link_from_data(data["source_raw"])
+        target=_weighted_link_from_data(data["target_raw"])
+        weighted_raw_hash(source)==data["source_raw_sha256"] || return _weighted_invalid(:source_hash_mismatch)
+        weighted_raw_hash(target)==data["target_raw_sha256"] || return _weighted_invalid(:target_hash_mismatch)
+        candidate=_weighted_candidate_from_data(data["candidate"])
+        decode_boundary(value)=_weighted_decode_targets(value)
+        replay=verify_weighted_relative_result(source,target,candidate;
+            boundary=(source=decode_boundary(data["boundary"]["source"]),
+                      target=decode_boundary(data["boundary"]["target"])))
+        replay.valid || return replay
+        ograph_canonical_json(replay.evidence.data)==ograph_canonical_json(data) ||
+            return _weighted_invalid(:evidence_mismatch)
+        replay
+    catch error
+        error isa InterruptException && rethrow()
+        _weighted_invalid(:malformed_evidence;error=error)
     end
 end
 
@@ -245,7 +366,7 @@ weighted_move_evidence_data(evidence::WeightedMoveEvidence)=deepcopy(evidence.da
 function weighted_move_evidence_from_data(value)
     _move_data_object(value,("schema","verifier_version","source_rule_version","evidence_kind",
         "identity","source_raw","target_raw","source_raw_sha256","target_raw_sha256",
-        "candidate","source_equation","target_equation","topological","transport_detail"))
+        "candidate","source_equation","target_equation","boundary","topological","transport_detail"))
     field(key)=_move_data_field(value,key)
     field("schema")==WEIGHTED_MOVE_EVIDENCE_SCHEMA || throw(ArgumentError("unsupported weighted evidence schema"))
     field("verifier_version")==WEIGHTED_MOVE_VERIFIER_VERSION || throw(ArgumentError("unsupported weighted verifier version"))
@@ -272,8 +393,13 @@ function replay_weighted_move(value)
         weighted_raw_hash(target)==data["target_raw_sha256"] || return _weighted_invalid(:target_hash_mismatch)
         equation=data["source_equation"]
         framed=_move_data_bool(_move_data_field(equation,"framed_requested"),"framed_requested")
+        boundary=data["boundary"]
+        decode_boundary(value)=_weighted_decode_targets(value)
+        source_boundary=decode_boundary(_move_data_field(boundary,"source"))
+        target_boundary=decode_boundary(_move_data_field(boundary,"target"))
         replay=verify_weighted_move(source,_weighted_candidate_from_data(data["candidate"]);
-            framed=framed,expected_raw_target=target)
+            framed=framed,expected_raw_target=target,
+            boundary=(source=source_boundary,target=target_boundary))
         replay.valid || return replay
         ograph_canonical_json(replay.evidence.data)==ograph_canonical_json(data) ||
             return _weighted_invalid(:evidence_mismatch)

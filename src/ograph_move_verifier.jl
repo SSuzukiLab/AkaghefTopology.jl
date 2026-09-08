@@ -138,6 +138,18 @@ end
 ograph_raw_hash(state::OGraphState) =
     bytes2hex(SHA.sha256(codeunits(_ograph_raw_serialization(state))))
 
+function _ograph_raw_link_serialization(link::VirtualLink)
+    code, orientation = real_gauss_code(link)
+    words = join(join.(code, Ref(',')), ';')
+    "OGraphRaw;schema=$(OGRAPH_PRESENTATION_SCHEMA);" *
+        "convention-bytes=$(ncodeunits(OGRAPH_DEFAULT_CONVENTION)):$(OGRAPH_DEFAULT_CONVENTION);" *
+        "n=$(length(orientation));gauss=$(words);" *
+        "vertex_signs=$(join(orientation, ','))"
+end
+
+ograph_raw_hash(link::VirtualLink) =
+    bytes2hex(SHA.sha256(codeunits(_ograph_raw_link_serialization(link))))
+
 _cp_edata(open_word, signs, closed=Vector{Vector{Int}}()) =
     OGraphBoundaryEData(Int.(open_word), [Int.(word) for word in closed], Int.(signs))
 
@@ -578,7 +590,8 @@ function _check_candidate_source(source::VirtualLink, candidate::MoveCandidate)
     expected = _expected_pattern_candidate(candidate)
     expected === nothing && return (:catalogue_mismatch, nothing, nothing, nothing)
     code, orientation = real_gauss_code(source)
-    all(!=(0), source.orientation) && all(word -> all(!=(0), word), source.gauss) ||
+    all(!=(0), source.orientation) &&
+        all(word -> all(!=(0), _component_visits(word)), source.gauss) ||
         return (:non_ograph_source, nothing, nothing, nothing)
     length(code) == 1 || return (:source_not_one_circuit, nothing, nothing, nothing)
     vertices = expected.vertices
@@ -596,9 +609,11 @@ function _check_candidate_source(source::VirtualLink, candidate::MoveCandidate)
         return (:source_mismatch, nothing, nothing, nothing)
     for (fragment, (component, start)) in zip(mapped_before, expected.locations)
         1 <= component <= length(code) || return (:source_mismatch, nothing, nothing, nothing)
-        1 <= start <= length(code[component]) ||
+        n = _is_cut_component(code[component]) ? length(code[component]) - 1 :
+            length(code[component])
+        1 <= start <= n ||
             return (:source_mismatch, nothing, nothing, nothing)
-        (isempty(fragment) || start in _cyclic_occurrences(code[component], fragment)) ||
+        (isempty(fragment) || start in _pattern_occurrences(code[component], fragment)) ||
             return (:source_mismatch, nothing, nothing, nothing)
     end
     _locations_compatible(expected.locations, mapped_before, code) ||
@@ -670,17 +685,35 @@ const _METHOD_B_DM = (1, 2, 3, 3, 4, 5, 1, 6, 5, 2, 4, 6)
 function _method_b_steps(source::VirtualLink)
     code, orientation = real_gauss_code(source)
     edges = real_edge_table(source)
+    disks = disk_table(source)
+    boundary_nodes = Dict{Tuple{Int,Symbol},NTuple{3,Int}}()
+    for boundary in disks.boundary_nodes
+        side = boundary.side == :in ? :start : :end
+        boundary_nodes[(boundary.edge_id, side)] = Tuple(Int.(boundary.node_ids))
+    end
     steps = OGraphMethodBLaneStep[]
     for edge in edges
         source_crossing, target_crossing = edge.crossing
-        source_slots = (1:3) .+ 6 .+ 3 * (source_crossing > 0)
-        target_slots = (1:3) .+ 3 * (target_crossing > 0)
-        source_dictionary = orientation[abs(source_crossing)] > 0 ? _METHOD_B_DP : _METHOD_B_DM
-        target_dictionary = orientation[abs(target_crossing)] > 0 ? _METHOD_B_DP : _METHOD_B_DM
-        source_nodes = 6 * (abs(source_crossing) - 1) .+
-            [source_dictionary[index] for index in source_slots]
-        target_nodes = 6 * (abs(target_crossing) - 1) .+
-            [target_dictionary[index] for index in target_slots]
+        source_nodes = if source_crossing == 0
+            get(boundary_nodes, (edge.id, :start), nothing)
+        else
+            source_slots = (1:3) .+ 6 .+ 3 * (source_crossing > 0)
+            source_dictionary = orientation[abs(source_crossing)] > 0 ? _METHOD_B_DP : _METHOD_B_DM
+            Tuple(6 * (abs(source_crossing) - 1) .+
+                [source_dictionary[index] for index in source_slots])
+        end
+        target_nodes = if target_crossing == 0
+            get(boundary_nodes, (edge.id, :end), nothing)
+        else
+            target_slots = (1:3) .+ 3 * (target_crossing > 0)
+            target_dictionary = orientation[abs(target_crossing)] > 0 ? _METHOD_B_DP : _METHOD_B_DM
+            Tuple(6 * (abs(target_crossing) - 1) .+
+                [target_dictionary[index] for index in target_slots])
+        end
+        source_nodes === nothing &&
+            throw(ArgumentError("Method-B source boundary nodes are missing for edge $(edge.id)"))
+        target_nodes === nothing &&
+            throw(ArgumentError("Method-B target boundary nodes are missing for edge $(edge.id)"))
         word = code[edge.strand]
         head = findfirst(==(target_crossing), word)
         head === nothing && error("real edge head occurrence was lost")
@@ -699,20 +732,41 @@ end
 
 function _method_b_circuit_trace(steps, selected::OGraphMethodBLaneStep)
     outgoing = Dict{Int,OGraphMethodBLaneStep}()
+    incoming = Dict{Int,OGraphMethodBLaneStep}()
     for step in steps
         haskey(outgoing, step.from_node) && return nothing
+        haskey(incoming, step.to_node) && return nothing
         outgoing[step.from_node] = step
+        incoming[step.to_node] = step
+    end
+    # Walk backwards to the start of an open path.  If every predecessor is
+    # present, the selected component is a closed cycle and retains the old
+    # selected-root trace shape.
+    start = selected.from_node
+    seen = Set{Int}()
+    closed = false
+    while haskey(incoming, start)
+        start in seen && (closed = true; break)
+        push!(seen, start)
+        start = incoming[start].from_node
     end
     trace = OGraphMethodBLaneStep[]
-    node = selected.from_node
-    while true
-        haskey(outgoing, node) || return nothing
+    node = closed ? selected.from_node : start
+    while haskey(outgoing, node)
         step = outgoing[node]
         push!(trace, step)
         node = step.to_node
-        node == selected.from_node && break
         length(trace) <= length(steps) || return nothing
+        closed && node == selected.from_node && break
     end
+    closed && node != selected.from_node && return nothing
+    any(step -> step.edge_id == selected.edge_id &&
+              step.component == selected.component &&
+              step.tail_occurrence == selected.tail_occurrence &&
+              step.head_occurrence == selected.head_occurrence &&
+              step.lane == selected.lane &&
+              step.from_node == selected.from_node &&
+              step.to_node == selected.to_node, trace) || return nothing
     trace
 end
 
@@ -721,8 +775,12 @@ function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code
     consumed = Set{Tuple{Int,Int}}()
     fragment_positions = Vector{Vector{Int}}()
     for (fragment, (component, start)) in zip(mapped_before, candidate.locations)
-        positions = [mod1(start + offset, length(source_code[component]))
-                     for offset in 0:length(fragment)-1]
+        raw_n = length(source_code[component])
+        n = _is_cut_component(source_code[component]) ? raw_n - 1 : raw_n
+        positions = _is_cut_component(source_code[component]) ?
+            (start >= 1 && start + length(fragment) - 1 <= n ?
+             collect(start:start + length(fragment) - 1) : Int[]) :
+            [mod1(start + offset, n) for offset in 0:length(fragment)-1]
         push!(fragment_positions, positions)
         foreach(position -> push!(consumed, (component, position)), positions)
     end
@@ -730,33 +788,36 @@ function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code
     boundaries = OGraphPSGapBoundary[]
     for (index, ((component, start), positions)) in
             enumerate(zip(candidate.locations, fragment_positions))
-        n = length(source_code[component])
+        raw_n = length(source_code[component])
+        cut = _is_cut_component(source_code[component])
+        n = cut ? raw_n - 1 : raw_n
         length(positions) < n || return nothing
-        predecessor = mod1(start - 1, n)
+        predecessor = cut && start == 1 ? raw_n : mod1(start - 1, n)
         while (component, predecessor) in consumed
             predecessor = mod1(predecessor - 1, n)
         end
-        successor = mod1(start + length(positions), n)
+        successor = cut && start + length(positions) > n ? raw_n :
+            mod1(start + length(positions), n)
         while (component, successor) in consumed
             successor = mod1(successor + 1, n)
         end
         predecessor_entry = source_code[component][predecessor]
         successor_entry = source_code[component][successor]
-        haskey(old_to_new, abs(predecessor_entry)) || return nothing
-        haskey(old_to_new, abs(successor_entry)) || return nothing
-        target_tail_entry = sign(predecessor_entry) * old_to_new[abs(predecessor_entry)]
-        target_head_entry = sign(successor_entry) * old_to_new[abs(successor_entry)]
+        predecessor_entry == 0 || haskey(old_to_new, abs(predecessor_entry)) || return nothing
+        successor_entry == 0 || haskey(old_to_new, abs(successor_entry)) || return nothing
+        target_tail_entry = predecessor_entry == 0 ? 0 :
+            sign(predecessor_entry) * old_to_new[abs(predecessor_entry)]
+        target_head_entry = successor_entry == 0 ? 0 :
+            sign(successor_entry) * old_to_new[abs(successor_entry)]
         target_matches = Tuple{Int,Int,Int}[]
-        for (target_component, word) in enumerate(target_code), tail in eachindex(word)
-            head = mod1(tail + 1, length(word))
-            word[tail] == target_tail_entry && word[head] == target_head_entry || continue
-            edge_ids = unique(step.edge_id for step in steps
-                              if step.component == target_component &&
-                                 step.tail_occurrence == tail &&
-                                 step.head_occurrence == head)
-            length(edge_ids) == 1 || return nothing
-            push!(target_matches, (target_component, tail, only(edge_ids)))
+        target_edges = real_edge_table(target)
+        for step in steps
+            edge = target_edges[step.edge_id]
+            edge.crossing == (target_tail_entry, target_head_entry) || continue
+            push!(target_matches, (step.component, step.tail_occurrence,
+                                   step.edge_id))
         end
+        target_matches = unique(target_matches)
         length(target_matches) == 1 || return nothing
         target_component, tail, edge_id = only(target_matches)
         head = mod1(tail + 1, length(target_code[target_component]))
@@ -768,7 +829,7 @@ function _ps_target_gap_boundaries(source_code, target::VirtualLink, target_code
     boundaries
 end
 
-function _ps_method_b_witness(target::VirtualLink, target_state::OGraphState,
+function _ps_method_b_witness(target::VirtualLink, target_state,
                               candidate::MoveCandidate,
                               boundaries::Vector{OGraphPSGapBoundary})
     # MST25 definition 0083 and figure 0084. Row II swaps catalogue fragments.
@@ -790,9 +851,12 @@ function _ps_method_b_witness(target::VirtualLink, target_state::OGraphState,
     trace === nothing && return nothing
     any(step -> step.edge_id == right.edge_id && step.lane == right.lane, trace) || return nothing
     circuit_id = minimum(min(step.from_node, step.to_node) for step in trace)
+    evaluated_hash = target_state === nothing ? ograph_raw_hash(target) :
+        target_state isa OGraphState ? ograph_raw_hash(target_state) :
+        throw(ArgumentError("Method-B witness state must be an OGraphState or nothing"))
     OGraphPSMethodBWitness(paper_type, candidate.parameter,
                            candidate.direction==:forward ? :source_raw : :target_raw,
-                           ograph_raw_hash(target_state), copy(boundaries),
+                           evaluated_hash, copy(boundaries),
                            left.edge_id, right.edge_id, left_lane, right_lane,
                            circuit_id, trace)
 end
@@ -827,7 +891,13 @@ function ps_global_condition(source::VirtualLink,candidate::MoveCandidate)
             [_map_fragment(f,frozen.vertices) for f in frozen.before.gauss],mapping)
     end
     boundaries===nothing && return (valid=false,reason=:ps_gap_transport_failed,witness=nothing)
-    witness=_ps_method_b_witness(lhs,ograph_state(lhs),frozen,boundaries)
+    closed_state = try
+        ograph_state(lhs)
+    catch error
+        error isa ArgumentError || rethrow()
+        nothing
+    end
+    witness=_ps_method_b_witness(lhs,closed_state,frozen,boundaries)
     (valid=witness!==nothing,reason=witness===nothing ? :different_method_b_circuits : :same_method_b_circuit,
      witness=witness)
 end

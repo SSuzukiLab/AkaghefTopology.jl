@@ -15,9 +15,11 @@ export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
        trace_value, trace1, trace2, trace3, standard_matrix_adjustment, standard_matrix_trace,
        rank, odata, weight_expression, unicode_art, trans_knot_complement,
        gauss_code, real_gauss_code, real_edge_table, RealEdge, pd_code, edge_directions, regions,
-       head_map, is_closed,
+       head_map, is_closed, strand_cuts, set_cuts!,
        hmove_matrix, disk_table, disk_tetrahedra, calculate_weight, weight_equation, weight_residual,
-       validate_weight, is_framed_weight, first_betti_number, mirror_manifold!, cyclic_shift!,
+       validate_weight, is_framed_weight, first_betti_number, boundary_weight_data,
+       circuit_b_boundary, circuit_b_at, plot_circuit_b_svg,
+       mirror_manifold!, cyclic_shift!,
        MoveCandidate, movable, move, move!, mp_move!,
        connected_sum!, disjoint_sum!, knot_complement!, vl_to_urdiagram,
        ur_invariant, ur_prime_invariant, EdgeLayout, LinkLayout,
@@ -44,7 +46,8 @@ export WeightedMoveEvidence, WeightedMoveVerification,
        WEIGHTED_MOVE_EVIDENCE_SCHEMA, WEIGHTED_MOVE_VERIFIER_VERSION,
        WEIGHTED_MOVE_SOURCE_RULE_VERSION,
        verify_weighted_move, weighted_move_evidence_data,
-       weighted_move_evidence_from_data, replay_weighted_move, weighted_raw_hash
+       weighted_move_evidence_from_data, replay_weighted_move, weighted_raw_hash,
+       verify_weighted_relative_result, replay_weighted_relative_result
 export weighted_ps_candidate
 export solve_integer_weight_system, solve_integer_weights,
        solve_integer_weight_lift, verify_integer_weight_solution
@@ -123,6 +126,7 @@ include("symbolic.jl")
 include("laurent.jl")
 include("ur_diagram.jl")
 include("virtual_link.jl")
+include("circuit_b.jl")
 include("integer_weight_solver.jl")
 include("ograph_state.jl")
 include("weight_validation.jl")

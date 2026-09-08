@@ -160,9 +160,7 @@ function verify_integer_weight_solution(result)
     true
 end
 
-function _current_integer_weight_system(v::VirtualLink)
-    any(g -> 0 in g,v.gauss) &&
-        throw(ArgumentError("cut presentations require explicit boundary weight equations"))
+function _current_integer_weight_system(v::VirtualLink;boundary=nothing)
     all(x -> x in (-1,0,1),v.orientation) || throw(ArgumentError("invalid crossing orientation"))
     _validate_gauss(v.gauss,v.orientation)
     code,orientation=real_gauss_code(v)
@@ -172,12 +170,13 @@ function _current_integer_weight_system(v::VirtualLink)
     disks=disk_table(v)
     # Convert BEFORE multiplying, so machine-integer overflow is never part of
     # the solver's construction of the actual doubled disk equation.
-    2 .* BigInt.(disks.delta),-BigInt.(disks.cp2)
+    targets=_boundary_targets(disks,boundary)
+    2 .* BigInt.(disks.delta),targets-BigInt.(disks.cp2)
 end
 
-function _assign_integer_weight_particular!(v::VirtualLink,result)
+function _assign_integer_weight_particular!(v::VirtualLink,result;boundary=nothing)
     verify_integer_weight_solution(result)
-    A,b=_current_integer_weight_system(v)
+    A,b=_current_integer_weight_system(v;boundary=boundary)
     A==result.A && b==result.b || throw(ArgumentError("integer solution belongs to another disk equation"))
     result.status==:integer_solution || return :not_integer_feasible
     any(x -> abs(x)>_INTEGER_WEIGHT_SAFE_MAX,result.particular) && return :outside_safe_integer_range
@@ -196,20 +195,22 @@ function _assign_integer_weight_particular!(v::VirtualLink,result)
     # and any prior weights if validation or storage conversion fails.
     target=deepcopy(v)
     set_weight!(target,values)
+    validate_weight(target;framed=true,boundary=boundary)
     v.weights=target.weights
     v.is_weighted=target.is_weighted
     :assigned
 end
 
 """
-    solve_integer_weights(v::VirtualLink; assign=false)
+    solve_integer_weights(v::VirtualLink; assign=false, boundary=nothing)
 
-Solve the current presentation's actual `2*disk_table(v).delta*w+cp2=0` over
-the integers. Edge coordinates are the `real_edge_table` traversal order,
-including the real arcs that pass through virtual crossings. The result also
-records the raw presentation and whether it is closed normal. A solution of
-the disk equation on a nonclosed presentation is not a closed framing claim.
-Cut presentations are rejected until boundary equations are specified.
+Solve the current presentation's exact disk equations over the integers.
+Closed rows use `2*delta*w+cp2=0`; open rows use the measured
+`2*delta*w-Ndots` and require `boundary`, an explicit target mapping keyed by
+stable endpoint identities (or a row-aligned target vector). Edge coordinates
+are the `real_edge_table` traversal order, including the real arcs that pass
+through virtual crossings. A solution of the disk equation on a nonclosed
+presentation is not a closed framing claim.
 
 No mutation occurs by default. With explicit `assign=true`, the result reports
 `:assigned`, `:not_integer_feasible`, `:outside_safe_integer_range`, or
@@ -221,23 +222,24 @@ Assignment uses the same contiguous integer range `abs(w)<=2^53-1` as moves.
 Assignment is initial weight selection, never move transport. This function
 does not replace or call the legacy `calculate_weight` API.
 """
-function solve_integer_weights(v::VirtualLink;assign=false,parity=nothing)
+function solve_integer_weights(v::VirtualLink;assign=false,parity=nothing,boundary=nothing)
     assign isa Bool || throw(ArgumentError("assign must be an explicit Boolean"))
-    parity===nothing || return solve_integer_weight_lift(v,parity;assign=assign)
-    A,b=_current_integer_weight_system(v)
+    parity===nothing || return solve_integer_weight_lift(v,parity;assign=assign,boundary=boundary)
+    A,b=_current_integer_weight_system(v;boundary=boundary)
     result=solve_integer_weight_system(A,b)
     closed,conditions=is_closed(v)
     code,orientation=real_gauss_code(v)
     presentation=(gauss=deepcopy(v.gauss),orientation=copy(v.orientation),real_only=v.real_only,
         strand_types=copy(v.strand_types),real_gauss=code,real_orientation=orientation,
         closed_normal=closed,closed_conditions=conditions)
-    assignment=assign ? _assign_integer_weight_particular!(v,result) : :not_requested
-    merge(result,(presentation=presentation,assignment_status=assignment))
+    assignment=assign ? _assign_integer_weight_particular!(v,result;boundary=boundary) : :not_requested
+    merge(result,(presentation=presentation,boundary_targets=_boundary_targets(disk_table(v),boundary),
+                  assignment_status=assignment))
 end
 
 """
     solve_integer_weight_lift(A, b, parity)
-    solve_integer_weight_lift(v::VirtualLink, parity; assign=false)
+    solve_integer_weight_lift(v::VirtualLink, parity; assign=false, boundary=nothing)
 
 Solve the additional constraint `w mod 2 == parity`, with each specified
 coordinate exactly 0 or 1. The transformed integer system is
@@ -292,15 +294,16 @@ function _verify_integer_weight_lift(result)
     true
 end
 
-function solve_integer_weight_lift(v::VirtualLink,parity::AbstractVector;assign=false)
+function solve_integer_weight_lift(v::VirtualLink,parity::AbstractVector;assign=false,boundary=nothing)
     assign isa Bool || throw(ArgumentError("assign must be an explicit Boolean"))
-    A,b=_current_integer_weight_system(v)
+    A,b=_current_integer_weight_system(v;boundary=boundary)
     result=solve_integer_weight_lift(A,b,parity)
     closed,conditions=is_closed(v)
     code,orientation=real_gauss_code(v)
     presentation=(gauss=deepcopy(v.gauss),orientation=copy(v.orientation),real_only=v.real_only,
         strand_types=copy(v.strand_types),real_gauss=code,real_orientation=orientation,
         closed_normal=closed,closed_conditions=conditions)
-    assignment=assign ? _assign_integer_weight_particular!(v,result) : :not_requested
-    merge(result,(presentation=presentation,assignment_status=assignment))
+    assignment=assign ? _assign_integer_weight_particular!(v,result;boundary=boundary) : :not_requested
+    merge(result,(presentation=presentation,boundary_targets=_boundary_targets(disk_table(v),boundary),
+                  assignment_status=assignment))
 end

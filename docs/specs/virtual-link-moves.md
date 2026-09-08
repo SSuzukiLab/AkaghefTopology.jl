@@ -109,7 +109,7 @@ presentation. It MUST NOT treat a full-Gauss drawing cache as move data.
 A fragment that crosses the stored end/start boundary of a closed Gauss
 component is not exceptional or invalid.
 
-Applicability search MUST match fragments cyclically. Execution MUST either:
+On closed components, applicability search MUST match fragments cyclically. Execution MUST either:
 
 - perform a direct rewrite when all matched intervals are linear in the stored
   word; or
@@ -118,6 +118,20 @@ Applicability search MUST match fragments cyclically. Execution MUST either:
 
 It MUST NOT reject a mathematically valid occurrence merely because its stored
 position wraps.
+
+For a cut component, the nonzero prefix is a linear word. Its terminal `0`
+is an endpoint marker, not a crossing or a cyclic seam. Matching MUST NOT cross
+it. Reconnection MUST carry the actual incoming and outgoing boundary ports
+through fragment/component splits; assigning the marker to the last output
+component or restoring it solely by a former component index is invalid.
+Boundary edges have separate weight coordinates. Raw evidence retains the
+marker and both endpoint weights; a closed canonical state is not a substitute.
+
+Open circuit-B measurements and explicitly prescribed boundary equations are
+distinct from closed-normal framing checks. A relative experiment MUST record
+which boundary paths are compared and any changed targets. Rejecting a cut
+input at a closed-only verifier does not prohibit its raw local rewrite, and
+a successful raw rewrite does not certify a relative framing theorem.
 
 ### 2.6 Mutation must be explicit
 
@@ -418,12 +432,12 @@ A vertex count not listed here MUST be rejected.
 For a pattern-driven request, `movable` MUST:
 
 1. obtain `real_gauss_code(v)`;
-2. normalize cut markers out of the searched words;
+2. preserve cut markers and distinguish linear from cyclic words;
 3. choose source/target tables from move type and selected-vertex count;
 4. enumerate selected-vertex permutations unless `strict=true`;
 5. filter source rows by parameter and orientation;
 6. replace each local signed label by its concrete signed vertex ID;
-7. find every cyclic occurrence of every source fragment;
+7. find every source-fragment occurrence, linearly on cut words and cyclically on closed words;
 8. form joint location products;
 9. reject products whose source intervals overlap;
 10. pair the source row with the corresponding target row;
@@ -628,15 +642,19 @@ feasibility, checks `delta*H=0`, and does not count framings.
 ### 12.1 Supported weighted moves
 
 The integer-weighted API supports all 16 MP types, H, 02, and PS I–IV in
-both directions. PS additionally requires closed-normal geometry, the Method-B
-condition and the framing equation. MP/H/02 transport also operates on integral
+both directions on their supported geometry. PS additionally requires the Method-B
+condition and the source and target weight equations. On a cut presentation these
+are relative equations with explicitly supplied boundary targets. MP/H/02 transport also operates on integral
 presentations that do not satisfy the framing equation; use the evidence entry
 with `framed=true` when those extra conditions are required.
 
 Weights and H parameters MUST be integers in the consecutive exact Float64
 range `[-(2^53-1), 2^53-1]`. Accumulation uses `BigInt`, and an out-of-range
-result MUST reject before mutation. Cut components require boundary data and
-are currently rejected by the weighted entry points.
+result MUST reject before mutation. Raw MP/H/02 transport accepts cut components;
+equation validation additionally requires boundary targets. A generic pattern
+replacement currently supports at most one affected cut component. It MUST NOT
+match a nonempty fragment across the cut or remove a cut component as a source-only
+fragment.
 
 ### 12.2 Direct MP transport
 
@@ -656,7 +674,13 @@ An exterior path with q vertices stores q+1 edge portions. Source boundary
 corrections are subtracted there, then target fragments and exterior paths are
 concatenated through the capacity cycle with exact addition. Shared seams,
 adjacent fragments and empty insertion slots MUST count each old edge once.
-An unrepresentable nonzero weight on a vertex-free component MUST reject.
+An unrepresentable nonzero weight on a vertex-free closed component MUST reject.
+On a cut component the retained prefix begins at the actual incoming endpoint,
+and the retained suffix ends at the actual outgoing endpoint. Reconnection follows
+this directed path, retaining the two boundary weight portions independently.
+The output has one trailing cut marker and one more edge weight than real visits.
+Alignment of cut output words is exact and linear; cyclic alignment applies only
+to closed components.
 
 Direct 02 uses one empty insertion slot in this same transport. Inverse 02
 requires the prescribed internal weights; it MUST NOT discard arbitrary
@@ -712,9 +736,15 @@ records `forward_split_k`. A forward candidate reconstructed with that value
 reproduces the original raw decoration; silently choosing the default would
 lose that information. I/III's output cochain is independent of this split.
 
-PS currently inherits the existing single real Gauss-component closed-normal
-geometry verifier. Multiple-component and cut PS presentations remain outside
-this API's certified domain; all-four-type support is limited to that domain.
+PS uses the single real Gauss-component geometry verifier, including its cut
+Method-B path support. For an open circuit the witness retains the full directed
+boundary-to-boundary trace; rotation uses the selected subpath within that trace.
+It MUST NOT rotate an open trace as though it were a cycle. Boundary nodes carry
+no vertex dot. Pass `boundary=(source=source_targets,target=target_targets)` to
+freeze the two relative contracts; a single target specification applies to both.
+Multiple affected cut components remain unsupported. Closed all-four-type tests
+do not establish all-four-type cut coverage; the cut regression fixtures and
+experiment records state their finite coverage separately.
 
 The source comparison and exact literature locators are maintained in PJ260830's
 `260908_weighted_move_requirements` record. Source labels are Taguchi
@@ -732,7 +762,7 @@ The current contract rejects:
 
 ### 12.7 Weighted evidence
 
-`verify_weighted_move(source,candidate; framed=false)` applies a frozen candidate
+`verify_weighted_move(source,candidate; framed=false,boundary=nothing)` applies a frozen candidate
 on a copy and returns a `WeightedMoveVerification`. Successful evidence binds
 the full raw source and target, integer weights, catalogue rule version, vertex
 and edge-occurrence transport, PS arc data where applicable, and exact residuals.
@@ -740,11 +770,18 @@ and edge-occurrence transport, PS arc data where applicable, and exact residuals
 `replay_weighted_move` reconstructs the source and current rules and recomputes
 the whole envelope. Altering a stored result or intermediate value is rejected.
 
-`framed=true` additionally requires closed-normal source and target and exact
-zero residuals. This is executor replay with equation checks, not an independent
+`framed=true` additionally requires exact zero residuals, with explicit relative
+boundary targets when source or target is cut. This is executor replay with equation checks, not an independent
 proof of framing preservation. Existing unweighted MP/PS verification is also
 required within its supported single-component closed-normal domain. Other
-inputs explicitly record that they are outside that verifier's scope. Weighted
+inputs explicitly record that they are outside that verifier's scope. Schema 2
+stores cut flags, distinct endpoint weights, and supplied targets separately from
+measured boundary residuals. With `framed=false` and no boundary targets, cut
+evidence is measurement-only and stores null targets. Archived schema 1 packets
+are not accepted by this parser and require a separate migration. Externally
+assigned CP/BMP/B02 results use `verify_weighted_relative_result` and
+`replay_weighted_relative_result`; these bind the actual unweighted target and
+assigned weights but do not assert a weight transport rule. Weighted
 raw hashes MUST NOT be used as unweighted canonical state or manifold IDs.
 
 ## 13. Mutation and output contract

@@ -111,9 +111,23 @@ end
 ograph_canonical_hash(state::OGraphState; kwargs...) =
     bytes2hex(SHA.sha256(codeunits(ograph_canonical_serialization(state; kwargs...))))
 
+"""Reject raw cut-boundary inputs at closed o-graph API boundaries.
+
+The raw `VirtualLink.gauss` representation keeps a cut as a trailing zero.
+This check deliberately runs before `real_gauss_code`, whose normalized view
+may otherwise hide that boundary from a closed-only caller.
+"""
+function _require_closed_ograph_input(link::VirtualLink, api::AbstractString)
+    any(word -> !isempty(word) && last(word) == 0, link.gauss) &&
+        throw(ArgumentError(
+            "$api requires a closed normal o-graph; trailing cut boundary markers are unsupported"))
+    nothing
+end
+
 """Create an immutable unweighted state from a fresh real-Gauss view."""
 function ograph_state(link::VirtualLink;
                       convention_id::AbstractString=OGRAPH_DEFAULT_CONVENTION)
+    _require_closed_ograph_input(link, "ograph_state")
     link.is_weighted && throw(ArgumentError(
         "weighted VirtualLink input must not be silently projected to an unweighted o-graph"))
     code, signs = real_gauss_code(link)
@@ -229,6 +243,7 @@ read without mutation and with its GC/sign data unchanged; this function does
 not claim or perform any weighted-move equivalence.
 """
 function c2_graph(link::VirtualLink)
+    _require_closed_ograph_input(link, "c2_graph")
     all(!=(0), link.orientation) || throw(ArgumentError(
         "C2 requires a real o-graph; virtual crossings are unsupported"))
     all(word -> all(!=(0), word), link.gauss) || throw(ArgumentError(
@@ -243,6 +258,7 @@ The authoritative C2 representation is `c2_graph`; this projection drops loops
 and parallel-edge multiplicity and must not be stored as the C2 graph.
 """
 function ograph_graph_a(link::VirtualLink)::SimpleGraph
+    _require_closed_ograph_input(link, "ograph_graph_a")
     _, orientation = real_gauss_code(link)
     isempty(orientation) && return SimpleGraph(0)
     c2 = c2_graph(link)

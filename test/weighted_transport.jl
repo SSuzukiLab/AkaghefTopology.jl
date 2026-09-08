@@ -165,6 +165,6 @@ end
     @test_throws ArgumentError move!(malformed,"H";param=1,vertices=[1])
     cut=deepcopy(source); push!(cut.gauss[1],0)
     prior=_transport_raw(cut)
-    @test_throws ArgumentError move!(cut,candidate)
+    @test_throws DimensionMismatch move!(cut,candidate)
     @test _transport_raw(cut)==prior
 end

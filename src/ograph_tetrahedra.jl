@@ -14,6 +14,7 @@ This is combinatorial input data, not a state sum or a proof of MST equivalence.
 The zero-vertex presentation is rejected because it has no tetrahedral data.
 """
 function disk_tetrahedra(v::VirtualLink)
+    _require_closed_ograph_input(v, "disk_tetrahedra")
     _,vertex_signs=real_gauss_code(v)
     n=length(vertex_signs)
     n>0 || throw(ArgumentError("zero-vertex o-graphs have no disk-local tetrahedra"))

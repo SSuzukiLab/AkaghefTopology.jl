@@ -43,6 +43,33 @@ Weights are mathematical annotations on real arcs. They may be part of a
 weighted o-graph computation without becoming the topological identity of the
 underlying unweighted virtual link.
 
+### 2.1 Open strands and cut markers
+
+The Julia `VirtualLink` representation records an open strand with one trailing
+`0` in its raw Gauss component. The marker is metadata, not a crossing: a zero
+is valid only as the final entry of a component, and `strand_cuts(link)` derives
+one actual `Bool` per strand from that marker. `gauss_code` and
+`real_gauss_code` preserve the marker; virtual crossing visits remain in the
+raw code and are omitted from the real code, while the trailing marker remains.
+
+For a cut strand with (m) real crossing visits, `real_edge_table` exposes
+(m+1) directed arcs, including the distinct boundary edges `(0, first)` and
+`(last, 0)`. A strand with no real visits still has the crossing-free boundary
+arc `(0, 0)`. These boundary IDs are representation-local and must not be
+identified with closed PD edge labels.
+
+`set_cuts!(link, flags)` requires one actual `Bool` per stored strand. On an
+unweighted link it adds or removes only the trailing markers and resizes the
+derived zero weight vectors by prefix. Changing the cut status of a weighted
+link is rejected; callers must clear or rebuild the weights and then assign the
+explicit (m+1) open-arc vectors. This prevents a closure weight from being
+silently copied to both boundary edges.
+
+`pd_code` is a full/raw traversal view: its edge IDs include virtual visits and
+open boundary IDs, so they are not the IDs of `real_edge_table`. PD decoding
+uses the supplied crossing orientation to recover directed strands; an open
+boundary is preserved as a trailing marker when the conversion is defined.
+
 A mathematical virtual link is not identified by a unique Gauss or PD normal
 form in the current implementation. “Source” therefore means an adopted
 presentation, not a canonical representative of an equivalence class.

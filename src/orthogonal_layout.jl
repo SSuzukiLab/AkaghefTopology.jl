@@ -292,6 +292,8 @@ hand-tuned overrides in `examples/` were chosen against the MATLAB path and
 trigger IS7 here. See `PLOT_PIPELINE.md` section 4 part B.
 """
 function orthogonal_layout(v::VirtualLink;bending_numbers=nothing,planarization=:matlab)
+    any(!isempty(component) && last(component)==0 for component in v.gauss) &&
+        throw(ArgumentError("orthogonal_layout does not support open cut components; use plot_svg"))
     source=v
     if v.real_only
         gauss,orientation=planarization === :layer8 ?
