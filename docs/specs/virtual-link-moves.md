@@ -592,6 +592,39 @@ Component order is presentation data, not a canonical virtual-link invariant.
 
 ## 12. Weight transport
 
+### 12.0 Initial integer weights and diagnostic compatibility
+
+`solve_integer_weights(v; assign=false, parity=nothing)` solves the actual
+`2*delta*w+cp2=0` over `BigInt` using Smith transformations. It returns
+`:integer_solution`, `:rational_only`, or `:inconsistent`, an exact particular
+solution when one exists, a full integer kernel basis in COLUMNS, and a
+checkable `U*A*V=S` certificate or divisibility/inconsistency obstruction.
+`verify_integer_weight_solution` rechecks the certificate without computing
+another Smith form. `solve_integer_weight_system(A,b)` exposes the same exact
+matrix calculation.
+
+With `assign=true`, assignment succeeds atomically only when the selected
+particular solution is integral and within the consecutive safe storage range.
+Read `assignment_status`: infeasibility or storage refusal leaves the source
+unchanged and still returns the exact result. Assignment selects initial
+weights; none of the weighted moves calls this solver to replace transported
+weights. On a nonclosed presentation, success asserts only the disk equation.
+
+`solve_integer_weight_lift(v,z; assign=false)`, or `parity=z`, adds exact 0/1
+edge parity. It solves `(4delta)*t=-cp2-2delta*z` and returns `w=z+2t`.
+Its kernel spans the fixed-parity lattice, and its nested Smith certificate
+belongs to t. This is not a CP spin transport implementation.
+
+The old `calculate_weight(v)` tuple remains a MATLAB-compatible diagnostic:
+its base may be rational, its integer-valued kernel ROWS span the rational
+nullspace but need not be saturated over Z, and `hperp` is a heuristic rational
+complement. New integer-lattice callers MUST use the exact API. Legacy
+`assign=true` now refuses rational-only/inconsistent systems and checks the
+selected old representative exactly before storing it. Historical small
+representatives remain unchanged. Public weight residuals use `BigInt`;
+`first_betti_number` uses exact ranks of delta and H independently of Euler
+feasibility, checks `delta*H=0`, and does not count framings.
+
 ### 12.1 Supported weighted moves
 
 The integer-weighted API supports all 16 MP types, H, 02, and PS I–IV in

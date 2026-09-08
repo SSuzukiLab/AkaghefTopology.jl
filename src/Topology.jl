@@ -46,6 +46,8 @@ export WeightedMoveEvidence, WeightedMoveVerification,
        verify_weighted_move, weighted_move_evidence_data,
        weighted_move_evidence_from_data, replay_weighted_move, weighted_raw_hash
 export weighted_ps_candidate
+export solve_integer_weight_system, solve_integer_weights,
+       solve_integer_weight_lift, verify_integer_weight_solution
 export planarize_virtual_gauss_layer8
 export SparseFactor, FiniteHopfAlgebra, uqsl2_borel_small, sweedler_algebra,
        exterior_algebra, hopf_invariant, label_tensor, contract_network,
@@ -121,6 +123,7 @@ include("symbolic.jl")
 include("laurent.jl")
 include("ur_diagram.jl")
 include("virtual_link.jl")
+include("integer_weight_solver.jl")
 include("ograph_state.jl")
 include("weight_validation.jl")
 include("layer8_planarization.jl")

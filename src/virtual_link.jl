@@ -607,7 +607,21 @@ function _minimize_weight_solution(weight::AbstractVector{<:Number},kernel::Matr
     current
 end
 
+"""Legacy MATLAB-compatible `(base, kernel, hperp)` diagnostic tuple.
+
+`base` may be rational when `assign=false`. `kernel` contains integer-valued
+rows spanning the rational nullspace, NOT necessarily the full integer lattice;
+`hperp` is a heuristic rational complement, not an integer quotient certificate.
+Use `solve_integer_weights` for a complete certified integer solution lattice.
+`assign=true` refuses rational-only systems and inexact/out-of-range storage.
+The historical small representative is retained for existing invariant callers.
+"""
 function calculate_weight(v::VirtualLink; assign=false)
+    if assign
+        exact=solve_integer_weights(v)
+        exact.status==:integer_solution ||
+            throw(ArgumentError("no integral weight assignment ($(exact.status)); use solve_integer_weights for the obstruction"))
+    end
     disks=disk_table(v)
     edge_count=size(disks.delta,2)
     base=_rational_particular(2disks.delta,-disks.cp2)
@@ -648,6 +662,10 @@ function calculate_weight(v::VirtualLink; assign=false)
         selected[selected_index,:]=current
     end
     if assign
+        all(x -> isinteger(x) && abs(x)<=big(2)^53-1,base) ||
+            throw(ArgumentError("legacy representative is not a safely storable integer; use solve_integer_weights"))
+        all(iszero,2 .* BigInt.(disks.delta)*BigInt.(base)+BigInt.(disks.cp2)) ||
+            throw(ArgumentError("legacy representative fails the exact integer weight equation"))
         weights = Vector{Vector{Float64}}(); offset = 1
         code,_=real_gauss_code(v)
         for g in code

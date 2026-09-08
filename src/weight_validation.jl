@@ -14,7 +14,7 @@ function _integer_edge_weights(v::VirtualLink)
         throw(ArgumentError("every real arc must have a finite weight"))
     all(isinteger,values) ||
         throw(ArgumentError("integral normal o-graph weights must be integer-valued"))
-    Int[round(value) for value in values]
+    BigInt[BigInt(value) for value in values]
 end
 
 """Return the integer weight equation and its current residual.
@@ -35,7 +35,7 @@ function weight_equation(v::VirtualLink)
     disks=disk_table(v)
     length(edge_weights)==size(disks.delta,2) ||
         throw(DimensionMismatch("weight count does not match real-edge count"))
-    residual=2*disks.delta*edge_weights+disks.cp2
+    residual=2 .* BigInt.(disks.delta)*edge_weights+BigInt.(disks.cp2)
     (
         edge_weights=edge_weights,
         delta=disks.delta,
@@ -71,14 +71,19 @@ function is_framed_weight(v::VirtualLink)
     end
 end
 
-"""Return the H-move quotient rank used as the closed-graph `b₁` witness.
+"""Return exact `dim_Q ker(delta) - rank_Q(H)` for a closed normal o-graph.
 
-This is the Julia equivalent of MATLAB `calcSpec("b1")`: it is defined only
-for closed normal o-graphs and counts the independent weight classes left
-after quotienting the homogeneous weight kernel by H-moves.
+Checks `delta*H=0` and uses exact integer Smith ranks. This Betti number is
+independent of Euler-cochain feasibility and is not a count of framings.
 """
 function first_betti_number(v::VirtualLink)
     is_closed(v)[1] || throw(ArgumentError("first Betti number requires a closed normal o-graph"))
-    _,_,hperp=calculate_weight(v)
-    size(hperp,1)
+    delta=BigInt.(disk_table(v).delta)
+    H=BigInt.(hmove_matrix(v))
+    all(iszero,delta*H) || throw(ArgumentError("disk and H incidence do not form a cochain complex"))
+    exact_rank(A)=begin
+        S=AbstractAlgebra.snf(AbstractAlgebra.matrix(AbstractAlgebra.ZZ,A))
+        count(i -> !iszero(S[i,i]),1:min(size(S)...))
+    end
+    size(delta,2)-exact_rank(delta)-exact_rank(H)
 end

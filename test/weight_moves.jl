@@ -38,7 +38,7 @@ end
 
     @test_throws ArgumentError move!(weighted,"02";param="inv",vertices=[1,2])
 
-    @test weight_residual(weighted) isa Vector{Int}
+    @test weight_residual(weighted) isa Vector{BigInt}
 end
 
 @testset "weights follow real arcs through virtual crossings" begin
@@ -47,6 +47,22 @@ end
     set_weight!(weighted,[[5,7]])
 
     @test [edge.weight for edge in real_edge_table(weighted)]==[5.0,7.0]
+end
+
+@testset "exact weight diagnostics remain separate from integer assignment" begin
+    v=lens_space_link(2,1)
+    set_weight!(v,[big(2)^62,0,big(2)^62,0])
+    # This disk residual wrapped to zero in machine Int arithmetic.
+    @test weight_residual(v)[1]==big(2)^65
+    for p in (3,4)
+        v=lens_space_link(p,1)
+        @test solve_integer_weights(v).status==:rational_only
+        @test first_betti_number(v)==0
+        set_weight!(v,fill(7,2p))
+        before=deepcopy(v)
+        @test_throws ArgumentError calculate_weight(v;assign=true)
+        @test v.weights==before.weights && v.gauss==before.gauss && v.is_weighted
+    end
 end
 
 @testset "GaussCode lens weights preserve the disk equation" begin
@@ -65,13 +81,20 @@ end
         lens=VirtualLink()
         set_data!(lens;gauss=[vcat(-signed,reverse(signed))],orientation=orientation)
         disks=disk_table(lens)
-        base,_,_=calculate_weight(lens;assign=true)
+        base,_,_=calculate_weight(lens)
         @test disks.path_lengths==expected_paths
         @test disks.delta==expected_delta
         @test disks.cp2==expected_cp2
         @test base==expected
         @test 2*disks.delta*base+disks.cp2==zeros(Rational{BigInt},size(disks.delta,1))
-        @test lens.weights==[Float64.(base)]
+        if n==2
+            calculate_weight(lens;assign=true)
+            @test lens.weights==[Float64.(base)]
+        else
+            before=deepcopy(lens)
+            @test_throws ArgumentError calculate_weight(lens;assign=true)
+            @test lens.weights==before.weights && lens.is_weighted==before.is_weighted
+        end
     end
 end
 
