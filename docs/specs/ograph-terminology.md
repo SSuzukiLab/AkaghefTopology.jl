@@ -186,3 +186,20 @@ not duplicate that numerical construction.
 
 Implementation identifiers do not override the mathematical terminology fixed
 by this document.
+
+## 10. 整数重み非可解
+
+Owner terminology decision (2026-09-09): an o-graph is **整数重み非可解**
+when its specified integer weight equations have no integer solution.
+The term applies to the o-graph with the stated equation conventions, not to
+the underlying manifold. State those conventions when the context is ambiguous.
+
+All edge weights are variables unless the object's definition specifies otherwise.
+Failure with fixed exterior weights, a prescribed parity class, or a particular
+transport formula is only failure under that restriction; it does not establish
+整数重み非可解. A search timeout or failure to find a solution does not establish it either.
+
+整数重み非可解 does not by itself assert absence of a framing or spin structure,
+or absence of another integer-weighted o-graph representing the same manifold.
+Whether rational solutions exist is a separate property and should be stated
+when relevant. Use this term consistently in research records and reports.
