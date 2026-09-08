@@ -7,6 +7,7 @@ crossing visits in between, so all public checks below use the stable
 """
 
 function _integer_edge_weights(v::VirtualLink)
+    v.weight_mode==:integer || throw(ArgumentError("integral weights require integer mode"))
     v.is_weighted || throw(ArgumentError("VirtualLink has no assigned integral weights"))
     edges=real_edge_table(v)
     values=Float64[edge.weight for edge in edges]
@@ -175,6 +176,10 @@ With `framed=false` this checks the integral edge-weight data contract.  With
 `2*delta*w+cp2 == 0`.
 """
 function validate_weight(v::VirtualLink; framed=false,boundary=nothing)
+    if v.weight_mode==:z2
+        framed && throw(ArgumentError("Z2 weights cannot be validated as integral framed weights; use validate_spin_weight"))
+        _spin_edge_weights(v); return true
+    end
     framed || (_integer_edge_weights(v); return true)
     equation=weight_equation(v;boundary=boundary)
     any(!=(0),equation.residual) &&

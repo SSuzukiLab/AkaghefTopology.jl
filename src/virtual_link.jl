@@ -20,6 +20,7 @@ mutable struct VirtualLink
     real_only::Bool
     is_weighted::Bool
     strand_types::Vector{Char}
+    weight_mode::Symbol
 end
 
 struct RealEdge
@@ -30,7 +31,21 @@ struct RealEdge
     arc::Vector{Int}
 end
 
-VirtualLink() = VirtualLink(Vector{Vector{Int}}(), Int[], Vector{Vector{Float64}}(), false, false, Char[])
+function _check_weight_mode(mode)
+    mode in (:integer,:z2) || throw(ArgumentError("weight mode must be :integer or :z2"))
+    mode
+end
+VirtualLink(;weight_mode=:integer) = VirtualLink(Vector{Vector{Int}}(), Int[], Vector{Vector{Float64}}(), false, false, Char[], _check_weight_mode(weight_mode))
+# Preserve the historical positional constructor as integral mode.
+VirtualLink(g,o,w,r,i,s) = VirtualLink(g,o,w,r,i,s,:integer)
+weight_mode(v::VirtualLink)=v.weight_mode
+
+function set_weight_mode!(v::VirtualLink, mode::Symbol)
+    _check_weight_mode(mode)
+    mode==v.weight_mode && return v
+    v.is_weighted && mode==:integer && throw(ArgumentError("Z2 weights have no canonical integer lift; assign explicit integer weights with set_weight!(...;mode=:integer)"))
+    v.is_weighted ? set_weight!(v,v.weights;mode=mode) : (v.weight_mode=mode; v)
+end
 
 """Return the real-Gauss input for the lens space `L(s,t)`.
 
@@ -831,6 +846,7 @@ Use `solve_integer_weights` for a complete certified integer solution lattice.
 The historical small representative is retained for existing invariant callers.
 """
 function calculate_weight(v::VirtualLink; assign=false)
+    v.weight_mode==:integer || throw(ArgumentError("calculate_weight requires integer mode; use solve_spin_weights for Z2"))
     any(strand_cuts(v)) &&
         throw(ArgumentError("calculate_weight currently requires closed strands; use disk_table boundary metadata for open data"))
     if assign
@@ -893,35 +909,40 @@ function calculate_weight(v::VirtualLink; assign=false)
     base,kernel,selected
 end
 
-function set_weight!(v::VirtualLink, weight)
+function set_weight!(v::VirtualLink, weight; mode=v.weight_mode)
+    _check_weight_mode(mode)
     real_counts=[_strand_arc_count(v,strand) for strand in eachindex(v.gauss)]
-    if weight isa AbstractMatrix
+    convert_value = mode==:z2 ? (x -> begin
+        x isa Real && isfinite(x) && isinteger(x) || throw(ArgumentError("Z2 weights require finite integer-valued inputs"))
+        Float64(mod(BigInt(x),2))
+    end) : Float64
+    weights=Vector{Vector{Float64}}()
+    if weight isa AbstractMatrix || weight isa AbstractVector{<:Number}
         flat=vec(weight)
-        length(flat)==sum(real_counts) ||
-            throw(DimensionMismatch("one weight per real arc is required"))
-        idx=1; weights=Vector{Vector{Float64}}()
+        length(flat)==sum(real_counts) || throw(DimensionMismatch("one weight per real arc is required"))
+        idx=1
         for n in real_counts
-            push!(weights,Float64.(flat[idx:idx+n-1])); idx += n
+            push!(weights,convert_value.(flat[idx:idx+n-1])); idx+=n
         end
-        v.weights = weights
-    elseif weight isa AbstractVector{<:Number}
-        set_weight!(v, reshape(weight,1,:))
     else
-        weights=[Float64.(w) for w in weight]
-        length(weights)==length(real_counts) ||
-            throw(DimensionMismatch("one weight vector per Gauss component is required"))
-        all(length(values)==count_ for (values,count_) in zip(weights,real_counts)) ||
-            throw(DimensionMismatch("one weight per real arc is required"))
-        v.weights=weights
+        length(weight)==length(real_counts) || throw(DimensionMismatch("one weight vector per Gauss component is required"))
+        for (values,count_) in zip(weight,real_counts)
+            length(values)==count_ || throw(DimensionMismatch("one weight per real arc is required"))
+            push!(weights,convert_value.(values))
+        end
     end
-    v.is_weighted = true; v
+    v.weights=weights; v.weight_mode=mode; v.is_weighted=true; v
 end
 
 """Assign selected MATLAB `REdgeTable.Crossing` weights without relying on row order."""
 function set_weight_by_crossing!(v::VirtualLink,crossings,weights)
     pairs=[Tuple(Int.(pair)) for pair in eachrow(Int.(crossings))]
     length(pairs) == length(weights) || throw(DimensionMismatch("one weight per crossing pair is required"))
-    assignments=Dict(pair=>Float64(weight) for (pair,weight) in zip(pairs,weights))
+    convert_value = v.weight_mode==:z2 ? (x -> begin
+        x isa Real && isfinite(x) && isinteger(x) || throw(ArgumentError("Z2 weights require finite integer-valued inputs"))
+        Float64(mod(BigInt(x),2))
+    end) : Float64
+    assignments=Dict(pair=>convert_value(weight) for (pair,weight) in zip(pairs,weights))
     table=real_edge_table(v)
     by_strand=[Float64[] for _ in v.gauss]
     for edge in table
@@ -1061,6 +1082,7 @@ end
 
 """Convert a VirtualLink to the URDiagram ordering used by MATLAB `VL2URD`."""
 function vl_to_urdiagram(v::VirtualLink)
+    v.weight_mode==:integer || throw(ArgumentError("UR invariants require integer mode; Z2 weights are not integer lifts"))
     any(strand_cuts(v)) &&
         throw(ArgumentError("vl_to_urdiagram currently requires closed strands"))
     code,orientation=real_gauss_code(v)

@@ -161,6 +161,7 @@ function verify_integer_weight_solution(result)
 end
 
 function _current_integer_weight_system(v::VirtualLink;boundary=nothing)
+    v.weight_mode==:integer || throw(ArgumentError("integer weight solving requires integer mode; choose an explicit integer-mode copy"))
     all(x -> x in (-1,0,1),v.orientation) || throw(ArgumentError("invalid crossing orientation"))
     _validate_gauss(v.gauss,v.orientation)
     code,orientation=real_gauss_code(v)

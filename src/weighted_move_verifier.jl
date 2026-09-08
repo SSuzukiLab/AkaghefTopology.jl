@@ -38,6 +38,8 @@ function _weighted_exact_int(value)
 end
 
 function _weighted_raw_data(v::VirtualLink)
+    weight_mode(v)==:integer || throw(ArgumentError(
+        "integer weighted evidence does not support Z2 mode; no implicit coefficient conversion is allowed"))
     v.is_weighted || throw(ArgumentError("weighted evidence requires assigned weights"))
     _validate_gauss(v.gauss,v.orientation;real_only=v.real_only)
     all(sign -> sign in (-1,0,1),v.orientation) ||
@@ -195,6 +197,7 @@ function _weighted_unweight(v)
     result=deepcopy(v)
     result.is_weighted=false
     result.weights=[zeros(length(w)) for w in v.weights]
+    result.weight_mode=:integer
     result
 end
 
@@ -280,6 +283,7 @@ Unsupported/unmatched moves return an invalid report without modifying source.
 """
 function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
                               framed=false,expected_raw_target=nothing,boundary=nothing)
+    weight_mode(source)==:integer || return _weighted_invalid(:unsupported_weight_mode)
     candidate.type in ("MP","H","02","PS") || return _weighted_invalid(:unsupported_move)
     # Current supported weighted sites use vertices or explicit occurrences.
     # An ignored endpoint selector must not become unauthenticated evidence.
@@ -348,6 +352,8 @@ binds both raw states, the frozen move witness, and the measured boundary data.
 """
 function verify_weighted_relative_result(source::VirtualLink,target::VirtualLink,
                                          candidate::MoveCandidate;boundary=nothing)
+    weight_mode(source)==weight_mode(target)==:integer ||
+        return _weighted_invalid(:unsupported_weight_mode)
     candidate.type in ("CP","BMP","B02") || return _weighted_invalid(:unsupported_move)
     source.is_weighted && target.is_weighted || return _weighted_invalid(:invalid_source)
     try

@@ -411,8 +411,27 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
                         if validate_ps_move(v,candidate).valid] : candidates
 end
 
-"""Enumerate applicable moves; integer-weighted candidates also satisfy transport rules."""
+"""Enumerate applicable moves in the selected coefficient mode.
+
+Weighted candidates satisfy their transport rules. Z2 mode currently supports
+closed spin CP only; other weighted families require integer mode.
+"""
 function movable(v::VirtualLink,type;boundary=nothing,kwargs...)
+    if weight_mode(v)==:z2
+        _normalize_move_type(type)=="CP" || return MoveCandidate[]
+        boundary===nothing || throw(ArgumentError("spin CP does not support boundary targets"))
+        _spin_edge_weights(v)
+        candidates=_movable_geometry(_weighted_unweight(v),"CP";kwargs...)
+        return filter(candidates) do candidate
+            try
+                spin_cp_move(v,candidate)
+                true
+            catch error
+                error isa Union{ArgumentError,DimensionMismatch,BoundsError} || rethrow()
+                false
+            end
+        end
+    end
     v.is_weighted || return _movable_geometry(v,type;kwargs...)
     _check_move_weights(v)
     move_type=_normalize_move_type(type)
@@ -680,6 +699,7 @@ function _move_integer(value)
 end
 
 function _check_move_weights(v::VirtualLink)
+    weight_mode(v)==:integer || throw(ArgumentError("integer move transport does not support Z2 mode"))
     v.is_weighted || throw(ArgumentError("move requires assigned integer weights"))
     raw_code,orientation=real_gauss_code(v)
     code=[_clean_component(component) for component in raw_code]
@@ -1156,7 +1176,10 @@ end
 function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges=nothing,
                edge_occurrences=nothing,strict=true,boundary=nothing)
     move_type=_normalize_move_type(type)
-    if v.is_weighted
+    if weight_mode(v)==:z2
+        move_type=="CP" || throw(ArgumentError("Z2 move transport is only implemented for CP"))
+        _spin_edge_weights(v)
+    elseif v.is_weighted
         _check_move_weights(v)
         move_type in ("MP","H","02","PS") ||
             throw(ArgumentError("integer weight transport is not defined for $move_type"))
@@ -1206,7 +1229,11 @@ end
 "Apply this exact candidate, without selecting its site again or canonicalizing."
 function _apply_candidate!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _check_candidate_split(v,candidate)
-    if v.is_weighted && candidate.type=="PS"
+    if weight_mode(v)==:z2
+        candidate.type=="CP" || throw(ArgumentError("Z2 move transport is only implemented for CP"))
+        boundary===nothing || throw(ArgumentError("spin CP does not support boundary targets"))
+        return _commit_move!(v,spin_cp_move(v,candidate))
+    elseif v.is_weighted && candidate.type=="PS"
         return _commit_move!(v,_weighted_ps_target(v,candidate;boundary=boundary))
     elseif candidate.type=="H"
         amount=tryparse(BigInt,candidate.parameter)
@@ -1239,7 +1266,12 @@ end
 
 function move!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _check_candidate_split(v,candidate)
-    v.is_weighted && _check_move_weights(v)
+    if weight_mode(v)==:z2
+        candidate.type=="CP" || throw(ArgumentError("Z2 move transport is only implemented for CP"))
+        _spin_edge_weights(v)
+    else
+        v.is_weighted && _check_move_weights(v)
+    end
     # Frozen candidates are untrusted input: authenticate templates, orientation,
     # vertex roles and exact occurrences against the current geometric source.
     geometric_source=v.is_weighted && candidate.type=="PS" ? _ps_unweighted(v) : v

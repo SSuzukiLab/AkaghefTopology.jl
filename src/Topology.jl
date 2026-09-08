@@ -49,6 +49,9 @@ export WeightedMoveEvidence, WeightedMoveVerification,
        weighted_move_evidence_from_data, replay_weighted_move, weighted_raw_hash,
        verify_weighted_relative_result, replay_weighted_relative_result
 export weighted_ps_candidate
+export spin_cp_move, spin_cp_transport
+export weight_mode, set_weight_mode!, spin_weight_equation, validate_spin_weight, is_spin_weight,
+       solve_spin_weight_system, solve_spin_weights
 export solve_integer_weight_system, solve_integer_weights,
        solve_integer_weight_lift, verify_integer_weight_solution
 export planarize_virtual_gauss_layer8
@@ -130,6 +133,7 @@ include("circuit_b.jl")
 include("integer_weight_solver.jl")
 include("ograph_state.jl")
 include("weight_validation.jl")
+include("spin_weights.jl")
 include("layer8_planarization.jl")
 include("virtual_planarization.jl")
 include("orthogonal_layout.jl")
@@ -140,6 +144,7 @@ include("ograph_move_verifier.jl")
 include("ograph_tetrahedra.jl")
 include("weighted_ps.jl")
 include("weighted_move_verifier.jl")
+include("spin_cp.jl")
 include("hopf_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")

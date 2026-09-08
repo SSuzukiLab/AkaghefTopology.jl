@@ -128,6 +128,8 @@ end
 function ograph_state(link::VirtualLink;
                       convention_id::AbstractString=OGRAPH_DEFAULT_CONVENTION)
     _require_closed_ograph_input(link, "ograph_state")
+    weight_mode(link)==:integer || throw(ArgumentError(
+        "Z2 mode requires a typed weighted state adapter; it cannot be silently projected to an unweighted o-graph"))
     link.is_weighted && throw(ArgumentError(
         "weighted VirtualLink input must not be silently projected to an unweighted o-graph"))
     code, signs = real_gauss_code(link)
