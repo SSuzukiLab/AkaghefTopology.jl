@@ -11,6 +11,29 @@ through a thin Julia-facing boundary rather than reimplemented here.
 
 ## Algebra units
 
+For Taft MST invariants, the exact entry is:
+
+```julia
+using Topology
+# v is a closed VirtualLink with the intended integer edge weights assigned.
+z = hopf_invariant(v, 1//9)  # q = ζ₉; exact element of Q(ζ₉)
+r = taft_reduce(v)           # symbolic reduction, including guarded q identities
+z5 = taft_evaluate(r, 5)     # reuse the expression with another fixed N
+z9 = taft_evaluate(r, 9; M=2) # q = ζ₉², gcd(M,N) must be 1
+```
+
+This path uses Julia 1.10 or later and the sibling `AkaghefAlgebra` package
+(`../algebra.jl`, recorded in the manifest). It supports `style=:L`; unweighted inputs retain zero edge
+weights and the function does not solve or change weights. Unrecognized sums
+remain in `r.expression` and are evaluated exactly with a bounded summand budget.
+`hopf_invariant(v, 1//9; details=true)` also returns residual indices and timings.
+
+Existing calls with `uqsl2_borel_small(M//N; style=:L)` select this path too.
+The exact return type replaces the previous floating result; use `ComplexF64(z)`
+at the numerical boundary. `method=:numeric` on the algebra-valued call requests
+the legacy tensor contraction. Modified tensors and `style=:R` retain that
+numeric path; `method=:exact` rejects them. No example-specific values are stored.
+
 `disk_tetrahedra(v)` supplies the ordered tetrahedral edge data dual to a
 nonempty closed normal o-graph, reusing `disk_table` and the reviewed face
 recipe. See [the input, orientation and validation contract](docs/specs/ograph-tetrahedra.md).

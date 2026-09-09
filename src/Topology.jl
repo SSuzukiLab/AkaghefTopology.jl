@@ -4,6 +4,7 @@ using LinearAlgebra
 using JuMP
 using GLPK
 using Graphs
+import AkaghefAlgebra
 
 export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
        LaurentPolynomial, LaurentRational, laurent_variable, laurent_variables, evaluate, limit_zero,
@@ -146,6 +147,7 @@ include("weighted_ps.jl")
 include("weighted_move_verifier.jl")
 include("spin_cp.jl")
 include("hopf_invariant.jl")
+include("taft_invariant.jl")
 include("tensor_network.jl")
 include("hopf_properties.jl")
 include("finite_algebra.jl")

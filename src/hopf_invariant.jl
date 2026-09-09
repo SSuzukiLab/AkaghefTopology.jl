@@ -7,7 +7,7 @@ SparseFactor(variables,terms::AbstractDict{<:Tuple,T}) where {T}=
     SparseFactor{T}(Int.(collect(variables)),
                     Dict{Tuple,T}(Tuple(key)=>value for (key,value) in terms))
 
-struct FiniteHopfAlgebra
+struct FiniteHopfAlgebra{Kind}
     dimension::Int
     multiplication::SparseFactor
     unit::SparseFactor
@@ -22,6 +22,10 @@ struct FiniteHopfAlgebra
     left_cointegral::SparseFactor
 end
 
+# Untagged user-built algebras retain the generic tensor contraction path.
+FiniteHopfAlgebra(args...) = FiniteHopfAlgebra{Nothing}(args...)
+struct TaftKind{N,M,Style} end
+
 _sparse_data(terms)=SparseFactor(Int[],terms)
 
 _qbinomial(q,n,k)=begin
@@ -35,8 +39,8 @@ const _UQSL2_BOREL_CACHE=Dict{Tuple{Any,Symbol},FiniteHopfAlgebra}()
 function _build_uqsl2_borel_small(ratio::Rational;style=:L)
     numerator(ratio) > 0 && numerator(ratio) < denominator(ratio) ||
         throw(ArgumentError("ratio must lie in (0,1)"))
-    M,N=numerator(ratio),denominator(ratio)
-    q=N == 2 || N == 4 ? im^(M*4÷N) : exp(2pi*im*M/N)
+    M,N=Int(numerator(ratio)),Int(denominator(ratio))
+    q=N == 2 || N == 4 ? ComplexF64(im)^(M*4÷N) : exp(2pi*im*M/N)
     dimension=N^2
     basis(i,j)=i+N*j+1
 
@@ -107,7 +111,7 @@ function _build_uqsl2_borel_small(ratio::Rational;style=:L)
         for (index,value) in enumerate(left_cointegral_vector) if abs(value)>1e-12)
     left_integral=Dict{Tuple,ComplexF64}((index,)=>value
         for (index,value) in enumerate(left_integral_vector) if abs(value)>1e-12)
-    FiniteHopfAlgebra(dimension,_sparse_data(multiplication),_sparse_data(unit),
+    FiniteHopfAlgebra{TaftKind{N,M,style}}(dimension,_sparse_data(multiplication),_sparse_data(unit),
                       _sparse_data(coproduct),_sparse_data(counit),
                       _sparse_data(positive),_sparse_data(negative),_sparse_data(antipode),
                       _sparse_data(right_integral),_sparse_data(right_cointegral),
@@ -289,7 +293,13 @@ function _contract(factors::Vector{SparseFactor})
     get(final.terms,(),0.0+0im)
 end
 
-function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra)
+function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra;method=:auto,kwargs...)
+    method in (:auto,:numeric) || throw(ArgumentError("generic algebras support method=:numeric"))
+    isempty(kwargs) || throw(ArgumentError("unsupported numeric contraction keywords"))
+    _hopf_invariant_numeric(v,algebra)
+end
+
+function _hopf_invariant_numeric(v::VirtualLink,algebra::FiniteHopfAlgebra)
     _require_closed_ograph_input(v, "hopf_invariant")
     edges=real_edge_table(v)
     integer_weights=v.is_weighted ? _integer_edge_weights(v) : Int[]

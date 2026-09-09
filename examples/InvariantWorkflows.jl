@@ -14,8 +14,8 @@ function run_invariant_workflows()
     abalone=VirtualLink(); set_data!(abalone;rgauss=[[1,-1]],orientation=[1])
     calculate_weight(abalone;assign=true)
 
-    z2=uqsl2_borel_small(1//2;style=:L)
-    z5=uqsl2_borel_small(2//5;style=:L)
+    z2=1//2
+    z5=2//5
     sweedler=sweedler_algebra()
     exterior=exterior_algebra(2)
     Dict(
