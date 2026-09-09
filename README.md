@@ -11,22 +11,39 @@ through a thin Julia-facing boundary rather than reimplemented here.
 
 ## Algebra units
 
+公開入口の契約は [MST インターフェース](docs/260909_mst_interface.md)、
+共通の設計方針は [AkaghefAlgebra](../algebra.jl/docs/260909_interface_design.md) を参照。
+以下は現在実装済みの API。
+
 For Taft MST invariants, the exact entry is:
 
 ```julia
 using Topology
 # v is a closed VirtualLink with the intended integer edge weights assigned.
-z = hopf_invariant(v, 1//9)  # q = ζ₉; exact element of Q(ζ₉)
-r = taft_reduce(v)           # symbolic reduction, including guarded q identities
-z5 = taft_evaluate(r, 5)     # reuse the expression with another fixed N
-z9 = taft_evaluate(r, 9; M=2) # q = ζ₉², gcd(M,N) must be 1
+H = TaftAlgebra(9; M=2)
+z = Z_MST(v, H; strategy=:qa) # Cyclotomic{9,2}, canonical ζ₉ coefficients
+expr = invariant_expression(v, H)
+r = simplify_invariant(expr; strategy=:qa)
+base = evaluate_invariant(r, 9) # internal Cyclotomic{9}; no M
+z1 = normalize_root(base, RootSpec(9,1))
+z2 = normalize_root(base, RootSpec(9,2)) # reuse the same exact base value
+@assert normalize_root(z2, RootSpec(9,11)) === z2
 ```
+
+`canonical_value(z)` returns the internal canonical value; `root_spec(z)` and
+`specified_root(z)` expose the selected root. `==` compares canonical values
+across M for the same N. Arithmetic requires the same N and M; `with_root(z,
+RootSpec(N,M))` explicitly relabels a value without changing its coefficients.
+To compute a different Galois conjugate, normalize the saved `base` instead.
+`TaftAlgebra(:N)` returns a reduced expression until N is fixed. Strategies
+`:qa`, `:network`, and `:none` select how much reduction precedes exact evaluation.
+`hopf_invariant`, `taft_reduce`, and `taft_evaluate` remain compatibility entrances.
 
 This path uses Julia 1.10 or later and the sibling `AkaghefAlgebra` package
 (`../algebra.jl`, recorded in the manifest). It supports `style=:L`; unweighted inputs retain zero edge
 weights and the function does not solve or change weights. Unrecognized sums
 remain in `r.expression` and are evaluated exactly with a bounded summand budget.
-`hopf_invariant(v, 1//9; details=true)` also returns residual indices and timings.
+`Z_MST(v, H; details=true)` also returns the base value, reduced expression and timings.
 
 Existing calls with `uqsl2_borel_small(M//N; style=:L)` select this path too.
 The exact return type replaces the previous floating result; use `ComplexF64(z)`

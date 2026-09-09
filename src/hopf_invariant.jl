@@ -293,13 +293,13 @@ function _contract(factors::Vector{SparseFactor})
     get(final.terms,(),0.0+0im)
 end
 
-function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra;method=:auto,kwargs...)
+function hopf_invariant(v::VirtualLink,algebra::FiniteHopfAlgebra;method=:auto,strategy=:auto,kwargs...)
     method in (:auto,:numeric) || throw(ArgumentError("generic algebras support method=:numeric"))
     isempty(kwargs) || throw(ArgumentError("unsupported numeric contraction keywords"))
-    _hopf_invariant_numeric(v,algebra)
+    method==:numeric ? _hopf_invariant_numeric(v,algebra) : Z_MST(v,algebra;strategy=strategy)
 end
 
-function _hopf_invariant_numeric(v::VirtualLink,algebra::FiniteHopfAlgebra)
+function _hopf_invariant_factors(v::VirtualLink,algebra::FiniteHopfAlgebra)
     _require_closed_ograph_input(v, "hopf_invariant")
     edges=real_edge_table(v)
     integer_weights=v.is_weighted ? _integer_edge_weights(v) : Int[]
@@ -328,5 +328,8 @@ function _hopf_invariant_numeric(v::VirtualLink,algebra::FiniteHopfAlgebra)
         tensor=orientation[vertex] < 0 ? algebra.negative_vertex : algebra.positive_vertex
         push!(factors,_factor_with_variables(tensor,labels))
     end
-    _contract(factors)
+    factors
 end
+
+_hopf_invariant_numeric(v::VirtualLink,algebra::FiniteHopfAlgebra) =
+    _contract(_hopf_invariant_factors(v,algebra))
