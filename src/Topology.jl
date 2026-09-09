@@ -51,7 +51,7 @@ export WeightedMoveEvidence, WeightedMoveVerification,
 export weighted_ps_candidate
 export spin_cp_move, spin_cp_transport
 export weight_mode, set_weight_mode!, spin_weight_equation, validate_spin_weight, is_spin_weight,
-       solve_spin_weight_system, solve_spin_weights
+       spin_boundary_data, solve_spin_weight_system, solve_spin_weights
 export solve_integer_weight_system, solve_integer_weights,
        solve_integer_weight_lift, verify_integer_weight_solution
 export planarize_virtual_gauss_layer8

@@ -101,6 +101,9 @@ end
     @test_throws ArgumentError spin_cp_move(geometry,candidate)
     cut=Topology._weighted_unweight(source); set_cuts!(cut,[true])
     set_weight!(cut,vcat(only(source.weights),0);mode=:z2)
-    @test_throws ArgumentError spin_cp_move(cut,candidate)
+    cut_report=spin_cp_transport(cut,candidate;normalize=false)
+    @test cut_report.boundary_modulus==4
+    @test cut_report.target.gauss[end][end]==0
+    @test validate_spin_weight(cut_report.target;boundary=cut_report.target_boundary)
     @test source.weights==spin_cp_fixture(1).weights
 end

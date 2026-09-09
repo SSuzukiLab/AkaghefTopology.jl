@@ -413,18 +413,19 @@ end
 
 """Enumerate applicable moves in the selected coefficient mode.
 
-Weighted candidates satisfy their transport rules. Z2 mode currently supports
-closed spin CP only; other weighted families require integer mode.
+Weighted candidates satisfy their transport rules. Z2 mode supports spin CP
+on closed and cut presentations; other weighted families require integer mode.
 """
 function movable(v::VirtualLink,type;boundary=nothing,kwargs...)
     if weight_mode(v)==:z2
         _normalize_move_type(type)=="CP" || return MoveCandidate[]
-        boundary===nothing || throw(ArgumentError("spin CP does not support boundary targets"))
+        !any(_is_cut_component,v.gauss) && boundary!==nothing &&
+            throw(ArgumentError("spin CP boundary targets require a cut source"))
         _spin_edge_weights(v)
         candidates=_movable_geometry(_weighted_unweight(v),"CP";kwargs...)
         return filter(candidates) do candidate
             try
-                spin_cp_move(v,candidate)
+                spin_cp_move(v,candidate;boundary=boundary)
                 true
             catch error
                 error isa Union{ArgumentError,DimensionMismatch,BoundsError} || rethrow()
@@ -1231,8 +1232,7 @@ function _apply_candidate!(v::VirtualLink,candidate::MoveCandidate;boundary=noth
     _check_candidate_split(v,candidate)
     if weight_mode(v)==:z2
         candidate.type=="CP" || throw(ArgumentError("Z2 move transport is only implemented for CP"))
-        boundary===nothing || throw(ArgumentError("spin CP does not support boundary targets"))
-        return _commit_move!(v,spin_cp_move(v,candidate))
+        return _commit_move!(v,spin_cp_move(v,candidate;boundary=boundary))
     elseif v.is_weighted && candidate.type=="PS"
         return _commit_move!(v,_weighted_ps_target(v,candidate;boundary=boundary))
     elseif candidate.type=="H"
