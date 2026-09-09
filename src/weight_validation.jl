@@ -154,6 +154,10 @@ function weight_equation(v::VirtualLink;boundary=nothing)
     data=boundary_weight_data(v)
     disks=disk_table(v)
     targets=_boundary_targets(disks,boundary)
+    # Sign convention: cp2[i] = 2 - Ndots[i] = 2*c_P(MST2), so delta*w = -c_P(MST2).
+    # MST3 §3.4 defines c_P with the opposite sign: c_P(MST3) = -c_P(MST2).
+    # Thus its delta*w = c_P(MST3) is the SAME equation; do not negate w or delta.
+    # Sources: MST2 §4.3 / Def.4.4; MST3 §§3.1,3.4. calculate_weight uses RHS -cp2.
     residual=data.measured+2 .* BigInt.(disks.isCycle)-targets
     (
         edge_weights=data.edge_weights,
