@@ -1099,23 +1099,5 @@ function ur_invariant(v::VirtualLink)
     trace_value(vl_to_urdiagram(v))
 end
 
-"""Direct determinant form of MATLAB `calcInvariant("UR_")`."""
-function ur_prime_invariant(v::VirtualLink)
-    any(strand_cuts(v)) &&
-        throw(ArgumentError("ur_prime_invariant currently requires closed strands"))
-    code,orientation=real_gauss_code(v)
-    length(code) == 1 || throw(ArgumentError("UR_ invariant currently requires one strand"))
-    component=code[1]
-    start=findfirst(>(0),component)
-    start === nothing && throw(ArgumentError("the Gauss code has no positive crossing"))
-    component=circshift(component,1-start)
-    cumulative=cumsum(component .> 0)
-    index=Dict(vertex=>cumulative[position] for (position,vertex) in enumerate(component))
-    vertex_count=length(orientation)
-    matrix=zeros(Int,vertex_count,vertex_count)
-    for vertex in 1:vertex_count
-        matrix[index[vertex],index[-vertex]]=orientation[vertex]
-    end
-    adjusted=matrix+Matrix{Int}(I,vertex_count,vertex_count)-circshift(Matrix{Int}(I,vertex_count,vertex_count),(1,0))
-    -1/det(adjusted)
-end
+"""Compatibility entry for the exact U(R) MST backend (corrected word order)."""
+ur_prime_invariant(v::VirtualLink) = Z_MST(v, URAlgebra())

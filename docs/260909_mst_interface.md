@@ -9,3 +9,7 @@
 実装入口は `Z_MST`、段階別 API は `invariant_expression`、`simplify_invariant`、`evaluate_invariant`、`normalize_root` である。`hopf_invariant`、`taft_reduce`、`taft_evaluate` は互換入口として接続する。Taft の計算用型は内部 `TaftExact.Cyclotomic{N}`、完成値は公開 `Cyclotomic{N,M}`。使用方法は [README](../README.md#algebra-units) を参照する。
 
 Taft 固有の型・移行・受入条件は [要件書](../../../threads/PJ260830/docs/reports/260909_mst_interface_requirements.md) に置く。
+
+U(R) は `Z_MST(v, URAlgebra())` で厳密有理数を返す。
+構築・簡約化・評価は同じ共通APIに接続し、URDiagramには依存しない。
+対応範囲と規約は [U(R) backend](260909_ur_mst.md) を参照する。
