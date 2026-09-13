@@ -124,6 +124,11 @@ The data-driven move architecture, MATLAB compatibility boundary, public
 transport, errors, and support matrix are specified in
 [`docs/specs/virtual-link-moves.md`](docs/specs/virtual-link-moves.md).
 
+Reusable move-sequence exploration uses the unweighted SQLite projection in
+[`docs/specs/ograph-search-db.md`](docs/specs/ograph-search-db.md). It stores
+`MP`, literal `02`, and `PS` as distinct geometric edge kinds; weights and `H`
+moves enter only when a queried path is replayed.
+
 - Plots are **no longer accepted by comparison with MATLAB**. The criterion is
   that the layout is a valid bend-minimal orthogonal embedding, checked by
   property. Differences caused by the degenerate minimum-bend MILP are

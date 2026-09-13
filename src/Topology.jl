@@ -92,6 +92,16 @@ export KnotGaussDiagram, KnotGaussEnumeration, ReidemeisterCandidate,
        migrate_ograph_transition_store!, insert_ograph_verified_transition!,
        register_ograph_profile!, register_ograph_campaign!,
        verify_ograph_store, ograph_canonical_json,
+       OGRAPH_SEARCH_SCHEMA_VERSION, OGRAPH_SEARCH_STATE_VERSION,
+       OGRAPH_SEARCH_ENUMERATOR_VERSION, OGRAPH_SEARCH_ENGINE_VERSION,
+       migrate_ograph_search_store!, ograph_search_state,
+       put_ograph_search_state!, load_ograph_search_state,
+       begin_ograph_search_run!, finish_ograph_search_run!, ograph_search_run,
+       ograph_search_candidates, expand_ograph_search_state!,
+       ograph_search_neighbors, query_ograph_search_path,
+       query_ograph_search_paths,
+       replay_weighted_ograph_path, record_weighted_ograph_path_trial!,
+       verify_ograph_search_store,
        OGraphPi1Presentation, OGraphH1Result,
        OGRAPH_PI1_PRESENTATION_SCHEMA, OGRAPH_PI1_ALGORITHM,
        OGRAPH_PI1_ALGORITHM_VERSION, OGRAPH_PI1_CONVENTION,
@@ -165,6 +175,7 @@ include("knot_n6_all_state_enumeration.jl")
 include("move_graph_store.jl")
 using .MoveGraphStore
 include("ograph_move_db.jl")
+include("ograph_search_db.jl")
 include("ograph_invariants.jl")
 include("knot_move_db.jl")
 include("knot_n5_classification.jl")
