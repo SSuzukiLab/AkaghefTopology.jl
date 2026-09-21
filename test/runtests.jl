@@ -30,6 +30,7 @@ include(joinpath(@__DIR__,"cut_closed_boundaries.jl"))
 include(joinpath(@__DIR__,"cut_weights.jl"))
 include(joinpath(@__DIR__,"cut_plot.jl"))
 include(joinpath(@__DIR__,"cut_moves.jl"))
+include(joinpath(@__DIR__,"reduced_cp.jl"))
 include(joinpath(@__DIR__,"cut_method_b.jl"))
 include(joinpath(@__DIR__,"multi_cut_moves.jl"))
 include(joinpath(@__DIR__,"multi_cut_method_b.jl"))
@@ -297,7 +298,7 @@ end
 @testset "Topology helpers" begin
     B=bernstein(3,[0.0,0.5,1.0]); @test size(B)==(4,3); @test all(isapprox.(sum(B,dims=1),1))
     P=[0.0 1 2; 0.0 1 0]; @test bezier(0.5,P)[:,1]≈[1.0,0.5]
-    moves=make_move_data(); @test Set(keys(moves))==Set(["MP-L","MP-R","02-L","02-R","CP-L","CP-R","PS-L","PS-R","S-L","S-R","BMP-L","BMP-R","B02-L","B02-R"])
+    moves=make_move_data(); @test Set(keys(moves))==Set(["MP-L","MP-R","02-L","02-R","CP-L","CP-R","RCP-L","RCP-R","PS-L","PS-R","S-L","S-R","BMP-L","BMP-R","B02-L","B02-R"])
     @test length(moves["MP-L"])==16
     @test length(moves["MP-R"])==16
     a2=only(filter(pattern -> pattern.parameter=="A2",moves["MP-L"]))

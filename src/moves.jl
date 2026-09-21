@@ -206,6 +206,8 @@ function _pattern_pairs(type::String,count::Int,data)
     elseif type=="CP"
         count==3 && return data["CP-L"],data["CP-R"],:forward
         count==5 && return data["CP-R"],data["CP-L"],:inverse
+    elseif type=="RCP"
+        count==2 && return data["RCP-L"],data["RCP-R"],:forward
     elseif type=="PS"
         count==0 && return data["PS-L"],data["PS-R"],:forward
         count==2 && return data["PS-R"],data["PS-L"],:inverse

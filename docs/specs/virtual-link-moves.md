@@ -892,6 +892,7 @@ Every failed public mutation MUST preserve the complete source object.
 |---|---:|---:|---:|---:|---:|
 | MP A1–D4 | yes | yes | yes | yes | integer rules, all 16 |
 | CP | yes | yes | yes | yes | no |
+| rCP (reduced CP) | yes | rooted local pattern | 2 to 5 | not exposed | no |
 | PS-I--IV | yes | local and Method-B | edge occurrences | yes | framed integer inputs |
 | INS S | yes | local; Area-3 verifier checks endpoints | edge occurrence | yes | no |
 | 02 | yes | yes | signed-adjacent direct path | pattern inverse | integer rules |
@@ -908,6 +909,44 @@ is immediately before each selected head. PS requires two selections, including
 coincident selections when appropriate; S requires one. A frozen candidate can
 be applied with `move(source,candidate)` without selecting its site again.
 Canonicalization remains a separate operation after the raw move.
+
+### 15.1 Reduced CP (2 to 5)
+
+`move!(v,"rCP";vertices=[a,b])` expands the contiguous real-Gauss fragment
+`[-a,b,-b,a]`, with vertex signs `a:-1, b:+1`, to the rooted five-vertex
+patch below. `movable` and the nonmutating `move` use the same interface.
+The type is case-insensitive; candidates use `"RCP"` and parameter `"dir"`.
+For an input with `n` real vertices, set `c=n+1, d=n+2, e=n+3`:
+
+```text
+before: [-a, b,-b, a]                       signs [a,b]       = [-1,+1]
+after:  [-a,-b, c,-d, b, d, e,-e, a,-c]     signs [a,b,c,d,e] = [-1,-1,+1,-1,+1]
+```
+
+The exterior occurrences and signs are retained. The replacement adds three
+vertices and preserves the strand endpoints. `strict=true` fixes the selected
+vertex roles; `movable(...;strict=false)` also searches their permutations.
+Matching may cross a closed component's stored basepoint but cannot cross a
+cut endpoint or independently rotate the rooted source fragment. No extra
+condition requiring the three boundary disk paths to belong to the same disk
+is imposed.
+
+The rooted patch is defined and its clnog/oriented-manifold preservation is
+proved in the owning research workspace's
+`threads/PJ260830/docs/reports/260922_reduced_cp_move.md` (2026-09-22,
+`proved/agent`). The direction here is R6 to R0. This API implements the
+geometric rewrite on closed or cut VL presentations, including non-clnog
+inputs, as the other local pattern families do. It does not certify combing
+or framing transport, or register an Area-3 database/verifier move. Weighted
+integer and Z2 inputs are rejected before mutation; 5-to-2 is not exposed.
+
+```julia
+v = VirtualLink()
+set_data!(v; rgauss=[[-1,2,-2,1]], orientation=[-1,1])
+candidate = only(movable(v, "rCP"; vertices=[1,2], strict=true))
+expanded = move(v, candidate)   # v is unchanged
+move!(v, "rCP"; vertices=[1,2]) # apply the same 2-to-5 move in place
+```
 
 ## 16. Conformance levels
 
