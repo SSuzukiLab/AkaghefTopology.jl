@@ -126,8 +126,18 @@ end
     svg = H.render(layout)
     @test occursin("data-intersection-id=\"1\"", svg)
     @test occursin("data-curve-family=\"beta\"", svg)
-    @test occursin("fill-opacity=\"0.14\"", svg)
+    @test occursin("fill=\"#f5f3ee\"", svg)
     @test occursin("vector-effect=\"non-scaling-stroke\"", svg)
+    @test H.plot(layout) === layout
+    inline = IOBuffer()
+    show(inline, MIME("image/svg+xml"), layout)
+    @test occursin("data-heegaard-view=\"alpha_cut\"", String(take!(inline)))
+
+    fixed_plot = H.plot(diagram, layout)
+    @test fixed_plot.report.valid
+    @test fixed_plot.backend_trace["plot"]["profile"] == "fixed-100"
+    @test all(==(100), values(
+        fixed_plot.backend_trace["plot"]["review_slider_values"]))
     @test isempty(layout.crossings)
     @test H.validate_layout(diagram, layout).valid
     @test H.gauss_layout(diagram).view == :gauss

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.243916 -1.6348 1.390884 3.2696" role="img" data-heegaard-view="alpha_cut" data-diagram-hash="d61e0bbd512dee133f8c2c6de5318ab43d8158f6f45ea77d0fc805725593913f"><title>Heegaard diagram — paired punctures</title><desc>Alpha cut: paired puncture disks in two rows; beta arcs preserve their ordered endpoints.</desc><metadata data-provenance="{}"/>
+<g data-layer="routes">
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="1" d="M 0.72 -1.0 C 0.712533 -1.0 0.705067 -1.0 0.6976 -1.0 C 0.690133 -1.0 0.680111 -0.99459 0.673163 -0.988969 C 0.666215 -0.983348 0.650296 -0.962525 0.642371 -0.947129 C 0.634446 -0.931733 0.626698 -0.905595 0.621721 -0.884031 C 0.616743 -0.862468 0.612747 -0.827801 0.610026 -0.799479 C 0.607305 -0.771158 0.604624 -0.710069 0.603235 -0.674136 C 0.601846 -0.638203 0.601221 -0.602241 0.600736 -0.566285 C 0.600252 -0.530328 0.598882 -0.175525 0.598732 -0.036045 C 0.598581 0.103434 0.599001 0.312236 0.599409 0.382393 C 0.599817 0.452549 0.600831 0.558511 0.601515 0.592856 C 0.602198 0.627201 0.602903 0.661556 0.604585 0.695866 C 0.606267 0.730177 0.610221 0.800493 0.61363 0.828292 C 0.617039 0.856092 0.622359 0.89097 0.628329 0.911019 C 0.634299 0.931068 0.646422 0.959133 0.652939 0.968749 C 0.659456 0.978365 0.671684 0.989639 0.677651 0.993321 C 0.683619 0.997003 0.690588 1.0 0.6976 1.0 C 0.705067 1.0 0.712533 1.0 0.72 1.0" fill="none" stroke="#2459a9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+</g>
+<g data-layer="punctures">
+<circle data-pair="1" data-side="plus" cx="1.0" cy="-1.0" r="0.28" fill="#f5f3ee" stroke="#383c43" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<text x="1.0" y="-1.0" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="0.126" fill="#25282d">α1+</text>
+<circle data-pair="1" data-side="minus" cx="1.0" cy="1.0" r="0.28" fill="#f5f3ee" stroke="#383c43" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<text x="1.0" y="1.0" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="0.126" fill="#25282d">α1−</text>
+<circle data-intersection-id="1" data-port-index="1" cx="0.72" cy="-1.0" r="0.01344" fill="#383c43"><title>Intersection 1 · β1</title></circle>
+<text data-intersection-label="1" x="0.7956" y="-1.0" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="0.0588" fill="#535963">1</text>
+<circle data-intersection-id="1" data-port-index="2" cx="0.72" cy="1.0" r="0.01344" fill="#383c43"><title>Intersection 1 · β1</title></circle>
+<text data-intersection-label="1" x="0.7956" y="1.0" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="0.0588" fill="#535963">1</text>
+</g>
+</svg>

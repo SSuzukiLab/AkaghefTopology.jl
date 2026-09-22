@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.2652 -1.6348 1.3696 3.2696" role="img" data-heegaard-view="alpha_cut" data-diagram-hash="d61e0bbd512dee133f8c2c6de5318ab43d8158f6f45ea77d0fc805725593913f"><title>Heegaard diagram — paired punctures</title><desc>Alpha cut: paired puncture disks in two rows; beta arcs preserve their ordered endpoints.</desc><metadata data-provenance="{}"/>
+<g data-layer="routes">
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="1" d="M 0.72 -1.0 L 0.62 -0.58 L 0.62 -0.44 L 0.62 -0.02 L 0.62 0.12 L 0.62 0.26 L 0.62 0.68 L 0.72 1.0" fill="none" stroke="#2459a9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+</g>
+<g data-layer="punctures">
+<circle data-pair="1" data-side="plus" cx="1.0" cy="-1.0" r="0.28" fill="#f5f3ee" stroke="#383c43" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<text x="1.0" y="-1.0" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="0.126" fill="#25282d">α1+</text>
+<circle data-pair="1" data-side="minus" cx="1.0" cy="1.0" r="0.28" fill="#f5f3ee" stroke="#383c43" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+<text x="1.0" y="1.0" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-size="0.126" fill="#25282d">α1−</text>
+<circle data-intersection-id="1" data-port-index="1" cx="0.72" cy="-1.0" r="0.01344" fill="#383c43"><title>Intersection 1 · β1</title></circle>
+<text data-intersection-label="1" x="0.7956" y="-1.0" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="0.0588" fill="#535963">1</text>
+<circle data-intersection-id="1" data-port-index="2" cx="0.72" cy="1.0" r="0.01344" fill="#383c43"><title>Intersection 1 · β1</title></circle>
+<text data-intersection-label="1" x="0.7956" y="1.0" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="0.0588" fill="#535963">1</text>
+</g>
+</svg>

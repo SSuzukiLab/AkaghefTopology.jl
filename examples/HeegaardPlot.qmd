@@ -1,0 +1,84 @@
+---
+title: "Heegaard Diagram — Poincaré sphere"
+format: html
+jupyter: julia-1.12-1.12
+execute:
+  echo: true
+  warning: true
+  error: false
+---
+
+This executable example loads the certified Poincaré homology-sphere fixture,
+plots its feasible α-cut layout, and computes the fixed production plot.
+Julia owns the geometry; the website displays the very same SVG, without
+browser-only deformation. No tuning sliders are required.
+
+The mathematical code comes from Klebanov Fig. 2.15; its region decoration is
+a reconstruction candidate, not a directly transcribed source datum. The seed
+below is a saved fixture-scoped feasible layout, not evidence of a complete
+general-purpose router.
+
+```{julia}
+using Topology
+
+const H = Topology.Heegaard
+const ROOT = dirname(Base.active_project())
+
+diagram_path = joinpath(ROOT, "test", "fixtures",
+                        "poincare_homology_sphere_v1.hgd.json")
+layout_path = joinpath(ROOT, "test", "fixtures",
+                       "poincare_homology_sphere_v1.hgd.layout.json")
+
+diagram = H.certify_heegaard(H.load_heegaard(diagram_path))
+feasible = H.load_layout(layout_path, diagram)
+```
+
+## Before — certified feasible layout
+
+```{julia}
+H.plot(feasible)
+```
+
+## After — fixed production plot
+
+```{julia}
+figure = H.plot(diagram, feasible)
+figure
+```
+
+## Verification and provenance
+
+```{julia}
+smoothing = figure.backend_trace["smoothing"]
+plot_trace = figure.backend_trace["plot"]
+
+(
+    valid = figure.report.valid,
+    crossings = length(figure.crossings),
+    diagram_hash = figure.diagram_hash,
+    profile = plot_trace["profile"],
+    slider_values = plot_trace["review_slider_values"],
+    measured_minimum = smoothing["minimum_flattened_separation"],
+    stop_reason = smoothing["stop_reason"],
+    converged = smoothing["converged"],
+)
+```
+
+## Persist the plotted result
+
+```{julia}
+output_dir = joinpath(ROOT, "artifacts", "heegaard", "qmd_plot")
+mkpath(output_dir)
+
+svg_path = joinpath(output_dir, "poincare-alpha-cut.svg")
+layout_output_path = joinpath(output_dir,
+                              "poincare-alpha-cut.hgd.layout.json")
+
+H.render(figure; backend=:svg, path=svg_path)
+H.save_layout(layout_output_path, figure)
+
+(svg = svg_path, layout = layout_output_path)
+```
+
+The reported minimum distance is measured on adaptively flattened curves.
+An iteration limit or stalled line search is not a proof of optimality.

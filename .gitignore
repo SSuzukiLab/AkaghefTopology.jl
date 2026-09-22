@@ -1,0 +1,4 @@
+# Locally rendered Quarto HTML; source and Julia SVG/layout artifacts are tracked.
+/examples/HeegaardPlot.html
+/examples/HeegaardPlot_files/
+/examples/HeegaardPlot.quarto_ipynb

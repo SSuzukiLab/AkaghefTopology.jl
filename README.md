@@ -115,3 +115,69 @@ The pure-Julia core does not silently delegate topology to Catlab or a
 renderer. `layout_heegaard(; backend=:catlab)` records its pure-Julia fallback
 in the backend trace, `group_probe` reports when optional GAP is unavailable,
 and non-canonical spine output is marked in its conversion certificate.
+
+### Heegaard plots in QMD/IJulia
+
+`HeegaardLayout` implements the `image/svg+xml` display MIME, so a layout at
+the end of a QMD cell renders inline. `Heegaard.plot(diagram, feasible)` applies
+the fixed production profile (four review settings fixed at 100). The joint
+Julia solver replaces the retired browser-only preview; it does not claim
+pixel identity with that preview. There are no public tuning sliders.
+
+```julia
+using Topology
+const H = Topology.Heegaard
+
+diagram = H.certify_heegaard(H.load_heegaard("diagram.hgd.json"))
+feasible = H.load_layout("diagram.hgd.layout.json", diagram)
+figure = H.plot(diagram, feasible)
+figure
+```
+
+Persist the same verified result with the existing APIs:
+
+```julia
+H.render(figure; backend=:svg, path="diagram.svg")
+H.save_layout("diagram.hgd.layout.json", figure)
+```
+
+[`examples/HeegaardPlot.qmd`](examples/HeegaardPlot.qmd) is the executable
+Poincaré-sphere example. The MVP intentionally does not expose slider mapping,
+presets, or a second figure-management abstraction.
+
+### Local Heegaard application
+
+Build the seven example plots and serve the review app:
+
+```powershell
+julia --startup-file=no --compiled-modules=existing --pkgimages=no --project=. scripts/heegaard/build_app.jl
+python scripts/heegaard/serve.py
+```
+
+Open <http://localhost:8731/>. The app provides paired-puncture plots, synchronized
+before/after comparison, pan/zoom, beta-curve and paired-intersection highlighting,
+SVG/core/layout downloads, and local JSON import. No data leaves localhost.
+The before/after comparison uses a common coordinate scale. The website and
+QMD use `Heegaard.render` without an independent browser layout algorithm.
+
+The punctures remain in two rows. The production curve solver uses length,
+line-charge spacing and disk clearance, a whole-route preconditioned update,
+and local contact sliding. Continuous motion is checked during relaxation;
+the final cubic curves are adaptively flattened and validated. Fixed endpoint
+contacts are exempt from disk clearance. Stopping is reported honestly; no
+global optimality or universal automatic-routing guarantee is claimed.
+
+Every port has a short, fixed outward-normal guard (8% of the disk radius when
+the surrounding free space permits). A monotone radial collar moves nearby
+strands together to initialize the boundary condition, before joint elastic
+relaxation. Length, bending and repulsion then shape the outgoing curve
+together; no straight stub is attached after relaxation. The final endpoint angle is
+checked against a 15-degree normal cone; the constructed exits are exactly
+normal. This constraint belongs to Julia geometry, not SVG styling.
+
+Poincaré starts from the explicitly recorded, fixture-scoped feasible layout.
+The remaining examples use saved finite-router layouts. For a new diagram,
+`H.plot(diagram)` tries the bounded router; supply `H.plot(diagram, feasible)`
+if a geometric representative is already available. An unsuccessful search
+raises an error rather than displaying an invalid diagram. An imported layout
+must match the core hash and the standard two-row disk placement.

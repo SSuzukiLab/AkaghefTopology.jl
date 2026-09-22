@@ -154,6 +154,8 @@ function _svg_header(layout)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewbox\" " *
     "role=\"img\" data-heegaard-view=\"$(_svg_escape(layout.view))\" " *
     "data-diagram-hash=\"$(_svg_escape(layout.diagram_hash))\">" *
+    "<title>Heegaard diagram — paired punctures</title>" *
+    "<desc>Alpha cut: paired puncture disks in two rows; beta arcs preserve their ordered endpoints.</desc>" *
     "<metadata data-provenance=\"$provenance\"/>"
 end
 
@@ -184,7 +186,9 @@ function _render_svg(layout::HeegaardLayout)
     for route in layout.routes
         attrs = "data-curve-family=\"$(_svg_escape(route.family))\" " *
                 "data-curve-id=\"$(route.curve_id)\" data-route-segment=\"$(route.segment_id)\""
-        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"#17324d\" stroke-width=\"1.4\" vector-effect=\"non-scaling-stroke\"/>")
+        palette = ("#2459a9", "#b75029", "#27806b", "#8650a1", "#986d15")
+        color = palette[mod1(route.curve_id, length(palette))]
+        push!(parts, "<path $attrs d=\"$(_route_path(route))\" fill=\"none\" stroke=\"$color\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" vector-effect=\"non-scaling-stroke\"/>")
     end
     push!(parts, "</g>")
     if layout.view == :alpha_cut
@@ -192,12 +196,17 @@ function _render_svg(layout::HeegaardLayout)
         for puncture in layout.punctures
             push!(parts, "<circle data-pair=\"$(puncture.pair)\" data-side=\"$(_svg_escape(puncture.side))\" " *
                          "cx=\"$(_fmt(puncture.center[1]))\" cy=\"$(_fmt(-puncture.center[2]))\" " *
-                         "r=\"$(_fmt(puncture.radius))\" fill=\"#b54a35\" fill-opacity=\"0.14\" " *
-                         "stroke=\"#b54a35\" stroke-width=\"1.5\" vector-effect=\"non-scaling-stroke\"/>")
+                         "r=\"$(_fmt(puncture.radius))\" fill=\"#f5f3ee\" " *
+                         "stroke=\"#383c43\" stroke-width=\"1.4\" vector-effect=\"non-scaling-stroke\"/>")
+            label = "α$(puncture.pair)" * (puncture.side == :plus ? "+" : "−")
+            push!(parts, "<text x=\"$(_fmt(puncture.center[1]))\" y=\"$(_fmt(-puncture.center[2]))\" text-anchor=\"middle\" dominant-baseline=\"central\" font-family=\"Georgia,serif\" font-size=\"$(_fmt(0.45puncture.radius))\" fill=\"#25282d\">$label</text>")
         end
         for port in layout.ports
+            puncture = only(p for p in layout.punctures if p.id == port.boundary_id)
+            labelpoint = _vadd(puncture.center, _vscale(0.73, _vsub(port.point,puncture.center)))
             push!(parts, "<circle data-intersection-id=\"$(port.intersection_id)\" data-port-index=\"$(port.id)\" " *
-                         "cx=\"$(_fmt(port.point[1]))\" cy=\"$(_fmt(-port.point[2]))\" r=\"0.045\" fill=\"#b54a35\"/>")
+                         "cx=\"$(_fmt(port.point[1]))\" cy=\"$(_fmt(-port.point[2]))\" r=\"$(_fmt(0.048puncture.radius))\" fill=\"#383c43\"><title>Intersection $(port.intersection_id) · β$(port.beta_id)</title></circle>")
+            push!(parts, "<text data-intersection-label=\"$(port.intersection_id)\" x=\"$(_fmt(labelpoint[1]))\" y=\"$(_fmt(-labelpoint[2]))\" text-anchor=\"middle\" dominant-baseline=\"central\" font-family=\"system-ui,sans-serif\" font-size=\"$(_fmt(0.21puncture.radius))\" fill=\"#535963\">$(port.intersection_id)</text>")
         end
         push!(parts, "</g>")
     end
@@ -213,6 +222,33 @@ function render(layout::HeegaardLayout; backend=:cairo, path=nothing)
         write(io, svg)
     end
     svg
+end
+
+"""Return a QMD-displayable layout without changing an already computed plot."""
+plot(layout::HeegaardLayout) = layout
+
+"""Compute a fixed-profile alpha-cut plot. The input layout is never mutated.
+
+Spacing, interaction range, tautness and disk clearance are fixed at their
+production setting; no browser-only deformation or tuning controls are used.
+"""
+function plot(H::HeegaardDiagram, feasible::HeegaardLayout)
+    feasible.view == :alpha_cut || throw(ArgumentError("plot requires an alpha-cut layout"))
+    validate_layout(H,feasible).valid || throw(ArgumentError("plot requires a valid layout of this diagram"))
+    isempty(feasible.routes) && return feasible
+    _joint_plot_relaxation(H,feasible)
+end
+
+"""Plot a diagram using the bounded fixed-endpoint router, or an explicit feasible layout.
+
+Routing failure is reported, never replaced with a crossing-filled drawing.
+For a saved geometric representative use `plot(H, load_layout(path,H))`.
+"""
+plot(H::HeegaardDiagram) = plot(H, layout_heegaard(H;backend=:pure_julia))
+
+"""Display a Heegaard layout inline in Quarto, IJulia, and other rich frontends."""
+function Base.show(io::IO, ::MIME"image/svg+xml", layout::HeegaardLayout)
+    print(io, _render_svg(layout))
 end
 
 function render_tikz(layout::HeegaardLayout)
