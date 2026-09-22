@@ -1,0 +1,55 @@
+---
+title: "Heegaard diagram — T³"
+format: html
+jupyter: julia-1.12-1.12
+execute:
+  echo: true
+  error: false
+---
+
+Genus-three example from Ozsváth–Stipsicz–Szabó, *Heegaard Floer homology*,
+Example 2.1.13 and Figure 2.5 (author PDF dated 2024-08-20):
+<https://web.math.princeton.edu/~szabo/HeegaardBook.pdf>.
+The twelve octahedron edges become three β curves under reflection gluing.
+Every β meets two different α curves. This is not a disjoint union of
+genus-one layouts or a trivial stabilization.
+
+```{julia}
+using Topology
+const H = Topology.Heegaard
+const ROOT = dirname(Base.active_project())
+diagram = H.certify_heegaard(H.load_heegaard(joinpath(ROOT, "test", "fixtures", "t3_octahedron_v1.hgd.json")))
+feasible = H.load_layout(joinpath(ROOT, "test", "fixtures", "t3_octahedron_v1.hgd.layout.json"), diagram)
+(genus = H.surface_genus(diagram), homology = H.first_homology(diagram))
+```
+
+## Before
+
+The saved feasible seed starts from the source octahedron's planar embedding.
+An explicit annular half-twist and two local inverse disk spins place its
+six disks in the standard two rows without changing cyclic port order.
+This is a source-specific construction, not a claim of a complete router.
+
+```{julia}
+H.plot(feasible)
+```
+
+## After
+
+The same fixed-100 Julia relaxation used by the website, with normal exits.
+
+```{julia}
+figure = H.plot(diagram, feasible)
+figure
+```
+
+```{julia}
+(valid = figure.report.valid, crossings = length(figure.crossings),
+ stop_reason = figure.backend_trace["smoothing"]["stop_reason"],
+ source_hash = figure.diagram_hash)
+```
+
+Source incidence is transcribed; curve orientations and intersection IDs are
+explicit local choices. The genus and homology above are computed checks,
+not independent evidence of every source convention. The solver does not
+claim a global optimum.

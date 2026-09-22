@@ -21,6 +21,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         path = unquote(urlsplit(path).path)
+        if path in ("/", "/index.html"):
+            return str(WEB / "gallery.html")
         if path.startswith("/generated/"):
             relative = path[len("/generated/"):]
             candidate = (GENERATED / relative).resolve()

@@ -95,6 +95,18 @@ function _ordered_variants(curves::Vector{Curve}, order::Vector{Int})
     variants
 end
 
+# Beta is the first varying field after alpha in canonical JSON. Once alpha
+# has assigned every label, its rotations can be minimized independently.
+# Preserve JSON lexical ordering (including multi-digit labels).
+function _minimal_beta_visits(code, alpha_visits, beta_order)
+    labels = Dict(point => index for (index, point) in enumerate(vcat(alpha_visits...)))
+    [begin
+        rotations = _rotations(code.beta[index].visits)
+        keys = [_canonical_json([labels[p] for p in word]) for word in rotations]
+        rotations[argmin(keys)]
+    end for index in beta_order]
+end
+
 function _region_signatures(object, intersection_map, curve_maps)
     object isa DecoratedHeegaardCode || return Vector{Vector{Any}}()
     graph = ribbon_graph(object.code)
@@ -205,7 +217,8 @@ function canonicalize_representation(object)
         nothing
     end
     for alpha_order in alpha_orders, alpha_visits in _ordered_variants(code.alpha, alpha_order),
-        beta_order in beta_orders, beta_visits in _ordered_variants(code.beta, beta_order)
+        beta_order in beta_orders
+        beta_visits = _minimal_beta_visits(code, alpha_visits, beta_order)
         partition = object isa HeegaardDiagram ? object.code.regions :
                     object isa DecoratedHeegaardCode ? object.regions : nothing
         candidate = _candidate(code, alpha_order, alpha_visits, beta_order, beta_visits,

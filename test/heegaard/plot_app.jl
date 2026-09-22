@@ -28,8 +28,14 @@ end
     root=normpath(joinpath(@__DIR__,"..",".."))
     output=joinpath(root,"artifacts","heegaard","app")
     entries=JSON3.read(read(joinpath(output,"manifest.json"),String))
-    @test length(entries)==7
-    for entry in entries
+    selection=JSON3.read(read(joinpath(root,"web","heegaard","gallery-selection.json"),String))
+    selected=vcat(collect(selection.representatives),collect(selection.comparisons))
+    ids=Set(String(e.id) for e in selected)
+    @test length(ids)==length(selected)
+    @test all(id->any(e->e.id==id,entries),ids)
+    @test length(unique(e.id for e in entries))==length(entries)
+    # Selection is deliberate. Increasing fixture count is not an acceptance gate.
+    for entry in filter(e->e.id in ids,entries)
         diagram=H.certify_heegaard(H.load_heegaard(joinpath(output,"$(entry.id).hgd.json")))
         layout=H.load_layout(joinpath(output,"$(entry.id).hgd.layout.json"),diagram)
         @test layout.report.valid
@@ -45,6 +51,7 @@ end
         @test length(layout.routes)==1 ? separation===nothing : separation>0
         @test H._exit_angle_degrees(layout)<1e-4
         @test layout.backend_trace["smoothing"]["minimum_normal_exit_length"]>0
+        @test H.first_homology(diagram).torsion==Int.(entry.h1.torsion)
         for route in layout.routes
             guard=layout.backend_trace["smoothing"]["minimum_normal_exit_length"]
             @test H._vnorm(H._vsub(first(route.curve.segments).p3,first(route.curve.segments).p0))>=0.999guard

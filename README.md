@@ -147,14 +147,36 @@ presets, or a second figure-management abstraction.
 
 ### Local Heegaard application
 
-Build the seven example plots and serve the review app:
+Build the selected representative/comparison plots and serve the review app:
 
 ```powershell
-julia --startup-file=no --compiled-modules=existing --pkgimages=no --project=. scripts/heegaard/build_app.jl
+julia --threads=2 --startup-file=no --compiled-modules=existing --pkgimages=no --project=. scripts/heegaard/build_app.jl
 python scripts/heegaard/serve.py
 ```
 
-Open <http://localhost:8731/>. The app provides paired-puncture plots, synchronized
+Open <http://localhost:8731/> for a curated representative gallery. Selection and
+the structural differences are explicit in `web/heegaard/gallery-selection.json`.
+Stabilizations and connected sums are collapsed construction comparisons, not
+evidence of structural diversity. Previously generated parameter files are
+retained and their direct URLs still work, but the default manifest lists only
+the selection. `--extended` explicitly reindexes the old sweep; its count is
+not a success metric. The T³ example
+is genuinely genus three: each beta meets two distinct alpha curves, with
+geometric incidence `[2 0 2; 2 2 0; 0 2 2]` and computed H₁ = Z³.
+Its source is Ozsváth–Stipsicz–Szabó, *Heegaard Floer homology*, Example 2.1.13,
+Figure 2.5, pp. 34–35 (2024-08-20 author PDF). This is not a stabilized lens
+diagram. The source octahedron is embedded explicitly, then an annular
+half-twist and two inverse disk spins put its six punctures in the 2×3 grid.
+`scripts/heegaard/build_t3_seed.jl` reproduces the saved feasible seed;
+`examples/HeegaardT3.qmd` uses the ordinary `H.plot(diagram, feasible)` API.
+The seed is source-specific; it does not make the bounded general router complete.
+
+The builder defaults to the selected examples and reuses current saved plots.
+It publishes completed entries incrementally and records failures in
+`build-status.json`; `--fresh` recomputes the selected plots. Only the explicit
+`--extended` option rebuilds the old parameter sweep.
+
+Individual pages provide paired-puncture plots, synchronized
 before/after comparison, pan/zoom, beta-curve and paired-intersection highlighting,
 SVG/core/layout downloads, and local JSON import. No data leaves localhost.
 The before/after comparison uses a common coordinate scale. The website and
@@ -176,7 +198,13 @@ checked against a 15-degree normal cone; the constructed exits are exactly
 normal. This constraint belongs to Julia geometry, not SVG styling.
 
 Poincaré starts from the explicitly recorded, fixture-scoped feasible layout.
-The remaining examples use saved finite-router layouts. For a new diagram,
+The original examples retain their saved finite-router layouts. Additional lens
+and connected-sum examples use a constructive annulus-family seed from
+`scripts/heegaard/gallery_examples.jl`, checked before the same production
+relaxation. This family-specific construction is not a general routing algorithm.
+The connected-sum decoration joins one complementary region from each summand;
+stabilization adds S³ summands. Source transcription and constructed examples are
+distinguished in each entry. For a new diagram,
 `H.plot(diagram)` tries the bounded router; supply `H.plot(diagram, feasible)`
 if a geometric representative is already available. An unsuccessful search
 raises an error rather than displaying an invalid diagram. An imported layout

@@ -413,7 +413,24 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     edge_count = length(wiring.wires)
     face_count = length(faces)
     euler = vertex_count - edge_count + face_count
-    genus = (2 - euler) ÷ 2
+    # The terminal graph need not be connected (e.g. a stabilized diagram).
+    # Face walks cap each component separately: V-E+F = 2c-2*sum(genus).
+    adjacency=Dict(id=>Int[] for id in keys(rotations))
+    for wire in wiring.wires
+        a=port_map[wire.from_port].boundary_id
+        b=port_map[wire.to_port].boundary_id
+        push!(adjacency[a],b); push!(adjacency[b],a)
+    end
+    unseen=Set(keys(rotations)); components=0
+    while !isempty(unseen)
+        components+=1; stack=[first(unseen)]
+        while !isempty(stack)
+            id=pop!(stack)
+            id in unseen || continue
+            delete!(unseen,id); append!(stack,adjacency[id])
+        end
+    end
+    genus = (2components - euler) ÷ 2
     graph = ribbon_graph(H)
     original_cycles = boundary_cycles(graph)
     alpha_edge_count = sum(length(curve.visits) for curve in H.code.code.alpha)
@@ -437,7 +454,7 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     end
     sort(face_to_boundary) == collect(eachindex(filtered_original)) ||
         throw(ArgumentError("terminal faces do not bijectively match ribbon boundary cycles"))
-    (planar=euler == 2, vertices=vertex_count, edges=edge_count,
+    (planar=euler == 2components, vertices=vertex_count, edges=edge_count, components=components,
      faces=face_count, euler=euler, genus=genus,
      face_lengths=sort(length.(faces)), face_cycles=faces,
      face_to_boundary_cycle=face_to_boundary,
