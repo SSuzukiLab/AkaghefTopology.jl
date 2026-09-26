@@ -14,6 +14,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [sources]
 RuntimeGeneratedFunctions = {path = "vendor/RuntimeGeneratedFunctions"}

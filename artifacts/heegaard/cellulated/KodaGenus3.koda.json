@@ -1,0 +1,1405 @@
+{
+  "closedness": {
+    "criteria": [
+      true,
+      true,
+      true
+    ],
+    "closed": true
+  },
+  "complex": {
+    "edge_incidence": [
+      [
+        [
+          1,
+          -1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          -1
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      [
+        [
+          3,
+          -1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          -1
+        ]
+      ],
+      [
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          -1
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          -1
+        ]
+      ],
+      [
+        [
+          3,
+          -1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          6,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          -1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          3,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          4,
+          -1
+        ],
+        [
+          6,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          -1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          6,
+          1
+        ]
+      ]
+    ],
+    "checks": {
+      "oriented_branching": true,
+      "three_sheet_incidence": true,
+      "closed_attaching_words": true,
+      "scope": "finite incidence and disk-gluing checks; not an independent manifold recognition",
+      "euler_characteristic": 1,
+      "disk_sectors": true
+    },
+    "gluings": [
+      {
+        "joining_dart": 8,
+        "right_source_cells": [
+          "alpha:1"
+        ],
+        "result_source_darts": [
+          28,
+          4,
+          40,
+          20,
+          29,
+          16,
+          43,
+          11,
+          33,
+          19,
+          38,
+          6,
+          4,
+          2
+        ],
+        "removed_edge": 4,
+        "left_source_cells": [
+          "surface:4"
+        ]
+      },
+      {
+        "joining_dart": 36,
+        "right_source_cells": [
+          "beta:3"
+        ],
+        "result_source_darts": [
+          6,
+          27,
+          1,
+          41,
+          15,
+          31,
+          12,
+          44,
+          42,
+          40,
+          38
+        ],
+        "removed_edge": 18,
+        "left_source_cells": [
+          "surface:1"
+        ]
+      },
+      {
+        "joining_dart": 10,
+        "right_source_cells": [
+          "alpha:2"
+        ],
+        "result_source_darts": [
+          44,
+          14,
+          32,
+          16,
+          14,
+          12
+        ],
+        "removed_edge": 5,
+        "left_source_cells": [
+          "surface:7"
+        ]
+      },
+      {
+        "joining_dart": 30,
+        "right_source_cells": [
+          "beta:2"
+        ],
+        "result_source_darts": [
+          16,
+          43,
+          11,
+          33,
+          19,
+          38,
+          6,
+          4,
+          2,
+          28,
+          4,
+          40,
+          20,
+          34,
+          32
+        ],
+        "removed_edge": 15,
+        "left_source_cells": [
+          "surface:4",
+          "alpha:1"
+        ]
+      },
+      {
+        "joining_dart": 18,
+        "right_source_cells": [
+          "alpha:3"
+        ],
+        "result_source_darts": [
+          34,
+          13,
+          42,
+          3,
+          26,
+          22,
+          20
+        ],
+        "removed_edge": 9,
+        "left_source_cells": [
+          "surface:3"
+        ]
+      },
+      {
+        "joining_dart": 24,
+        "right_source_cells": [
+          "beta:1"
+        ],
+        "result_source_darts": [
+          22,
+          39,
+          2,
+          28,
+          26
+        ],
+        "removed_edge": 12,
+        "left_source_cells": [
+          "surface:2"
+        ]
+      }
+    ],
+    "regions": [
+      {
+        "boundary": [
+          -1,
+          -8,
+          -10,
+          9,
+          8,
+          2,
+          6
+        ],
+        "source_cells": [
+          "beta:3",
+          "surface:1"
+        ],
+        "id": 1,
+        "source_darts": [
+          27,
+          1,
+          41,
+          15,
+          31,
+          12,
+          44,
+          42,
+          40,
+          38,
+          6
+        ]
+      },
+      {
+        "boundary": [
+          -2,
+          1,
+          4
+        ],
+        "source_cells": [
+          "beta:1",
+          "surface:2"
+        ],
+        "id": 2,
+        "source_darts": [
+          39,
+          2,
+          28,
+          26,
+          22
+        ]
+      },
+      {
+        "boundary": [
+          -7,
+          8,
+          -3,
+          4,
+          5
+        ],
+        "source_cells": [
+          "alpha:3",
+          "surface:3"
+        ],
+        "id": 3,
+        "source_darts": [
+          13,
+          42,
+          3,
+          26,
+          22,
+          20,
+          34
+        ]
+      },
+      {
+        "boundary": [
+          -9,
+          -5,
+          6,
+          3,
+          1,
+          3,
+          2,
+          5,
+          10
+        ],
+        "source_cells": [
+          "alpha:1",
+          "beta:2",
+          "surface:4"
+        ],
+        "id": 4,
+        "source_darts": [
+          43,
+          11,
+          33,
+          19,
+          38,
+          6,
+          4,
+          2,
+          28,
+          4,
+          40,
+          20,
+          34,
+          32,
+          16
+        ]
+      },
+      {
+        "boundary": [
+          -6,
+          -4
+        ],
+        "source_cells": [
+          "surface:5"
+        ],
+        "id": 5,
+        "source_darts": [
+          5,
+          37,
+          21,
+          25
+        ]
+      },
+      {
+        "boundary": [
+          7,
+          10,
+          7,
+          9
+        ],
+        "source_cells": [
+          "alpha:2",
+          "surface:7"
+        ],
+        "id": 6,
+        "source_darts": [
+          14,
+          32,
+          16,
+          14,
+          12,
+          44
+        ]
+      }
+    ]
+  },
+  "ograph": {
+    "gauss": [
+      [
+        1,
+        3,
+        -2,
+        -1,
+        2,
+        -3,
+        5,
+        -4,
+        -5,
+        4
+      ]
+    ],
+    "orientation": [
+      -1,
+      1,
+      1,
+      1,
+      -1
+    ],
+    "metadata": {
+      "intersection_to_vertex": {
+        "7": 1,
+        "8": 2,
+        "9": 3,
+        "10": 4,
+        "11": 5
+      },
+      "convention": "K08 left-hand ambient convention: beta over, alpha under; singular edges follow the induced boundary of D (opposite to K08 slope orientations); vertex sign from repository CCW PD frame",
+      "canonical": false,
+      "runs": [
+        {
+          "family": "alpha",
+          "component": 1,
+          "source_intersections": [
+            8,
+            7
+          ],
+          "word": [
+            -2,
+            -1
+          ]
+        },
+        {
+          "family": "beta",
+          "component": 1,
+          "source_intersections": [
+            8
+          ],
+          "word": [
+            2
+          ]
+        },
+        {
+          "family": "alpha",
+          "component": 1,
+          "source_intersections": [
+            9
+          ],
+          "word": [
+            -3
+          ]
+        },
+        {
+          "family": "beta",
+          "component": 1,
+          "source_intersections": [
+            11
+          ],
+          "word": [
+            5
+          ]
+        },
+        {
+          "family": "alpha",
+          "component": 1,
+          "source_intersections": [
+            10,
+            11
+          ],
+          "word": [
+            -4,
+            -5
+          ]
+        },
+        {
+          "family": "beta",
+          "component": 1,
+          "source_intersections": [
+            10,
+            7,
+            9
+          ],
+          "word": [
+            4,
+            1,
+            3
+          ]
+        }
+      ],
+      "representation": "normal-o-graph",
+      "source_hash": "labelled-sha256:902a38eb62307ccd8b5497caf550f3a54b65ba2d2d27b907e2dff1af28fbf837",
+      "edge_map": [
+        {
+          "spine_edge": 2,
+          "component": 1,
+          "position": 1,
+          "to": 3,
+          "from": 1
+        },
+        {
+          "spine_edge": 6,
+          "component": 1,
+          "position": 2,
+          "to": -2,
+          "from": 3
+        },
+        {
+          "spine_edge": 3,
+          "component": 1,
+          "position": 3,
+          "to": -1,
+          "from": -2
+        },
+        {
+          "spine_edge": 1,
+          "component": 1,
+          "position": 4,
+          "to": 2,
+          "from": -1
+        },
+        {
+          "spine_edge": 4,
+          "component": 1,
+          "position": 5,
+          "to": -3,
+          "from": 2
+        },
+        {
+          "spine_edge": 5,
+          "component": 1,
+          "position": 6,
+          "to": 5,
+          "from": -3
+        },
+        {
+          "spine_edge": 10,
+          "component": 1,
+          "position": 7,
+          "to": -4,
+          "from": 5
+        },
+        {
+          "spine_edge": 7,
+          "component": 1,
+          "position": 8,
+          "to": -5,
+          "from": -4
+        },
+        {
+          "spine_edge": 9,
+          "component": 1,
+          "position": 9,
+          "to": 4,
+          "from": -5
+        },
+        {
+          "spine_edge": 8,
+          "component": 1,
+          "position": 10,
+          "to": 1,
+          "from": 4
+        }
+      ],
+      "o_block_count": 3
+    }
+  },
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"ograph\" width=\"388.8\" height=\"532.8\" viewBox=\"-2.7 -4.7 5.4 7.4\" role=\"img\" aria-label=\"ograph\">\n<title>ograph</title>\n<desc>5 real crossing(s), 10 arc(s). Gauss [1,3,-2,-1,2,-3,5,-4,-5,4].</desc>\n<metadata><ograph>crossings=5; arcs=10; weighted=false</ograph></metadata>\n<style>\n.ograph{--ground:#faf9f7;--strand:#1b3bd0;--ink:#12161d}\n@media (prefers-color-scheme:dark){.ograph{--ground:#0e1116;--strand:#7d97ff;--ink:#e6e9ef}}\n.ograph .bg{fill:var(--ground)}\n.ograph .arc,.ograph .arrow{stroke:var(--strand);fill:none}\n.ograph .vertex{fill:var(--strand)}\n.ograph .label{fill:var(--ink);stroke:var(--ground)}\n</style>\n<rect class=\"bg\" x=\"-2.7\" y=\"-4.7\" width=\"5.4\" height=\"7.4\" fill=\"#faf9f7\"/>\n<path class=\"arc\" data-arc=\"1\" d=\"M 0.0 -2.0 L 0.0 -1.28 Q 0.0 -1.0 0.0 -0.72 L 0.0 -0.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"1\" d=\"M 0.11 -1.7 L 0.0 -1.5 L -0.11 -1.7\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"2\" d=\"M 0.0 -0.0 L 0.0 0.72 Q 0.0 1.0 -0.28 1.0 L -0.72 1.0 Q -1.0 1.0 -1.0 0.72 L -1.0 0.28 Q -1.0 -0.0 -1.0 -0.28 L -1.0 -0.72 Q -1.0 -1.0 -0.72 -1.0 L -0.28 -1.0 Q 0.0 -1.0 0.28 -1.0 L 1.0 -1.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"2\" d=\"M -1.11 0.7 L -1.0 0.5 L -0.89 0.7\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"3\" d=\"M 1.0 -1.0 L 1.72 -1.0 Q 2.0 -1.0 2.0 -0.72 L 2.0 -0.28 Q 2.0 -0.0 1.72 0.0 L 1.18 -0.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"3\" d=\"M 2.11 -0.7 L 2.0 -0.5 L 1.89 -0.7\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"4\" d=\"M 0.8200000000000001 -0.0 L 0.18 -0.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"4\" d=\"M 0.7 0.11 L 0.5 -0.0 L 0.7 -0.11\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"5\" d=\"M -0.18 -0.0 L -0.72 -0.0 Q -1.0 -0.0 -1.28 0.0 L -1.72 -0.0 Q -2.0 -0.0 -2.0 0.28 L -2.0 1.72 Q -2.0 2.0 -1.72 2.0 L 0.72 2.0 Q 1.0 2.0 1.0 1.72 L 1.0 -0.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"5\" d=\"M -1.89 0.8 L -2.0 1.0 L -2.11 0.8\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"6\" d=\"M 1.0 -0.0 L 1.0 -0.8200000000000001\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"6\" d=\"M 0.89 -0.21 L 1.0 -0.41 L 1.11 -0.21\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"7\" d=\"M 1.0 -1.18 L 1.0 -2.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"7\" d=\"M 0.89 -1.39 L 1.0 -1.59 L 1.11 -1.39\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"8\" d=\"M 1.0 -2.0 L 1.0 -2.7199999999999998 Q 1.0 -3.0 0.72 -3.0 L 0.28 -3.0 Q 0.0 -3.0 -0.28 -3.0 L -0.72 -3.0 Q -1.0 -3.0 -1.0 -2.7199999999999998 L -1.0 -2.2800000000000002 Q -1.0 -2.0 -0.72 -2.0 L -0.18 -2.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"8\" d=\"M -0.3 -2.89 L -0.5 -3.0 L -0.3 -3.11\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"9\" d=\"M 0.18 -2.0 L 0.8200000000000001 -2.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"9\" d=\"M 0.3 -2.11 L 0.5 -2.0 L 0.3 -1.89\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arc\" data-arc=\"10\" d=\"M 1.18 -2.0 L 1.72 -2.0 Q 2.0 -2.0 2.0 -2.2800000000000002 L 2.0 -3.7199999999999998 Q 2.0 -4.0 1.72 -4.0 L 0.28 -4.0 Q 0.0 -4.0 0.0 -3.7199999999999998 L 0.0 -3.2800000000000002 Q 0.0 -3.0 0.0 -2.7199999999999998 L 0.0 -2.0\" fill=\"none\"\nstroke=\"#1b3bd0\" stroke-width=\"0.07\"\nstroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<path class=\"arrow\" data-arc=\"10\" d=\"M 1.2 -3.89 L 1.0 -4.0 L 1.2 -4.11\" fill=\"none\" stroke=\"#1b3bd0\"\nstroke-width=\"0.06\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n<circle class=\"vertex\" cx=\"0.0\" cy=\"-0.0\"\nr=\"0.115\" fill=\"#1b3bd0\"/>\n<circle class=\"vertex\" cx=\"1.0\" cy=\"-0.0\"\nr=\"0.115\" fill=\"#1b3bd0\"/>\n<circle class=\"vertex\" cx=\"1.0\" cy=\"-1.0\"\nr=\"0.115\" fill=\"#1b3bd0\"/>\n<circle class=\"vertex\" cx=\"0.0\" cy=\"-2.0\"\nr=\"0.115\" fill=\"#1b3bd0\"/>\n<circle class=\"vertex\" cx=\"1.0\" cy=\"-2.0\"\nr=\"0.115\" fill=\"#1b3bd0\"/>\n<text class=\"label\" x=\"-0.1543\" y=\"0.2572\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"0.32\" fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"0.0896\" paint-order=\"stroke\" stroke-linejoin=\"round\">V1</text>\n<text class=\"label\" x=\"1.1114\" y=\"0.2785\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"0.32\" fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"0.0896\" paint-order=\"stroke\" stroke-linejoin=\"round\">V2</text>\n<text class=\"label\" x=\"1.3\" y=\"-1.0\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"0.32\" fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"0.0896\" paint-order=\"stroke\" stroke-linejoin=\"round\">V3</text>\n<text class=\"label\" x=\"-0.1543\" y=\"-2.2572\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"0.32\" fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"0.0896\" paint-order=\"stroke\" stroke-linejoin=\"round\">V4</text>\n<text class=\"label\" x=\"1.1114\" y=\"-2.2785\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"0.32\" fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"0.0896\" paint-order=\"stroke\" stroke-linejoin=\"round\">V5</text>\n</svg>\n",
+  "schema": "akaghef.heegaard.koda/1",
+  "cellulated_projection": {
+    "region_map": [
+      {
+        "ribbon_region": 1,
+        "boundary_darts": [
+          27,
+          1,
+          41,
+          15,
+          31,
+          12,
+          35,
+          6
+        ],
+        "seed": [
+          "F_0",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 2,
+        "boundary_darts": [
+          23,
+          22,
+          39,
+          2
+        ],
+        "seed": [
+          "F_1",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 4,
+        "boundary_darts": [
+          40,
+          20,
+          29,
+          16,
+          43,
+          11,
+          33,
+          19,
+          38,
+          7,
+          28,
+          4
+        ],
+        "seed": [
+          "F_10",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 6,
+        "boundary_darts": [
+          8,
+          36,
+          10,
+          30,
+          18,
+          24
+        ],
+        "seed": [
+          "F_11",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 7,
+        "boundary_darts": [
+          9,
+          44,
+          14,
+          32
+        ],
+        "seed": [
+          "F_12",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 3,
+        "boundary_darts": [
+          26,
+          17,
+          34,
+          13,
+          42,
+          3
+        ],
+        "seed": [
+          "F_17",
+          0
+        ]
+      },
+      {
+        "ribbon_region": 5,
+        "boundary_darts": [
+          37,
+          21,
+          25,
+          5
+        ],
+        "seed": [
+          "F_19",
+          0
+        ]
+      }
+    ],
+    "intersection_labels": {
+      "1": "c1",
+      "2": "c2",
+      "3": "c3",
+      "4": "c4",
+      "5": "c5",
+      "6": "c6",
+      "7": "x1",
+      "8": "x2",
+      "9": "x3",
+      "10": "x4",
+      "11": "x5"
+    },
+    "policy": "marked input retained; cellular projection for conversion only; no rerouting",
+    "disk_id": "D",
+    "source_representation_sha256": "56cf47f20ee5f551e277bc473076953db9ff45e94673c32cf0ea7918e4456f89",
+    "source_marking_sha256": "b01084fab2481fa6abe3eaf1371d9ac68b8aa6e4cb98dc154573d921a5171b2a"
+  },
+  "certificate": {
+    "source_diagram_hash": "labelled-sha256:902a38eb62307ccd8b5497caf550f3a54b65ba2d2d27b907e2dff1af28fbf837",
+    "isotopy_moves": [],
+    "joining_disk": {
+      "labelled_diagram_hash": "902a38eb62307ccd8b5497caf550f3a54b65ba2d2d27b907e2dff1af28fbf837",
+      "boundary_darts": [
+        8,
+        36,
+        10,
+        30,
+        18,
+        24
+      ],
+      "boundary_orientation": "surface induced; disk on left",
+      "region": 6
+    },
+    "branch_convention": "K08 left-hand ambient convention: beta over, alpha under; singular edges follow the induced boundary of D (opposite to K08 slope orientations); vertex sign from repository CCW PD frame",
+    "generated_hash": "549394ced55d5d44f27803300eec050d00d70e914f98fa7bdf2e3c3685ad81db",
+    "strategy": "koda",
+    "comparison_invariants": {
+      "canonical_conversion": false,
+      "ograph_hash": "549394ced55d5d44f27803300eec050d00d70e914f98fa7bdf2e3c3685ad81db",
+      "source_matches": true,
+      "source_hash": "labelled-sha256:902a38eb62307ccd8b5497caf550f3a54b65ba2d2d27b907e2dff1af28fbf837",
+      "manifold_comparison": "not performed"
+    },
+    "evidence_status": "unverified",
+    "label_map": {
+      "smoothed_intersections": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "branched_complex": {
+        "edge_incidence": [
+          [
+            [
+              1,
+              -1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              4,
+              1
+            ]
+          ],
+          [
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              -1
+            ],
+            [
+              4,
+              1
+            ]
+          ],
+          [
+            [
+              3,
+              -1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              4,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              1
+            ],
+            [
+              3,
+              1
+            ],
+            [
+              5,
+              -1
+            ]
+          ],
+          [
+            [
+              3,
+              1
+            ],
+            [
+              4,
+              -1
+            ],
+            [
+              4,
+              1
+            ]
+          ],
+          [
+            [
+              1,
+              1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              5,
+              -1
+            ]
+          ],
+          [
+            [
+              3,
+              -1
+            ],
+            [
+              6,
+              1
+            ],
+            [
+              6,
+              1
+            ]
+          ],
+          [
+            [
+              1,
+              -1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              1
+            ]
+          ],
+          [
+            [
+              1,
+              1
+            ],
+            [
+              4,
+              -1
+            ],
+            [
+              6,
+              1
+            ]
+          ],
+          [
+            [
+              1,
+              -1
+            ],
+            [
+              4,
+              1
+            ],
+            [
+              6,
+              1
+            ]
+          ]
+        ],
+        "checks": {
+          "oriented_branching": true,
+          "three_sheet_incidence": true,
+          "closed_attaching_words": true,
+          "scope": "finite incidence and disk-gluing checks; not an independent manifold recognition",
+          "euler_characteristic": 1,
+          "disk_sectors": true
+        },
+        "gluings": [
+          {
+            "joining_dart": 8,
+            "right_source_cells": [
+              "alpha:1"
+            ],
+            "result_source_darts": [
+              28,
+              4,
+              40,
+              20,
+              29,
+              16,
+              43,
+              11,
+              33,
+              19,
+              38,
+              6,
+              4,
+              2
+            ],
+            "removed_edge": 4,
+            "left_source_cells": [
+              "surface:4"
+            ]
+          },
+          {
+            "joining_dart": 36,
+            "right_source_cells": [
+              "beta:3"
+            ],
+            "result_source_darts": [
+              6,
+              27,
+              1,
+              41,
+              15,
+              31,
+              12,
+              44,
+              42,
+              40,
+              38
+            ],
+            "removed_edge": 18,
+            "left_source_cells": [
+              "surface:1"
+            ]
+          },
+          {
+            "joining_dart": 10,
+            "right_source_cells": [
+              "alpha:2"
+            ],
+            "result_source_darts": [
+              44,
+              14,
+              32,
+              16,
+              14,
+              12
+            ],
+            "removed_edge": 5,
+            "left_source_cells": [
+              "surface:7"
+            ]
+          },
+          {
+            "joining_dart": 30,
+            "right_source_cells": [
+              "beta:2"
+            ],
+            "result_source_darts": [
+              16,
+              43,
+              11,
+              33,
+              19,
+              38,
+              6,
+              4,
+              2,
+              28,
+              4,
+              40,
+              20,
+              34,
+              32
+            ],
+            "removed_edge": 15,
+            "left_source_cells": [
+              "surface:4",
+              "alpha:1"
+            ]
+          },
+          {
+            "joining_dart": 18,
+            "right_source_cells": [
+              "alpha:3"
+            ],
+            "result_source_darts": [
+              34,
+              13,
+              42,
+              3,
+              26,
+              22,
+              20
+            ],
+            "removed_edge": 9,
+            "left_source_cells": [
+              "surface:3"
+            ]
+          },
+          {
+            "joining_dart": 24,
+            "right_source_cells": [
+              "beta:1"
+            ],
+            "result_source_darts": [
+              22,
+              39,
+              2,
+              28,
+              26
+            ],
+            "removed_edge": 12,
+            "left_source_cells": [
+              "surface:2"
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "boundary": [
+              -1,
+              -8,
+              -10,
+              9,
+              8,
+              2,
+              6
+            ],
+            "source_cells": [
+              "beta:3",
+              "surface:1"
+            ],
+            "id": 1,
+            "source_darts": [
+              27,
+              1,
+              41,
+              15,
+              31,
+              12,
+              44,
+              42,
+              40,
+              38,
+              6
+            ]
+          },
+          {
+            "boundary": [
+              -2,
+              1,
+              4
+            ],
+            "source_cells": [
+              "beta:1",
+              "surface:2"
+            ],
+            "id": 2,
+            "source_darts": [
+              39,
+              2,
+              28,
+              26,
+              22
+            ]
+          },
+          {
+            "boundary": [
+              -7,
+              8,
+              -3,
+              4,
+              5
+            ],
+            "source_cells": [
+              "alpha:3",
+              "surface:3"
+            ],
+            "id": 3,
+            "source_darts": [
+              13,
+              42,
+              3,
+              26,
+              22,
+              20,
+              34
+            ]
+          },
+          {
+            "boundary": [
+              -9,
+              -5,
+              6,
+              3,
+              1,
+              3,
+              2,
+              5,
+              10
+            ],
+            "source_cells": [
+              "alpha:1",
+              "beta:2",
+              "surface:4"
+            ],
+            "id": 4,
+            "source_darts": [
+              43,
+              11,
+              33,
+              19,
+              38,
+              6,
+              4,
+              2,
+              28,
+              4,
+              40,
+              20,
+              34,
+              32,
+              16
+            ]
+          },
+          {
+            "boundary": [
+              -6,
+              -4
+            ],
+            "source_cells": [
+              "surface:5"
+            ],
+            "id": 5,
+            "source_darts": [
+              5,
+              37,
+              21,
+              25
+            ]
+          },
+          {
+            "boundary": [
+              7,
+              10,
+              7,
+              9
+            ],
+            "source_cells": [
+              "alpha:2",
+              "surface:7"
+            ],
+            "id": 6,
+            "source_darts": [
+              14,
+              32,
+              16,
+              14,
+              12,
+              44
+            ]
+          }
+        ]
+      },
+      "removed_boundary_edges": [
+        4,
+        5,
+        9,
+        12,
+        15,
+        18
+      ],
+      "remaining_intersections": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "curve_directions": [
+        {
+          "family": "alpha",
+          "curve_id": 1,
+          "direction": -1
+        },
+        {
+          "family": "alpha",
+          "curve_id": 2,
+          "direction": -1
+        },
+        {
+          "family": "alpha",
+          "curve_id": 3,
+          "direction": -1
+        },
+        {
+          "family": "beta",
+          "curve_id": 1,
+          "direction": -1
+        },
+        {
+          "family": "beta",
+          "curve_id": 2,
+          "direction": -1
+        },
+        {
+          "family": "beta",
+          "curve_id": 3,
+          "direction": -1
+        }
+      ],
+      "edge_paths": [
+        {
+          "source": [
+            7,
+            "alpha"
+          ],
+          "target": [
+            8,
+            "beta"
+          ],
+          "source_darts": [
+            2,
+            28
+          ]
+        },
+        {
+          "source": [
+            7,
+            "beta"
+          ],
+          "target": [
+            9,
+            "beta"
+          ],
+          "source_darts": [
+            40
+          ]
+        },
+        {
+          "source": [
+            8,
+            "alpha"
+          ],
+          "target": [
+            7,
+            "alpha"
+          ],
+          "source_darts": [
+            4
+          ]
+        },
+        {
+          "source": [
+            8,
+            "beta"
+          ],
+          "target": [
+            9,
+            "alpha"
+          ],
+          "source_darts": [
+            26,
+            22
+          ]
+        },
+        {
+          "source": [
+            9,
+            "alpha"
+          ],
+          "target": [
+            11,
+            "beta"
+          ],
+          "source_darts": [
+            20,
+            34
+          ]
+        },
+        {
+          "source": [
+            9,
+            "beta"
+          ],
+          "target": [
+            8,
+            "alpha"
+          ],
+          "source_darts": [
+            38,
+            6
+          ]
+        },
+        {
+          "source": [
+            10,
+            "alpha"
+          ],
+          "target": [
+            11,
+            "alpha"
+          ],
+          "source_darts": [
+            14
+          ]
+        },
+        {
+          "source": [
+            10,
+            "beta"
+          ],
+          "target": [
+            7,
+            "beta"
+          ],
+          "source_darts": [
+            42
+          ]
+        },
+        {
+          "source": [
+            11,
+            "alpha"
+          ],
+          "target": [
+            10,
+            "beta"
+          ],
+          "source_darts": [
+            12,
+            44
+          ]
+        },
+        {
+          "source": [
+            11,
+            "beta"
+          ],
+          "target": [
+            10,
+            "alpha"
+          ],
+          "source_darts": [
+            32,
+            16
+          ]
+        }
+      ]
+    },
+    "schema": "akaghef.heegaard.hgd2ograph/2"
+  }
+}

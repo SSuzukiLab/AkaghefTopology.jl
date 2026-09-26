@@ -1,0 +1,31 @@
+version = 1
+crossings = []
+curves = []
+
+[surface]
+marking_id = "sphere-two-triangles-v1"
+genus = 0
+gluings = [[["P", "a"], ["Q", "a"]], [["P", "b"], ["Q", "c"]], [["P", "c"], ["Q", "b"]]]
+boundary = []
+
+[[patches]]
+face = "P"
+side_order = ["a", "b", "c"]
+triangles = [
+  ["u", "v", "w"],
+]
+[patches.sides]
+"a" = ["u", "v"]
+"b" = ["v", "w"]
+"c" = ["w", "u"]
+
+[[patches]]
+face = "Q"
+side_order = ["a", "b", "c"]
+triangles = [
+  ["u", "v", "w"],
+]
+[patches.sides]
+"a" = ["u", "v"]
+"b" = ["v", "w"]
+"c" = ["w", "u"]

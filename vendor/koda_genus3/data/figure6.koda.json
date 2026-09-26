@@ -1,0 +1,314 @@
+{
+  "convention": {
+    "visit_sign": {
+      "alpha": -1,
+      "beta": 1
+    },
+    "vertex_type": {
+      "l": -1,
+      "r": 1
+    },
+    "vertex_type_from_heegaard": "sigma_o = -epsilon(alpha,beta)"
+  },
+  "removed_corner_ids": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6"
+  ],
+  "removed_D_edges": [
+    [
+      "beta1",
+      "c1",
+      "c2"
+    ],
+    [
+      "alpha3",
+      "c2",
+      "c3"
+    ],
+    [
+      "beta2",
+      "c3",
+      "c4"
+    ],
+    [
+      "alpha2",
+      "c4",
+      "c5"
+    ],
+    [
+      "beta3",
+      "c5",
+      "c6"
+    ],
+    [
+      "alpha1",
+      "c6",
+      "c1"
+    ]
+  ],
+  "blocks": [
+    {
+      "curve": "alpha1",
+      "path": [
+        "c1",
+        "x1",
+        "x2",
+        "c6"
+      ]
+    },
+    {
+      "curve": "beta3",
+      "path": [
+        "c6",
+        "x3",
+        "x1",
+        "x4",
+        "c5"
+      ]
+    },
+    {
+      "curve": "alpha2",
+      "path": [
+        "c5",
+        "x5",
+        "x4",
+        "c4"
+      ]
+    },
+    {
+      "curve": "beta2",
+      "path": [
+        "c4",
+        "x5",
+        "c3"
+      ]
+    },
+    {
+      "curve": "alpha3",
+      "path": [
+        "c3",
+        "x3",
+        "c2"
+      ]
+    },
+    {
+      "curve": "beta1",
+      "path": [
+        "c2",
+        "x2",
+        "c1"
+      ]
+    }
+  ],
+  "o_data": [
+    [
+      [
+        -1,
+        -2,
+        3,
+        1,
+        4,
+        -5,
+        -4,
+        5,
+        -3,
+        2
+      ]
+    ],
+    [
+      -1,
+      1,
+      1,
+      1,
+      -1
+    ]
+  ],
+  "vertices": [
+    {
+      "id": 1,
+      "heegaard_crossing": "x1",
+      "type_sign": -1,
+      "type": "l"
+    },
+    {
+      "id": 2,
+      "heegaard_crossing": "x2",
+      "type_sign": 1,
+      "type": "r"
+    },
+    {
+      "id": 3,
+      "heegaard_crossing": "x3",
+      "type_sign": 1,
+      "type": "r"
+    },
+    {
+      "id": 4,
+      "heegaard_crossing": "x4",
+      "type_sign": 1,
+      "type": "r"
+    },
+    {
+      "id": 5,
+      "heegaard_crossing": "x5",
+      "type_sign": -1,
+      "type": "l"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from_visit": -1,
+      "to_visit": -2,
+      "heegaard_edges": [
+        [
+          "alpha1",
+          "x1",
+          "x2"
+        ]
+      ]
+    },
+    {
+      "id": "e2",
+      "from_visit": -2,
+      "to_visit": 3,
+      "heegaard_edges": [
+        [
+          "alpha1",
+          "x2",
+          "c6"
+        ],
+        [
+          "beta3",
+          "c6",
+          "x3"
+        ]
+      ]
+    },
+    {
+      "id": "e3",
+      "from_visit": 3,
+      "to_visit": 1,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x3",
+          "x1"
+        ]
+      ]
+    },
+    {
+      "id": "e4",
+      "from_visit": 1,
+      "to_visit": 4,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x1",
+          "x4"
+        ]
+      ]
+    },
+    {
+      "id": "e5",
+      "from_visit": 4,
+      "to_visit": -5,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x4",
+          "c5"
+        ],
+        [
+          "alpha2",
+          "c5",
+          "x5"
+        ]
+      ]
+    },
+    {
+      "id": "e6",
+      "from_visit": -5,
+      "to_visit": -4,
+      "heegaard_edges": [
+        [
+          "alpha2",
+          "x5",
+          "x4"
+        ]
+      ]
+    },
+    {
+      "id": "e7",
+      "from_visit": -4,
+      "to_visit": 5,
+      "heegaard_edges": [
+        [
+          "alpha2",
+          "x4",
+          "c4"
+        ],
+        [
+          "beta2",
+          "c4",
+          "x5"
+        ]
+      ]
+    },
+    {
+      "id": "e8",
+      "from_visit": 5,
+      "to_visit": -3,
+      "heegaard_edges": [
+        [
+          "beta2",
+          "x5",
+          "c3"
+        ],
+        [
+          "alpha3",
+          "c3",
+          "x3"
+        ]
+      ]
+    },
+    {
+      "id": "e9",
+      "from_visit": -3,
+      "to_visit": 2,
+      "heegaard_edges": [
+        [
+          "alpha3",
+          "x3",
+          "c2"
+        ],
+        [
+          "beta1",
+          "c2",
+          "x2"
+        ]
+      ]
+    },
+    {
+      "id": "e10",
+      "from_visit": 2,
+      "to_visit": -1,
+      "heegaard_edges": [
+        [
+          "beta1",
+          "x2",
+          "c1"
+        ],
+        [
+          "alpha1",
+          "c1",
+          "x1"
+        ]
+      ]
+    }
+  ]
+}

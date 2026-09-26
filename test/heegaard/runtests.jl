@@ -329,17 +329,9 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
     @test_throws ArgumentError H.load_layout(malformed_path, diagram)
 end
 
-@testset "Typed spine conversion" begin
-    diagram = s3_fixture()
-    punctured = H.make_punctured(diagram)
-    spine = H.to_flow_spine(punctured)
-    ograph = H.to_ograph(spine)
-    bundle = H.to_odata(diagram)
-    @test punctured isa H.PuncturedHeegaardDiagram
-    @test spine isa H.FlowSpine
-    @test ograph isa H.OData
-    @test bundle.ograph isa H.OData
-    @test bundle.certificate.evidence_status == :unverified
-    @test H.to_heegaard(spine) === diagram
-    @test bundle.comparison["canonical_conversion"] == false
-end
+include("joining_disk.jl")
+include("koda_complex.jl")
+include("automatic_layout.jl")
+include("marking.jl")
+include("cellulated.jl")
+include("cellulated_conversion.jl")

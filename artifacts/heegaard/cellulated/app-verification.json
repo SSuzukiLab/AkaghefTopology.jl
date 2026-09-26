@@ -1,0 +1,32 @@
+{
+  "roundtrip": [
+    "annulus_winding_m1",
+    "annulus_winding_p0",
+    "annulus_winding_p1",
+    "genus_1_empty",
+    "genus_2_empty",
+    "genus_3_empty",
+    "genus_4_empty",
+    "nested_zero_crossings",
+    "sphere_empty",
+    "torus_mer_lon",
+    "torus_parallel_zero_crossings",
+    "torus_three_crossings",
+    "torus_three_crossings_D"
+  ],
+  "negative_controls": [
+    "hash",
+    "word",
+    "overlap",
+    "Koda claim",
+    "unimplemented conversion"
+  ],
+  "ui": [
+    "download/upload",
+    "curve selection",
+    "mesh toggle",
+    "D condition distinction",
+    "legacy L2_1 switch"
+  ],
+  "page_errors": []
+}

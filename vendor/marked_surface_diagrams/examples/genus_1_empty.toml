@@ -1,0 +1,24 @@
+version = 1
+crossings = []
+curves = []
+
+[surface]
+marking_id = "polygon-genus-1-v1"
+genus = 1
+gluings = [[["P", "s0"], ["P", "s2"]], [["P", "s1"], ["P", "s3"]]]
+boundary = []
+
+[[patches]]
+face = "P"
+side_order = ["s0", "s1", "s2", "s3"]
+triangles = [
+  ["c0", "c1", "center"],
+  ["c1", "c2", "center"],
+  ["c2", "c3", "center"],
+  ["c3", "c0", "center"],
+]
+[patches.sides]
+"s0" = ["c0", "c1"]
+"s1" = ["c1", "c2"]
+"s2" = ["c2", "c3"]
+"s3" = ["c3", "c0"]

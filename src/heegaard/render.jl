@@ -231,20 +231,22 @@ plot(layout::HeegaardLayout) = layout
 
 Spacing, interaction range, tautness and disk clearance are fixed at their
 production setting; no browser-only deformation or tuning controls are used.
+Use view=:surface to show both curve families in a punctured-sphere/annulus atlas.
 """
-function plot(H::HeegaardDiagram, feasible::HeegaardLayout)
+function plot(H::HeegaardDiagram, feasible::HeegaardLayout; view=:alpha_cut)
+    view in (:alpha_cut,:surface) || throw(ArgumentError("unsupported plot view: $view"))
     feasible.view == :alpha_cut || throw(ArgumentError("plot requires an alpha-cut layout"))
     validate_layout(H,feasible).valid || throw(ArgumentError("plot requires a valid layout of this diagram"))
-    isempty(feasible.routes) && return feasible
-    _joint_plot_relaxation(H,feasible)
+    result = isempty(feasible.routes) ? feasible : _joint_plot_relaxation(H,feasible)
+    view == :surface ? surface_chart(H,result) : result
 end
 
-"""Plot a diagram using the bounded fixed-endpoint router, or an explicit feasible layout.
+"""Plot a surface using combinatorial planar realization, or supply a valid layout.
 
 Routing failure is reported, never replaced with a crossing-filled drawing.
-For a saved geometric representative use `plot(H, load_layout(path,H))`.
 """
-plot(H::HeegaardDiagram) = plot(H, layout_heegaard(H;backend=:pure_julia))
+plot(H::HeegaardDiagram; view=:alpha_cut, router=view==:surface ? :planar : :auto) =
+    plot(H, layout_heegaard(H;backend=:pure_julia,router); view)
 
 """Display a Heegaard layout inline in Quarto, IJulia, and other rich frontends."""
 function Base.show(io::IO, ::MIME"image/svg+xml", layout::HeegaardLayout)

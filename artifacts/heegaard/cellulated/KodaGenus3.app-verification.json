@@ -1,0 +1,56 @@
+{
+  "genus": 3,
+  "intersections": 11,
+  "D_corners": 6,
+  "o_vertices": 5,
+  "o_edges": 10,
+  "o_regions": 6,
+  "closedness": {
+    "criteria": [
+      true,
+      true,
+      true
+    ],
+    "closed": true
+  },
+  "source_convention": "reverse complete traversal; unchanged vertex signs",
+  "repository_odata": [
+    [
+      [
+        1,
+        3,
+        -2,
+        -1,
+        2,
+        -3,
+        5,
+        -4,
+        -5,
+        4
+      ]
+    ],
+    [
+      -1,
+      1,
+      1,
+      1,
+      -1
+    ]
+  ],
+  "source_representation_sha256": "56cf47f20ee5f551e277bc473076953db9ff45e94673c32cf0ea7918e4456f89",
+  "ui": [
+    "front/back projection",
+    "curve selection",
+    "D toggle",
+    "certified atlas switch",
+    "save/upload roundtrip",
+    "live Koda button",
+    "vertex provenance",
+    "legacy switch"
+  ],
+  "negative_controls": [
+    "wrong backside sign",
+    "geometric but not oriented joining disk"
+  ],
+  "page_errors": []
+}

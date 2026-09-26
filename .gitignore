@@ -2,3 +2,9 @@
 /examples/HeegaardPlot.html
 /examples/HeegaardPlot_files/
 /examples/HeegaardPlot.quarto_ipynb
+/examples/HeegaardFullCurves.html
+/examples/HeegaardFullCurves_files/
+/examples/HeegaardFullCurves.quarto_ipynb*
+/artifacts/heegaard/full_curves/jupyter/
+/artifacts/heegaard/full_curves/*.log
+/artifacts/heegaard/full_curves/literature/*.log

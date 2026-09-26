@@ -1,0 +1,17 @@
+body.cellulated .intro,body.cellulated .surface-info,body.cellulated .details,
+body.cellulated #cut,body.cellulated #atlas,body.cellulated #mark-current,
+body.cellulated #comparison,body.cellulated #marking-details,body.cellulated #toggle-seams,
+body.cellulated #download-marked-project,body.cellulated .aside-note,
+body.cellulated aside>details,body.cellulated .statusbar>span:last-child,
+body.cellulated #joining-section small,body.cellulated .tabs{display:none!important}
+#cellulated-info[hidden]{display:none}
+#cellulated-info{padding:14px 0;font-size:13px}
+#cellulated-info pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+#cellulated-info .downloads{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+#drawing.hide-mesh .mesh{display:none}
+#drawing.hide-joining-disk .region{display:none}
+#drawing [data-curve]{cursor:pointer}
+#drawing.hide-source-image .source-image{display:none}
+#cell-views button[aria-pressed="true"]{background:#e9eff8;border-color:#597db0}
+#cell-view-note{max-width:85ch;color:#46576b}
+#cellulated-nav{margin-top:16px;border-top:1px solid #ddd;padding-top:16px}

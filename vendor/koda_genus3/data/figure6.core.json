@@ -1,0 +1,129 @@
+{
+  "genus": 3,
+  "alpha": [
+    {
+      "id": "alpha1",
+      "cycle": [
+        "c1",
+        "x1",
+        "x2",
+        "c6"
+      ]
+    },
+    {
+      "id": "alpha2",
+      "cycle": [
+        "c4",
+        "c5",
+        "x5",
+        "x4"
+      ]
+    },
+    {
+      "id": "alpha3",
+      "cycle": [
+        "c2",
+        "c3",
+        "x3"
+      ]
+    }
+  ],
+  "beta": [
+    {
+      "id": "beta1",
+      "cycle": [
+        "c1",
+        "c2",
+        "x2"
+      ]
+    },
+    {
+      "id": "beta2",
+      "cycle": [
+        "c3",
+        "c4",
+        "x5"
+      ]
+    },
+    {
+      "id": "beta3",
+      "cycle": [
+        "c5",
+        "c6",
+        "x3",
+        "x1",
+        "x4"
+      ]
+    }
+  ],
+  "intersections": [
+    {
+      "id": "c1",
+      "alpha": "alpha1",
+      "beta": "beta1",
+      "sign": -1
+    },
+    {
+      "id": "x1",
+      "alpha": "alpha1",
+      "beta": "beta3",
+      "sign": 1
+    },
+    {
+      "id": "x2",
+      "alpha": "alpha1",
+      "beta": "beta1",
+      "sign": -1
+    },
+    {
+      "id": "c6",
+      "alpha": "alpha1",
+      "beta": "beta3",
+      "sign": 1
+    },
+    {
+      "id": "c4",
+      "alpha": "alpha2",
+      "beta": "beta2",
+      "sign": 1
+    },
+    {
+      "id": "c5",
+      "alpha": "alpha2",
+      "beta": "beta3",
+      "sign": -1
+    },
+    {
+      "id": "x5",
+      "alpha": "alpha2",
+      "beta": "beta2",
+      "sign": 1
+    },
+    {
+      "id": "x4",
+      "alpha": "alpha2",
+      "beta": "beta3",
+      "sign": -1
+    },
+    {
+      "id": "c2",
+      "alpha": "alpha3",
+      "beta": "beta1",
+      "sign": 1
+    },
+    {
+      "id": "c3",
+      "alpha": "alpha3",
+      "beta": "beta2",
+      "sign": -1
+    },
+    {
+      "id": "x3",
+      "alpha": "alpha3",
+      "beta": "beta3",
+      "sign": -1
+    }
+  ],
+  "source_representation_sha256": "56cf47f20ee5f551e277bc473076953db9ff45e94673c32cf0ea7918e4456f89",
+  "marking_sha256": "b01084fab2481fa6abe3eaf1371d9ac68b8aa6e4cb98dc154573d921a5171b2a"
+}

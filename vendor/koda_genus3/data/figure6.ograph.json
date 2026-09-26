@@ -1,0 +1,265 @@
+{
+  "vertices": [
+    {
+      "id": 1,
+      "heegaard_crossing": "x1",
+      "type_sign": -1,
+      "type": "l",
+      "branches": {
+        "alpha": {
+          "visit": -1,
+          "incoming": "e10",
+          "outgoing": "e1"
+        },
+        "beta": {
+          "visit": 1,
+          "incoming": "e3",
+          "outgoing": "e4"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "heegaard_crossing": "x2",
+      "type_sign": 1,
+      "type": "r",
+      "branches": {
+        "alpha": {
+          "visit": -2,
+          "incoming": "e1",
+          "outgoing": "e2"
+        },
+        "beta": {
+          "visit": 2,
+          "incoming": "e9",
+          "outgoing": "e10"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "heegaard_crossing": "x3",
+      "type_sign": 1,
+      "type": "r",
+      "branches": {
+        "alpha": {
+          "visit": -3,
+          "incoming": "e8",
+          "outgoing": "e9"
+        },
+        "beta": {
+          "visit": 3,
+          "incoming": "e2",
+          "outgoing": "e3"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "heegaard_crossing": "x4",
+      "type_sign": 1,
+      "type": "r",
+      "branches": {
+        "alpha": {
+          "visit": -4,
+          "incoming": "e6",
+          "outgoing": "e7"
+        },
+        "beta": {
+          "visit": 4,
+          "incoming": "e4",
+          "outgoing": "e5"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "heegaard_crossing": "x5",
+      "type_sign": -1,
+      "type": "l",
+      "branches": {
+        "alpha": {
+          "visit": -5,
+          "incoming": "e5",
+          "outgoing": "e6"
+        },
+        "beta": {
+          "visit": 5,
+          "incoming": "e7",
+          "outgoing": "e8"
+        }
+      }
+    }
+  ],
+  "directed_edges": [
+    {
+      "id": "e1",
+      "from_visit": -1,
+      "to_visit": -2,
+      "heegaard_edges": [
+        [
+          "alpha1",
+          "x1",
+          "x2"
+        ]
+      ]
+    },
+    {
+      "id": "e2",
+      "from_visit": -2,
+      "to_visit": 3,
+      "heegaard_edges": [
+        [
+          "alpha1",
+          "x2",
+          "c6"
+        ],
+        [
+          "beta3",
+          "c6",
+          "x3"
+        ]
+      ]
+    },
+    {
+      "id": "e3",
+      "from_visit": 3,
+      "to_visit": 1,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x3",
+          "x1"
+        ]
+      ]
+    },
+    {
+      "id": "e4",
+      "from_visit": 1,
+      "to_visit": 4,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x1",
+          "x4"
+        ]
+      ]
+    },
+    {
+      "id": "e5",
+      "from_visit": 4,
+      "to_visit": -5,
+      "heegaard_edges": [
+        [
+          "beta3",
+          "x4",
+          "c5"
+        ],
+        [
+          "alpha2",
+          "c5",
+          "x5"
+        ]
+      ]
+    },
+    {
+      "id": "e6",
+      "from_visit": -5,
+      "to_visit": -4,
+      "heegaard_edges": [
+        [
+          "alpha2",
+          "x5",
+          "x4"
+        ]
+      ]
+    },
+    {
+      "id": "e7",
+      "from_visit": -4,
+      "to_visit": 5,
+      "heegaard_edges": [
+        [
+          "alpha2",
+          "x4",
+          "c4"
+        ],
+        [
+          "beta2",
+          "c4",
+          "x5"
+        ]
+      ]
+    },
+    {
+      "id": "e8",
+      "from_visit": 5,
+      "to_visit": -3,
+      "heegaard_edges": [
+        [
+          "beta2",
+          "x5",
+          "c3"
+        ],
+        [
+          "alpha3",
+          "c3",
+          "x3"
+        ]
+      ]
+    },
+    {
+      "id": "e9",
+      "from_visit": -3,
+      "to_visit": 2,
+      "heegaard_edges": [
+        [
+          "alpha3",
+          "x3",
+          "c2"
+        ],
+        [
+          "beta1",
+          "c2",
+          "x2"
+        ]
+      ]
+    },
+    {
+      "id": "e10",
+      "from_visit": 2,
+      "to_visit": -1,
+      "heegaard_edges": [
+        [
+          "beta1",
+          "x2",
+          "c1"
+        ],
+        [
+          "alpha1",
+          "c1",
+          "x1"
+        ]
+      ]
+    }
+  ],
+  "gauss_components": [
+    [
+      -1,
+      -2,
+      3,
+      1,
+      4,
+      -5,
+      -4,
+      5,
+      -3,
+      2
+    ]
+  ],
+  "local_type_encoding": {
+    "l": -1,
+    "r": 1
+  },
+  "meaning": "oriented typed normal o-graph; virtual projection crossings are not vertices"
+}

@@ -1,0 +1,8 @@
+{
+  "browser": "local headless Chromium, generated document set_content",
+  "render": true,
+  "javascript_errors": [],
+  "beta3_selection": true,
+  "back_toggle": true,
+  "point_navigation": true
+}

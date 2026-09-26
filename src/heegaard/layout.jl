@@ -413,7 +413,36 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     edge_count = length(wiring.wires)
     face_count = length(faces)
     euler = vertex_count - edge_count + face_count
-    genus = (2 - euler) ÷ 2
+    adjacency = Dict(boundary => Int[] for boundary in keys(rotations))
+    for edge in 1:edge_count
+        first_vertex = port_map[origin_port[2edge - 1]].boundary_id
+        second_vertex = port_map[origin_port[2edge]].boundary_id
+        push!(adjacency[first_vertex], second_vertex)
+        push!(adjacency[second_vertex], first_vertex)
+    end
+    component_vertices = Vector{Vector{Int}}()
+    unseen_vertices = Set(keys(rotations))
+    while !isempty(unseen_vertices)
+        root = minimum(unseen_vertices)
+        delete!(unseen_vertices, root)
+        component = Int[]
+        stack = [root]
+        while !isempty(stack)
+            vertex = pop!(stack)
+            push!(component, vertex)
+            for neighbor in adjacency[vertex]
+                neighbor in unseen_vertices || continue
+                delete!(unseen_vertices, neighbor)
+                push!(stack, neighbor)
+            end
+        end
+        push!(component_vertices, sort(component))
+    end
+    component_count = length(component_vertices)
+    # The face permutation compactifies every connected ribbon component
+    # separately.  Thus its Euler test is V-E+F=2c, not V-E+F=2, when a
+    # stabilization contributes a disjoint terminal component.
+    genus = (2component_count - euler) ÷ 2
     graph = ribbon_graph(H)
     original_cycles = boundary_cycles(graph)
     alpha_edge_count = sum(length(curve.visits) for curve in H.code.code.alpha)
@@ -437,11 +466,16 @@ function _terminal_ribbon_report(H::HeegaardDiagram, cut::CutSurface,
     end
     sort(face_to_boundary) == collect(eachindex(filtered_original)) ||
         throw(ArgumentError("terminal faces do not bijectively match ribbon boundary cycles"))
-    (planar=euler == 2, vertices=vertex_count, edges=edge_count,
+    (planar=euler == 2component_count, vertices=vertex_count, edges=edge_count,
      faces=face_count, euler=euler, genus=genus,
+     components=component_count, component_vertices=component_vertices,
      face_lengths=sort(length.(faces)), face_cycles=faces,
      face_to_boundary_cycle=face_to_boundary,
-     boundary_cycle_bijection=true)
+     boundary_cycle_bijection=true, rotations=rotations,
+     origin_port=origin_port, origin_dart=origin_dart,
+     next_dart=next_dart,
+     origin_vertex=Dict(dart => port_map[port].boundary_id
+                        for (dart, port) in origin_port))
 end
 
 """Run Catlab's wiring-diagram layout on an ordered, non-topological view.
@@ -741,7 +775,12 @@ function layout_heegaard(H::HeegaardDiagram; backend=:catlab, fallback=:pure_jul
                          kwargs...)
     backend in (:catlab, :pure_julia, :fallback) || throw(ArgumentError("unknown layout backend $backend"))
     fallback in (:pure_julia, :error, :none) || throw(ArgumentError("unknown Catlab fallback policy $fallback"))
-    router in (:auto, :none, :feasible) || throw(ArgumentError("unknown route policy $router"))
+    router in (:auto, :none, :feasible, :planar) || throw(ArgumentError("unknown route policy $router"))
+    if router == :planar
+        placement===nothing && route_certificate===nothing && anchors===nothing ||
+            throw(ArgumentError("router=:planar computes its own placement and does not accept fixtures or anchors"))
+        return _automatic_layout(H;seed=seed)
+    end
     router == :feasible && route_certificate !== nothing &&
         throw(ArgumentError("router=:feasible cannot be combined with route_certificate"))
     route_policy = router == :auto ?

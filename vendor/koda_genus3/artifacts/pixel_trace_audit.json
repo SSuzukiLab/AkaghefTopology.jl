@@ -1,0 +1,33 @@
+{
+  "same_sheet_crossing_ids": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "x1",
+    "x2",
+    "x3",
+    "x4",
+    "x5"
+  ],
+  "front_crossings": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "x1",
+    "x3",
+    "x4",
+    "x5"
+  ],
+  "back_crossings": [
+    "x2"
+  ],
+  "unplanned_same_sheet_intersections": 0,
+  "different_sheet_segment_intersections_ignored": 29,
+  "scope": "exact check of the recorded PL tracing witness, not automatic image recognition"
+}

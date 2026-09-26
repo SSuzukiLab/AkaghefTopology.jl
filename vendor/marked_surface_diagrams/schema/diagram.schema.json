@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Marked oriented surface diagram v1",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "surface": {
+      "type": "object",
+      "properties": {
+        "marking_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "genus": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gluings": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "boundary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "side": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "side",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "marking_id",
+        "genus",
+        "gluings",
+        "boundary"
+      ],
+      "additionalProperties": false
+    },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "face": {
+            "type": "string",
+            "minLength": 1
+          },
+          "side_order": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 3,
+            "uniqueItems": true
+          },
+          "sides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 2,
+              "uniqueItems": true
+            }
+          },
+          "triangles": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 3,
+              "maxItems": 3,
+              "uniqueItems": true
+            },
+            "minItems": 1
+          },
+          "side_parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(?:/[1-9][0-9]*)?$"
+                  }
+                ]
+              },
+              "minItems": 2
+            }
+          }
+        },
+        "required": [
+          "face",
+          "side_order",
+          "sides",
+          "triangles"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "curves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "alpha",
+              "beta",
+              "aux"
+            ]
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "word": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "closed",
+          "word"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "crossings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "at": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "curves": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true
+          },
+          "sign": {
+            "type": "integer",
+            "enum": [
+              -1,
+              1
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "curves",
+          "sign"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "region_marks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seed": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "claim": {
+            "enum": [
+              "region",
+              "embedded_closed_disk",
+              "koda_joining"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "seed",
+          "claim"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "version",
+    "surface",
+    "patches",
+    "curves",
+    "crossings"
+  ],
+  "additionalProperties": false
+}

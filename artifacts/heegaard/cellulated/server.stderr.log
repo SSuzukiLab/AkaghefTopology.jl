@@ -1,0 +1,133 @@
+127.0.0.1 - - [25/Sep/2026 16:27:32] "GET /surface.html?cellulated=annulus_winding_p1 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:33] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:33] "GET /cellulated.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:33] "GET /cellulated.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:33] "GET /surface.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:33] "GET /surface.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:35] "GET /cellulated-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:35] code 404, message File not found
+127.0.0.1 - - [25/Sep/2026 16:27:35] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [25/Sep/2026 16:27:35] "GET /surface-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:27:35] "GET /cellulated-generated/annulus_winding_p1.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /surface.html?cellulated=annulus_winding_p1 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /surface.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /cellulated.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /cellulated.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /surface.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /cellulated-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] code 404, message File not found
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /surface-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:43] "GET /cellulated-generated/annulus_winding_p1.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:44] "POST /api/render HTTP/1.1" 409 -
+127.0.0.1 - - [25/Sep/2026 16:28:57] "POST /api/render HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:28:57] "POST /api/render HTTP/1.1" 500 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 65469)
+Traceback (most recent call last):
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 94, in do_POST
+    return self.reply(200, json.loads(response.read_text(encoding="utf-8")))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 56, in reply
+    self.end_headers()
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 49, in end_headers
+    super().end_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 542, in end_headers
+    self.flush_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 546, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 22, in __init__
+    super().__init__(*args, directory=str(WEB), **kwargs)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 676, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 440, in handle
+    self.handle_one_request()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 428, in handle_one_request
+    method()
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 98, in do_POST
+    return self.reply(500, {"error": str(error)})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 56, in reply
+    self.end_headers()
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 49, in end_headers
+    super().end_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 542, in end_headers
+    self.flush_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 546, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /surface.html?cellulated=annulus_winding_p1 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /style.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /surface.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /cellulated.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /cellulated.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /surface.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /cellulated-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:38] "GET /surface-generated/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:39] "GET /cellulated-generated/annulus_winding_p1.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:29:39] code 404, message File not found
+127.0.0.1 - - [25/Sep/2026 16:29:39] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [25/Sep/2026 16:30:27] "POST /api/render HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:34:53] "POST /api/render HTTP/1.1" 200 -
+127.0.0.1 - - [25/Sep/2026 16:34:53] "POST /api/render HTTP/1.1" 500 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 52877)
+Traceback (most recent call last):
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 94, in do_POST
+    return self.reply(200, json.loads(response.read_text(encoding="utf-8")))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 57, in reply
+    self.wfile.write(encoded)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 22, in __init__
+    super().__init__(*args, directory=str(WEB), **kwargs)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 676, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 440, in handle
+    self.handle_one_request()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 428, in handle_one_request
+    method()
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 98, in do_POST
+    return self.reply(500, {"error": str(error)})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 56, in reply
+    self.end_headers()
+  File "C:\Users\Akaghef\dev\topology-heegaard-full-curves\scripts\heegaard\serve.py", line 49, in end_headers
+    super().end_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 542, in end_headers
+    self.flush_headers()
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\http\server.py", line 546, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Akaghef\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+----------------------------------------

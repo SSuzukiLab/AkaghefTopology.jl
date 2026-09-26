@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 500" role="img">
+<style>.mesh{stroke:#bcc5d3;stroke-width:0.004;fill:none}.curve{fill:none;stroke-width:0.014;stroke-linejoin:round}.alpha{stroke:#b63837}.beta{stroke:#275db2}.aux{stroke:#7255a3}.label{font:0.065px monospace;fill:#152435}.gate{fill:white;stroke:#566479;stroke-width:0.006}</style>
+<metadata>representation_sha256=78b333cda8d9128623905b5b8b6ccb44f4897c2d2a7a382fbb47c16f48ebca9c;decimal_digits=6;centerlines_certified=true</metadata>
+<rect width="100%" height="100%" fill="white"/>
+<text x="35" y="28" font-size="18" font-family="sans-serif">P · marked disk</text>
+<g transform="translate(260 250) scale(195 -195)">
+<polygon points="1.000000,0.000000 0.882353,0.470588 0.600000,0.800000 0.280000,0.960000 0.000000,1.000000 -0.470588,0.882353 -0.800000,0.600000 -0.960000,0.280000 -1.000000,0.000000 -0.882353,-0.470588 -0.600000,-0.800000 -0.280000,-0.960000 0.000000,-1.000000 0.470588,-0.882353 0.800000,-0.600000 0.960000,-0.280000" fill="#f6f8fc" stroke="#53647d" stroke-width="0.01"/>
+<path class="mesh" d="M 1.000000,0.000000 L 0.960000,-0.280000"/>
+<path class="mesh" d="M 1.000000,0.000000 L 0.882353,0.470588"/>
+<path class="mesh" d="M 1.000000,0.000000 L 0.578471,0.043118"/>
+<path class="mesh" d="M 0.960000,-0.280000 L 0.800000,-0.600000"/>
+<path class="mesh" d="M 0.960000,-0.280000 L 0.578471,0.043118"/>
+<path class="mesh" d="M 0.960000,-0.280000 L 0.357933,-0.312160"/>
+<path class="mesh" d="M 0.800000,-0.600000 L 0.470588,-0.882353"/>
+<path class="mesh" d="M 0.800000,-0.600000 L 0.357933,-0.312160"/>
+<path class="mesh" d="M 0.800000,-0.600000 L 0.079664,-0.655798"/>
+<path class="mesh" d="M 0.470588,-0.882353 L 0.000000,-1.000000"/>
+<path class="mesh" d="M 0.470588,-0.882353 L 0.079664,-0.655798"/>
+<path class="mesh" d="M 0.470588,-0.882353 L -0.280000,-0.960000"/>
+<path class="mesh" d="M 0.000000,-1.000000 L -0.280000,-0.960000"/>
+<path class="mesh" d="M 0.882353,0.470588 L 0.578471,0.043118"/>
+<path class="mesh" d="M 0.882353,0.470588 L 0.600000,0.800000"/>
+<path class="mesh" d="M 0.882353,0.470588 L 0.270538,0.380277"/>
+<path class="mesh" d="M 0.578471,0.043118 L 0.357933,-0.312160"/>
+<path class="mesh" d="M 0.578471,0.043118 L 0.270538,0.380277"/>
+<path class="mesh" d="M 0.578471,0.043118 L 0.000000,0.000000"/>
+<path class="mesh" d="M 0.357933,-0.312160 L 0.079664,-0.655798"/>
+<path class="mesh" d="M 0.357933,-0.312160 L 0.000000,0.000000"/>
+<path class="mesh" d="M 0.357933,-0.312160 L -0.270538,-0.380277"/>
+<path class="mesh" d="M 0.079664,-0.655798 L -0.280000,-0.960000"/>
+<path class="mesh" d="M 0.079664,-0.655798 L -0.270538,-0.380277"/>
+<path class="mesh" d="M 0.079664,-0.655798 L -0.600000,-0.800000"/>
+<path class="mesh" d="M -0.280000,-0.960000 L -0.600000,-0.800000"/>
+<path class="mesh" d="M 0.600000,0.800000 L 0.270538,0.380277"/>
+<path class="mesh" d="M 0.600000,0.800000 L 0.280000,0.960000"/>
+<path class="mesh" d="M 0.600000,0.800000 L -0.079664,0.655798"/>
+<path class="mesh" d="M 0.270538,0.380277 L 0.000000,0.000000"/>
+<path class="mesh" d="M 0.270538,0.380277 L -0.079664,0.655798"/>
+<path class="mesh" d="M 0.270538,0.380277 L -0.357933,0.312160"/>
+<path class="mesh" d="M 0.000000,0.000000 L -0.270538,-0.380277"/>
+<path class="mesh" d="M 0.000000,0.000000 L -0.357933,0.312160"/>
+<path class="mesh" d="M 0.000000,0.000000 L -0.578471,-0.043118"/>
+<path class="mesh" d="M -0.270538,-0.380277 L -0.600000,-0.800000"/>
+<path class="mesh" d="M -0.270538,-0.380277 L -0.578471,-0.043118"/>
+<path class="mesh" d="M -0.270538,-0.380277 L -0.882353,-0.470588"/>
+<path class="mesh" d="M -0.600000,-0.800000 L -0.882353,-0.470588"/>
+<path class="mesh" d="M 0.280000,0.960000 L -0.079664,0.655798"/>
+<path class="mesh" d="M 0.280000,0.960000 L 0.000000,1.000000"/>
+<path class="mesh" d="M 0.280000,0.960000 L -0.470588,0.882353"/>
+<path class="mesh" d="M -0.079664,0.655798 L -0.357933,0.312160"/>
+<path class="mesh" d="M -0.079664,0.655798 L -0.470588,0.882353"/>
+<path class="mesh" d="M -0.079664,0.655798 L -0.800000,0.600000"/>
+<path class="mesh" d="M -0.357933,0.312160 L -0.578471,-0.043118"/>
+<path class="mesh" d="M -0.357933,0.312160 L -0.800000,0.600000"/>
+<path class="mesh" d="M -0.357933,0.312160 L -0.960000,0.280000"/>
+<path class="mesh" d="M -0.578471,-0.043118 L -0.882353,-0.470588"/>
+<path class="mesh" d="M -0.578471,-0.043118 L -0.960000,0.280000"/>
+<path class="mesh" d="M -0.578471,-0.043118 L -1.000000,0.000000"/>
+<path class="mesh" d="M -0.882353,-0.470588 L -1.000000,0.000000"/>
+<path class="mesh" d="M 0.000000,1.000000 L -0.470588,0.882353"/>
+<path class="mesh" d="M -0.470588,0.882353 L -0.800000,0.600000"/>
+<path class="mesh" d="M -0.800000,0.600000 L -0.960000,0.280000"/>
+<path class="mesh" d="M -0.960000,0.280000 L -1.000000,0.000000"/>
+<path class="curve aux" data-curve="gamma" d="M 0.882353,0.470588 L 0.270538,0.380277"><title>gamma</title></path>
+<path class="curve aux" data-curve="gamma" d="M 0.270538,0.380277 L -0.357933,0.312160"><title>gamma</title></path>
+<path class="curve aux" data-curve="gamma" d="M -0.357933,0.312160 L -0.960000,0.280000"><title>gamma</title></path>
+<path class="curve aux" data-curve="gamma" d="M 0.470588,-0.882353 L -0.280000,-0.960000"><title>gamma</title></path>
+<circle class="gate" cx="1.000000" cy="0.000000" r="0.012"/>
+<circle class="gate" cx="0.882353" cy="0.470588" r="0.012"/>
+<circle class="gate" cx="0.600000" cy="0.800000" r="0.012"/>
+<circle class="gate" cx="0.280000" cy="0.960000" r="0.012"/>
+<circle class="gate" cx="0.000000" cy="1.000000" r="0.012"/>
+<circle class="gate" cx="-0.470588" cy="0.882353" r="0.012"/>
+<circle class="gate" cx="-0.800000" cy="0.600000" r="0.012"/>
+<circle class="gate" cx="-0.960000" cy="0.280000" r="0.012"/>
+<circle class="gate" cx="-1.000000" cy="0.000000" r="0.012"/>
+<circle class="gate" cx="-0.882353" cy="-0.470588" r="0.012"/>
+<circle class="gate" cx="-0.600000" cy="-0.800000" r="0.012"/>
+<circle class="gate" cx="-0.280000" cy="-0.960000" r="0.012"/>
+<circle class="gate" cx="0.000000" cy="-1.000000" r="0.012"/>
+<circle class="gate" cx="0.470588" cy="-0.882353" r="0.012"/>
+<circle class="gate" cx="0.800000" cy="-0.600000" r="0.012"/>
+<circle class="gate" cx="0.960000" cy="-0.280000" r="0.012"/>
+<g transform="translate(1.000000 0.000000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v0_0</text></g>
+<g transform="translate(0.960000 -0.280000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v0_1</text></g>
+<g transform="translate(0.800000 -0.600000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v0_2</text></g>
+<g transform="translate(0.470588 -0.882353) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v0_3</text></g>
+<g transform="translate(0.000000 -1.000000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v0_4</text></g>
+<g transform="translate(0.882353 0.470588) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v1_0</text></g>
+<g transform="translate(-0.280000 -0.960000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v1_4</text></g>
+<g transform="translate(0.600000 0.800000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v2_0</text></g>
+<g transform="translate(-0.600000 -0.800000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v2_4</text></g>
+<g transform="translate(0.280000 0.960000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v3_0</text></g>
+<g transform="translate(-0.882353 -0.470588) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v3_4</text></g>
+<g transform="translate(0.000000 1.000000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v4_0</text></g>
+<g transform="translate(-0.470588 0.882353) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v4_1</text></g>
+<g transform="translate(-0.800000 0.600000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v4_2</text></g>
+<g transform="translate(-0.960000 0.280000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v4_3</text></g>
+<g transform="translate(-1.000000 0.000000) scale(1 -1)"><text class="label" x="0.025" y="-0.025">v4_4</text></g>
+</g>
+</svg>

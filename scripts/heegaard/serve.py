@@ -13,6 +13,8 @@ from urllib.parse import urlsplit, unquote
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "web" / "heegaard"
 GENERATED = ROOT / "artifacts" / "heegaard" / "app"
+SURFACE_GENERATED = ROOT / "artifacts" / "heegaard" / "full_curves"
+CELLULATED_GENERATED = ROOT / "artifacts" / "heegaard" / "cellulated"
 LOCK = threading.Lock()
 
 class Handler(SimpleHTTPRequestHandler):
@@ -21,6 +23,16 @@ class Handler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         path = unquote(urlsplit(path).path)
+        if path.startswith("/cellulated-generated/"):
+            candidate = (CELLULATED_GENERATED / path[len("/cellulated-generated/"):]).resolve()
+            return str(candidate if candidate.is_relative_to(CELLULATED_GENERATED.resolve()) else WEB / "not-found")
+        if path.startswith("/surface-generated/"):
+            candidate = (SURFACE_GENERATED / path[len("/surface-generated/"):]).resolve()
+            if not candidate.is_relative_to(SURFACE_GENERATED.resolve()):
+                return str(WEB / "not-found")
+            return str(candidate)
+        if path.startswith("/surface_") and path.endswith(".html"):
+            return str(WEB / "surface.html")
         if path.startswith("/generated/"):
             relative = path[len("/generated/"):]
             candidate = (GENERATED / relative).resolve()
@@ -45,7 +57,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def do_POST(self):
-        if self.path != "/api/render":
+        if self.path not in ("/api/render", "/api/convert"):
             return self.reply(404, {"error": "Unknown endpoint"})
         origin = self.headers.get("Origin")
         allowed = {f"http://localhost:{self.server.server_port}", f"http://127.0.0.1:{self.server.server_port}"}
@@ -66,15 +78,20 @@ class Handler(SimpleHTTPRequestHandler):
             with tempfile.TemporaryDirectory(prefix="heegaard-render-") as directory:
                 request, response = Path(directory)/"request.json", Path(directory)/"response.json"
                 request.write_text(json.dumps(data), encoding="utf-8")
-                process = subprocess.run([self.server.julia, "--startup-file=no", "--compiled-modules=existing", "--pkgimages=no",
-                    f"--project={ROOT}", str(ROOT/"scripts/heegaard/render_request.jl"), str(request), str(response)],
-                    cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
+                script = "convert_request.jl" if self.path == "/api/convert" else "render_request.jl"
+                diagram = data["diagram"]
+                cellulated = "patches" in diagram or diagram.get("schema") == "akaghef.heegaard.cellulated-project/1"
+                if cellulated:
+                    script = "convert_request.jl" if self.path == "/api/convert" else "cellulated_request.jl"
+                process = subprocess.run([self.server.julia, "--startup-file=no", "--compiled-modules=existing", "--pkgimages=no", "-O0",
+                    f"--project={ROOT}", str(ROOT/"scripts/heegaard"/script), str(request), str(response)],
+                    cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
                 if process.returncode != 0:
                     return self.reply(422, {"error": process.stderr[-3500:] or "Julia rendering failed"})
                 return self.reply(200, json.loads(response.read_text(encoding="utf-8")))
         except subprocess.TimeoutExpired:
-            return self.reply(504, {"error": "Routing time limit reached. Supply a valid saved layout."})
+            return self.reply(504, {"error": "Julia processing reached the 15-minute limit; no result was accepted."})
         except OSError as error:
             return self.reply(500, {"error": str(error)})
         finally:

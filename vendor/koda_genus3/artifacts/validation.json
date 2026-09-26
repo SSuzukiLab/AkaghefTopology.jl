@@ -1,0 +1,734 @@
+{
+  "surface": {
+    "genus": 3,
+    "boundary_components": 0,
+    "chi": -4,
+    "faces": 46
+  },
+  "complete_alpha": {
+    "role": "alpha",
+    "curves": 3,
+    "components": 1,
+    "cut_system": true,
+    "topology": [
+      {
+        "genus": 0,
+        "boundary_components": 6
+      }
+    ]
+  },
+  "complete_beta": {
+    "role": "beta",
+    "curves": 3,
+    "components": 1,
+    "cut_system": true,
+    "topology": [
+      {
+        "genus": 0,
+        "boundary_components": 6
+      }
+    ]
+  },
+  "joining_disk": {
+    "seed": [
+      "F_11",
+      0
+    ],
+    "embedded_closed_disk": true,
+    "arcs_all_nonempty_connected": true,
+    "boundary_outward_positive": true,
+    "koda_joining": true
+  },
+  "crossings": 11,
+  "retained_o_vertices": 5,
+  "ribbon_counts": {
+    "V": 25,
+    "E": 50,
+    "F": 21,
+    "chi": -4
+  },
+  "complement_regions": [
+    {
+      "id": 0,
+      "seed": [
+        "F_0",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    },
+    {
+      "id": 1,
+      "seed": [
+        "F_1",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    },
+    {
+      "id": 2,
+      "seed": [
+        "F_10",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": false
+    },
+    {
+      "id": 3,
+      "seed": [
+        "F_11",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    },
+    {
+      "id": 4,
+      "seed": [
+        "F_12",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    },
+    {
+      "id": 5,
+      "seed": [
+        "F_17",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    },
+    {
+      "id": 6,
+      "seed": [
+        "F_19",
+        0
+      ],
+      "chi": 1,
+      "genus": 0,
+      "boundary_components": 1,
+      "normalized_disk": true,
+      "embedded_closed_disk": true
+    }
+  ],
+  "outline_cut_components": [
+    {
+      "chi": -2,
+      "genus": 0,
+      "boundary_components": 4
+    },
+    {
+      "chi": -2,
+      "genus": 0,
+      "boundary_components": 4
+    }
+  ],
+  "source_sign_witnesses": {
+    "c1": {
+      "sheet": "F",
+      "pixel": [
+        490,
+        503
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "beta1",
+            "c1",
+            1
+          ],
+          "ray": [
+            30,
+            16
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "c1",
+            1
+          ],
+          "ray": [
+            -43,
+            70
+          ]
+        },
+        {
+          "dart": [
+            "beta1",
+            "c1",
+            -1
+          ],
+          "ray": [
+            -35,
+            -13
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "c1",
+            -1
+          ],
+          "ray": [
+            20,
+            -55
+          ]
+        }
+      ]
+    },
+    "x1": {
+      "sheet": "F",
+      "pixel": [
+        447,
+        433
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "beta3",
+            "x1",
+            -1
+          ],
+          "ray": [
+            40,
+            25
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "x1",
+            1
+          ],
+          "ray": [
+            -30,
+            33
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "x1",
+            1
+          ],
+          "ray": [
+            -40,
+            -13
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "x1",
+            -1
+          ],
+          "ray": [
+            43,
+            -70
+          ]
+        }
+      ]
+    },
+    "x2": {
+      "sheet": "B",
+      "pixel": [
+        344,
+        578
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "beta1",
+            "x2",
+            1
+          ],
+          "ray": [
+            33,
+            54
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "x2",
+            1
+          ],
+          "ray": [
+            9,
+            44
+          ]
+        },
+        {
+          "dart": [
+            "beta1",
+            "x2",
+            -1
+          ],
+          "ray": [
+            -14,
+            -24
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "x2",
+            -1
+          ],
+          "ray": [
+            -5,
+            -38
+          ]
+        }
+      ]
+    },
+    "c6": {
+      "sheet": "F",
+      "pixel": [
+        515,
+        659
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha1",
+            "c6",
+            1
+          ],
+          "ray": [
+            4,
+            46
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "c6",
+            1
+          ],
+          "ray": [
+            -66,
+            17
+          ]
+        },
+        {
+          "dart": [
+            "alpha1",
+            "c6",
+            -1
+          ],
+          "ray": [
+            -12,
+            -37
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "c6",
+            -1
+          ],
+          "ray": [
+            64,
+            -21
+          ]
+        }
+      ]
+    },
+    "c4": {
+      "sheet": "F",
+      "pixel": [
+        717,
+        556
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha2",
+            "c4",
+            -1
+          ],
+          "ray": [
+            111,
+            5
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "c4",
+            -1
+          ],
+          "ray": [
+            -24,
+            41
+          ]
+        },
+        {
+          "dart": [
+            "alpha2",
+            "c4",
+            1
+          ],
+          "ray": [
+            -60,
+            -12
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "c4",
+            1
+          ],
+          "ray": [
+            49,
+            -41
+          ]
+        }
+      ]
+    },
+    "c5": {
+      "sheet": "F",
+      "pixel": [
+        579,
+        680
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha2",
+            "c5",
+            -1
+          ],
+          "ray": [
+            -4,
+            26
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "c5",
+            1
+          ],
+          "ray": [
+            -64,
+            21
+          ]
+        },
+        {
+          "dart": [
+            "alpha2",
+            "c5",
+            1
+          ],
+          "ray": [
+            22,
+            -30
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "c5",
+            -1
+          ],
+          "ray": [
+            68,
+            -22
+          ]
+        }
+      ]
+    },
+    "x5": {
+      "sheet": "F",
+      "pixel": [
+        1064,
+        415
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha2",
+            "x5",
+            -1
+          ],
+          "ray": [
+            23,
+            7
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "x5",
+            -1
+          ],
+          "ray": [
+            -12,
+            27
+          ]
+        },
+        {
+          "dart": [
+            "alpha2",
+            "x5",
+            1
+          ],
+          "ray": [
+            -42,
+            -20
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "x5",
+            1
+          ],
+          "ray": [
+            25,
+            -23
+          ]
+        }
+      ]
+    },
+    "x4": {
+      "sheet": "F",
+      "pixel": [
+        977,
+        466
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha2",
+            "x4",
+            -1
+          ],
+          "ray": [
+            45,
+            31
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "x4",
+            1
+          ],
+          "ray": [
+            -12,
+            29
+          ]
+        },
+        {
+          "dart": [
+            "alpha2",
+            "x4",
+            1
+          ],
+          "ray": [
+            -45,
+            -42
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "x4",
+            -1
+          ],
+          "ray": [
+            38,
+            -29
+          ]
+        }
+      ]
+    },
+    "c2": {
+      "sheet": "F",
+      "pixel": [
+        553,
+        465
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "beta1",
+            "c2",
+            1
+          ],
+          "ray": [
+            27,
+            32
+          ]
+        },
+        {
+          "dart": [
+            "alpha3",
+            "c2",
+            -1
+          ],
+          "ray": [
+            -39,
+            27
+          ]
+        },
+        {
+          "dart": [
+            "beta1",
+            "c2",
+            -1
+          ],
+          "ray": [
+            -33,
+            -22
+          ]
+        },
+        {
+          "dart": [
+            "alpha3",
+            "c2",
+            1
+          ],
+          "ray": [
+            57,
+            -26
+          ]
+        }
+      ]
+    },
+    "c3": {
+      "sheet": "F",
+      "pixel": [
+        693,
+        515
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "alpha3",
+            "c3",
+            1
+          ],
+          "ray": [
+            40,
+            8
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "c3",
+            -1
+          ],
+          "ray": [
+            -9,
+            26
+          ]
+        },
+        {
+          "dart": [
+            "alpha3",
+            "c3",
+            -1
+          ],
+          "ray": [
+            -42,
+            8
+          ]
+        },
+        {
+          "dart": [
+            "beta2",
+            "c3",
+            1
+          ],
+          "ray": [
+            24,
+            -41
+          ]
+        }
+      ]
+    },
+    "x3": {
+      "sheet": "F",
+      "pixel": [
+        487,
+        408
+      ],
+      "oriented_chart_rays": [
+        {
+          "dart": [
+            "beta3",
+            "x3",
+            -1
+          ],
+          "ray": [
+            12,
+            19
+          ]
+        },
+        {
+          "dart": [
+            "alpha3",
+            "x3",
+            -1
+          ],
+          "ray": [
+            -8,
+            14
+          ]
+        },
+        {
+          "dart": [
+            "beta3",
+            "x3",
+            1
+          ],
+          "ray": [
+            -40,
+            -25
+          ]
+        },
+        {
+          "dart": [
+            "alpha3",
+            "x3",
+            1
+          ],
+          "ray": [
+            27,
+            -30
+          ]
+        }
+      ]
+    }
+  },
+  "exact_layout_certified": true
+}
