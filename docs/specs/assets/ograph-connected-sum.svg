@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" role="img"
+     aria-labelledby="title desc">
+  <title id="title">Connected sum of two closed normal o-graphs</title>
+  <desc id="desc">MST1 Figure 13 redrawn with inserted vertices a at the lower loop, b at the left splice, c at the upper loop, and d at the right splice.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L4.5,2.5 L0,5" fill="none" stroke="#111" stroke-width="1.1"/>
+    </marker>
+    <style>
+      .edge { fill: none; stroke: #111; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+      .directed { marker-end: url(#arrow); }
+      .vertex { fill: #111; }
+      .math { font: italic 34px 'Times New Roman', Times, serif; fill: #111; }
+      .caption { font: 30px 'Times New Roman', Times, serif; fill: #111; }
+      .vlabel { font: italic 25px 'Times New Roman', Times, serif; fill: #b00020; paint-order: stroke; stroke: white; stroke-width: 5px; }
+    </style>
+  </defs>
+
+  <rect width="1100" height="480" fill="white"/>
+
+  <text class="math" x="20" y="58">Γ<tspan font-size="23" baseline-shift="sub">M</tspan></text>
+  <path class="edge" d="M78 92 C112 134 143 171 138 215 C134 255 99 293 65 334"/>
+  <path class="edge directed" d="M139 184 C140 198 140 207 137 220"/>
+
+  <text class="math" x="282" y="58">Γ<tspan font-size="23" baseline-shift="sub">N</tspan></text>
+  <path class="edge" d="M354 92 C321 126 290 163 294 205 C298 252 333 291 367 334"/>
+  <path class="edge directed" d="M294 221 C292 207 292 195 295 181"/>
+
+  <text class="caption" x="420" y="204">connected sum</text>
+  <path class="edge directed" d="M430 224 L605 224"/>
+
+  <text class="math" x="760" y="42"><tspan>Γ</tspan><tspan font-size="23" baseline-shift="sub">M</tspan><tspan font-size="34" baseline-shift="baseline">#Γ</tspan><tspan font-size="23" baseline-shift="sub">N</tspan></text>
+
+  <!-- Upper and lower self-loops. -->
+  <path class="edge" d="M823 141 C793 111 800 68 840 68 C886 68 901 112 852 148"/>
+  <path class="edge" d="M828 392 C792 421 798 464 840 464 C887 464 899 423 855 400"/>
+
+  <!-- Over-passage c -> b -> lower-left exterior. -->
+  <path class="edge directed" d="M834 162 L754 251"/>
+  <path class="edge directed" d="M728 278 L675 337"/>
+
+  <!-- Under-passage from upper-left exterior through b toward a. -->
+  <path class="edge" d="M665 201 L719 255"/>
+  <path class="edge" d="M749 285 L826 372"/>
+
+  <!-- Under-passage from the lower-right exterior through d toward c. -->
+  <path class="edge" d="M855 169 L931 254"/>
+  <path class="edge" d="M961 287 L1015 341"/>
+
+  <!-- Over-passage a -> d -> upper-right exterior. -->
+  <path class="edge directed" d="M851 375 L929 287"/>
+  <path class="edge directed" d="M956 259 L1010 201"/>
+
+  <circle class="vertex" cx="840" cy="155" r="12"/>
+  <circle class="vertex" cx="735" cy="270" r="12"/>
+  <circle class="vertex" cx="945" cy="270" r="12"/>
+  <circle class="vertex" cx="840" cy="385" r="12"/>
+
+  <text class="vlabel" x="860" y="152">c</text>
+  <text class="vlabel" x="701" y="265">b</text>
+  <text class="vlabel" x="965" y="265">d</text>
+  <text class="vlabel" x="860" y="405">a</text>
+</svg>

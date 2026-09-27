@@ -1025,12 +1025,13 @@ function _rotate_connected_sum_component(component::Vector{Int},anchor::Int,stra
     vcat(component[index:end],component[begin:index-1])
 end
 
-"""Join two real-Gauss components using MATLAB `convert("connectedSum", arg)`.
+"""Join two closed real-Gauss components by the normal-o-graph connected sum.
 
 `selection` may be a two-element strand-index iterable, a `1×2` matrix of
 strand indices, or a `2×2` matrix whose second row gives the signed crossing
 at which each component traversal starts.  Anchor selection is performed on the
-real-Gauss code, matching MATLAB `getRGaussCode()`.
+real-Gauss code.  The four-vertex splice and labels are specified in
+`docs/specs/ograph-connected-sum.md`.
 """
 function connected_sum!(v::VirtualLink, selection=(1,2))
     any(strand_cuts(v)) &&
@@ -1046,8 +1047,12 @@ function connected_sum!(v::VirtualLink, selection=(1,2))
         second_component=_rotate_connected_sum_component(second_component,anchors[2],j)
     end
     vertex_count=length(orientation)
-    bridge1=[vertex_count+2,vertex_count+1,-vertex_count-1,-vertex_count-4]
-    bridge2=[vertex_count+4,vertex_count+3,-vertex_count-3,-vertex_count-2]
+    a=vertex_count+1
+    b=vertex_count+2
+    c=vertex_count+3
+    d=vertex_count+4
+    bridge1=[-b,-a,a,d]
+    bridge2=[-d,-c,c,b]
     code[i]=vcat(first_component,bridge1,second_component,bridge2)
     deleteat!(code,j)
     v.gauss=code

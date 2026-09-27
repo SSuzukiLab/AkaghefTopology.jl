@@ -133,8 +133,9 @@ end
     cyclic_shift!(hopf,1,1); @test length(hopf.gauss[1])==2
     summand=VirtualLink(); set_data!(summand;rgauss=[[1,-1]],orientation=[1])
     disjoint_sum!(summand,deepcopy(summand)); connected_sum!(summand)
-    @test summand.gauss==[[1,-1,4,3,-3,-6,2,-2,6,5,-5,-4]]
+    @test summand.gauss==[[1,-1,-4,-3,3,6,2,-2,-6,-5,5,4]]
     @test summand.orientation==[1,1,-1,1,-1,1]
+    @test is_closed(summand)==(true,(true,true,true))
     row_selected=VirtualLink(); set_data!(row_selected;rgauss=[[1,-1]],orientation=[1])
     disjoint_sum!(row_selected,deepcopy(row_selected)); connected_sum!(row_selected,[1 2])
     @test row_selected.gauss==summand.gauss
@@ -142,12 +143,12 @@ end
     anchored=VirtualLink()
     set_data!(anchored;rgauss=[[1,-2,-1,2],[3,-4,-3,4]],orientation=ones(Int,4))
     connected_sum!(anchored,[1 2; -1 4])
-    @test anchored.gauss==[[-1,2,1,-2,6,5,-5,-8,4,3,-4,-3,8,7,-7,-6]]
+    @test anchored.gauss==[[-1,2,1,-2,-6,-5,5,8,4,3,-4,-3,-8,-7,7,6]]
     @test anchored.orientation==[1,1,1,1,-1,1,-1,1]
     reversed=VirtualLink()
     set_data!(reversed;rgauss=[[1,-1],[2,-2],[3,-3]],orientation=ones(Int,3))
     connected_sum!(reversed,[3 1; -3 1])
-    @test reversed.gauss==[[2,-2],[-3,3,5,4,-4,-7,1,-1,7,6,-6,-5]]
+    @test reversed.gauss==[[2,-2],[-3,3,-5,-4,4,7,1,-1,-7,-6,6,5]]
     @test reversed.orientation==[1,1,1,-1,1,-1,1]
     invalid_anchor=VirtualLink()
     set_data!(invalid_anchor;rgauss=[[1,-1],[2,-2]],orientation=ones(Int,2))
@@ -162,6 +163,11 @@ end
     repeated_anchor=VirtualLink()
     set_data!(repeated_anchor;rgauss=[[1,1],[2,2]],orientation=ones(Int,2))
     @test_throws ArgumentError connected_sum!(repeated_anchor,[1 2; 1 2])
+    connected_lens=lens_space_link(2,1)
+    disjoint_sum!(connected_lens,deepcopy(connected_lens))
+    connected_sum!(connected_lens)
+    @test is_closed(connected_lens)==(true,(true,true,true))
+    @test size(disk_table(connected_lens).delta,1)==length(connected_lens.orientation)+1
     complement=VirtualLink(); set_data!(complement;rgauss=[[1,-1]],orientation=[1])
     knot_complement!(complement)
     @test complement.gauss==[[1,2,-2,-3],[-4,-1,3,4]]
