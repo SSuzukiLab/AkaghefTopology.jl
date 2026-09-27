@@ -57,6 +57,10 @@ using Topology
     @test real_gauss_code(mixed_roundtrip)==([[1,2,0],[-1,-2]],[1,-1])
 
     mirrored=deepcopy(open)
+    # No source-backed framing lift: reject without changing the cut or weights.
+    @test_throws ArgumentError mirror_manifold!(mirrored)
+    @test mirrored.gauss==open.gauss && mirrored.weights==open.weights
+    mirrored=deepcopy(two) # same cut geometry, explicitly unweighted
     mirror_manifold!(mirrored)
     @test strand_cuts(mirrored)==[true]
     sum_link=VirtualLink()

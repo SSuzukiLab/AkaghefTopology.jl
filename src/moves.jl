@@ -293,7 +293,7 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
         1<=abs(selected[1])<=length(orientation) || return MoveCandidate[]
         return [MoveCandidate(move_type,param===nothing ? "" : string(param),selected,edge_list,
                               :weight,nothing,nothing,Tuple{Int,Int}[])]
-    elseif move_type=="02" && string(param)=="dir"
+    elseif move_type=="02" && string(param) in ("dir","dir-switched")
         length(selected)==2 || throw(ArgumentError("direct 0-2 move requires two signed adjacent visits"))
         locations=Tuple{Int,Int}[]
         for vertex in selected
@@ -310,8 +310,9 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
               mod1(first_location[2]+1,length(code[first_location[1]]))==second_location[2]))
         adjacent || return MoveCandidate[]
         data=make_move_data()
-        return [MoveCandidate(move_type,"dir",selected,edge_list,:forward,
-                              only(data["02-L"]),only(data["02-R"]),locations)]
+        after=only(filter(p -> p.parameter==(string(param)=="dir" ? "inv" : "inv-switched"),data["02-R"]))
+        return [MoveCandidate(move_type,string(param),selected,edge_list,:forward,
+                              only(data["02-L"]),after,locations)]
     elseif move_type=="BMP" && length(selected)==2
         selected[1]!=selected[2] || throw(ArgumentError("BMP vertices must be distinct"))
         values=abs.(selected)
@@ -905,6 +906,8 @@ end
 
 function _apply_pattern_move!(v::VirtualLink,candidate::MoveCandidate;legacy_mp_labels=false,
                               prepared_weights=false,boundary_trace=nothing)
+    v.is_weighted && candidate.type=="02" && endswith(candidate.parameter,"-switched") &&
+        throw(ArgumentError("framing transport for switched 0-2 is not specified"))
     _check_candidate_split(v,candidate)
     v.is_weighted && _check_move_weights(v)
     direct_02=candidate.type=="02" && candidate.direction==:forward ? first(candidate.locations) : nothing
@@ -1075,10 +1078,10 @@ function _apply_direct_02!(v::VirtualLink,candidate::MoveCandidate)
     code,orientation=real_gauss_code(v)
     component,start=candidate.locations[1]
     new_vertices=length(orientation).+(1:2)
-    fragment=[-new_vertices[1],-new_vertices[2],new_vertices[2],new_vertices[1]]
+    fragment=_map_fragment(only(candidate.after.gauss),new_vertices)
     word=code[component]
     code[component]=vcat(word[1:start],fragment,word[start+1:end])
-    set_data!(v;rgauss=code,orientation=vcat(orientation,[1,-1]))
+    set_data!(v;rgauss=code,orientation=vcat(orientation,candidate.after.orientation))
 end
 
 function _apply_bmp_two!(v::VirtualLink,candidate::MoveCandidate,parameter;boundary_trace=nothing)
@@ -1201,7 +1204,7 @@ function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges
     isempty(candidates) && throw(ArgumentError("No valid moves found."))
     length(candidates)>1 && @warn "moves may be ambiguous; applying the first strict candidate" count=length(candidates)
     candidate=first(candidates)
-    if move_type=="02" && candidate.parameter=="dir"
+    if move_type=="02" && candidate.direction==:forward
         _apply_direct_02!(v,candidate)
     elseif move_type=="BMP" && length(candidate.vertices)==2
         _apply_bmp_two!(v,candidate,param)

@@ -132,7 +132,12 @@ function make_move_data()
         "MP-L" => _mp_patterns(:left),
         "MP-R" => _mp_patterns(:right),
         "02-L" => [MovePattern("dir",[Int[],Int[]],Int[];weights=[Float64[0],Float64[0]])],
-        "02-R" => [MovePattern("inv",[[-1,-2,2,1]],[1,-1];weights=[Float64[0,0,1,-1,0]])],
+        # MST25 Fig. 2.9 + Proposition A.1: switched = Γ× ∘ standard ∘ Γ×.
+        # Only both crossings' over/under data change, never strand directions.
+        # [[MST25#^mst25-fig-0066]], [[MST25#^mst25-blk-0188]].
+        # No framed lift of this conjugation has been specified.
+        "02-R" => [MovePattern("inv",[[-1,-2,2,1]],[1,-1];weights=[Float64[0,0,1,-1,0]]),
+                   MovePattern("inv-switched",[[1,2,-2,-1]],[-1,1])],
         "CP-L" => [MovePattern("dir",[[1,-2,2,-3,3,-1]],[-1,-1,-1])],
         "CP-R" => [MovePattern("inv",[[1,2,-5,3,-2,-3,-4,4,-1,5]],[1,1,1,-1,-1])],
         # Rooted reduced CP: R6 -> R0 (2 -> 5), not a cyclically rerooted patch.

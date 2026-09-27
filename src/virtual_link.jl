@@ -972,10 +972,7 @@ function is_closed(v::VirtualLink)
     all((c1,c2,c3)), (c1,c2,c3)
 end
 
-function mirror_manifold!(v::VirtualLink)
-    _validate_cut_markers(v.gauss)
-    v.gauss = [-g for g in v.gauss]; v.orientation .*= -1; v
-end
+include("virtual_link_symmetries.jl")
 function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
     _validate_cut_markers(v.gauss)
     _is_cut_component(v.gauss[strand]) && amount != 0 &&
