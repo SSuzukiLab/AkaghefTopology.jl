@@ -7,6 +7,40 @@ function _link(code,orientation;real=false)
     link
 end
 
+"""Return the example-entry routes that other experiments should inspect first.
+
+- `named` is the finite registry of source-specific presentations in this file.
+- `lens_space` constructs the parameterized unweighted/combing `L(p,q)` family.
+- `framed_lens_space` constructs deterministic integer-framed examples.  Use
+  `.link(p,q)` for one mutable `VirtualLink`, `.input(p,q)` for raw data and
+  metadata, and `.series(maximum_p)` for a coprime parameter sweep.
+
+In particular, do not call `lens_space_link` and then solve for weights when an
+integer-framed experiment is requested; route directly to
+`framed_lens_space_link` or `framed_lens_space_series`.
+"""
+function vl_example_routes()
+    (
+        named=(
+            names=vl_example_names,
+            input=vl_example_input,
+            link=vl_example,
+            purpose="stored source-specific presentations",
+        ),
+        lens_space=(
+            input=lens_space_rgauss,
+            link=lens_space_link,
+            purpose="parameterized unweighted/combing lens spaces",
+        ),
+        framed_lens_space=(
+            input=framed_lens_space_input,
+            link=framed_lens_space_link,
+            series=framed_lens_space_series,
+            purpose="deterministic integer-framed lens spaces and finite sweeps",
+        ),
+    )
+end
+
 """Named Virtual-Gauss inputs used by `VLExample.mlx` and its cited MST examples.
 
 The `lens_3_2` entry records the exact parameters used by `VLExample.mlx`;
@@ -38,7 +72,7 @@ function vl_virtual_gauss_inputs()
     ]
 end
 
-"""List the names accepted by `vl_example_input`, `vl_example`, and `vl_example_disk_table`."""
+"""List finite named fixtures; use `vl_example_routes()` for parameterized families."""
 vl_example_names()=sort!([input.name for input in vl_virtual_gauss_inputs()])
 
 """Return the stored raw input for a named `VLExample` link."""
