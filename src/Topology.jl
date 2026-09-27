@@ -6,7 +6,9 @@ using GLPK
 using Graphs
 import AkaghefAlgebra
 
-export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link, SymExpr, sym,
+export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link,
+       framed_lens_space_input, framed_lens_space_link, framed_lens_space_series,
+       SymExpr, sym,
        LaurentPolynomial, LaurentRational, laurent_variable, laurent_variables, evaluate, limit_zero,
        set_data_cvw!, set_data_cvs!, set_data_v!, set_data_cm!, set_data!, set_weight!,
        set_weight_by_crossing!,
@@ -140,6 +142,7 @@ include("symbolic.jl")
 include("laurent.jl")
 include("ur_diagram.jl")
 include("virtual_link.jl")
+include("framed_lens_space.jl")
 include("circuit_b.jl")
 include("integer_weight_solver.jl")
 include("ograph_state.jl")

@@ -28,3 +28,36 @@ using Test, Topology
         @test_nowarn planarize_virtual_gauss(link.gauss,link.orientation)
     end
 end
+
+@testset "Deterministic framed lens-space examples" begin
+    input=framed_lens_space_input(5,2)
+    @test input.schema=="framed-lens-o-graph-v2"
+    @test input.parameters.r==4
+    @test input.parameters.A==4
+    @test length(input.orientation)==20
+    @test input.weights==[[4,0,0,0,-1,5,-3,-1,5,-3,-1,1,0,0,0,0,0,0,-1,0,
+                           0,0,0,0,0,0,0,1,0,0,-1,-1,0,-1,0,0,-1,1,-1,-3]]
+
+    link=framed_lens_space_link(5,2)
+    @test real_gauss_code(link)==(input.rgauss,input.orientation)
+    @test BigInt.(only(link.weights))==only(input.weights)
+    @test is_closed(link)==(true,(true,true,true))
+    @test is_framed_weight(link)
+
+    qminus=framed_lens_space_input(4,3)
+    @test qminus.construction=="previous_q_minus_one_base"
+    @test qminus.rgauss==[[-4,-1,-2,-3,1,2,3,4]]
+    @test qminus.weights==[[1,0,0,0,-1,0,0,-1]]
+
+    series=framed_lens_space_series(3)
+    @test length(series)==3
+    @test [(row.p,row.q) for row in series]==
+          [(2,1),(3,1),(3,2)]
+    series[1].link.gauss[1][1]=999
+    @test series[2].link.gauss[1][1]!=999
+
+    @test_throws ArgumentError framed_lens_space_input(5,0)
+    @test_throws ArgumentError framed_lens_space_input(6,2)
+    @test_throws ArgumentError framed_lens_space_input(true,1)
+    @test_throws ArgumentError framed_lens_space_series(5;minimum_p=6)
+end
