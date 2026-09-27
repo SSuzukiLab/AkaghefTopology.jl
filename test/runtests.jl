@@ -28,6 +28,7 @@ include(joinpath(@__DIR__,"cut_core.jl"))
 include(joinpath(@__DIR__,"circuit_b.jl"))
 include(joinpath(@__DIR__,"cut_closed_boundaries.jl"))
 include(joinpath(@__DIR__,"cut_weights.jl"))
+include(joinpath(@__DIR__,"connected_sum.jl"))
 include(joinpath(@__DIR__,"cut_plot.jl"))
 include(joinpath(@__DIR__,"cut_moves.jl"))
 include(joinpath(@__DIR__,"reduced_cp.jl"))
@@ -519,17 +520,17 @@ end
     @test isapprox(uqsl2.s2xs1_values[2],98.1762745781211-5.61284970724479im;atol=1e-9)
     @test all(value -> isapprox(value,0;atol=1e-10),uqsl2.s2xs1_values[3:end])
     @test isapprox(uqsl2.koda_value,0;atol=1e-10)
-    @test isapprox(uqsl2.connected_values,[-0.809016994374947-0.587785252292473im,
-                                            -0.809016994374947+0.587785252292473im];atol=1e-10)
+    @test uqsl2.connected_values[1]==uqsl2.abalone_value
+    @test uqsl2.connected_values[2]==uqsl2.connected_values[1]^2
     @test all(value -> isapprox(value,0;atol=1e-10),uqsl2.knot_complement_values)
 
     uqsl2_2026=run_C260125_uqsl2()
     @test all(values(uqsl2_2026.hopf_checks))
     @test uqsl2_2026.surgery_standard≈[-1,1,1,1]
     @test uqsl2_2026.surgery_alternate≈[-1,1,1,1]
-    @test uqsl2_2026.abalone_sums≈[-1,-3,1]
-    @test [row.hopf for row in uqsl2_2026.alternate_sums]≈[-1,-3,-9]
-    @test [row.ur_prime for row in uqsl2_2026.alternate_sums]≈[-1,1,-1]
+    @test uqsl2_2026.abalone_sums==[-1,-1,1]
+    @test [row.hopf for row in uqsl2_2026.alternate_sums]==[-1,1,-1]
+    @test [row.ur_prime for row in uqsl2_2026.alternate_sums]==[-1,1,-1]
 
     lens_spaces=run_C260220_lens_spaces()
     @test length(lens_spaces.sweep)==31

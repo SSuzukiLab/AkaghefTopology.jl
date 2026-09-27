@@ -29,7 +29,8 @@ function run_C250818_uqsl2()
     calculate_weight(koda;assign=true)
 
     connected=deepcopy(abalone)
-    disjoint_sum!(connected,abalone); connected_sum!(connected); calculate_weight(connected;assign=true)
+    disjoint_sum!(connected,abalone); connected_sum!(connected)
+    is_framed_weight(connected) || error("connected-sum integer lift failed")
 
     complement=deepcopy(abalone); knot_complement!(complement)
     set_weight_by_crossing!(complement,[2 -2;-3 1;3 4;4 -4],[1,-1,-1,1])

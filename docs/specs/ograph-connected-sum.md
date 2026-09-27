@@ -1,8 +1,8 @@
 # Connected sum of closed normal o-graphs
 
-Status: normative local-operation and real-Gauss specification
+Status: normative local-operation, real-Gauss, and integer-weight specification
 
-Scope: unweighted closed normal o-graphs; no edge-weight transport is specified
+Scope: closed normal o-graphs with optional integral disk-equation weights
 
 Terminology: [`ograph-terminology.md`](ograph-terminology.md)
 
@@ -80,6 +80,63 @@ word so the anchor is first. The cut edge is then the cyclic edge from the
 predecessor of the anchor to the anchor. Without an anchor, the stored
 last-to-first seam is used.
 
+## Fixed-exterior integer-weight lift
+
+Assume that both input diagrams carry integral weights satisfying the current
+disk equation
+
+```text
+2 * delta * weight + cp2 = 0.
+```
+
+Let `u` and `v` be the weights of the two selected cut edges. Number the ten
+new real edges along the two four-vertex bridge strands as follows:
+
+```text
+x1: M-out -> -b       x6: N-out -> -d
+x2: -b -> -a          x7: -d -> -c
+x3: -a -> +a          x8: -c -> +c
+x4: +a -> +d          x9: +c -> +b
+x5: +d -> N-in       x10: +b -> M-in
+```
+
+All input edge weights outside the two cut edges remain fixed. The six open
+disk paths through the local tangle have exactly the same doubled boundary
+contributions as the two removed edges if and only if
+
+```text
+x1 + x10 = u,
+x5 + x6  = v.
+```
+
+The three internal disk equations are equivalent to
+
+```text
+x3 = 1,
+x8 = 1,
+x2 + x4 + x7 + x9 = -1.
+```
+
+Consequently an integral lift exists for every pair of integers `u,v`. The
+implementation uses the fixed affine representative
+
+```text
+(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10)
+    = (0,0,1,0,0,v,0,1,-1,u).
+```
+
+For the stored cyclic output word, the edge sequence begins with `x10`, then
+the unchanged edges of `G_M`, followed by `x1,...,x5`, the unchanged edges of
+`G_N`, and `x6,...,x9`.
+
+This proves a universal integer lift for the current disk equation with fixed
+external weights. It does not by itself identify this affine representative
+as a canonical geometric connected sum of homotopy classes of framings; that
+requires a separate comparison of the represented framings.
+
+The derivation, implementation boundary, and bounded rerun are recorded in
+[the PJ260829 note](../../../../threads/PJ260829/docs/notes/2026-09-27-102357-connected-sum-integer-lift.md).
+
 ## Preconditions and postconditions
 
 Both selected components must be closed strands of closed normal o-graphs and
@@ -88,7 +145,8 @@ vertices, and must return a closed normal o-graph. In particular, the result
 must satisfy C1, C2, and C3; for `N` output vertices the Method-B circuit count
 must be `N+1`.
 
-This specification does not define a weighted or framed connected sum. The
-current `connected_sum!` operation discards existing edge weights and marks the
-result unweighted. Any future weight transport requires a separate rule and
-verification.
+When both operands of `disjoint_sum!` are weighted in the same mode, their
+weights are retained. `connected_sum!` transports assigned integral weights by
+the lift above and verifies the output disk equation. Z2 transport is not
+defined here. `transport_weights=false` explicitly requests an unweighted
+output.

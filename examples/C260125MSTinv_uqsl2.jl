@@ -39,10 +39,12 @@ function run_C260125_uqsl2()
     positive=VirtualLink(); set_data!(positive;rgauss=[[1,-1]],orientation=[1])
     calculate_weight(positive;assign=true)
     negative=VirtualLink(); set_data!(negative;rgauss=[[1,-1]],orientation=[-1])
+    calculate_weight(negative;assign=true)
     sums=VirtualLink[deepcopy(negative)]
     for _ in 2:3
         next=deepcopy(last(sums)); disjoint_sum!(next,positive); connected_sum!(next)
-        calculate_weight(next;assign=true); push!(sums,next)
+        is_framed_weight(next) || error("connected-sum integer lift failed")
+        push!(sums,next)
     end
 
     alternate=VirtualLink(); set_data!(alternate;rgauss=[[-1,1]],orientation=[1])
@@ -50,7 +52,8 @@ function run_C260125_uqsl2()
     positive_sums=VirtualLink[deepcopy(positive)]
     for _ in 2:3
         next=deepcopy(last(positive_sums)); disjoint_sum!(next,alternate); connected_sum!(next)
-        calculate_weight(next;assign=true); push!(positive_sums,next)
+        is_framed_weight(next) || error("connected-sum integer lift failed")
+        push!(positive_sums,next)
     end
 
     shared=run_C250818_uqsl2()

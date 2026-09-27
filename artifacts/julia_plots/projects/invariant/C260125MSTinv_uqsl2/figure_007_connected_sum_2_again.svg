@@ -1,51 +1,104 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
-<rect width="100%" height="100%" fill="#faf9f7"/>
-<path d="M 526.0 394.40000000000003 L 526.0 470.4 Q 526.0 516.0 571.6 516.0 L 632.4 516.0 Q 678.0 516.0 678.0 470.4 L 678.0 364.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 577.68 502.32000000000005 L 602.0 516.0 L 577.68 529.68" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="607.0" y="511.0" font-family="sans-serif" font-size="17">-1.0</text>
-<path d="M 678.0 364.0 L 678.0 257.6 Q 678.0 212.0 723.6 212.0 L 784.4 212.0 Q 830.0 212.0 830.0 257.6 L 830.0 318.4 Q 830.0 364.0 784.4 364.0 L 708.4 364.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 729.68 198.32 L 754.0 212.0 L 729.68 225.67999999999998" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="759.0" y="207.0" font-family="sans-serif" font-size="17">1.0</text>
-<path d="M 647.6 364.0 L 526.0 364.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 611.12 377.67999999999995 L 586.8 364.0 L 611.12 350.32" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="591.8" y="359.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 526.0 364.0 L 374.0 364.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 474.32000000000005 377.67999999999995 L 450.0 364.0 L 474.32000000000005 350.32" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="455.0" y="359.0" font-family="sans-serif" font-size="17">1.0</text>
-<path d="M 374.0 364.0 L 267.6 364.0 Q 222.0 364.0 222.0 409.6 L 222.0 470.4 Q 222.0 516.0 267.6 516.0 L 328.4 516.0 Q 374.0 516.0 374.0 470.4 L 374.0 394.40000000000003" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 235.67999999999998 415.67999999999995 L 222.0 440.0 L 208.32000000000002 415.67999999999995" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="227.0" y="435.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 374.0 333.6 L 374.0 242.40000000000003" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 360.32000000000005 312.32000000000005 L 374.0 288.0 L 387.67999999999995 312.32000000000005" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="379.0" y="283.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 374.0 181.60000000000002 L 374.0 105.6 Q 374.0 60.0 328.4 60.0 L 267.6 60.0 Q 222.0 60.0 222.0 105.6 L 222.0 212.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 322.32000000000005 73.68 L 298.0 60.0 L 322.32000000000005 46.32000000000002" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="303.0" y="55.0" font-family="sans-serif" font-size="17">-1.0</text>
-<path d="M 222.0 212.0 L 222.0 318.4 Q 222.0 364.0 176.4 364.0 L 115.6 364.0 Q 70.0 364.0 70.0 318.4 L 70.0 257.6 Q 70.0 212.0 115.6 212.0 L 191.59999999999997 212.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 170.32000000000002 377.67999999999995 L 146.0 364.0 L 170.32000000000002 350.32" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="151.0" y="359.0" font-family="sans-serif" font-size="17">1.0</text>
-<path d="M 252.40000000000003 212.0 L 374.0 212.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 288.88 198.32 L 313.20000000000005 212.0 L 288.88 225.67999999999998" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="318.20000000000005" y="207.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 374.0 212.0 L 526.0 212.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 425.67999999999995 198.32 L 450.0 212.0 L 425.67999999999995 225.67999999999998" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="455.0" y="207.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 526.0 212.0 L 632.4 212.0 Q 678.0 212.0 678.0 166.4 L 678.0 105.6 Q 678.0 60.0 632.4 60.0 L 571.6 60.0 Q 526.0 60.0 526.0 105.6 L 526.0 181.60000000000002" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 664.32 160.32 L 678.0 136.0 L 691.68 160.32" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="683.0" y="131.0" font-family="sans-serif" font-size="17">0.0</text>
-<path d="M 526.0 242.4 L 526.0 333.6" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 539.68 263.67999999999995 L 526.0 288.0 L 512.32 263.67999999999995" fill="none" stroke="#0000ff" stroke-width="3"/>
-<text x="531.0" y="283.0" font-family="sans-serif" font-size="17">0.0</text>
-<circle cx="678.0" cy="364.0" r="5" fill="#0000ff"/>
-<text x="686.0" y="356.0" font-family="sans-serif" font-size="17">V1</text>
-<circle cx="222.0" cy="212.0" r="5" fill="#0000ff"/>
-<text x="230.0" y="204.0" font-family="sans-serif" font-size="17">V2</text>
-<circle cx="374.0" cy="364.0" r="5" fill="#0000ff"/>
-<text x="382.0" y="356.0" font-family="sans-serif" font-size="17">V3</text>
-<circle cx="526.0" cy="364.0" r="5" fill="#0000ff"/>
-<text x="534.0" y="356.0" font-family="sans-serif" font-size="17">V4</text>
-<circle cx="526.0" cy="212.0" r="5" fill="#0000ff"/>
-<text x="534.0" y="204.0" font-family="sans-serif" font-size="17">V5</text>
-<circle cx="374.0" cy="212.0" r="5" fill="#0000ff"/>
-<text x="382.0" y="204.0" font-family="sans-serif" font-size="17">V6</text>
+<svg xmlns="http://www.w3.org/2000/svg" class="ograph" width="642.24" height="460.8" viewBox="-5.96 -2.7 8.92 6.4" role="img" aria-label="figure_007_connected_sum_2_again">
+<title>figure_007_connected_sum_2_again</title>
+<desc>6 real crossing(s), 12 arc(s).</desc>
+<metadata><ograph>crossings=6; arcs=12; weighted=true</ograph></metadata>
+<style>
+.ograph{--ground:#faf9f7;--strand:#1b3bd0;--ink:#12161d}
+@media (prefers-color-scheme:dark){.ograph{--ground:#0e1116;--strand:#7d97ff;--ink:#e6e9ef}}
+.ograph .bg{fill:var(--ground)}
+.ograph .arc,.ograph .arrow{stroke:var(--strand);fill:none}
+.ograph .vertex{fill:var(--strand)}
+.ograph .label{fill:var(--ink);stroke:var(--ground)}
+</style>
+<rect class="bg" x="-5.96" y="-2.7" width="8.92" height="6.4" fill="#faf9f7"/>
+<path class="arc" data-arc="1" d="M -1.0 -0.0 L -1.0 -1.72 Q -1.0 -2.0 -0.72 -2.0 L 1.72 -2.0 Q 2.0 -2.0 2.0 -1.72 L 2.0 0.72 Q 2.0 1.0 1.72 1.0 L 0.28 1.0 Q 0.0 1.0 0.0 0.72 L 0.0 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="1" d="M 2.11 -0.7 L 2.0 -0.5 L 1.89 -0.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="2" d="M 0.0 -0.0 L 0.0 -0.72 Q 0.0 -1.0 0.28 -1.0 L 0.72 -1.0 Q 1.0 -1.0 1.0 -0.72 L 1.0 -0.28 Q 1.0 -0.0 0.72 0.0 L 0.18 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="2" d="M 0.3 -1.11 L 0.5 -1.0 L 0.3 -0.89" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="3" d="M -0.18 -0.0 L -0.8200000000000001 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="3" d="M -0.3 0.11 L -0.5 -0.0 L -0.3 -0.11" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="4" d="M -1.18 -0.0 L -1.82 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="4" d="M -1.3 0.11 L -1.5 -0.0 L -1.3 -0.11" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="5" d="M -2.18 -0.0 L -2.7199999999999998 -0.0 Q -3.0 -0.0 -3.0 -0.28 L -3.0 -0.72 Q -3.0 -1.0 -2.7199999999999998 -1.0 L -2.2800000000000002 -1.0 Q -2.0 -1.0 -2.0 -0.72 L -2.0 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="5" d="M -3.11 -0.3 L -3.0 -0.5 L -2.89 -0.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="6" d="M -2.0 -0.0 L -2.0 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="6" d="M -1.89 0.3 L -2.0 0.5 L -2.11 0.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="7" d="M -2.0 1.0 L -2.0 2.7199999999999998 Q -2.0 3.0 -2.2800000000000002 3.0 L -4.72 3.0 Q -5.0 3.0 -5.0 2.7199999999999998 L -5.0 0.28 Q -5.0 -0.0 -4.72 0.0 L -3.2800000000000002 -0.0 Q -3.0 -0.0 -3.0 0.28 L -3.0 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="7" d="M -5.11 1.7 L -5.0 1.5 L -4.89 1.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="8" d="M -3.0 1.0 L -3.0 1.72 Q -3.0 2.0 -3.2800000000000002 2.0 L -3.7199999999999998 2.0 Q -4.0 2.0 -4.0 1.72 L -4.0 1.28 Q -4.0 1.0 -3.7199999999999998 1.0 L -3.18 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="8" d="M -3.3 2.11 L -3.5 2.0 L -3.3 1.89" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="9" d="M -2.82 1.0 L -2.18 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="9" d="M -2.7 0.89 L -2.5 1.0 L -2.7 1.11" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="10" d="M -1.82 1.0 L -1.18 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="10" d="M -1.7 0.89 L -1.5 1.0 L -1.7 1.11" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="11" d="M -0.8200000000000001 1.0 L -0.28 1.0 Q 0.0 1.0 0.0 1.28 L 0.0 1.72 Q 0.0 2.0 -0.28 2.0 L -0.72 2.0 Q -1.0 2.0 -1.0 1.72 L -1.0 1.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="11" d="M 0.11 1.3 L 0.0 1.5 L -0.11 1.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="12" d="M -1.0 1.0 L -1.0 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="12" d="M -1.11 0.7 L -1.0 0.5 L -0.89 0.7" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="vertex" cx="0.0" cy="-0.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="-3.0" cy="1.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="-2.0" cy="-0.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="-1.0" cy="-0.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="-1.0" cy="1.0"
+r="0.115" fill="#1b3bd0"/>
+<circle class="vertex" cx="-2.0" cy="1.0"
+r="0.115" fill="#1b3bd0"/>
+<text class="label" x="2.26" y="-1.5" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">-2</text>
+<text class="label" x="0.91" y="-1.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">1</text>
+<text class="label" x="-0.5" y="0.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">0</text>
+<text class="label" x="-1.5283" y="0.2162" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">0</text>
+<text class="label" x="-2.91" y="-1.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">1</text>
+<text class="label" x="-1.7548" y="0.4987" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">0</text>
+<text class="label" x="-5.26" y="2.5" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">0</text>
+<text class="label" x="-3.91" y="2.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">1</text>
+<text class="label" x="-2.5" y="0.74" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">-2</text>
+<text class="label" x="-1.5318" y="0.7792" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">0</text>
+<text class="label" x="-0.09" y="2.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">1</text>
+<text class="label" x="-1.185" y="0.5059" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">-1</text>
+<text class="label" x="0.2846" y="-0.0949" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V1</text>
+<text class="label" x="-3.2846" y="1.0949" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V2</text>
+<text class="label" x="-2.2121" y="-0.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V3</text>
+<text class="label" x="-0.7879" y="-0.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V4</text>
+<text class="label" x="-0.7879" y="1.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V5</text>
+<text class="label" x="-2.2121" y="1.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V6</text>
 </svg>

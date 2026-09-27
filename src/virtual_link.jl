@@ -983,15 +983,27 @@ function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
     v.gauss[strand] = circshift(v.gauss[strand], amount); v
 end
 
-function disjoint_sum!(a::VirtualLink, b::VirtualLink)
+function disjoint_sum!(a::VirtualLink, b::VirtualLink; preserve_weights=true)
     _validate_cut_markers(a.gauss); _validate_cut_markers(b.gauss)
+    preserve_weights isa Bool || throw(ArgumentError("preserve_weights must be an explicit Boolean"))
+    weighted=preserve_weights && a.is_weighted && b.is_weighted
+    weighted && a.weight_mode != b.weight_mode &&
+        throw(ArgumentError("weighted disjoint sum requires matching weight modes"))
+    a_weights=deepcopy(a.weights)
+    b_weights=deepcopy(b.weights)
     offset=length(a.orientation)
     append!(a.gauss, [[sign(x)*offset+x for x in g] for g in b.gauss])
     append!(a.orientation,b.orientation)
+    append!(a.strand_types,b.strand_types)
     a.real_only = a.real_only && b.real_only
-    a.is_weighted = false
-    a.weights = [zeros(Float64,_strand_arc_count(a,strand))
-                 for strand in eachindex(a.gauss)]
+    if weighted
+        a.weights=vcat(a_weights,b_weights)
+        a.is_weighted=true
+    else
+        a.is_weighted=false
+        a.weights=[zeros(Float64,_strand_arc_count(a,strand))
+                   for strand in eachindex(a.gauss)]
+    end
     a
 end
 
@@ -1025,6 +1037,41 @@ function _rotate_connected_sum_component(component::Vector{Int},anchor::Int,stra
     vcat(component[index:end],component[begin:index-1])
 end
 
+function _rotate_connected_sum_weights(weights::Vector{Float64},component::Vector{Int},
+                                       anchor::Int,strand::Int)
+    positions=findall(==(anchor),component)
+    length(positions) == 1 ||
+        throw(ArgumentError("connected-sum anchor $anchor must occur exactly once on strand $strand"))
+    index=only(positions)
+    length(weights)==length(component) ||
+        throw(DimensionMismatch("connected-sum weights must match real-Gauss component length"))
+    vcat(weights[index:end],weights[begin:index-1])
+end
+
+const _CONNECTED_SUM_MAX_INTEGER=big(2)^53-1
+function _connected_sum_integer(value)
+    value isa Real && isfinite(value) && isinteger(value) ||
+        throw(ArgumentError("connected-sum weight lift requires finite integer values"))
+    integer=BigInt(value)
+    abs(integer)<=_CONNECTED_SUM_MAX_INTEGER ||
+        throw(ArgumentError("connected-sum weight exceeds the exact Float64 integer range"))
+    integer
+end
+
+function _connected_sum_lift(first_weights::Vector{Float64},second_weights::Vector{Float64})
+    isempty(first_weights) && throw(ArgumentError("first connected-sum component has no edge"))
+    isempty(second_weights) && throw(ArgumentError("second connected-sum component has no edge"))
+    foreach(_connected_sum_integer,first_weights)
+    foreach(_connected_sum_integer,second_weights)
+    u=Float64(_connected_sum_integer(first(first_weights)))
+    v=Float64(_connected_sum_integer(first(second_weights)))
+    # Local edges x1,...,x10 satisfy
+    # x1+x10=u, x5+x6=v, x3=x8=1, x2+x4+x7+x9=-1.
+    # The stored cyclic edge order starts with x10.
+    vcat(u,first_weights[2:end],0.0,0.0,1.0,0.0,0.0,
+         second_weights[2:end],v,0.0,1.0,-1.0)
+end
+
 """Join two closed real-Gauss components by the normal-o-graph connected sum.
 
 `selection` may be a two-element strand-index iterable, a `1×2` matrix of
@@ -1032,17 +1079,35 @@ strand indices, or a `2×2` matrix whose second row gives the signed crossing
 at which each component traversal starts.  Anchor selection is performed on the
 real-Gauss code.  The four-vertex splice and labels are specified in
 `docs/specs/ograph-connected-sum.md`.
+
+If the input has assigned integral weights, the default `transport_weights=true`
+uses the specification's fixed-exterior integer lift and validates the resulting
+disk equations.  Use `transport_weights=false` to discard assigned weights.
 """
-function connected_sum!(v::VirtualLink, selection=(1,2))
+function connected_sum!(v::VirtualLink, selection=(1,2);transport_weights=true)
+    transport_weights isa Bool ||
+        throw(ArgumentError("transport_weights must be an explicit Boolean"))
     any(strand_cuts(v)) &&
         throw(ArgumentError("connected_sum! currently requires closed strands; open boundaries would be discarded"))
+    transport=transport_weights && v.is_weighted
+    if transport
+        v.weight_mode==:integer ||
+            throw(ArgumentError("connected-sum integer lift does not support Z2 mode"))
+        validate_weight(v;framed=true)
+    end
     code,orientation=real_gauss_code(v)
     (i,j),anchors=_connected_sum_selection(selection)
     i==j && throw(ArgumentError("distinct strands required"))
     1 <= i <= length(code) && 1 <= j <= length(code) || throw(BoundsError(code,(i,j)))
     first_component=code[i]
     second_component=code[j]
+    first_weights=transport ? copy(v.weights[i]) : Float64[]
+    second_weights=transport ? copy(v.weights[j]) : Float64[]
     if anchors !== nothing
+        transport && begin
+            first_weights=_rotate_connected_sum_weights(first_weights,first_component,anchors[1],i)
+            second_weights=_rotate_connected_sum_weights(second_weights,second_component,anchors[2],j)
+        end
         first_component=_rotate_connected_sum_component(first_component,anchors[1],i)
         second_component=_rotate_connected_sum_component(second_component,anchors[2],j)
     end
@@ -1055,11 +1120,24 @@ function connected_sum!(v::VirtualLink, selection=(1,2))
     bridge2=[-d,-c,c,b]
     code[i]=vcat(first_component,bridge1,second_component,bridge2)
     deleteat!(code,j)
-    v.gauss=code
-    v.orientation=vcat(orientation,[-1,1,-1,1])
-    v.real_only=true
-    v.is_weighted=false
-    v.weights=[zeros(Float64,length(g)) for g in code]
+    types=copy(v.strand_types)
+    types[i]='o'
+    deleteat!(types,j)
+    output_weights=transport ? deepcopy(v.weights) : Vector{Vector{Float64}}()
+    if transport
+        output_weights[i]=_connected_sum_lift(first_weights,second_weights)
+        deleteat!(output_weights,j)
+    end
+    target=VirtualLink(weight_mode=v.weight_mode)
+    set_data!(target;rgauss=code,orientation=vcat(orientation,[-1,1,-1,1]),
+              strand_types=types)
+    if transport
+        set_weight!(target,output_weights)
+        validate_weight(target;framed=true)
+    end
+    for field in fieldnames(VirtualLink)
+        setfield!(v,field,getfield(target,field))
+    end
     v
 end
 

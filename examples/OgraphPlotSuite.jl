@@ -13,6 +13,14 @@ function _knot_complement_abalone(weight)
     link
 end
 
+function _suite_connected_sum(first,second)
+    result=deepcopy(first)
+    disjoint_sum!(result,deepcopy(second))
+    connected_sum!(result)
+    is_framed_weight(result) || error("connected-sum integer lift failed")
+    result
+end
+
 """All non-VLExample o-graph plot instances reached by the scoped Live Scripts."""
 function run_ograph_plot_suite(;output_root=nothing)
     groups=Dict{String,Vector{NamedTuple}}()
@@ -34,8 +42,7 @@ function run_ograph_plot_suite(;output_root=nothing)
     set_weight!(calculation,[[1,-1,-1,0,1,0,-1,0]])
     abalone=_suite_link([[1,-1]],[1];real=true)
     set_weight!(abalone,[[-2,1]])
-    cs2=_suite_link([[1,-1,4,3,-3,-6,2,-2,6,5,-5,-4]],[1,1,-1,1,-1,1];real=true)
-    set_weight!(cs2,[[-1,1,0,1,0,0,-1,1,0,0,0,0]])
+    cs2=_suite_connected_sum(abalone,abalone)
     kc1=_knot_complement_abalone([-1,0,1,0,1,0,0,-1])
     kc2=_knot_complement_abalone([-1,0,1,2,1,-2,0,-1])
     for group in ["projects/invariant/C250818MSTinv_uqsl2"]
@@ -57,13 +64,13 @@ function run_ograph_plot_suite(;output_root=nothing)
         _suite_link([[1,-4,5,-3],[3,-1,2,-5,4,-2]],[-1,-1,-1,1,1]))
 
     group="projects/invariant/C260125MSTinv_uqsl2"
-    cs1=_suite_link([[1,-1]],[1];real=true)
-    cs2_negative=_suite_link([[1,-1,4,3,-3,-6,-2,2,6,5,-5,-4]],
-                             [1,1,-1,1,-1,1];real=true)
-    set_weight!(cs2_negative,[[0,1,0,1,-1,0,0,0,0,0,0,0]])
-    cs3=_suite_link([[1,-1,4,3,-3,-6,-2,2,6,5,-5,-4,9,8,-8,-11,-7,7,11,10,-10,-9]],
-                    [1,1,-1,1,-1,1,1,-1,1,-1,1];real=true)
-    set_weight!(cs3,[[1,1,0,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0]])
+    abalone_positive=_suite_link([[1,-1]],[1];real=true)
+    set_weight!(abalone_positive,[[-2,1]])
+    abalone_negative=_suite_link([[1,-1]],[-1];real=true)
+    set_weight!(abalone_negative,[[1,-2]])
+    cs1=deepcopy(abalone_positive)
+    cs2_negative=_suite_connected_sum(abalone_negative,abalone_positive)
+    cs3=_suite_connected_sum(cs2_negative,abalone_positive)
     add(group,"connected_sum_1",cs1)
     add(group,"connected_sum_2",cs2_negative)
     add(group,"connected_sum_3",cs3)
@@ -75,8 +82,6 @@ function run_ograph_plot_suite(;output_root=nothing)
     add(group,"s2xs1_weighted",weighted_s2xs1)
     add(group,"knot_complement_weight_1",deepcopy(kc1))
     add(group,"knot_complement_weight_2",deepcopy(kc2))
-    abalone_positive=_suite_link([[1,-1]],[1];real=true); set_weight!(abalone_positive,[[-2,1]])
-    abalone_negative=_suite_link([[1,-1]],[-1];real=true); set_weight!(abalone_negative,[[1,-2]])
     add(group,"abalone_positive",abalone_positive)
     add(group,"abalone_negative",abalone_negative)
 

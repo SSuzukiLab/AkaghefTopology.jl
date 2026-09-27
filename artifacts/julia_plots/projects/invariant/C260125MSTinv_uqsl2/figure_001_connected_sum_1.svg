@@ -1,9 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
-<rect width="100%" height="100%" fill="#faf9f7"/>
-<path d="M 262.0 300.0 L 142.0 300.0 Q 70.0 300.0 70.0 372.0 L 70.0 468.0 Q 70.0 540.0 142.0 540.0 L 238.0 540.0 Q 310.0 540.0 310.0 468.0 L 310.0 300.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 91.6 381.59999999999997 L 70.0 420.0 L 48.39999999999998 381.59999999999997" fill="none" stroke="#0000ff" stroke-width="3"/>
-<path d="M 310.0 300.0 L 310.0 132.0 Q 310.0 60.0 382.0 60.0 L 478.0 60.0 Q 550.0 60.0 550.0 132.0 L 550.0 228.0 Q 550.0 300.0 478.0 300.0 L 358.0 300.0" fill="none" stroke="#0000ff" stroke-width="4" stroke-linejoin="round"/>
-<path d="M 391.59999999999997 38.39999999999998 L 430.0 60.0 L 391.59999999999997 81.6" fill="none" stroke="#0000ff" stroke-width="3"/>
-<circle cx="310.0" cy="300.0" r="5" fill="#0000ff"/>
-<text x="318.0" y="292.0" font-family="sans-serif" font-size="17">V1</text>
+<svg xmlns="http://www.w3.org/2000/svg" class="ograph" width="244.8" height="263.52" viewBox="-1.7 -1.96 3.4 3.66" role="img" aria-label="figure_001_connected_sum_1">
+<title>figure_001_connected_sum_1</title>
+<desc>1 real crossing(s), 2 arc(s).</desc>
+<metadata><ograph>crossings=1; arcs=2; weighted=true</ograph></metadata>
+<style>
+.ograph{--ground:#faf9f7;--strand:#1b3bd0;--ink:#12161d}
+@media (prefers-color-scheme:dark){.ograph{--ground:#0e1116;--strand:#7d97ff;--ink:#e6e9ef}}
+.ograph .bg{fill:var(--ground)}
+.ograph .arc,.ograph .arrow{stroke:var(--strand);fill:none}
+.ograph .vertex{fill:var(--strand)}
+.ograph .label{fill:var(--ink);stroke:var(--ground)}
+</style>
+<rect class="bg" x="-1.7" y="-1.96" width="3.4" height="3.66" fill="#faf9f7"/>
+<path class="arc" data-arc="1" d="M -0.18 -0.0 L -0.72 -0.0 Q -1.0 -0.0 -1.0 0.28 L -1.0 0.72 Q -1.0 1.0 -0.72 1.0 L -0.28 1.0 Q 0.0 1.0 0.0 0.72 L 0.0 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="1" d="M -0.89 0.3 L -1.0 0.5 L -1.11 0.3" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arc" data-arc="2" d="M 0.0 -0.0 L 0.0 -0.72 Q 0.0 -1.0 0.28 -1.0 L 0.72 -1.0 Q 1.0 -1.0 1.0 -0.72 L 1.0 -0.28 Q 1.0 -0.0 0.72 0.0 L 0.18 -0.0" fill="none"
+stroke="#1b3bd0" stroke-width="0.07"
+stroke-linejoin="round" stroke-linecap="round"/>
+<path class="arrow" data-arc="2" d="M 0.3 -1.11 L 0.5 -1.0 L 0.3 -0.89" fill="none" stroke="#1b3bd0"
+stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="vertex" cx="0.0" cy="-0.0"
+r="0.115" fill="#1b3bd0"/>
+<text class="label" x="-0.91" y="0.74" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">-2</text>
+<text class="label" x="0.91" y="-1.26" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">1</text>
+<text class="label" x="0.2121" y="-0.2121" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="0.32" fill="#12161d" stroke="#faf9f7" stroke-width="0.0896" paint-order="stroke" stroke-linejoin="round">V1</text>
 </svg>

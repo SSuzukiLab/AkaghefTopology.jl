@@ -124,9 +124,9 @@ The data-driven move architecture, MATLAB compatibility boundary, public
 transport, errors, and support matrix are specified in
 [`docs/specs/virtual-link-moves.md`](docs/specs/virtual-link-moves.md).
 
-The unweighted normal-o-graph connected sum, including its source diagram,
-vertex labels, passage signs, cut convention, and closedness requirement, is
-specified in
+The normal-o-graph connected sum, including its source diagram, vertex labels,
+passage signs, cut convention, closedness requirement, and fixed-exterior
+integer weight lift, is specified in
 [`docs/specs/ograph-connected-sum.md`](docs/specs/ograph-connected-sum.md).
 
 Reusable move-sequence exploration uses the unweighted SQLite projection in
