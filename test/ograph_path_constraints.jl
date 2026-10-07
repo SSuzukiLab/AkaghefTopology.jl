@@ -31,6 +31,10 @@ using Test, Topology
             @test actual.replay.valid
             @test Topology._opath_flat(actual.replay.target)==Topology._opath_flat(desired)
             record_ograph_path_constraint_trial!(store,run,source,[edge],solution)
+            saved=query_ograph_path_constraint_trials(store;source_state_id=sid,
+                target_weights=Topology._opath_flat(desired),status=:integer_solution)
+            @test length(saved)==1 && only(saved).path==[edge]
+            @test only(saved).replay_outcome=="admissible"
 
             # H incidence matrices agree with actual operations, including
             # self-adjacencies in this presentation.

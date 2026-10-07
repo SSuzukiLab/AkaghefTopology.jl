@@ -85,6 +85,10 @@ difference alone must not be treated as the desired shift.
 `lift_ograph_search_path!` executes the same geometric word on an isomorphic
 source, retaining vertex roles through every intermediate move and persisting
 each lifted edge. This is the entrypoint for composing selected cycles.
+`query_ograph_path_constraint_trials` retrieves stored path/H recipes and
+obstructions by source, fixed target weights, and equation status. It returns
+composed walks with repeated geometric states as well as simple paths, and
+reports whether that exact recipe has a separate weighted replay result.
 
 Edge affine relations are cached in `ograph_search_edge_weight_relations`,
 separately from geometric graph identity. An interrupted `building` expansion

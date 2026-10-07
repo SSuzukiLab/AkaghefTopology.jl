@@ -245,3 +245,57 @@ function record_ograph_path_constraint_trial!(store,run_id,source,path,result)
            _ograph_canonical_json(payload)))
     id
 end
+
+"""Recover stored path/H witnesses or obstructions, including composed walks.
+
+status is an equation-system status, not a proof of closed-normal semantics.
+replay_outcome reports whether this exact path/source/H recipe was separately
+replayed. target_weights filters a fixed target, excluding variable-shift trials.
+"""
+function query_ograph_path_constraint_trials(store;source_state_id=nothing,
+        target_weights=nothing,status=nothing,limit::Integer=100)
+    limit>0 || throw(ArgumentError("trial query limit must be positive"))
+    clauses=String[];parameters=Any[]
+    if source_state_id!==nothing
+        push!(clauses,"first_operation.source_state_id=?");push!(parameters,String(source_state_id))
+    end
+    if status!==nothing
+        string(status) in ("integer_solution","rational_only","inconsistent") ||
+            throw(ArgumentError("unknown constraint status"))
+        push!(clauses,raw"json_extract(trial.result_json,'$.status')=?")
+        push!(parameters,string(status))
+    end
+    if target_weights!==nothing
+        push!(clauses,raw"json_extract(trial.result_json,'$.target_generator') IS NULL")
+        push!(clauses,raw"json_extract(trial.result_json,'$.target_weights')=?")
+        push!(parameters,_ograph_canonical_json(string.(BigInt.(target_weights))))
+    end
+    sql=raw"""
+        SELECT trial.* FROM ograph_search_constraint_trials AS trial
+        JOIN ograph_search_operations AS first_operation
+          ON first_operation.operation_id=json_extract(trial.operation_ids_json,'$[0]')
+    """
+    isempty(clauses) || (sql*=" WHERE "*join(clauses," AND "))
+    sql*=" ORDER BY trial.trial_id LIMIT ?";push!(parameters,Int(limit))
+    result=NamedTuple[]
+    for row in MoveGraphStore._rows(store.db,sql,Tuple(parameters))
+        data=JSON.parse(String(row.result_json))
+        path=_ograph_search_path_rows(store,JSON.parse(String(row.operation_ids_json)))
+        geometry=load_ograph_search_state(store,first(path).source_state_id)
+        values=parse.(BigInt,String.(data["source_weights"]))
+        code,_=real_gauss_code(geometry);cursor=0;weights=Vector{Vector{Int}}()
+        for word in code
+            push!(weights,Int.(values[cursor+1:cursor+length(word)]));cursor+=length(word)
+        end
+        replay=MoveGraphStore._one(store.db,"""
+            SELECT outcome FROM ograph_search_weighted_trials
+            WHERE run_id=? AND path_fingerprint=? AND source_weights_json=? AND h_moves_json=?
+        """,(String(row.run_id),String(row.path_fingerprint),_ograph_canonical_json(weights),
+              _ograph_canonical_json(data["h_moves"])))
+        h_moves=[(after_step=Int(h["after_step"]),vertex=Int(h["vertex"]),amount=Int(h["amount"]))
+                 for h in data["h_moves"]]
+        push!(result,(trial_id=String(row.trial_id),run_id=String(row.run_id),path=path,
+            h_moves=h_moves,result=data,replay_outcome=replay===nothing ? nothing : String(replay.outcome)))
+    end
+    result
+end
