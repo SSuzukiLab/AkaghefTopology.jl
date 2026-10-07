@@ -182,6 +182,11 @@ include("move_graph_store.jl")
 using .MoveGraphStore
 include("ograph_move_db.jl")
 include("ograph_search_db.jl")
+include("ograph_path_constraints.jl")
+include("ograph_path_lifting.jl")
+export ograph_move_weight_relation, solve_ograph_path_weights,
+       record_ograph_path_constraint_trial!, ograph_path_endpoint_permutations,
+       lift_ograph_search_path!
 include("ograph_invariants.jl")
 include("knot_move_db.jl")
 include("knot_n5_classification.jl")

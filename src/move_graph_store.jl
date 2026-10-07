@@ -278,8 +278,10 @@ function migrate!(store::MoveGraphStoreDB)
     store
 end
 
-function open_store(path::AbstractString=":memory:"; migrate=true)
+function open_store(path::AbstractString=":memory:"; migrate=true,busy_timeout_ms::Integer=10_000)
+    busy_timeout_ms>=0 || throw(ArgumentError("busy timeout must be nonnegative"))
     s = MoveGraphStoreDB(SQLite.DB(String(path)))
+    SQLite.busy_timeout(s.db,busy_timeout_ms)
     migrate && migrate!(s)
     s
 end

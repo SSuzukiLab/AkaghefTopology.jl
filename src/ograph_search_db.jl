@@ -333,15 +333,25 @@ function expand_ograph_search_state!(store::MoveGraphStoreDB,
     existing = MoveGraphStore._one(store.db,
         "SELECT * FROM ograph_search_expansions WHERE expansion_id=?",
         (expansion_id,))
-    if existing !== nothing
-        String(existing.status) == "completed" || throw(ArgumentError(
-            "existing search expansion is not complete: $expansion_id"))
+    if existing !== nothing && String(existing.status) == "completed"
         _ograph_search_link_expansion!(store, run_id, expansion_id, true)
         return _ograph_search_operations(store, expansion_id)
+    elseif existing !== nothing
+        String(existing.status)=="building" || throw(ArgumentError(
+            "existing search expansion failed: $expansion_id"))
+        active=MoveGraphStore._one(store.db,"""
+            SELECT COUNT(*) AS n FROM ograph_search_run_expansions AS link
+            JOIN ograph_search_runs AS run USING(run_id)
+            WHERE link.expansion_id=? AND run.status='running' AND run.run_id<>?
+        """,(expansion_id,String(run_id)))
+        Int(active.n)==0 || throw(ArgumentError(
+            "search expansion is owned by another running run: $expansion_id"))
+        # A terminated run can leave the row created before enumeration. The
+        # actual edge batch is transactional; resume without discarding rows.
     end
 
     MoveGraphStore._dbexec(store.db, """
-        INSERT INTO ograph_search_expansions(
+        INSERT OR IGNORE INTO ograph_search_expansions(
           expansion_id,source_state_id,move_kind,enumerator_version,selector_json,
           status,candidate_count,success_count,reject_count,error_count)
         VALUES (?,?,?,?,?,'building',0,0,0,0)
@@ -398,7 +408,7 @@ function expand_ograph_search_state!(store::MoveGraphStoreDB,
                   candidate_json, outcome,
                   error_json === nothing ? missing : error_json))
             MoveGraphStore._dbexec(store.db, """
-                INSERT INTO ograph_search_expansion_operations(
+                INSERT OR IGNORE INTO ograph_search_expansion_operations(
                   expansion_id,ordinal,operation_id) VALUES (?,?,?)
             """, (expansion_id, ordinal, operation_id))
         end
@@ -445,7 +455,7 @@ function _ograph_search_path_rows(store, operation_ids)
     result
 end
 
-"""Query simple paths to an exact state or a stored geometry hash."""
+"""Query simple paths, allowing the source to recur only as a final endpoint."""
 function query_ograph_search_paths(store::MoveGraphStoreDB,
                                    source_state_id::AbstractString;
                                    target_state_id=nothing,
@@ -493,7 +503,9 @@ function query_ograph_search_paths(store::MoveGraphStoreDB,
           JOIN successful_ograph_search_edges AS edge
             ON edge.source_state_id=walk.state_id
           WHERE walk.depth < ? AND $edge_filter
-            AND instr(walk.visited,'|' || edge.target_state_id || '|')=0
+            AND (walk.depth=0 OR walk.state_id<>?)
+            AND (instr(walk.visited,'|' || edge.target_state_id || '|')=0
+                 OR (edge.target_state_id=? AND walk.depth+1>=?))
         )
         SELECT walk.operation_ids,walk.depth FROM walk
         JOIN ograph_search_states AS target ON target.state_id=walk.state_id
@@ -502,6 +514,7 @@ function query_ograph_search_paths(store::MoveGraphStoreDB,
     """
     params = Any[String(source_state_id), String(source_state_id), max_depth]
     append!(params, pattern === nothing ? allowed : pattern)
+    append!(params, [String(source_state_id),String(source_state_id),min_depth])
     push!(params, min_depth)
     push!(params, target_state_id === nothing ? String(target_geometry_hash) :
           String(target_state_id))

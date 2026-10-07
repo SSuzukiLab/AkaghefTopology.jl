@@ -115,6 +115,26 @@ CREATE TABLE IF NOT EXISTS ograph_search_weighted_trials (
 CREATE INDEX IF NOT EXISTS ograph_search_states_geometry_idx
 ON ograph_search_states(geometry_hash);
 
+-- Exact feasibility / obstruction certificates after a geometric path is
+-- selected. These do not introduce weighted states into the search graph.
+CREATE TABLE IF NOT EXISTS ograph_search_constraint_trials (
+  trial_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES ograph_search_runs(run_id),
+  path_fingerprint TEXT NOT NULL,
+  operation_ids_json TEXT NOT NULL,
+  algorithm_version TEXT NOT NULL,
+  result_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ograph_search_constraint_trials_path_idx
+ON ograph_search_constraint_trials(path_fingerprint,algorithm_version);
+
+CREATE TABLE IF NOT EXISTS ograph_search_edge_weight_relations (
+  operation_id TEXT NOT NULL REFERENCES ograph_search_operations(operation_id),
+  algorithm_version TEXT NOT NULL,
+  relation_json TEXT NOT NULL,
+  PRIMARY KEY(operation_id,algorithm_version)
+);
+
 CREATE INDEX IF NOT EXISTS ograph_search_operations_source_idx
 ON ograph_search_operations(source_state_id, move_kind, outcome);
 
