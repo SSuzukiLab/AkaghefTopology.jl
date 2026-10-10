@@ -6,6 +6,8 @@ for file in ["VLExample.jl","C240610URD.jl","C240623URD.jl","URDforKnotCmpl.jl",
     include(joinpath(ROOT,"examples",file))
 end
 
+include(joinpath(@__DIR__,"vl_observation_examples.jl"))
+
 include(joinpath(ROOT,"examples","C250406TensorNetwork.jl"))
 include(joinpath(ROOT,"examples","C250825Dsl2.jl"))
 include(joinpath(ROOT,"examples","C260225M_Oinv.jl"))

@@ -10,14 +10,15 @@ function _link(code,orientation;real=false)
     link
 end
 
-"""Named Virtual-Gauss inputs used by `VLExample.mlx` and its cited MST examples.
+"""Named Virtual-Gauss inputs from MATLAB, literature, and checked research examples.
 
 The `lens_3_2` entry records the exact parameters used by `VLExample.mlx`;
 `lens_space_rgauss(s,t)` constructs the full coprime lens-space family.
 `lens_3_1_mst2_example23` is the two-vertex presentation in MST2 Example 23,
 distinct from the three-vertex lens-space-family presentation.
 `matlab_input` preserves whether the source cell used `RGauss` or `odata`,
-although both map to Julia's `set_data!(...; rgauss=...)` boundary.
+although both map to Julia's `set_data!(...; rgauss=...)` boundary;
+`:none` denotes an added fixture without a MATLAB source cell.
 """
 function vl_virtual_gauss_inputs()
     lens32=lens_space_rgauss(3,2)
@@ -32,6 +33,10 @@ function vl_virtual_gauss_inputs()
          matlab_input=:RGauss),
         (name="poincare",rgauss=[[4,-5,3,-4,2,-3,1,-2,5,-1]],
          orientation=ones(Int,5),matlab_input=:RGauss),
+        (name="quaternion",rgauss=[[1,-2,3,-1,2,-3]],
+         orientation=[1,1,1],matlab_input=:none,source="K10 Fig. 14; positive trefoil o-graph"),
+        (name="s2xs1_2vertex",rgauss=[[-1,-2,2,1]],
+         orientation=[-1,1],matlab_input=:none,source="PJ260830: 261009_koda-bp-ograph-conventions"),
         (name="s2xs1",rgauss=[[-1,-2,3,4,-4,-3,2,1]],
          orientation=[1,1,1,1],matlab_input=:odata),
         (name="odata_variant",rgauss=[[-1,2,3,4,-4,-3,-2,1]],

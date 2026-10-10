@@ -11,6 +11,10 @@ through a thin Julia-facing boundary rather than reimplemented here.
 
 ## Algebra units
 
+For a small first experiment, start with the owner's Lens / Poincaré /
+quaternion / S²×S¹ comparison examples. Their names, loading code and framing
+requirements are in [VirtualLink example routing](docs/specs/virtual-link-examples.md#first-entrypoint).
+
 公開入口の契約は [MST インターフェース](docs/260909_mst_interface.md)、
 共通の設計方針は [AkaghefAlgebra](../algebra.jl/docs/260909_interface_design.md) を参照。
 以下は現在実装済みの API。

@@ -16,6 +16,60 @@ When an experiment asks for a concrete manifold, inspect `VLExample.jl` and
 this specification before constructing a replacement presentation.  Select the
 input by mathematical role, not merely by the manifold name.
 
+For an initial observation of a phenomenon, the owner's default comparison is
+several lens spaces, the Poincaré sphere, quaternion space, and `S²×S¹`.
+An agent should actively select these inputs when planning a small exploratory
+experiment, rather than merely knowing that the constructors exist. An explicit
+target or a mathematical precondition takes precedence; explain an omitted
+example when it cannot support the requested operation. This is a starting
+comparison, not a requirement to run an expensive invariant or a broad sweep.
+
+Load the registry once (the functions are example helpers, not Topology exports):
+
+```julia
+using Topology
+include(joinpath(pkgdir(Topology), "examples", "VLExample.jl"))
+names = (:lens_2_1, :lens_3_1_mst2_example23, :lens_3_2,
+         :poincare, :quaternion, :s2xs1_2vertex)
+for name in names
+    v = vl_example(name) # fresh input for each experiment
+    # Check the requested operation's preconditions, then observe it on v.
+end
+```
+
+| Manifold / role | Retrieval | Real vertices |
+|---|---|---:|
+| `L(2,1)` | `vl_example(:lens_2_1)` | 2 |
+| `L(3,1)`, MST2 Example 23 | `vl_example(:lens_3_1_mst2_example23)` | 2 |
+| `L(3,2)` | `vl_example(:lens_3_2)` | 3 |
+| Additional lens parameters | `lens_space_link(p,q)` | `p` |
+| Poincaré sphere | `vl_example(:poincare)` | 5 |
+| Quaternion space | `vl_example(:quaternion)` | 3 |
+| `S²×S¹`, mixed vertex signs | `vl_example(:s2xs1_2vertex)` | 2 |
+| `S²×S¹`, existing MATLAB presentation | `vl_example(:s2xs1)` | 4 |
+
+These named inputs have no assigned framing. For a framed experiment, use the
+framed lens entrance below and check/solve the required weights on other named
+presentations; do not silently treat unassigned zero weights as a framing.
+
+The quaternion input is `GC [[[1,-2,3,-1,2,-3]];[+,+,+]]`, the positive
+trefoil-shaped **o-graph**. It is used as a spine presentation, not as the
+trefoil knot complement. Its reduced edge-group presentation is
+`<x,y,z | xy=z, yz=x, zx=y>`, as in
+[K10, Fig. 14](../../../../references/items/article/w-0be57e06-c1d1-47c3-bec1-7208afa6fe59/K10.md#^k10-sec-0045).
+The diagram identification is agent-checked; this does not select a framing or
+assert an orientation-preserving identification with a separately oriented quotient.
+
+**Evidence.**
+
+- literature: [[K10#^k10-sec-0045]] — Fig. 14 and its quaternion group presentation.
+
+The two-vertex `S²×S¹` input is `GC [[[-1,-2,2,1]];[-,+]]` in the BP/runtime
+convention. Its disk-boundary proof and distinction from the nonclosed
+`[+,-]` input are in the
+[owning note](../../../../threads/PJ260830/docs/notes/2026-10-09-232224-koda-bp-ograph-conventions.md).
+The existing `s2xs1` key retains its four-vertex presentation.
+
 ## Routing
 
 ### Stored source-specific presentation
