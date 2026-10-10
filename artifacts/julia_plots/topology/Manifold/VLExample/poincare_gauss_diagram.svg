@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="gauss" width="500.0" height="546.0" viewBox="0 0 500.0 546.0" role="img" aria-labelledby="title desc">
+<title id="title">Gauss diagram of o-graph</title>
+<desc id="desc">The cyclic Gauss word is placed clockwise on an oriented circle. Arrows go from over-passage to under-passage. Endpoint labels show passage signs; arrow labels show vertex labels and vertex signs.</desc>
+<style>
+.gauss{--ground:#faf9f7;--strand:#1b3bd0;--ink:#12161d}
+@media (prefers-color-scheme:dark){.gauss{--ground:#0e1116;--strand:#8ba2ff;--ink:#e6e9ef}}
+.gauss .bg{fill:var(--ground)}.gauss .circle{fill:none;stroke:var(--strand)}.gauss .chord{fill:none}
+.gauss .endpoint.over{fill:var(--strand)}.gauss .endpoint.under{fill:var(--ground);stroke:var(--strand)}
+.gauss .label{font:16px sans-serif;fill:var(--ink);stroke:var(--ground);stroke-width:5px;paint-order:stroke}
+.gauss .vertex-label{font:14px sans-serif;font-weight:600;fill:var(--ink);stroke:var(--ground);stroke-width:5px;paint-order:stroke}
+.gauss .title{font:20px sans-serif;font-weight:600;fill:var(--ink)}
+</style>
+<rect class="bg" width="100%" height="100%"/>
+<text class="title" x="250.0" y="32" text-anchor="middle">Gauss diagram of o-graph</text>
+<circle class="circle" cx="250.0" cy="273.0" r="180.0" stroke-width="2.5"/>
+<path d="M 366.673 142.185 L 377.279 145.721 L 373.744 135.114" fill="none" stroke="var(--strand)" stroke-width="2.5" stroke-linecap="round"/>
+<path class="chord" d="M 144.199 418.623 L 144.199 137.377" stroke="#2853b8" stroke-width="2.4"/>
+<path d="M 144.199 146.377 L 144.199 137.377 L 144.199 146.377 Z" fill="#2853b8"/>
+<text class="vertex-label" x="159.199" y="273.0" text-anchor="middle" dominant-baseline="middle">v1 · σ=+</text>
+<path class="chord" d="M 355.801 418.623 L 88.32 331.713" stroke="#2853b8" stroke-width="2.4"/>
+<path d="M 92.125 329.739 L 88.32 331.713 L 101.635 339.25 Z" fill="#2853b8"/>
+<text class="vertex-label" x="209.889" y="396.448" text-anchor="middle" dominant-baseline="middle">v2 · σ=+</text>
+<path class="chord" d="M 421.19 217.377 L 255.878 444.91" stroke="#2853b8" stroke-width="2.4"/>
+<path d="M 258.229 434.69 L 255.878 444.91 L 264.107 440.568 Z" fill="#2853b8"/>
+<text class="vertex-label" x="308.898" y="315.792" text-anchor="middle" dominant-baseline="middle">v3 · σ=+</text>
+<path class="chord" d="M 250.0 93.0 L 415.312 320.533" stroke="#2853b8" stroke-width="2.4"/>
+<path d="M 412.961 316.191 L 415.312 320.533 L 407.083 310.313 Z" fill="#2853b8"/>
+<text class="vertex-label" x="347.73" y="201.995" text-anchor="middle" dominant-baseline="middle">v4 · σ=+</text>
+<path class="chord" d="M 78.81 217.377 L 346.291 130.467" stroke="#2853b8" stroke-width="2.4"/>
+<path d="M 342.487 138.004 L 346.291 130.467 L 332.976 128.493 Z" fill="#2853b8"/>
+<text class="vertex-label" x="224.722" y="195.202" text-anchor="middle" dominant-baseline="middle">v5 · σ=+</text>
+<circle class="endpoint over" cx="250.0" cy="93.0" r="7.0" stroke-width="2" aria-label="over passage at vertex 4"/>
+<text class="label" x="250.0" y="68.0" text-anchor="middle" dominant-baseline="middle">+4</text>
+<circle class="endpoint under" cx="355.801" cy="127.377" r="7.0" stroke-width="2" aria-label="under passage at vertex 5"/>
+<text class="label" x="370.496" y="107.152" text-anchor="middle" dominant-baseline="middle">−5</text>
+<circle class="endpoint over" cx="421.19" cy="217.377" r="7.0" stroke-width="2" aria-label="over passage at vertex 3"/>
+<text class="label" x="444.967" y="209.652" text-anchor="middle" dominant-baseline="middle">+3</text>
+<circle class="endpoint under" cx="421.19" cy="328.623" r="7.0" stroke-width="2" aria-label="under passage at vertex 4"/>
+<text class="label" x="444.967" y="336.348" text-anchor="middle" dominant-baseline="middle">−4</text>
+<circle class="endpoint over" cx="355.801" cy="418.623" r="7.0" stroke-width="2" aria-label="over passage at vertex 2"/>
+<text class="label" x="370.496" y="438.848" text-anchor="middle" dominant-baseline="middle">+2</text>
+<circle class="endpoint under" cx="250.0" cy="453.0" r="7.0" stroke-width="2" aria-label="under passage at vertex 3"/>
+<text class="label" x="250.0" y="478.0" text-anchor="middle" dominant-baseline="middle">−3</text>
+<circle class="endpoint over" cx="144.199" cy="418.623" r="7.0" stroke-width="2" aria-label="over passage at vertex 1"/>
+<text class="label" x="129.504" y="438.848" text-anchor="middle" dominant-baseline="middle">+1</text>
+<circle class="endpoint under" cx="78.81" cy="328.623" r="7.0" stroke-width="2" aria-label="under passage at vertex 2"/>
+<text class="label" x="55.033" y="336.348" text-anchor="middle" dominant-baseline="middle">−2</text>
+<circle class="endpoint over" cx="78.81" cy="217.377" r="7.0" stroke-width="2" aria-label="over passage at vertex 5"/>
+<text class="label" x="55.033" y="209.652" text-anchor="middle" dominant-baseline="middle">+5</text>
+<circle class="endpoint under" cx="144.199" cy="127.377" r="7.0" stroke-width="2" aria-label="under passage at vertex 1"/>
+<text class="label" x="129.504" y="107.152" text-anchor="middle" dominant-baseline="middle">−1</text>
+<metadata><ograph convention="virtual-link-rgauss/1" gauss="4,-5,3,-4,2,-3,1,-2,5,-1" vertex-signs="1,1,1,1,1"/></metadata>
+</svg>

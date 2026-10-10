@@ -31,6 +31,7 @@ export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link,
        ur_invariant, ur_prime_invariant, EdgeLayout, LinkLayout,
        minimal_bending_numbers, orthogonal_layout, plot_svg, plot_urd_structure_svg, bernstein, bezier,
        LayoutDiagnostic, check_layout, is_valid_layout, failing_rules, LAYOUT_RULES,
+       gauss_diagram_svg, plot_gauss_diagram_svg,
        planarize_virtual_gauss,
        MovePattern, make_move_data, SmallObject
 export OGraphState, ClosednessWitness, ClosedNormalOGraph,
@@ -169,6 +170,7 @@ include("tensor_network.jl")
 include("hopf_properties.jl")
 include("finite_algebra.jl")
 include("svg_plot.jl")
+include("ograph_gauss_diagram.jl")
 include("knot_gauss.jl")
 include("reidemeister.jl")
 include("classical_gauss_realizability.jl")

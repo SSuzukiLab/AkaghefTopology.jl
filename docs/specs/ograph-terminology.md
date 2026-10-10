@@ -43,6 +43,13 @@ weighted GC [component words; vertex signs; edge weights]
 - **edge weights** are listed along the component words, including the cyclic
   edge from the last entry back to the first.
 
+The geometric **Gauss diagram** display is separate from this text format. It
+places the cyclic word on an oriented circle, draws one arrow from the `+v`
+over-passage to the `−v` under-passage for each vertex, and labels that arrow
+with the vertex label and vertex sign `σ(v)`. The endpoint signs are passage
+signs; `σ(v)` is the independent vertex sign. This display is a presentation
+view and does not certify closed-normality or classical realizability.
+
 A `GC` includes its vertex signs by definition. Do not call it a **signed GC**.
 Use **weighted GC** only when the edge-weight field is present.
 
@@ -183,6 +190,7 @@ not duplicate that numerical construction.
 | local-port frame | PD row convention in `VirtualLink.m:36` |
 | C2 graph | `getGraphA`, `ograph_graph_a` |
 | condition C2 | the second closedness criterion |
+| geometric Gauss diagram | `gauss_diagram_svg`, `plot_gauss_diagram_svg` |
 
 Implementation identifiers do not override the mathematical terminology fixed
 by this document.

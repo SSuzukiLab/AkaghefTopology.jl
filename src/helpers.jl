@@ -137,7 +137,7 @@ function make_move_data()
         # [[MST25#^mst25-fig-0066]], [[MST25#^mst25-blk-0188]].
         # No framed lift of this conjugation has been specified.
         "02-R" => [MovePattern("inv",[[-1,-2,2,1]],[1,-1];weights=[Float64[0,0,1,-1,0]]),
-                   MovePattern("inv-switched",[[1,2,-2,-1]],[-1,1])],
+                   MovePattern("inv-switched",[[1,2,-2,-1]],[-1,1];weights=[fill(NaN,5)])],
         "CP-L" => [MovePattern("dir",[[1,-2,2,-3,3,-1]],[-1,-1,-1])],
         "CP-R" => [MovePattern("inv",[[1,2,-5,3,-2,-3,-4,4,-1,5]],[1,1,1,-1,-1])],
         # Rooted reduced CP: R6 -> R0 (2 -> 5), not a cyclically rerooted patch.

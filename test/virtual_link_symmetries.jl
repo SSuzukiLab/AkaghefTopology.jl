@@ -47,6 +47,7 @@ _symmetry_snapshot(v)=Tuple(deepcopy(getfield(v,f)) for f in fieldnames(VirtualL
 end
 
 @testset "0-2 over/under parameter, not direction reversal" begin
+    @test all(isnan,only(last(make_move_data()["02-R"]).weights))
     # Exact finite corpus: standard lens presentations, s=2:7, gcd(s,t)=1;
     # every directed edge. Source is MST25 Fig. 2.9 + Prop. A.1 conjugation.
     for s in 2:7, t in 1:s-1
