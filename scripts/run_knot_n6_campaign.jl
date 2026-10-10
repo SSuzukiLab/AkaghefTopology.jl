@@ -138,7 +138,7 @@ function _campaign_payload(knotinfo_path::AbstractString)
         push!(seeds, Dict{String,Any}(
             "name" => row.name,
             "crossing_number" => row.crossing_number,
-            "gauss_notation" => isempty(row.gauss) ? "[]" : "[" * join(row.gauss, ", ") * "]",
+            "gauss_notation" => isempty(row.gauss) ? "[]" : "[" * join((v > 0 ? "+$v" : string(v) for v in row.gauss), ", ") * "]",
             "decoration_count" => length(decorations),
             "decorations" => decorations,
         ))

@@ -22,13 +22,13 @@ a position in a Gauss word.
 The standard display of an o-graph by Gauss code is
 
 ```text
-GC [[[1,2,-2,-1]];[+,+]]
+GC [[[+1,+2,-2,-1]];[+,+]]
 ```
 
 The standard weighted display is
 
 ```text
-weighted GC [[[1,2,-2,-1]];[+,+];[0,1,-1,-1]]
+weighted GC [[[+1,+2,-2,-1]];[+,+];[0,1,-1,-1]]
 ```
 
 In general, the fields are
@@ -42,6 +42,19 @@ weighted GC [component words; vertex signs; edge weights]
 - **vertex signs** are listed in increasing vertex-label order;
 - **edge weights** are listed along the component words, including the cyclic
   edge from the last entry back to the first.
+
+Every positive passage label MUST have an explicit leading `+`, just as every
+negative passage label has `-` (or typographic `−`). Thus write
+`GC [[[-1,-2,+2,+1]];[-,+]]`. A bare positive passage label is not permitted
+in a GC display. This applies to chat, Markdown, TeX, figure labels, HTML,
+and human-readable script output, including weighted GC and displayed input
+literals. Vertex signs remain `+`/`−`; this rule does not require explicit `+`
+on edge weights, unsigned vertex identifiers, or zero.
+
+Format each passage label explicitly; do not use a container's default string
+or JSON serialization as its GC display. Language-native numeric storage,
+JSON, database keys/hashes, and API arrays retain their existing representation
+(JSON numbers cannot carry a leading `+`). Add signs at the display boundary.
 
 The geometric **Gauss diagram** display is separate from this text format. It
 places the cyclic word on an oriented circle, draws one arrow from the `+v`
@@ -63,13 +76,13 @@ In prose and figures, write vertex signs as `+` and `−`. In an input literal,
 encode them by the integers `+1` and `-1`:
 
 ```text
-[[[1,2,-2,-1]];[+1,+1]]
+[[[+1,+2,-2,-1]];[+1,+1]]
 ```
 
 A weighted input literal appends the edge-weight field:
 
 ```text
-[[[1,2,-2,-1]];[+1,+1];[0,1,-1,-1]]
+[[[+1,+2,-2,-1]];[+1,+1];[0,1,-1,-1]]
 ```
 
 The display notation and the input literal are distinct surfaces for the same

@@ -52,7 +52,7 @@ These named inputs have no assigned framing. For a framed experiment, use the
 framed lens entrance below and check/solve the required weights on other named
 presentations; do not silently treat unassigned zero weights as a framing.
 
-The quaternion input is `GC [[[1,-2,3,-1,2,-3]];[+,+,+]]`, the positive
+The quaternion input is `GC [[[+1,-2,+3,-1,+2,-3]];[+,+,+]]`, the positive
 trefoil-shaped **o-graph**. It is used as a spine presentation, not as the
 trefoil knot complement. Its reduced edge-group presentation is
 `<x,y,z | xy=z, yz=x, zx=y>`, as in
@@ -64,7 +64,7 @@ assert an orientation-preserving identification with a separately oriented quoti
 
 - literature: [[K10#^k10-sec-0045]] — Fig. 14 and its quaternion group presentation.
 
-The two-vertex `S²×S¹` input is `GC [[[-1,-2,2,1]];[-,+]]` in the BP/runtime
+The two-vertex `S²×S¹` input is `GC [[[-1,-2,+2,+1]];[-,+]]` in the BP/runtime
 convention. Its disk-boundary proof and distinction from the nonclosed
 `[+,-]` input are in the
 [owning note](../../../../threads/PJ260830/docs/notes/2026-10-09-232224-koda-bp-ograph-conventions.md).
