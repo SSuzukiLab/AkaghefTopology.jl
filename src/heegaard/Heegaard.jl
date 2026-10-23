@@ -32,8 +32,11 @@ include("marking.jl")
 include("../../vendor/marked_surface_diagrams/src/MarkedSurfaceDiagrams.jl")
 include("../../vendor/marked_surface_diagrams/src/builders.jl")
 include("cellulated_conversion.jl")
+include("reference_surface.jl")
+include("marked_display.jl")
 export MarkedSurfaceDiagrams, MarkedDiagramBuilders
 export cellulated_punctured
+export lickorish_reference, prepare_marked_display
 
 export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
        HeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,

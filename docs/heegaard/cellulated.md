@@ -1,5 +1,56 @@
 # Marked whole-diagram input
 
+## Fixed reference and display cut (2026-10-24)
+
+`Topology.Heegaard.lickorish_reference(g)` constructs a named reference surface
+from Ahara--Sakasai, Fig. 12.3 (printed p.244 / PDF p.251; managed Work `AnonND60`).
+The figure was visually inspected. The rotation/sign transcription is agent-owned,
+not owner-checked. The source is a degraded, OCR-unchecked Work; no proof status is
+inferred from its OCR. Curve orientations are documented next to the constructor.
+The l/m/n network is independent of the mathematical alpha/beta families.
+
+`prepare_marked_display(doc; cut_curves=[...])` validates the full marked input,
+leaves only those named **auxiliary** cuts open, and returns a geometry-free
+`marked-display-complex/1`. This record contains the reference disks and gluing,
+the exact triangle-corner quotient, oriented boundary side identities and pairing,
+the original directed curve edges and seam words, actual crossings, and all source
+triangle cells of D. Right sides use row 0, left sides row 1; columns follow the
+explicit cut list. The intended final view is equal circles in a 2-by-g grid.
+No alpha completeness or equality of family cardinalities with genus is assumed.
+
+Joining disks are validated against alpha U beta, **not** against the auxiliary
+reference network. Their fragments after display cuts retain one semantic D.
+The existing vendor kernel's all-curves region convention is not silently changed:
+this adapter validates the full geometry and mathematical region claims separately.
+Legacy intersection-only input is rejected with `MARKING_REQUIRED`.
+
+Native tests cover g=1,2,3,4 reference disk complements and 2g display boundaries,
+Koda's six curves / eleven signed crossings, unequal family sizes, invalid cut
+roles and missing marking, plus a contractible marked disk split into two pieces
+by a torus display cut. `reference_display_standalone.jl` completed 41 assertions.
+These are finite checks, not a theorem for arbitrary genus or a complete renderer.
+The constructor's explicit resource range is 1 <= g <= 16 (64-patch kernel limit).
+
+The visible Koda view lives in the sibling `topology-heegaard-full-curves` checkout.
+`build_reference_display.jl` exports its preparation record; `draw_marked_cut.py
+--prepared ...` consumes that quotient and retains the source edge paths.
+`publish_marked_display.py` checks a geometric realization against that independent
+record, including exact source D boundary correspondence. Coordinate optimization
+is downstream of preparation. The source-only fresh coarse and fixed-grid runs
+were also executed; a saved revalidated realization is explicitly distinguished
+from a fresh run in the viewer.
+
+**Unconnected:** Koda's supplied front/back marking has not yet been transported
+to this Lickorish reference; it is not renamed to pretend such a map exists.
+The current geometry adapter supports the specific Koda example, not arbitrary
+prepared inputs or a D split into multiple display pieces. The common native
+`plot`/QMD path and general 2g layout integration remain work to do.
+
+Reproduction from this checkout: run `test/heegaard/reference_display_standalone.jl`
+with Julia and this project, then `scripts/heegaard/build_reference_display.jl`
+with the viewer's `artifacts/heegaard/full_curves` directory as the output argument.
+Do not merge the entire isolated worktree to adopt these four scoped additions.
+
 The existing Heegaard app accepts the delivered `version: 1` marked cellulation
 document through **データを開く** and `/api/render`. Its new disk-atlas view uses the
 same Julia kernel exported as `Topology.Heegaard.MarkedSurfaceDiagrams`; it does
