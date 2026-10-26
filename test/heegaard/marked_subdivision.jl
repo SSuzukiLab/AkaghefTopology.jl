@@ -3,9 +3,49 @@ using Test,Topology,JSON3
 const H=Topology.Heegaard
 const M=H.MarkedSurfaceDiagrams
 const B=H.MarkedDiagramBuilders
-include("marked_fixtures.jl")
+include(joinpath(@__DIR__,"marked_fixtures.jl"))
 jsonround(x)=JSON3.read(JSON3.write(x),Dict{String,Any})
 fixture(name)=JSON3.read(read(joinpath(@__DIR__,"../../vendor/marked_surface_diagrams/examples",name*".json"),String),Dict{String,Any})
+
+# Check affine rows against ACTUAL public child vertex order and independent
+# source vertex/edge/triangle provenance, not sorted child enumeration.
+function affine_child_report(doc,result)
+    source=H._marked_states(doc).geometry;target=H._marked_states(result.document).geometry
+    correspondence=result.witness["correspondence"];rows=correspondence["child_barycentric_rows"]
+    centers=Dict(Tuple(r["target"])=>Tuple(r["source_quotient_vertex"]) for r in correspondence["vertices"])
+    introduced=Dict()
+    for r in correspondence["introduced_vertices"];push!(get!(introduced,Tuple(r["target"]),Any[]),r);end
+    opposite=M.fine_edge_occurrences(source)
+    edgeclass(o)=min(o,opposite[o])
+    areas=Dict((f,i-1)=>M.Rat(0) for (f,i) in keys(source.triangles));counts=Dict(c=>0 for c in keys(areas))
+    order=true;ancestry=true;positive=true
+    for r in rows
+        old=H._mm_cell(r["source"]);new=H._mm_cell(r["target"]);triangle=source.triangles[(old[1],old[2]+1)]
+        order &= Tuple(r["vertices"])==target.triangles[(new[1],new[2]+1)]
+        weights=[M.qnum.(w) for w in r["weights"]]
+        positive &= length(weights)==3 && all(length(w)==3 && sum(w)==1 && all(>=(0),w) for w in weights)
+        area=M.orient([Tuple(w[2:3]) for w in weights]...)
+        positive &= area>0;areas[old]+=area;counts[old]+=1
+        for (v,w) in zip(r["vertices"],weights)
+            key=(new[1],v);nonzero=findall(!=(0),w)
+            if length(nonzero)==1 && w[only(nonzero)]==1
+                ancestry &= get(centers,key,nothing)==M.root!(source.vertex_dsu,(old[1],triangle[only(nonzero)]))
+            elseif length(nonzero)==2 && all(w[j]==1//2 for j in nonzero)
+                e=M.edge(triangle[nonzero[1]],triangle[nonzero[2]])
+                a,b=only((a,b) for (a,b) in M.tedges(triangle) if M.edge(a,b)==e)
+                expected=edgeclass((old[1],old[2]+1,a,b))
+                ancestry &= any(haskey(p,"source_edge_occurrence") && begin
+                    o=p["source_edge_occurrence"];edgeclass((o[1],o[2]+1,o[3],o[4]))==expected
+                end for p in get(introduced,key,Any[]))
+            elseif all(==(1//3),w)
+                ancestry &= any(haskey(p,"source_triangle") && H._mm_cell(p["source_triangle"])==old for p in get(introduced,key,Any[]))
+            else
+                ancestry=false
+            end
+        end
+    end
+    (;order,ancestry,partition=positive && all(==(1),values(areas)) && all(==(6),values(counts)))
+end
 
 # Source: existing independent native fixture/oracle family. Subdivision is
 # checked as a full marked identity transport, not merely by equal topology.
@@ -65,6 +105,8 @@ end
         @test sum(length(p["triangles"]) for p in stars.document["patches"])==6sum(length(p["triangles"]) for p in doc["patches"])
         @test all(length(p["side_order"])>=3 for p in stars.document["patches"])
         @test length(stars.witness["correspondence"]["regions"])==length(H.complement_regions(doc))
+        affine=affine_child_report(doc,stars)
+        @test affine.order && affine.ancestry && affine.partition
         @test H.replay_marked_move(doc,jsonround(stars.witness)).document==stars.document
         @test H.replay_marked_move(stars.document,jsonround(H.inverse_marked_move(stars.witness))).document==doc
     end
@@ -87,5 +129,12 @@ end
     @test sphere_state.surface_report["boundary_components"]==0
     @test length(unique(M.root!(sphere_state.vertex_dsu,v) for v in keys(sphere_state.vertex_dsu.p)))==50
     @test_throws ArgumentError H.marked_dual_star(B.grid_document(9))
+    # Default rejection above is unchanged. Explicit atlas merging must also
+    # transport affine rows through real chart absorption/prefix operations.
+    large=B.grid_document(9)
+    merged=H.marked_dual_star(large,Dict("merge_charts"=>true))
+    affine=affine_child_report(large,merged)
+    @test !isempty(merged.witness["correspondence"]["chart_merges"]) && affine.order && affine.ancestry && affine.partition
+    @test H.marked_collapse_dual_star(merged.document,merged.witness["inverse_specification"]).document==large
 end
 end

@@ -199,7 +199,7 @@ function marked_dual_star(input::AbstractDict,specification::AbstractDict=Dict{S
     _mm_need(length(groups)<=64 || merge_charts,"dual-star atlas needs $(length(groups)) disk patches; explicit merge_charts is required above the existing limit 64")
     star=Dict(rt=>"Star$k" for (k,rt) in enumerate(sort(collect(keys(groups)))))
     outgoing=Dict();corners=Dict();patches=Any[];gluings=Any[];flag_map=Dict{Tuple{String,Int},Vector{Tuple{String,Int}}}()
-    introduced=Any[];source_vertices=Any[]
+    introduced=Any[];source_vertices=Any[];affine_children=Any[]
     for rt in sort(collect(keys(groups)))
         first_corner=minimum(groups[rt]);cycle=Tuple{String,Int,Int}[];c=first_corner
         while isempty(cycle) || c!=first_corner
@@ -222,6 +222,17 @@ function marked_dual_star(input::AbstractDict,specification::AbstractDict=Dict{S
             corners[(f,i,j)]=(name,k)
             append!(triangles,[["z",gate,b],["z",b,"p$(mod1(k+1,n))"]])
             append!(get!(flag_map,(f,i-1),Tuple{String,Int}[]),[(name,2(k-1)),(name,2(k-1)+1)])
+            # Source: the ACTUAL two flag rows just appended above, in that
+            # exact vertex order. The original triangle is oriented (1,2,3).
+            # These affine rows stay attached to the same triangle through
+            # chart merging; only names/cell indices are transported.
+            unit(q)=[M.Rat(q==r ? 1 : 0) for r in 1:3]
+            corner=unit(j);next=unit(mod1(j+1,3));previous=unit(mod1(j-1,3));center=fill(BigInt(1)//BigInt(3),3)
+            for (offset,names,weights) in ((0,["z",gate,b],[corner,(corner+next)/2,center]),
+                    (1,["z",b,"p$(mod1(k+1,n))"],[corner,center,(previous+corner)/2]))
+                push!(affine_children,Dict("source"=>[f,i-1],"target"=>[name,2(k-1)+offset],
+                    "vertices"=>names,"weights"=>[M.qstr.(w) for w in weights]))
+            end
             push!(introduced,Dict("target"=>[name,gate],"source_edge_occurrence"=>[f,i-1,t[j],t[mod1(j+1,3)]],"barycentric_weights"=>["1/2","1/2"]))
             push!(introduced,Dict("target"=>[name,b],"source_triangle"=>[f,i-1],"barycentric_weights"=>["1/3","1/3","1/3"]))
         end
@@ -283,6 +294,11 @@ function marked_dual_star(input::AbstractDict,specification::AbstractDict=Dict{S
         for row in introduced;row["target"]=collect(vm[Tuple(row["target"])]);end
         for row in edge_map;row["target"]=[mapped_dart(x) for x in row["target"]];end
         for row in route_provenance;row["target"]=[mapped_dart(x) for x in row["target"]];end
+        for row in affine_children
+            original_face=row["target"][1]
+            row["vertices"]=[vm[(original_face,v)][2] for v in row["vertices"]]
+            row["target"]=collect(tm[_mm_cell(row["target"])])
+        end
     end
     haskey(before.document,"metadata") && (doc["metadata"]=deepcopy(before.document["metadata"]))
     if haskey(before.document,"region_marks")
@@ -295,6 +311,7 @@ function marked_dual_star(input::AbstractDict,specification::AbstractDict=Dict{S
     correspondence=Dict{String,Any}("cell_semantics"=>"explicit quotient-vertex star atlas; six barycentric flags map into each source triangle",
         "vertices"=>source_vertices,"introduced_vertices"=>introduced,"edges"=>edge_map,"chart_merges"=>merges,"chart_correspondence"=>atlas_map,
         "triangles"=>[Dict("source"=>collect(c),"target"=>[collect(x) for x in flag_map[c]]) for c in sort(collect(keys(flag_map)))],
+        "child_barycentric_rows"=>affine_children,
         "regions"=>_ms_regions(M.regions(before.mathematics),M.regions(after.mathematics),flag_map),
         "geometric_regions"=>_ms_regions(M.regions(before.geometry),M.regions(after.geometry),flag_map),
         "curves"=>[Dict("source"=>c["id"],"target"=>c["id"],"source_word"=>c["word"],"target_word"=>only(x for x in curves if x["id"]==c["id"])["word"]) for c in before.document["curves"]],
