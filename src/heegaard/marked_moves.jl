@@ -7,7 +7,10 @@ through marked_topology.jl::_marked_states; no intersection-only replacement
 or caller-supplied post-move diagram is used. Current combinatorial isotopies
 are empty interior-triangle moves, not a complete isotopy decision procedure.
 """
-_mm_hash(x) = bytes2hex(sha256(_canonical_json(x)))
+# Source: SHA stdlib SHA.jl sends String through codeunits; common.jl copies
+# each SHA block. A dense copy keeps exactly those UTF-8 bytes and all existing
+# witness digests, while avoiding the slow CodeUnits copy path at Julia -O0.
+_mm_hash(x) = bytes2hex(sha256(Vector{UInt8}(codeunits(_canonical_json(x)))))
 _mm_need(ok, message) = ok ? nothing : throw(ArgumentError(message))
 _mm_cell(x) = (String(x[1]), Int(x[2]))
 _mm_cells(region) = Set(_mm_cell(x) for x in region["triangles"])

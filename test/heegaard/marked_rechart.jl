@@ -63,6 +63,13 @@ end
     @test Set(keys(restored.geometry))==Set(["surface","patches"])
     @test restored.geometry==raw && restored.opposite_edges==pairs
     @test H._mm_hash(restored.correspondence)==H._mm_hash(corr)
+    # The optional internal result is THIS call's freshly checked regeneration.
+    # It is neither the incoming serialized inverse nor a retained source doc.
+    @test isempty(restored.forward_specification)
+    @test restored.fresh_forward.document==H._st_empty(featured)
+    @test restored.fresh_forward.inverse_specification==result.inverse_specification
+    @test restored.fresh_forward.correspondence===restored.correspondence
+    @test restored.fresh_forward.correspondence!==result.correspondence
     bad=deepcopy(result.inverse_specification);bad["affine_children"][1]["weights"][1]=["0","0","0"]
     @test_throws ArgumentError H._marked_unrechart_geometry(doc,bad)
     # Keep a well-formed four-endpoint involution but pair two actual edges
@@ -159,6 +166,11 @@ end
     restored=H._marked_unrechart_geometry(featured,jsonround(result.inverse_specification))
     @test restored.geometry==raw && restored.opposite_edges==pairs
     @test restored.construction_only && H._mm_hash(restored.correspondence)==H._mm_hash(result.correspondence)
+    @test restored.forward_specification==Dict("strategy"=>"proper_arc")
+    @test restored.fresh_forward.document==H._st_empty(featured)
+    @test restored.fresh_forward.inverse_specification==result.inverse_specification
+    @test restored.fresh_forward.correspondence===restored.correspondence
+    @test restored.fresh_forward.correspondence!==result.correspondence
     bad=deepcopy(result.inverse_specification)
     bad["affine_children"][1]["weights"]=circshift(bad["affine_children"][1]["weights"],1)
     @test_throws ArgumentError H._marked_unrechart_geometry(featured,bad)

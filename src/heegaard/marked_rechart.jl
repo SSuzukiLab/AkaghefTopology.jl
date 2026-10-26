@@ -295,7 +295,15 @@ function _marked_unrechart_geometry(current_native::AbstractDict,inverse_specifi
     regenerated=_mr_compose_rechart(first_atlas,bare,fresh_star,certified_star_inverse)
     _mm_need(regenerated.document==bare && _canonical_json(regenerated.inverse_specification)==_canonical_json(spec) &&
         _mm_hash(regenerated.correspondence)==spec["correspondence_hash"],"forward identity rechart does not regenerate current geometry and inverse data")
-    (;geometry,opposite_edges=reconstructed_pairs,correspondence=regenerated.correspondence,construction_only=true)
+    # Source: the SAME successful inverse call just regenerated and checked
+    # the complete bare document, inverse specification and correspondence.
+    # Expose that fresh result only to an internal consumer which independently
+    # recomputes raw geometry/opposites and requires exact equality with these
+    # bindings and forward_specification. This is no serialized/public cache.
+    # The consumer owns this local result; copy its document before attaching
+    # fresh features, and do not mutate the correspondence or binding objects.
+    (;geometry,opposite_edges=reconstructed_pairs,correspondence=regenerated.correspondence,construction_only=true,
+        forward_specification=Dict{String,Any}(),fresh_forward=regenerated)
 end
 # Source: actual 8704-triangle D proof and the independently native-validated
 # proper-arc probe (44 charts, maximum 203 vertices). The local split is the
@@ -689,7 +697,11 @@ function _mr_unpartition_geometry(current_native,spec)
     regenerated=_mr_proper_arc_geometry(geometry,actual.opposite_edges)
     _mm_need(regenerated.document==bare && _canonical_json(regenerated.inverse_specification)==_canonical_json(spec) &&
         _mm_hash(regenerated.correspondence)==spec["correspondence_hash"],"fresh selective partition does not regenerate actual current geometry and full inverse data")
-    (;geometry,opposite_edges=actual.opposite_edges,correspondence=regenerated.correspondence,construction_only=true)
+    # Same-call reuse contract as the uniform inverse above. The selective
+    # policy is explicit in the equality binding; no incoming spec/result is
+    # substituted for this invocation's freshly regenerated geometry result.
+    (;geometry,opposite_edges=actual.opposite_edges,correspondence=regenerated.correspondence,construction_only=true,
+        forward_specification=Dict{String,Any}("strategy"=>"proper_arc"),fresh_forward=regenerated)
 end
 # Source: the selective inverse consumes untrusted JSON before any allocation
 # or indexing. Keep this separate from the unchanged uniform-star schema.
