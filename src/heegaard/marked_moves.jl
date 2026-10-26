@@ -324,6 +324,10 @@ function _mm_execute(kind,doc,spec,positions)
         marked_stabilize(doc,spec)
     elseif kind=="generated_destabilization"
         marked_destabilize(doc,spec)
+    elseif kind=="dehn_twist"
+        marked_dehn_twist(doc,spec)
+    elseif kind=="generated_twist_inverse"
+        marked_inverse_dehn_twist(doc,spec)
     else
         throw(ArgumentError("unknown marked move kind $kind"))
     end

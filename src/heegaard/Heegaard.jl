@@ -43,6 +43,7 @@ include("marked_annulus_product.jl")
 include("marked_slides.jl")
 include("marked_stabilization.jl")
 include("marked_rechart.jl")
+include("marked_twists.jl")
 include("cellulated_conversion.jl")
 include("ograph_reverse.jl")
 include("marked_comparison.jl")
@@ -58,6 +59,7 @@ export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        marked_parallel_copy, marked_remove_parallel,
        marked_handle_slide, marked_inverse_handle_slide,
        marked_stabilize, marked_destabilize,
+       marked_dehn_twist, marked_inverse_dehn_twist,
        marked_comparison_report, odata_computation_report
 
 export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
