@@ -96,4 +96,25 @@ end
     far_clockwise=triangle("bad",[p(3,0),p(3,1),p(4,0)])
     @test_throws ArgumentError H._marked_triangle_overlay([unit],[far_clockwise])
 end
+
+# Source: the closed-segment affine parametrization (1-t)*a+t*b, 0<=t<=1.
+# Endpoints and interior collinear points survive; tiny extensions do not.
+@testset "Exact closed segment bounds preserve reinsertion and order" begin
+    epsilon=Q(1,big(10)^40)
+    cases=((p(0,0),p(2,0),p(epsilon,0)),
+        (p(0,2),p(0,-2),p(0,epsilon)),
+        (p(-1,-1),p(1,1),p(0,0)),
+        (p(-1,1),p(1,-1),p(0,0)))
+    for (a,b,middle) in cases
+        before=(a[1]-epsilon*(b[1]-a[1]),a[2]-epsilon*(b[2]-a[2]))
+        after=(b[1]+epsilon*(b[1]-a[1]),b[2]+epsilon*(b[2]-a[2]))
+        off=(middle[1]+epsilon,middle[2]+2epsilon)
+        registry=sort!(unique([b,off,before,middle,after,a,p(-3,4),p(4,-3)]))
+        snapshot=copy(registry)
+        @test H._mpo_segment_points(a,b,registry)==[a,middle,b]
+        @test H._mpo_segment_points(b,a,registry)==[b,middle,a]
+        @test registry==snapshot
+    end
+    @test_throws ArgumentError H._mpo_segment_points(p(0,0),p(0,0),[p(0,0)])
+end
 end

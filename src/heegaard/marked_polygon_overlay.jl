@@ -58,7 +58,12 @@ end
 function _mpo_segment_points(a,b,registry)
     _mm_need(a!=b,"overlay boundary segment has coincident endpoints")
     axis=a[1]!=b[1] ? 1 : 2
-    points=[p for p in registry if MarkedSurfaceDiagrams.onsegment(a,b,p)]
+    # Source: vendor/marked_surface_diagrams/src/MarkedSurfaceDiagrams.jl
+    # onsegment (line 328) requires these SAME closed coordinate intervals.
+    # Test them before its rational orientation arithmetic; equality stays in.
+    xmin,xmax=minmax(a[1],b[1]);ymin,ymax=minmax(a[2],b[2])
+    points=[p for p in registry if xmin<=p[1]<=xmax && ymin<=p[2]<=ymax &&
+        MarkedSurfaceDiagrams.onsegment(a,b,p)]
     sort!(points;by=p->(p[axis]-a[axis])/(b[axis]-a[axis]))
     _mm_need(first(points)==a && last(points)==b,"overlay registry lost a boundary endpoint")
     points
