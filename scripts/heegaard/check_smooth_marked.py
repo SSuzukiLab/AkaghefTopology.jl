@@ -120,7 +120,11 @@ def check(d, old, prepared=None, base=None, *, minimum_separation=12., puncture_
     result['clearance_check']=measure(d)
     result['smooth_check']=dict(crossing_coordinates_unchanged=len(d['crossings']),source_disk_boundary_unchanged=True,
         holes_and_ports_unchanged=True,bezier_control_hulls_checked=len(hulls),
-        minimum_hole_clearance=min_hole,minimum_nonport_hole_clearance=nonport_margin,minimum_branch_spacing_svg=minimum,
+        # No holes means these distances are inapplicable, not JSON Infinity.
+        # Source: marked_display_pipeline.plot's closed genus-zero interface.
+        minimum_hole_clearance=float(min_hole) if np.isfinite(min_hole) else None,
+        minimum_nonport_hole_clearance=float(nonport_margin) if np.isfinite(nonport_margin) else None,
+        minimum_branch_spacing_svg=minimum,
         polyline_flatness_bound_svg=.003,maximum_tangent_join_error=max_join_error,
         no_extra_bezier_intersections=True,regular_spline_pieces=True,normal_port_tangents=True)
     result['geometry_provenance']='global cubic B-spline fairing; source intervals and D retained; Bezier control hulls checked'

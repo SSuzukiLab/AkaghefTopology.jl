@@ -10,6 +10,14 @@ if get(request.diagram,:schema,"")=="marked-cut-view/1"
     write(ARGS[2],JSON3.write(result))
     exit()
 end
+if haskey(request.diagram,:patches) && haskey(request.diagram,:surface)
+    doc=JSON3.read(JSON3.write(request.diagram),Dict{String,Any})
+    options=get(request,:display,Dict())
+    result=H.plot(doc;cut_curves=get(options,:cut_curves,nothing),
+        outer_triangle=get(options,:infinity_triangle,nothing),visible_curves=get(options,:visible_curves,nothing))
+    write(ARGS[2],JSON3.write(result))
+    exit()
+end
 mktempdir() do dir
     corepath=joinpath(dir,"input.hgd.json")
     write(corepath,JSON3.write(request.diagram))

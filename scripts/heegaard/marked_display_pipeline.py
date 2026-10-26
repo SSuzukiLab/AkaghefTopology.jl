@@ -4,11 +4,81 @@ Reuses fair_marked_paths, check_smooth_marked, and the existing SVG renderer.
 The input is an explicit feasible embedded layout, not endpoints to be routed.
 """
 import argparse,copy,json,math
+from fractions import Fraction
 from pathlib import Path
 import numpy as np
 from scipy.interpolate import PchipInterpolator
 from draw_marked_cut import render
 from fair_marked_paths import optimise,export
+
+
+def mapped_port_position(p,maps):
+    """Replay pair_ports' shared ambient map, also for source-map witnesses."""
+    for center,r,support,src,f in maps:
+        q=p-center;rho=np.linalg.norm(q)
+        if rho<1e-10 or rho>=support:continue
+        a=src[0]+(math.atan2(q[1],q[0])-src[0])%(2*math.pi)
+        t=np.clip((rho-r)/(support-r),0,1);weight=1-t*t*(3-2*t)
+        angle=a+weight*(float(f(a))-a)
+        return center+rho*np.array([math.cos(angle),math.sin(angle)])
+    return p.copy()
+
+
+def normalize_shared_endpoints(result,seed):
+    """Normalize the new source-map branch by retained vertex identity.
+
+    Source: fair_marked_paths.export and its shared source interval endpoints.
+    Floating spline evaluation may produce distinct last bits for one crossing.
+    Use one stored endpoint per vertex, shift its adjacent control by the same
+    amount, then rerun the ordinary geometry/isotopy gates. Legacy callers do
+    not invoke this helper. No equality tolerance is promoted to exact equality.
+    """
+    from check_smooth_marked import leaves
+    fixed={x['vertex'] for x in seed['crossings']}
+    fixed.update(p['vertex'] for b in seed['boundaries'] for p in b['ports'])
+    endpoints={v for c in result['curves'] for s in c['segments'] for v in (s['vertices'][0],s['vertices'][-1])}
+    canonical={v:np.array((seed if v in fixed else result)['positions'][str(v)])*600 for v in endpoints}
+    changed=0;internal_changed=0;maximum=0.
+    for c in result['curves']:
+        for s in c['segments']:
+            for first,v in ((True,s['vertices'][0]),(False,s['vertices'][-1])):
+                q=s['beziers'][0 if first else -1];i,j=(0,1) if first else (3,2)
+                delta=canonical[v]-q[i]
+                if np.any(delta):changed+=1;maximum=max(maximum,float(np.max(np.abs(delta))))
+                q[i]=canonical[v].tolist();q[j]=(np.array(q[j])+delta).tolist()
+            for left,right in zip(s['beziers'],s['beziers'][1:]):
+                delta=np.array(left[-1])-right[0]
+                if np.any(delta):internal_changed+=1;maximum=max(maximum,float(np.max(np.abs(delta))))
+                right[0]=left[-1][:];right[1]=(np.array(right[1])+delta).tolist()
+            pieces=[np.array(q) for q in s['beziers']]
+            points=[pieces[0][0]]+[leaf[-1] for q in pieces for leaf in leaves(q)]
+            assert len(points)==len(s['vertices']), 'Endpoint normalization changed Bezier sampling topology'
+            for v,q in zip(s['vertices'],points):result['positions'][str(v)]=(q/600).tolist()
+    # Source: fair_marked_paths.export reconstructs D from these SAME directed
+    # source intervals. Rebind after endpoint replacement: reversed copies may
+    # otherwise retain the old point-list objects at a shared endpoint.
+    disk=result.get('disk',[])
+    if disk:
+        edges={}
+        for curve in result['curves']:
+            for segment in curve['segments']:
+                for u,v in zip(segment['vertices'],segment['vertices'][1:]):
+                    edges[u,v]=(segment,True);edges[v,u]=(segment,False)
+        beziers=[];previous=None
+        for u,v in zip(disk,disk[1:]+disk[:1]):
+            segment,forward=edges[u,v];key=(id(segment),forward)
+            if key==previous:continue
+            pieces=segment['beziers']
+            beziers.extend(pieces if forward else [q[::-1] for q in pieces[::-1]])
+            previous=key
+        result['disk_beziers']=beziers
+    result['source_endpoint_normalization']=dict(changed_occurrences=changed,internal_piece_joins_changed=internal_changed,maximum_coordinate_change_svg=maximum,
+        shared_svg_endpoints={str(v):q.tolist() for v,q in canonical.items()})
+    # The certified coordinates are the numeric Float64 controls, not their
+    # eight-decimal approximation. The renderer's matching branch round-trips
+    # them through SVG text and verifies that decoder contract separately.
+    result['svg_coordinate_encoding']='float64-roundtrip'
+    return result
 
 
 def pair_ports(data):
@@ -64,15 +134,8 @@ not just its endpoints. Outside the collars, crossings and geometry are fixed.
             assert support>r+3,'No collar room for changing ports without moving a crossing'
             maps.append((center,r,support,src,f))
     def mapped(p):
-        for center,r,support,src,f in maps:
-            q=p-center;rho=np.linalg.norm(q)
-            if rho<1e-10 or rho>=support:continue
-            a=src[0]+(math.atan2(q[1],q[0])-src[0])%(2*math.pi)
-            t=np.clip((rho-r)/(support-r),0,1);weight=1-t*t*(3-2*t)
-            angle=a+weight*(float(f(a))-a)
-            return center+rho*np.array([math.cos(angle),math.sin(angle)])
-        return p.copy()
-    out={v:mapped(p) for v,p in pos.items()};nextid=max(pos)+1;cache={}
+        return mapped_port_position(p,maps)
+    out={v:mapped(p) for v,p in pos.items()};nextid=max(pos)+1;cache={};vertex_sources={}
     def edge(u,v):
         nonlocal nextid
         if (u,v) in cache:return cache[u,v]
@@ -80,11 +143,17 @@ not just its endpoints. Outside the collars, crossings and geometry are fixed.
         def sample(t0,t1,depth=0):
             p,q=mapped(a+t0*delta),mapped(a+t1*delta)
             error=max(np.linalg.norm(mapped(a+(t0+(t1-t0)*f)*delta)-((1-f)*p+f*q)) for f in (.25,.5,.75))
-            if error<.002 and np.linalg.norm(delta)*(t1-t0)<8:return [q]
+            if error<.002 and np.linalg.norm(delta)*(t1-t0)<8:return [(t1,q)]
             assert depth<25,'Port transport refinement failed'
             mid=(t0+t1)/2;return sample(t0,mid,depth+1)+sample(mid,t1,depth+1)
         points=sample(0,1);vs=[u]
-        for q in points[:-1]:out[nextid]=q;vs.append(nextid);nextid+=1
+        for t,q in points[:-1]:
+            out[nextid]=q;vs.append(nextid)
+            # Source: the dyadic subdivision in sample(). Retain the actual
+            # source-edge parameter so a whole-mesh PL witness can include
+            # every emitted curve corner, independently of rounded PCHIP.
+            vertex_sources[str(nextid)]=dict(edge=[u,v],parameter=str(Fraction(t)))
+            nextid+=1
         vs.append(v);cache[u,v]=vs;cache[v,u]=vs[::-1];return vs
     for c in d['curves']:
         for s in c['segments']:
@@ -93,24 +162,78 @@ not just its endpoints. Outside the collars, crossings and geometry are fixed.
     vs=d.get('disk',[]);d['disk']=[w for u,v in zip(vs,vs[1:]+vs[:1]) for w in edge(u,v)[:-1]]
     d.pop('disk_beziers',None);d['positions']={str(v):(p/600).tolist() for v,p in out.items()}
     d['port_convention']='paired reflection (x,y) -> (x,-y), cyclic order retained, normal exits'
-    d['port_transport']=dict(method='monotone angular maps in disjoint circular collars',crossings_fixed=True)
+    # Source: the explicit mapped() construction above and SciPy PCHIP. These
+    # coefficients retain the whole ambient collar map, so omitted source
+    # cells can be transported too, rather than retaining only curve samples.
+    d['port_transport']=dict(method='monotone angular maps in disjoint circular collars',crossings_fixed=True,
+        vertex_sources=vertex_sources,
+        maps=[dict(center_svg=center.tolist(),inner_radius_svg=float(r),outer_radius_svg=float(support),
+            angle_origin=float(src[0]),spline_breaks=f.x.tolist(),spline_coefficients=f.c.tolist(),
+            radial_blend='1 - t*t*(3 - 2*t), t=clamp((rho-inner)/(outer-inner),0,1)')
+            for center,r,support,src,f in maps])
     return d
 
 
-def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800):
+def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None):
     from check_smooth_marked import check
     if data.get('schema')!='marked-cut-view/1':raise ValueError('Explicit marked-cut-view/1 embedded layout required')
+    if 'source_map' in data:
+        raise ValueError('Restore the source-bound reconstruction base before plotting a saved source-map view')
     if not all(np.isfinite(x) and x>0 for x in (minimum_separation,puncture_clearance,crossing_radius)):raise ValueError('Positive finite drawing clearances required')
-    if data.get('disk_pieces') or data.get('disks'):raise ValueError('Split joining-disk pieces need explicit boundary-arc representation; this input is not supported yet')
-    if not data.get('boundary_vertex_pairs'):raise ValueError('Source boundary vertex pairing is required; do not infer it from endpoints')
+    if data.get('disks'):raise ValueError('Use source-bound disk_pieces for joining-disk fills')
+    if data.get('genus',0)>0 and not data.get('boundary_vertex_pairs'):raise ValueError('Source boundary vertex pairing is required; do not infer it from endpoints')
     seed=pair_ports(data) if correct_ports else copy.deepcopy(data)
+    # Source: fair_marked_paths.setup requires a nonempty branch matrix. Empty
+    # mathematical families remain valid inputs; their whole mesh was already
+    # checked by layout_marked_document and needs no numerical spline proposal.
+    if not seed['curves']:
+        if _source_map_geometry:
+            raise ValueError('Full source-map reconstruction for an empty visible family is not yet implemented')
+        from verify_fixed_grid import verify
+        result=copy.deepcopy(seed);result['geometry_check']=verify(result,seed)
+        if _source_map_geometry:normalize_shared_endpoints(result,seed)
+        result['smooth_check']=dict(crossing_coordinates_unchanged=0,source_disk_boundary_unchanged=True,
+            holes_and_ports_unchanged=True,regular_spline_pieces=True,no_extra_bezier_intersections=True,
+            normal_port_tangents=True,empty_visible_family=True)
+        result['layout_isotopy_check']=dict(method='identity on empty visible family',collisions=0,hole_entries=0)
+        result['svg']=render(result)
+        return result,seed
     bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter)
     result=export(seed,bs,c)
-    result=check(result,seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
+    # Internal full-source reconstruction branch only. Repair the ACTUAL data
+    # before ordinary geometry/isotopy checks and SVG emission; normalizing a
+    # separate proof copy would not bind the output shown or saved by the app.
+    if _source_map_geometry:normalize_shared_endpoints(result,seed)
     from check_fairing_isotopy import check as check_motion
-    result['layout_isotopy_check']=check_motion(seed,result)
+    def check_output(proposed,original):
+        checked=check(proposed,original,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
+        checked['layout_isotopy_check']=check_motion(original,checked)
+        return checked
+    if not _source_map_geometry:result=check_output(result,seed)
     result['drawing_policy']=dict(minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,port_collar_radius=20)
-    result['svg']=render(result)
+    if _source_map_geometry:
+        from marked_display_source_map_pipeline import construct_source_map
+        from marked_display_source_map import encode_source_map,_source_map_json
+        context=data.get('_source_map_input')
+        if not context:raise ValueError('A freshly source-bound reconstruction context is required')
+        fixed=copy.deepcopy(data);fixed.pop('_source_map_input',None)
+        policy=dict(minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
+        if _source_map_proof_output:
+            stage=Path(_source_map_proof_output)
+            stage.with_suffix('.proposed.json').write_bytes(_source_map_json(result))
+            stage.with_suffix('.seed.json').write_bytes(_source_map_json(seed))
+        # Build the source-bound cut chains BEFORE rendering split-D fills.
+        # The new decoder branch consumes those chains, never temporary arcs.
+        recipe=construct_source_map(context['prepared'],context['coarse'],fixed,result,seed,policy=policy,check_output=check_output)
+        # Keep the completed mathematical stages before a later envelope/body
+        # assertion can fail. This is the caller's existing temporary directory.
+        if _source_map_proof_output:
+            Path(_source_map_proof_output).write_bytes(_source_map_json(recipe))
+        result['source_map']=encode_source_map(recipe)
+        result['source_map_verification_pending']=True
+        for key in ('_source_map_input','source_map_mesh','source_chart'):result.pop(key,None)
+    else:
+        result['svg']=render(result)
     # Source: draw_marked_cut.orientation_glyph_layer; optional display layer
     # uses the same directed source routes. The accepted default SVG is intact.
     try:
@@ -119,16 +242,25 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     except ValueError as exc:
         result.pop('orientation_svg',None)
         result['orientation_display_error']=str(exc)
+    if _source_map_geometry:
+        from marked_display_source_map import check_source_map_saved_request_size,_source_map_json
+        if _source_map_proof_output:
+            Path(_source_map_proof_output).with_suffix('.candidate.json').write_bytes(_source_map_json(result))
+        check_source_map_saved_request_size(result)
     return result,seed
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('input',type=Path);p.add_argument('output',type=Path);p.add_argument('--maxiter',type=int,default=1800)
     p.add_argument('--prepared',type=Path);p.add_argument('--minimum-separation',type=float,default=12.)
+    p.add_argument('--source-map-geometry',action='store_true',help=argparse.SUPPRESS)
+    p.add_argument('--source-map-proof-output',type=Path,help=argparse.SUPPRESS)
     p.add_argument('--recheck',action='store_true',help='Recheck existing spline output against its saved seed; do not optimise again')
     p.add_argument('--puncture-clearance',type=float,default=12.);p.add_argument('--crossing-radius',type=float,default=20.)
     a=p.parse_args();d=json.loads(a.input.read_text(encoding='utf-8'))
     if a.recheck:
+        if 'source_map' in d:
+            raise ValueError('Spline-only recheck cannot revalidate a saved full source map; use bound reconstruction replay')
         from check_smooth_marked import check
         from check_fairing_isotopy import check as check_motion
         seed=json.loads(a.input.with_suffix('.seed.json').read_text(encoding='utf-8'))
@@ -138,12 +270,23 @@ if __name__=='__main__':
         print(json.dumps(d['smooth_check']),flush=True);raise SystemExit(0)
     if a.prepared:
         prepared=json.loads(a.prepared.read_text(encoding='utf-8'))
+        if 'source_map' in d:
+            if not a.source_map_geometry:raise ValueError('Saved source-map input requires full reconstruction replay')
+            from marked_display_source_map_pipeline import restore_source_map_view
+            d=restore_source_map_view(d,prepared)
         assert prepared['source_cut_corner_classes']==d['source_cut_corner_classes']
         d['boundary_vertex_pairs']=prepared['boundary_vertex_pairs']
         for b in d['boundaries']:
             b['source_vertices']=next(c['vertices'] for c in prepared['boundaries'] if c['cut']==b['cut'] and c['side']==b['side'])
-    result,seed=plot(d,maxiter=a.maxiter,minimum_separation=a.minimum_separation,puncture_clearance=a.puncture_clearance,crossing_radius=a.crossing_radius)
-    a.output.write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')
+    result,seed=plot(d,maxiter=a.maxiter,minimum_separation=a.minimum_separation,puncture_clearance=a.puncture_clearance,crossing_radius=a.crossing_radius,_source_map_geometry=a.source_map_geometry,_source_map_proof_output=a.source_map_proof_output)
+    if a.source_map_proof_output:
+        if not a.source_map_geometry:raise ValueError('Source-map proof output requires the complete reconstruction branch')
+        # Source: bounded decode_source_map; the SAME calling Julia process
+        # reads these exact canonical bytes, validates every cell/collar, and
+        # only then removes source_map_verification_pending. No nested Julia.
+        from marked_display_source_map import decode_source_map,_source_map_json
+        a.source_map_proof_output.write_bytes(_source_map_json(decode_source_map(result['source_map'])))
+    a.output.write_text(json.dumps(result,ensure_ascii=False,allow_nan=False),encoding='utf-8')
     a.output.with_suffix('.svg').write_text(result.pop('svg'),encoding='utf-8')
     a.output.with_suffix('.seed.json').write_text(json.dumps(seed,ensure_ascii=False),encoding='utf-8')
     print(json.dumps(result['smooth_check']),flush=True)

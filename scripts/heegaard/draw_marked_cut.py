@@ -19,7 +19,7 @@ from scipy.sparse.linalg import spsolve
 import networkx as nx
 
 
-def spread(pos, triangles, pins, caps):
+def spread(pos, triangles, pins, caps, *, preserve_linear_orientation=False):
     ids=sorted(pos);ix={v:i for i,v in enumerate(ids)}
     P=np.array([pos[v] for v in ids]);T=np.array([[ix[v] for v in t] for t in triangles])
     E=np.array(sorted({tuple(sorted((ix[u],ix[v]))) for t in triangles for u,v in zip(t,t[1:]+t[:1])}))
@@ -48,7 +48,22 @@ def spread(pos, triangles, pins, caps):
         if slope>=0:direction=-grad/max(1.,np.linalg.norm(grad));slope=float(np.dot(grad,direction));history=[]
         for trial in range(70):
             candidate=x+step*direction;nv,ng=fun(candidate)
-            if nv<value+1e-4*step*slope:break
+            acceptable=nv<value+1e-4*step*slope
+            if acceptable and preserve_linear_orientation:
+                # Source: check_fairing_isotopy's polynomial interval method.
+                # A line-search endpoint alone cannot exclude an intermediate
+                # triangle flip. This numerical guard is a proposal filter;
+                # the retained full chart is independently checked exactly.
+                start=P.copy();end=P.copy()
+                start[free]=x.reshape((-1,2));end[free]=candidate.reshape((-1,2))
+                a=start[T];delta=end[T]-a
+                u=a[:,1]-a[:,0];v=a[:,2]-a[:,0]
+                du=delta[:,1]-delta[:,0];dv=delta[:,2]-delta[:,0]
+                determinant=lambda s,t:s[:,0]*t[:,1]-s[:,1]*t[:,0]
+                c=determinant(u,v);b=determinant(du,v)+determinant(u,dv);q=determinant(du,dv)
+                t=np.where(q>0,np.clip(-b/np.where(q!=0,2*q,1),0,1),0)
+                acceptable=float(np.min(np.minimum(np.minimum(c,c+b+q),c+t*b+t*t*q)))>0
+            if acceptable:break
             step*=.5
         else:break
         s=candidate-x;y=ng-grad;sy=float(np.dot(s,y))
@@ -345,6 +360,98 @@ def build(source, kernel, output, prepared_path):
     print(json.dumps({k:data[k] for k in ('chart_outer_triangle','minimum_double_area','joining_disk')}),flush=True)
 
 
+def attachment_boundary_path(d, part):
+    """Read the complete source-bound cut interval in the literal chart domain.
+
+    Source: source-map full native-lambda boundary trace and exact CDT constraint
+    subdivisions. This path is consumed by that SAME polygon-to-circle chart;
+    it is not a new endpoint route or an independently centered SVG arc.
+    """
+    layer=d['source_map_boundary_paths']
+    assert layer['schema']=='marked-display-attachment-boundaries/1'
+    b=next(b for b in layer['boundaries'] if (b['cut'],b['side'])==(part['cut'],part['side']))
+    u,v=part['from_source_vertex'],part['to_source_vertex'];ports=b['source_ports']
+    start,end=ports[str(u)],ports[str(v)];points=b['points_svg'];indices=[start]
+    while indices[-1]!=end or len(indices)==1:
+        indices.append((indices[-1]+1)%len(points));assert len(indices)<=len(points)+1
+    # Verify the actual native edge word, including a possible full boundary
+    # traversal. Endpoint equality alone does not specify which cut interval.
+    native=b['native_boundary_vertices'];i=native.index(u);word=[u];darts=[]
+    while word[-1]!=v or len(word)==1:
+        darts.append(b['native_boundary_darts'][i])
+        i=(i+1)%len(native);word.append(native[i]);assert len(word)<=len(native)+1
+    assert part['source_darts']==darts, 'D cut sweep differs from retained native interval'
+    intervals={(x['from_source_vertex'],x['to_source_vertex']):x for x in b['consecutive_port_intervals']}
+    native_ports=[x for x in word if str(x) in ports]
+    certified=[]
+    for a,z in zip(native_ports,native_ports[1:]):
+        chain=intervals[a,z]['polygon_vertices']
+        assert not certified or certified[-1]==chain[0]
+        certified.extend(chain if not certified else chain[1:])
+    assert certified==indices, 'D polygon interval differs from certified full boundary trace'
+    return np.asarray([points[i] for i in indices],dtype=float)
+
+
+def disk_boundary_cycles(d, piece):
+    """Choose a rendering start without changing a directed cyclic boundary."""
+    cycles=piece['boundary_cycles']
+    if d.get('svg_coordinate_encoding')!='float64-roundtrip':return cycles
+    out=[]
+    for cycle in cycles:
+        start=next((i for i,part in enumerate(cycle) if part['kind']=='curve'),None)
+        if start is None:raise ValueError('A joining-disk boundary containing only auxiliary cuts is unsupported by the current marked preparation')
+        out.append(cycle[start:]+cycle[:start])
+    return out
+
+
+def disk_piece_cycles(d):
+    """Resolve source-bound D pieces from shared curve paths and cut-side arcs.
+
+    Source: marked_display.jl::prepare_marked_display display_boundary_cycles.
+    Surface-region darts have the interior on the left, hence cut-side arcs run
+    clockwise in the oriented plane. Their end ports and wrap are fixed by the
+    saved side order; no straight chord or alternate endpoint route is chosen.
+    Arc samples have sagitta <= .003 SVG units, matching spline flattening.
+    """
+    pos={int(v):np.asarray(q,dtype=float)*600 for v,q in d['positions'].items()}
+    if d.get('svg_coordinate_encoding')=='float64-roundtrip':
+        for v,q in d['source_endpoint_normalization']['shared_svg_endpoints'].items():pos[int(v)]=np.asarray(q,dtype=float)
+    segments={(c['id'],tuple(s['source'])):s for c in d['curves'] for s in c['segments']}
+    boundaries={(b['cut'],b['side']):b for b in d['boundaries']}
+    out=[]
+    for piece in d.get('disk_pieces',[]):
+        cycles=[]
+        for cycle in disk_boundary_cycles(d,piece):
+            points=[]
+            for part in cycle:
+                if part['kind']=='curve':
+                    s=segments[part['curve'],tuple(part['source'])]
+                    vs=s['vertices'] if part['direction']==1 else s['vertices'][::-1]
+                    q=[pos[v] for v in vs]
+                else:
+                    assert part['kind']=='cut','Unknown fill boundary interval'
+                    b=boundaries[part['cut'],part['side']]
+                    ports={p['source_vertex']:p['vertex'] for p in b['ports']}
+                    u=ports[part['from_source_vertex']];v=ports[part['to_source_vertex']]
+                    if d.get('svg_coordinate_encoding')=='float64-roundtrip':
+                        q=list(attachment_boundary_path(d,part))
+                        assert np.array_equal(q[0],pos[u]) and np.array_equal(q[-1],pos[v]), 'D attachment endpoints differ from actual curves'
+                    else:
+                        center=pos[b['cap']];r=b['radius']*600
+                        a=math.atan2(*(pos[u]-center)[::-1]);z=math.atan2(*(pos[v]-center)[::-1])
+                        sweep=-((a-z)%(2*math.pi))
+                        assert -2*math.pi+1e-10<sweep<-1e-10,'Degenerate cut-circle interval'
+                        n=max(1,math.ceil(abs(sweep)/(2*math.acos(max(-1.,1-.003/r)))))
+                        q=[center+r*np.array([math.cos(t),math.sin(t)]) for t in np.linspace(a,a+sweep,n+1)]
+                        q[0]=pos[u];q[-1]=pos[v]
+                assert not points or np.linalg.norm(points[-1]-q[0])<1e-6,'Disconnected D piece boundary'
+                points.extend(q if not points else q[1:])
+            assert len(points)>3 and np.linalg.norm(points[-1]-points[0])<1e-6,'Open D piece boundary'
+            cycles.append(np.asarray(points[:-1]))
+        out.append((piece,cycles))
+    return out
+
+
 def orientation_glyph_layer(d, svg):
     """Display-only arrows from the saved directed route, never edge sorting.
 
@@ -407,20 +514,68 @@ def orientation_glyph_layer(d, svg):
 def render(d, *, orientation_glyphs=False):
     scale=600
     pos={int(v):(scale*p[0],-scale*p[1]) for v,p in d['positions'].items()}
+    roundtrip=d.get('svg_coordinate_encoding')=='float64-roundtrip'
+    if roundtrip:
+        # Source: marked_display_pipeline.normalize_shared_endpoints. These
+        # are the same actual SVG-unit endpoints used by the certified cubics;
+        # avoid a second divide/multiply rounding at D/crossing/port readback.
+        for v,q in d['source_endpoint_normalization']['shared_svg_endpoints'].items():
+            pos[int(v)]=(float(q[0]),-float(q[1]))
+    def coordinate(x):return repr(float(x)) if roundtrip else f'{x:.8f}'
     visible={v for c in d['curves'] for s in c['segments'] for v in s['vertices']}
     bounds=[pos[v] for v in visible]
     for b in d['boundaries']:
         x,y=pos[b['cap']];r=scale*b['radius']
         bounds.extend([(x-r,y-r),(x+r,y+r)])
+    if not bounds:
+        # The empty sphere still has its explicitly selected chart at infinity.
+        bounds=[pos[v] for v in d['chart_outer_boundary']]
     left=min(p[0] for p in bounds)-45;top=min(p[1] for p in bounds)-75
     width=max(p[0] for p in bounds)-left+45;height=max(p[1] for p in bounds)-top+45
-    def points(vs): return ' '.join(f'{pos[v][0]:.8f},{pos[v][1]:.8f}' for v in vs)
+    def points(vs): return ' '.join(f'{coordinate(pos[v][0])},{coordinate(pos[v][1])}' for v in vs)
     def bezier_path(pieces):
-        def xy(p):return f'{p[0]:.8f},{-p[1]:.8f}'
+        def xy(p):return f'{coordinate(p[0])},{coordinate(-p[1])}'
+        if roundtrip:
+            assert all(a[-1]==b[0] for a,b in zip(pieces,pieces[1:])), 'Unnormalized SVG cubic join'
         return 'M'+xy(pieces[0][0])+' '+' '.join('C'+' '.join(xy(p) for p in q[1:]) for q in pieces)
     disk_shape=(f'<path data-disk="D" d="{bezier_path(d["disk_beziers"])} Z" fill="#f1c85a" fill-opacity=".5"/>'
                 if d.get('disk_beziers') else
                 f'<polygon data-disk="D" points="{points(d["disk"])}" fill="#f1c85a" fill-opacity=".5"/>' if d.get('disk') else '')
+    # Source: disk_piece_cycles above. SVG's even-odd rule also represents the
+    # infinity-containing component: the viewport is a chart window, not a new
+    # physical boundary. The old single-D branch above remains byte-identical.
+    piece_cycles=disk_piece_cycles(d)
+    segments={(c['id'],tuple(s['source'])):s for c in d['curves'] for s in c['segments']}
+    cut_sides={(b['cut'],b['side']):b for b in d['boundaries']}
+    for piece,cycles in piece_cycles:
+        path=(f'M{left},{top} h{width} v{height} h{-width} Z ' if piece['contains_infinity'] else '')
+        for parts,cycle in zip(disk_boundary_cycles(d,piece),cycles):
+            if roundtrip:
+                first=parts[0]
+                assert first['kind']=='curve','A D piece must start on its retained curve interval'
+                first_segment=segments[first['curve'],tuple(first['source'])]
+                first_vertex=first_segment['vertices'][0 if first['direction']==1 else -1]
+                path+=f'M{coordinate(pos[first_vertex][0])},{coordinate(pos[first_vertex][1])} '
+            else:path+=f'M{cycle[0][0]:.8f},{-cycle[0][1]:.8f} '
+            for part in parts:
+                if part['kind']=='curve':
+                    s=segments[part['curve'],tuple(part['source'])]
+                    vs=s['vertices'] if part['direction']==1 else s['vertices'][::-1]
+                    if s.get('beziers'):
+                        be=s['beziers'] if part['direction']==1 else [q[::-1] for q in s['beziers'][::-1]]
+                        path+=bezier_path(be).split(' ',1)[1]+' '
+                    else:path+=' L'+points(vs[1:])+' '
+                else:
+                    if roundtrip:
+                        chain=attachment_boundary_path(d,part)
+                        path+=' '.join(f'L{coordinate(x)},{coordinate(-y)}' for x,y in chain[1:])+' '
+                        continue
+                    b=cut_sides[part['cut'],part['side']];ports={p['source_vertex']:p['vertex'] for p in b['ports']}
+                    u=pos[ports[part['from_source_vertex']]];v=pos[ports[part['to_source_vertex']]];c=pos[b['cap']]
+                    a=math.atan2(u[1]-c[1],u[0]-c[0]);z=math.atan2(v[1]-c[1],v[0]-c[0]);sweep=(z-a)%(2*math.pi)
+                    r=600*b['radius'];path+=f'A{coordinate(r)},{coordinate(r)} 0 {int(sweep>math.pi)} 1 {coordinate(v[0])},{coordinate(v[1])} '
+            path+='Z '
+        disk_shape+=f'<path data-disk="{escape(str(piece["mark"]),quote=True)}" d="{path}" fill="#f1c85a" fill-opacity=".5" fill-rule="evenodd"/>'
     out=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{left} {top} {width} {height}" role="img" aria-label="Marked surface: genus {d["genus"]}, {len(d["boundaries"])} punctures, {len(d["crossings"])} interior crossings">',
          f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="#fcfbf7"/>',
          '<style>text{font-family:Arial,sans-serif;fill:#253247}.label{paint-order:stroke;stroke:#fcfbf7;stroke-width:4;stroke-linejoin:round}</style>',
@@ -444,7 +599,7 @@ def render(d, *, orientation_glyphs=False):
     for c in d['crossings']:
         x,y=pos[c['vertex']]
         out.append(f'<circle data-crossing="{escape(c["id"],quote=True)}" cx="{x}" cy="{y}" r="2.4" fill="#182538"/><text class="label" x="{x+6}" y="{y-6}" font-size="13">{escape(c["id"])}</text>')
-    from shapely.geometry import Polygon
+    from shapely.geometry import Point, Polygon
     from shapely.ops import polylabel
     for p in d.get('port_labels',[]):
         x,y=pos[p['vertex']];out.append(f'<circle cx="{x}" cy="{y}" r="3" fill="#253247"/><text class="label" x="{x+p.get("dx",7)}" y="{y+p.get("dy",-8)}" font-size="12">{escape(p["label"])}</text>')
@@ -452,6 +607,16 @@ def render(d, *, orientation_glyphs=False):
         label=polylabel(Polygon([pos[v] for v in d['disk']]),tolerance=2)
         x,y=label.x,label.y
         out.append(f'<text x="{x}" y="{y}" font-size="20">D</text>')
+    if piece_cycles:
+        from shapely.geometry import box
+        for piece,cycles in piece_cycles:
+            fill=box(left,-top-height,left+width,-top) if piece['contains_infinity'] else Polygon()
+            for cycle in cycles:fill=fill.symmetric_difference(Polygon(cycle))
+            for b in d['boundaries']:
+                x,y=pos[b['cap']];fill=fill.difference(Point(x,-y).buffer(600*b['radius'],quad_segs=128))
+            if fill.geom_type=='MultiPolygon':fill=max(fill.geoms,key=lambda p:p.area)
+            label=polylabel(fill,tolerance=2)
+            out.append(f'<text x="{label.x}" y="{-label.y}" font-size="20">D</text>')
     out.append('</svg>')
     svg=''.join(out)
     return svg[:-6]+orientation_glyph_layer(d,svg)+'</svg>' if orientation_glyphs else svg
