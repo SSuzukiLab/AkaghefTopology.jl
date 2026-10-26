@@ -4,6 +4,7 @@ let current=null,token=0,urls=[];
 let currentView='alpha_cut';
 function setView(view){
  if(!current)return;
+ $('#toggle-orientation').hidden=true;
  const cut=view==='alpha_cut';
  // No client-side routing or atlas cropping. Both SVGs come from Julia.
  const svg=cut?current.alpha_cut_svg:current.surface_svg;
@@ -31,7 +32,8 @@ $('#geometry').textContent='保存されたβ経路を共通描画器で実現�
 $('#source').textContent=`${data.source} / ${data.seed}。数学的認証・出典の状態は入力から継承しています。`;
 download('#download-svg',data.svg,'image/svg+xml',data.id+'-surface.svg');download('#download-core',JSON.stringify(data.diagram,null,2),'application/json',data.id+(data.chart.joining_disk?'.punctured.hgd.json':'.hgd.json'));download('#download-layout',JSON.stringify(data.chart,null,2),'application/json',data.id+'.surface-chart.json');download('#download-feasible',JSON.stringify(data.layout||data.chart.base_layout,null,2),'application/json',data.id+'.hgd.layout.json');document.querySelectorAll('#examples button').forEach(e=>e.classList.toggle('active',e.dataset.id===data.id));setView('alpha_cut');}
 function showMarkedDisplay(d,id='imported'){
- const svg=d.svg,report=d.smooth_check;
+ const oriented=Boolean(d.display_options?.orientation_glyphs&&d.orientation_svg);
+ const svg=oriented?d.orientation_svg:d.svg,report=d.smooth_check;
  if(!svg||!report?.no_extra_bezier_intersections||!report.normal_port_tangents)throw Error('共通描画処理の検証済み結果が必要です');
  current={marked:true,id,title:d.title||'Heegaard diagram',diagram:d};urls.forEach(URL.revokeObjectURL);urls=[];
  $('#title').textContent=current.title;
@@ -60,6 +62,22 @@ function showMarkedDisplay(d,id='imported'){
  if(d.source_figure){const f=d.source_figure,p=document.createElement('p');p.id='marked-source';p.textContent=`出典：${f.title||f.cite_key}、図${f.figure}（本文 ${f.printed_page}頁／PDF ${f.pdf_page}頁）。所蔵のOCR切り出し画像を参照。画像と転記の対応情報は保存データに含まれます。`;details.insertBefore(p,details.querySelector('p'));}
  download('#marked-download',JSON.stringify(d),'application/json','MarkedDiagram.json');
  download('#download-svg',svg,'image/svg+xml',id==='KodaGenus3Auto'?'KodaCommon.svg':id+'.svg');
+ // draw_marked_cut.py provides both variants from the same source-directed
+ // curves. This control changes only the saved effective display preference.
+ const orientation=$('#toggle-orientation');orientation.hidden=!d.orientation_svg;
+ orientation.setAttribute('aria-pressed',String(oriented));
+ orientation.onclick=()=>{
+  const enabled=orientation.getAttribute('aria-pressed')!=='true';
+  const opacity=new Map([...document.querySelectorAll('#drawing [data-curve]')].map(el=>[el.dataset.curve,el.style.opacity]));
+  const chosen=enabled?d.orientation_svg:d.svg;
+  $('#drawing').innerHTML=chosen;
+  document.querySelectorAll('#drawing [data-curve]').forEach(el=>el.style.opacity=opacity.get(el.dataset.curve)||'');
+  if($('#toggle-disk').getAttribute('aria-pressed')!=='true')document.querySelectorAll('#drawing [data-disk]').forEach(el=>el.style.display='none');
+  d.display_options={...d.display_options,orientation_glyphs:enabled};
+  orientation.setAttribute('aria-pressed',String(enabled));
+  download('#marked-download',JSON.stringify(d),'application/json','MarkedDiagram.json');
+  download('#download-svg',chosen,'image/svg+xml',id==='KodaGenus3Auto'?'KodaCommon.svg':id+'.svg');
+ };
  $('#error').hidden=true;history.replaceState(null,'','/surface_'+encodeURIComponent(id)+'.html');
 }
 async function showMarkedKoda(){const r=await fetch('/surface-generated/KodaCommon.json');if(!r.ok)throw Error('共通描画結果がありません');const d=await r.json();d.title='Koda · α / β + joining disk';showMarkedDisplay(d,'KodaGenus3Auto');}

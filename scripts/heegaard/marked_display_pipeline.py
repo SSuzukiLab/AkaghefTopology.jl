@@ -111,6 +111,14 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     result['layout_isotopy_check']=check_motion(seed,result)
     result['drawing_policy']=dict(minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,port_collar_radius=20)
     result['svg']=render(result)
+    # Source: draw_marked_cut.orientation_glyph_layer; optional display layer
+    # uses the same directed source routes. The accepted default SVG is intact.
+    try:
+        result['orientation_svg']=render(result,orientation_glyphs=True)
+        result.pop('orientation_display_error',None)
+    except ValueError as exc:
+        result.pop('orientation_svg',None)
+        result['orientation_display_error']=str(exc)
     return result,seed
 
 

@@ -345,7 +345,66 @@ def build(source, kernel, output, prepared_path):
     print(json.dumps({k:data[k] for k in ('chart_outer_triangle','minimum_double_area','joining_disk')}),flush=True)
 
 
-def render(d):
+def orientation_glyph_layer(d, svg):
+    """Display-only arrows from the saved directed route, never edge sorting.
+
+    Source: layout_marked_document.coarse_view expands edge_sign into the
+    segment's ordered vertices; fair_marked_paths.export keeps that direction
+    in each cubic's control points. Shapely hull/label exclusion selects an
+    uncluttered glyph position without modifying any mathematical geometry.
+    """
+    import xml.etree.ElementTree as ET
+    from shapely.geometry import Point, Polygon, MultiPoint, box
+    from shapely.strtree import STRtree
+    ns={'s':'http://www.w3.org/2000/svg'};root=ET.fromstring(svg)
+    obstacles=[]
+    for text in root.findall('s:text',ns):
+        x,y=float(text.get('x')),float(text.get('y'));size=float(text.get('font-size',13))
+        width=max(size*.65*len(text.text or ''),size)
+        x0=x-width/2 if text.get('text-anchor')=='middle' else x
+        obstacles.append(box(x0-4,y-size-4,x0+width+4,y+5))
+    for b in d['boundaries']:
+        x,y=d['positions'][str(b['cap'])]
+        obstacles.append(Point(600*x,-600*y).buffer(600*b['radius']+8))
+    for c in d['crossings']:
+        x,y=d['positions'][str(c['vertex'])];obstacles.append(Point(600*x,-600*y).buffer(18))
+    hulls=[];owners=[];candidates={}
+    for ci,c in enumerate(d['curves']):
+        choices=[]
+        for s in c['segments']:
+            if s.get('beziers'):
+                pieces=[np.asarray(q)*[1,-1] for q in s['beziers']]
+            else:
+                points=[np.asarray(d['positions'][str(v)])*[600,-600] for v in s['vertices']]
+                pieces=[np.array([a,a+(b-a)/3,a+2*(b-a)/3,b]) for a,b in zip(points,points[1:])]
+            for q in pieces:
+                hulls.append(MultiPoint(q).convex_hull);owners.append(ci)
+                p=(q[0]+3*q[1]+3*q[2]+q[3])/8
+                tangent=3*(q[3]+q[2]-q[1]-q[0])/4;length=np.linalg.norm(tangent)
+                if length>1e-10:choices.append((float(np.linalg.norm(q[-1]-q[0])),p,tangent/length))
+        candidates[ci]=sorted(choices,key=lambda x:-x[0])[:128]
+    tree=STRtree(hulls) if hulls else None;out=[]
+    for ci,c in enumerate(d['curves']):
+        best=None
+        for _,p,tangent in candidates[ci]:
+            normal=np.array([-tangent[1],tangent[0]])
+            q=np.array([p+5*tangent,p-4*tangent+3*normal,p-4*tangent-3*normal]);glyph=Polygon(q)
+            if any(glyph.intersects(o) for o in obstacles):continue
+            near=tree.query(glyph.buffer(60)) if tree is not None else []
+            distances=[glyph.distance(hulls[j]) for j in near if owners[j]!=ci]
+            clearance=min(distances,default=60.)
+            if clearance<3:continue
+            score=min(clearance,min((glyph.distance(o) for o in obstacles),default=60.))
+            if best is None or score>best[0]:best=(score,q,glyph)
+        if best is None:raise ValueError('No unobstructed orientation glyph position for '+c['id'])
+        _,q,glyph=best;obstacles.append(glyph.buffer(5))
+        points=' '.join(f'{x:.8f},{y:.8f}' for x,y in q)
+        color=escape(c.get('color',{'alpha':'#ba433f','beta':'#255dba','aux':'#357e64'}[c['role']]),quote=True)
+        out.append(f'<g data-curve="{escape(c["id"],quote=True)}" data-orientation="source-directed"><polygon points="{points}" fill="{color}" stroke="{color}" stroke-width=".5"/></g>')
+    return ''.join(out)
+
+
+def render(d, *, orientation_glyphs=False):
     scale=600
     pos={int(v):(scale*p[0],-scale*p[1]) for v,p in d['positions'].items()}
     visible={v for c in d['curves'] for s in c['segments'] for v in s['vertices']}
@@ -394,7 +453,8 @@ def render(d):
         x,y=label.x,label.y
         out.append(f'<text x="{x}" y="{y}" font-size="20">D</text>')
     out.append('</svg>')
-    return ''.join(out)
+    svg=''.join(out)
+    return svg[:-6]+orientation_glyph_layer(d,svg)+'</svg>' if orientation_glyphs else svg
 
 
 if __name__=='__main__':
