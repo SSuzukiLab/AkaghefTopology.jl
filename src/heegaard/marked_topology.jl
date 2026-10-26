@@ -69,21 +69,107 @@ surface_genus(doc::AbstractDict)=_marked_states(doc).geometry.surface_report["ge
 euler_characteristic(doc::AbstractDict)=_marked_states(doc).geometry.surface_report["chi"]
 complement_regions(doc::AbstractDict)=MarkedSurfaceDiagrams.regions(_marked_states(doc).mathematics)
 is_cellular(doc::AbstractDict)=all(r["normalized_disk"] for r in complement_regions(doc))
-is_closed_heegaard(doc::AbstractDict)=compression_boundary_report(doc).closed
+is_closed_heegaard(doc::AbstractDict)=validate(doc;level=:full).valid
+
+# Source: validation.jl::validate/ValidationReport and the unchanged vendor
+# MarkedSurfaceDiagrams._validate/check_joining_disk. The native kernel checks
+# the whole embedding together; legacy intermediate levels therefore also run
+# that check. :surface accepts proper arcs and incomplete compression systems;
+# :full additionally asks whether both closed families compress to spheres.
+function _marked_validation_issue(err,doc)
+    M=MarkedSurfaceDiagrams
+    err isa M.DiagramError || err isa ArgumentError || rethrow(err)
+    code=err isa M.DiagramError ? Symbol(err.code) : :compression_not_applicable
+    message=sprint(showerror,err)
+    if code==:REGION_CLAIM_FAILED
+        # Reuse the exact same disk audit for diagnostics, without accepting a
+        # failed stored claim or changing its orientation/seed.
+        bare=_plain_value(doc);marks=pop!(bare,"region_marks",Any[])
+        st=_marked_states(bare).mathematics
+        for mark in marks
+            mark["id"]==err.detail || continue
+            audit=M.check_joining_disk(st,mark["seed"])
+            failed=[key for key in ("embedded_closed_disk","arcs_all_nonempty_connected","boundary_outward_positive")
+                if !audit[key] && (mark["claim"]=="koda_joining" || key=="embedded_closed_disk")]
+            message*="; failed conditions: "*join(failed,", ")
+        end
+    end
+    ValidationIssue(:surface,code,message,"marked_document")
+end
+
+"""Validate a native marked embedding; :full also requires closed compression.
+
+This uses the same ValidationReport as the ribbon API. A valid embedded diagram
+may have arcs or positive-genus compression boundary: use level=:surface to
+ask only for embedding and stored joining-disk validity.
+"""
+function validate(doc::AbstractDict;level=:full)
+    requested=_validation_level(level)
+    issues=ValidationIssue[];checks=Dict{Symbol,Bool}()
+    states=try
+        _marked_states(doc)
+    catch err
+        push!(issues,_marked_validation_issue(err,doc))
+        checks[:marked_embedding]=false
+        return ValidationReport(level,false,issues,checks)
+    end
+    checks[:marked_embedding]=true;checks[:joining_disks]=true
+    if requested>=6
+        try
+            report=_marked_compression(states.mathematics)
+            checks[:closed_heegaard]=report.closed
+            report.closed || push!(issues,ValidationIssue(:closed_heegaard,:not_closed,
+                "compression retains boundary: alpha genera $(report.alpha_boundary_genera), beta genera $(report.beta_boundary_genera); original physical boundaries are not capped","compression"))
+        catch err
+            push!(issues,_marked_validation_issue(err,doc))
+            checks[:closed_heegaard]=false
+        end
+    end
+    ValidationReport(level,isempty(issues),issues,checks)
+end
+
+# Source: cellulated_conversion.jl::cellulated_punctured, applicability gates.
+# This is a preflight of that existing adapter, not a new conversion or a move
+# certificate. Fine-region/ribbon bijection remains checked by the converter.
+function _marked_conversion_applicability(st,compression,joining)
+    conditions=Dict{String,Bool}(
+        "closed_curves"=>all(c["closed"] for (c,_) in values(st.curves)),
+        "complete_cut_systems"=>compression!==nothing && compression.alpha_complete && compression.beta_complete,
+        "cellular_complement"=>all(r["normalized_disk"] for r in MarkedSurfaceDiagrams.regions(st)),
+        "one_stored_disk"=>length(joining)==1,
+        "stored_orientation_koda_disk"=>length(joining)==1 && only(joining)["koda_joining"])
+    failed=[key for key in ("closed_curves","complete_cut_systems","cellular_complement","one_stored_disk","stored_orientation_koda_disk") if !conditions[key]]
+    Dict("applicable"=>isempty(failed),"conditions"=>conditions,"reasons"=>failed,
+        "scope"=>"cellular Koda adapter preconditions; conversion still checks fine-region/ribbon correspondence")
+end
 
 """Public mathematical report shared by consumers of a marked diagram.
 
 Hashes identify the saved representation/marking, not an isotopy normal form.
-An invalid embedding raises the kernel's structured DiagramError. A well-formed
-closed-curve diagram whose compression has positive genus is reported as such.
+Invalid embeddings and false stored disk claims retain explanatory kernel issue
+codes. Diagram validity, closed compression and conversion preconditions are
+separate; a preflight does not assert that conversion was executed.
 """
 function marked_topology_report(doc::AbstractDict)
-    M=MarkedSurfaceDiagrams;s=_marked_states(doc);st=s.mathematics
-    Dict("schema"=>"marked-topology-report/1","surface"=>s.geometry.surface_report,
+    M=MarkedSurfaceDiagrams
+    validity=validate(doc;level=:surface)
+    issue_json(i)=Dict("level"=>string(i.level),"code"=>string(i.code),"message"=>i.message,"path"=>i.path)
+    validity_json=Dict("valid"=>validity.valid,"issues"=>issue_json.(validity.issues))
+    validity.valid || return Dict("schema"=>"marked-topology-report/1","diagram_valid"=>false,"validity"=>validity_json,
+        "conversion"=>Dict("applicable"=>false,"reasons"=>["invalid_marked_diagram"]))
+    s=_marked_states(doc);st=s.mathematics
+    closed_curves=all(c["closed"] for (c,_) in values(st.curves))
+    compression=closed_curves ? _marked_compression(st) : nothing
+    joining=[merge(Dict("id"=>m["id"],"claim"=>m["claim"]),M.check_joining_disk(st,m["seed"]))
+        for m in get(s.document,"region_marks",[])]
+    Dict("schema"=>"marked-topology-report/1","diagram_valid"=>true,"validity"=>validity_json,
+        "surface"=>s.geometry.surface_report,
         "source_representation_sha256"=>M.representation_digest(s.document),
         "source_marking_sha256"=>M.marking_digest(s.document),
         "regions"=>M.regions(st),"intersection_cycles"=>M.intersection_cycles(st),
-        "compression"=>_marked_compression(st),
-        "joining_disks"=>[merge(Dict("id"=>m["id"],"claim"=>m["claim"]),M.check_joining_disk(st,m["seed"]))
-            for m in get(s.document,"region_marks",[])])
+        "compression"=>compression,"compression_applicable"=>closed_curves,
+        "compression_reasons"=>(closed_curves ? String[] : ["compression requires closed alpha/beta curves, not proper arcs"]),
+        "closed_heegaard"=>compression!==nothing && compression.closed,
+        "conversion"=>_marked_conversion_applicability(st,compression,joining),
+        "joining_disks"=>joining)
 end

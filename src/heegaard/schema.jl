@@ -131,14 +131,30 @@ function _as_vector(x)
     collect(x)
 end
 
-"""Read a `.hgd.json` file and return an undecorated or decorated code."""
+"""Read lossless mathematical JSON: legacy code, or a full marked `Dict`.
+
+Native marked input retains the explicit surface, oriented edge words, auxiliary
+curves, region marks and metadata. Validation does not require complete alpha or
+beta cut systems. A `marked-cut-view/1` drawing is a separate display envelope;
+use `marked_display_source` to verify and extract its mathematical source first.
+"""
 function load_heegaard(path::AbstractString)
     parsed = JSON3.read(read(path, String))
     _heegaard_from_json(parsed)
 end
 
 function _heegaard_from_json(parsed)
+    parsed isa AbstractDict || throw(ArgumentError("Heegaard JSON must contain an object"))
     schema = string(_spec_field(parsed, :schema, ""))
+    # Native v1 contract: vendor/marked_surface_diagrams/src/MarkedSurfaceDiagrams.jl
+    # check_shape/_validate; marked_topology.jl::_marked_states validates D against
+    # alpha union beta while retaining auxiliary curves in the source. Do not
+    # project to cyclic words: that loses zero-crossing routes and the marking.
+    if any(_spec_field(parsed, key, nothing) !== nothing for key in (:version, :surface, :patches))
+        return _marked_document(parsed)
+    end
+    schema == "marked-cut-view/1" && throw(ArgumentError(
+        "marked-cut-view/1 is a drawing envelope; use marked_display_source(view) before saving mathematical data"))
     startswith(schema, "akaghef.heegaard/") || throw(ArgumentError("unknown Heegaard schema: $schema"))
     split(schema, "/")[end] == "1" || throw(ArgumentError("unsupported Heegaard schema major version: $schema"))
     curves = _spec_field(parsed, :curves, nothing)
@@ -154,15 +170,40 @@ function _heegaard_from_json(parsed)
     decorate(code, _as_vector(blocks); metadata=code.metadata)
 end
 
-"""Write canonical JSON for a Heegaard core object."""
+function _marked_document(input::AbstractDict)
+    doc = _plain_value(input)
+    get(doc, "schema", "") == "marked-cut-view/1" && throw(ArgumentError(
+        "marked-cut-view/1 is a drawing envelope; use marked_display_source(view) before saving mathematical data"))
+    # Metadata is an object in the native v1 interchange contract. Its contents
+    # remain opaque JSON, including decimal values and source provenance.
+    haskey(doc, "metadata") && !(doc["metadata"] isa AbstractDict) &&
+        throw(ArgumentError("marked metadata must be a JSON object"))
+    _marked_states(doc).document
+end
+
+"""Write lossless mathematical JSON, validating marked input before opening a file.
+
+Marked dictionaries use the same embedding/D check as `load_heegaard`; this is
+not a claim that both families form complete Heegaard cut systems. Invalid
+edits leave an existing destination untouched. Legacy core behavior is retained.
+"""
 function save_heegaard(path::AbstractString, object)
-    object isa Union{HeegaardCode,DecoratedHeegaardCode,HeegaardDiagram} ||
-        throw(ArgumentError("save_heegaard expects a Heegaard core object"))
+    data = if object isa AbstractDict
+        _marked_document(object)
+    elseif object isa Union{HeegaardCode,DecoratedHeegaardCode,HeegaardDiagram}
+        _json_dict(object)
+    else
+        throw(ArgumentError("save_heegaard expects a Heegaard core object or full marked document"))
+    end
+    # canonicalization.jl::_canonical_json preserves array/word order and opaque
+    # JSON metadata; the vendor exact-math writer does not support float metadata.
+    encoded = _canonical_json(data)
     open(path, "w") do io
-        write(io, _canonical_json(_json_dict(object)))
+        write(io, encoded)
         write(io, '\n')
     end
     path
 end
 
 source_manifest(object) = deepcopy(_undecorated(object).metadata)
+source_manifest(object::AbstractDict) = deepcopy(get(_marked_document(object), "metadata", Dict{String,Any}()))

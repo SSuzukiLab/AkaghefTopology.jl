@@ -2,6 +2,18 @@
 
 ## Marked input integration (2026-10-26)
 
+The public `load_heegaard` / `save_heegaard` entry now accepts the native marked
+document and preserves its whole cellulation, directed words, auxiliary curves,
+region marks and metadata. Invalid edits are rejected before opening the output
+file. `examples/HeegaardInput.jl` demonstrates an actual curve/incidence correction;
+`docs/heegaard/input.md` describes the construction and literature-input contract.
+`validate(document; level=:surface)` checks the embedded object and stored D;
+full validation separately requires actual closed compression. Structured reports
+distinguish proper arcs, positive-genus compression and Koda adapter prerequisites.
+The lead independently ran the focused public input and validity tests (48 and
+29 checks respectively). These checks establish the stated finite cases, not
+general drawing, marked operations or inverse-conversion completeness.
+
 The active viewer checkout now reuses the existing whole-cellulation kernel,
 reference constructor and cut preparation from the cellulated checkout.
 `marked_topology_report(document)` and the `AbstractDict` overload of
