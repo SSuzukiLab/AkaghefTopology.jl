@@ -216,13 +216,30 @@ function to_ograph(spine::FlowSpine)
         "o_block_count"=>count(e->sign(e["from"])!=sign(e["to"]),output_edges)÷2))
 end
 
-function to_heegaard(PH::PuncturedHeegaardDiagram;strategy=:block)
-    strategy == :block || throw(ArgumentError("only retained-source retrieval is available"))
+"""Retrieve retained source; this overload is not an inverse construction.
+`:block` is retained as a compatibility spelling for `:retained_source`.
+Use `to_heegaard(::OData)` for the independent dual-tetrahedron construction.
+"""
+function to_heegaard(PH::PuncturedHeegaardDiagram;strategy=:retained_source)
+    strategy in (:retained_source,:block) || throw(ArgumentError("this overload only retrieves the retained source"))
     PH.diagram
 end
-function to_heegaard(spine::FlowSpine;strategy=:block)
+function to_heegaard(spine::FlowSpine;strategy=:retained_source)
+    strategy==:dual_tetrahedra && return to_heegaard(to_ograph(spine);strategy=strategy)
     spine.source isa PuncturedHeegaardDiagram || throw(ArgumentError("no retained Heegaard source"))
     to_heegaard(spine.source;strategy=strategy)
+end
+
+"""Independently construct a marked splitting from o-data, without source metadata.
+The output represents the oriented dual-triangulated manifold; source marking,
+joining D and branching/vector-field recovery are explicitly outside its claim.
+`display_cuts=true` adds distinct alpha-left auxiliary meridians and an explicit
+new infinity seed. Alpha and beta stay visible mathematical curves; their role
+is never changed into a display cut. This option does not generate coordinates.
+"""
+function to_heegaard(G::OData;strategy=:dual_tetrahedra,display_cuts::Bool=false)
+    strategy==:dual_tetrahedra || throw(ArgumentError("o-data reverse strategy must be :dual_tetrahedra"))
+    _ograph_to_marked_heegaard(G;display_cuts=display_cuts)
 end
 
 _ograph_hash(G::OData) = bytes2hex(SHA.sha256(_canonical_json(Dict("gauss"=>G.gauss,"orientation"=>G.orientation))))

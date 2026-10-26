@@ -1,5 +1,54 @@
 # Heegaard subsystem implementation status
 
+## Constructive marked-operation checkpoint (2026-10-26)
+
+The native whole-cellulation API now constructs empty-triangle and exact
+single-vertex isotopies, oriented simplicial actions, barycentric refinement,
+quotient-vertex repatching, auxiliary parallel copies, band-sum handle slides
+and connected-sum stabilization. Generated inverses reconstruct current routes,
+neighborhoods and cell incidence and regenerate the forward result; they do not
+return a saved source diagram. This is generated inverse support, not arbitrary
+inverse recognition or a complete isotopy decision procedure.
+
+The slide consumes two same-family closed curves and an embedded band word,
+constructs a normalized pair-of-pants frontier and computes its crossings.
+Default marked-region preservation rejects a changed D. Explicit `follow_seed`
+may continue its protected point to a different region, records that change and
+revalidates the original claim. Stabilization preserves protected embedded D
+outside its support, but rejects an unchanged Koda joining disk whose boundary
+cannot meet the newly added curves. Optional display-cut extension constructs a
+distinct auxiliary meridian and verifies the extended cut system; it never
+silently treats the new alpha as an auxiliary cut. Existing 64-patch and
+256-vertex-per-patch bounds remain in force.
+
+`marked_computation_report` binds matrices, generators, relators and curve words
+to source elements. `marked_curve_words` additionally exposes oriented fine-edge
+words and actual primal-tree basing paths. These words live in the recorded
+surface presentation: the retained root-face boundary is a surface relator,
+not a freely trivial word.
+
+The independent raw-o-data reverse constructs a new marked Heegaard splitting
+from actual oriented tetrahedron gluing and vertex links. It does not consume
+retained source metadata or recover the original marking, D, genus or branching.
+The retained-source route remains explicitly separate. Comparison distinguishes
+full data, fixed-model isotopy, marked cell-model identification, underlying
+Heegaard moves and represented-manifold evidence. Independently extracted raw
+o-data relations check H1 consistency; matching H1 alone is not a homeomorphism
+or group-isomorphism decision.
+
+The lead independently verified finite public cases: moves 49, refinement and
+repatching 57+36, parallel copies 14, slides 19+13 (including a nonseparating
+genus-two slide on a complete splitting), stabilization 70, cellular computation
+32+14+48, reverse construction 46, and comparison 154. Exact Polyhedra 0.8.3
+polygon-overlay tests passed 34 and the rational annulus-product tests 21.
+Those two helpers are prerequisites only: a first Dehn-twist construction still
+exceeds the unchanged per-chart bound (991 versus 256), so no completed twist or
+ordered mapping-class-word capability is claimed at this checkpoint.
+
+Initial drawing robustness, complete application integration, mapping-class
+operations and whole-book reproduction remain ongoing. The focused results do
+not claim that the entire package suite or every valid marked input succeeds.
+
 ## Marked input integration (2026-10-26)
 
 The public `load_heegaard` / `save_heegaard` entry now accepts the native marked

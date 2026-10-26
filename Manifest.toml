@@ -235,6 +235,12 @@ deps = ["Artifacts", "Libdl"]
 uuid = "781609d7-10c4-51f6-84f2-b8444358ff6d"
 version = "6.3.0+2"
 
+[[GenericLinearAlgebra]]
+deps = ["LinearAlgebra", "Printf", "Random", "libblastrampoline_jll"]
+git-tree-sha1 = "961f8a5d33f043e02cdf2b8020e3a7b0aae78474"
+uuid = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
+version = "0.4.1"
+
 [[InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -477,6 +483,22 @@ weakdeps = ["REPL"]
     [Pkg.extensions]
     REPLExt = "REPL"
 
+[[Polyhedra]]
+deps = ["GenericLinearAlgebra", "LinearAlgebra", "MathOptInterface", "MutableArithmetics", "SparseArrays", "StaticArrays"]
+git-tree-sha1 = "05545d8b1f97fac7f7b77bac51e4130f4fe19c4c"
+uuid = "67491407-f73d-577b-9b50-8179a7c68029"
+version = "0.8.3"
+
+    [Polyhedra.extensions]
+    PolyhedraGeometryBasicsExt = "GeometryBasics"
+    PolyhedraJuMPExt = "JuMP"
+    PolyhedraRecipesBaseExt = "RecipesBase"
+
+    [Polyhedra.weakdeps]
+    GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+    JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+
 [[PrecompileTools]]
 deps = ["Preferences"]
 git-tree-sha1 = "5aa36f7049a63a1528fe8f7c3f2113413ffd4e1f"
@@ -654,7 +676,7 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 version = "1.11.0"
 
 [[Topology]]
-deps = ["AbstractAlgebra", "Catlab", "GLPK", "JSON", "JSON3", "JuMP", "LinearAlgebra", "RuntimeGeneratedFunctions", "SHA", "StructTypes"]
+deps = ["AbstractAlgebra", "Catlab", "GLPK", "JSON", "JSON3", "JuMP", "LinearAlgebra", "RuntimeGeneratedFunctions", "SHA", "StructTypes", "TOML"]
 path = "."
 uuid = "b3afbb9e-8463-4dcc-94b0-b9c16bd98cad"
 version = "0.1.0"

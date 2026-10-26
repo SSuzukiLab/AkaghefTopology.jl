@@ -9,12 +9,16 @@ function cellulated_punctured(doc::AbstractDict; disk_id=nothing)
     M=MarkedSurfaceDiagrams
     states=_marked_states(doc)
     st=states.mathematics
-    core=M.legacy_projection(st) # Auxiliary cuts remain in the full source.
+    # Source: marked_topology.jl::_marked_conversion_applicability. Reject the
+    # actual applicability failure before legacy projection's narrower syntax.
+    all(c["closed"] for (c,_) in values(st.curves)) ||
+        throw(ArgumentError("cellulated Koda conversion requires closed alpha/beta curves"))
     all(M.family_cut_report(st,f)["cut_system"] for f in ("alpha","beta")) ||
         throw(ArgumentError("cellulated Koda conversion requires both complete cut systems"))
     rs=M.regions(st)
     all(r["normalized_disk"] for r in rs) ||
         throw(ArgumentError("non-cellular marked conversion is not supported"))
+    core=M.legacy_projection(st) # Auxiliary cuts remain in the full source.
     marks=get(st.doc,"region_marks",[])
     selected=disk_id===nothing ? marks : [m for m in marks if m["id"]==disk_id]
     length(selected)==1 || throw(ArgumentError("select exactly one stored joining disk"))

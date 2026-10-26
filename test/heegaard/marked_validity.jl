@@ -59,5 +59,36 @@ loadcase(name)=JSON3.read(read(joinpath(ROOT,"vendor/marked_surface_diagrams/exa
     koda=JSON3.read(read(joinpath(ROOT,"vendor/koda_genus3/data/figure6.fullmarked.json"),String),Dict{String,Any})
     @test H.marked_topology_report(koda)["conversion"]["applicable"]
     @test H.is_valid(koda)
+
+    # Source: marked_topology.jl::_marked_states reserved metadata contract.
+    # Source metadata otherwise stays opaque, including arrays and decimal
+    # values nested under unrelated fields. Invalid geometric metadata must
+    # fail before source_manifest/computation or move consumers dereference it.
+    for metadata in (Any[],7,nothing)
+        bad=deepcopy(torus);bad["metadata"]=metadata
+        invalid=H.validate(bad;level=:surface)
+        @test !invalid.valid && only(invalid.issues).code==:METADATA_OBJECT
+        @test !H.marked_topology_report(bad)["diagram_valid"]
+    end
+    for display in (Any[],7,nothing)
+        bad=deepcopy(torus);bad["metadata"]=Dict("display"=>display)
+        invalid=H.validate(bad;level=:surface)
+        @test !invalid.valid && only(invalid.issues).code==:DISPLAY_OBJECT
+    end
+    for infinity in (nothing,Any[],["P"],["P",true],["P",-1],["P",0.5],[7,0])
+        bad=deepcopy(torus);bad["metadata"]=Dict("display"=>Dict("infinity_triangle"=>infinity))
+        invalid=H.validate(bad;level=:surface)
+        @test !invalid.valid && only(invalid.issues).code==:INFINITY_TRIANGLE
+    end
+    for infinity in (["absent",0],["P",100000])
+        bad=deepcopy(torus);bad["metadata"]=Dict("display"=>Dict("infinity_triangle"=>infinity))
+        invalid=H.validate(bad;level=:surface)
+        @test !invalid.valid && only(invalid.issues).code==:INFINITY_TRIANGLE_MISSING
+    end
+    opaque=deepcopy(torus)
+    opaque["metadata"]=Dict("source"=>Any[0.25,nothing,Dict("custom"=>true)],"display"=>Dict("infinity_triangle"=>["P",0]))
+    @test H.validate(opaque;level=:surface).valid
+    delete!(opaque["metadata"]["display"],"infinity_triangle")
+    @test H.validate(opaque;level=:surface).valid
 end
 end

@@ -7,8 +7,30 @@ regions/check_joining_disk. Neither this adapter nor validation chooses routes.
 function _marked_states(input::AbstractDict)
     M=MarkedSurfaceDiagrams
     doc=_plain_value(input)
+    # Source: schema.jl::_marked_document (native metadata object contract),
+    # marked_moves.jl::_mm_infinity and marked_display.jl::prepare_marked_display.
+    # Other metadata remains opaque; these reserved fields are consumed as
+    # typed geometric selections and must not silently become absent on error.
+    infinity=nothing
+    if haskey(doc,"metadata")
+        metadata=doc["metadata"]
+        M.need(metadata isa AbstractDict,"METADATA_OBJECT","metadata must be a JSON object")
+        if haskey(metadata,"display")
+            display=metadata["display"]
+            M.need(display isa AbstractDict,"DISPLAY_OBJECT","metadata.display must be a JSON object")
+            if haskey(display,"infinity_triangle")
+                infinity=display["infinity_triangle"]
+                M.need(infinity isa AbstractVector && length(infinity)==2 &&
+                    infinity[1] isa AbstractString && infinity[2] isa Integer &&
+                    !(infinity[2] isa Bool) && infinity[2]>=0,
+                    "INFINITY_TRIANGLE","metadata.display.infinity_triangle must be [face, zero-based nonnegative triangle index]")
+            end
+        end
+    end
     geometry=deepcopy(doc);delete!(geometry,"region_marks")
     st=M.validate(geometry)
+    infinity!==nothing && M.need(haskey(st.triangles,(infinity[1],infinity[2]+1)),
+        "INFINITY_TRIANGLE_MISSING","metadata.display.infinity_triangle does not select an existing source triangle")
     mathematical=deepcopy(doc)
     filter!(c->c["role"] in ("alpha","beta"),mathematical["curves"])
     ids=Set(c["id"] for c in mathematical["curves"])

@@ -5,6 +5,7 @@ using SHA
 using JSON3
 using StructTypes
 using LinearAlgebra
+import Polyhedra
 
 include("types.jl")
 include("schema.jl")
@@ -35,12 +36,28 @@ include("reference_surface.jl")
 include("marked_display.jl")
 include("marked_topology.jl")
 include("marked_groups.jl")
+include("marked_moves.jl")
+include("marked_polygon_overlay.jl")
+include("marked_subdivision.jl")
+include("marked_annulus_product.jl")
+include("marked_slides.jl")
+include("marked_stabilization.jl")
 include("cellulated_conversion.jl")
+include("ograph_reverse.jl")
+include("marked_comparison.jl")
 
 export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        lickorish_reference, prepare_marked_display, marked_topology_report,
-       surface_group_presentation, marked_curve_words, cellulated_punctured,
-       marked_display_source
+       surface_group_presentation, marked_curve_words, marked_computation_report, cellulated_punctured,
+       marked_display_source,
+       marked_triangle_isotopy, marked_vertex_isotopy, marked_simplicial_action,
+       replay_marked_move, inverse_marked_move,
+       marked_subdivide, marked_collapse_subdivision,
+       marked_dual_star, marked_collapse_dual_star,
+       marked_parallel_copy, marked_remove_parallel,
+       marked_handle_slide, marked_inverse_handle_slide,
+       marked_stabilize, marked_destabilize,
+       marked_comparison_report, odata_computation_report
 
 export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
        HeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,
