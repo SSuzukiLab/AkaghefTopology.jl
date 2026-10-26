@@ -70,6 +70,15 @@ end
 # for rational coefficients. Hence every omitted collinear marked subdivision
 # point must be reinserted from our shared registry after ALL pairs are computed.
 function _mpo_intersection(source,target)
+    # Source: coordinate extrema bound every convex combination of a triangle's
+    # vertices. Strict separation on either axis therefore proves emptiness.
+    # Equality is NOT rejection: all point/edge contacts still reach Polyhedra.
+    # Inputs have already passed _mpo_triangle; retain the full pair iteration.
+    for axis in 1:2
+        slo,shi=extrema(p[axis] for p in source.points)
+        tlo,thi=extrema(p[axis] for p in target.points)
+        (shi<tlo || thi<slo) && return (;dimension=-1,points=MarkedSurfaceDiagrams.Point[])
+    end
     intersection=intersect(_mpo_halfspaces(source.points),_mpo_halfspaces(target.points))
     vertices=Polyhedra.doubledescription(intersection;tol=0)
     _mm_need(isempty(collect(Polyhedra.rays(vertices))) && isempty(collect(Polyhedra.lines(vertices))),

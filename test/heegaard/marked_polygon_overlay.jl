@@ -72,4 +72,28 @@ triangle(id,points)=(;id,points)
     @test_throws ArgumentError H._marked_triangle_overlay([triangle("float",[(0.0,0.0),(1.0,0.0),(0.0,1.0)])],[small])
     @test_throws ArgumentError H._marked_triangle_overlay([small],[small];registry_points=[(0.5,0.0)])
 end
+
+# Source: exact coordinate separation and a unit right-triangle overlap of
+# leg epsilon. A zero gap retains a point contact; a positive gap is empty.
+@testset "Strict rational bounding-box rejection preserves contacts" begin
+    unit=triangle("unit",[p(0,0),p(1,0),p(0,1)])
+    epsilon=Q(1,big(10)^40)
+    for shift in (p(1+epsilon,0),p(0,1+epsilon))
+        far=triangle("far",[(x+shift[1],y+shift[2]) for (x,y) in unit.points])
+        for (source,target) in ((unit,far),(far,unit))
+            result=H._marked_triangle_overlay([source],[target])
+            @test isempty(result.cells) && isempty(result.contacts)
+            @test Set(result.registry)==Set([source.points;target.points])
+            @test only(result.coverage).covered_area==0 && !only(result.coverage).area_matches
+        end
+    end
+    touching=triangle("touching",[p(1,0),p(2,0),p(1,1)])
+    contact=H._marked_triangle_overlay([unit],[touching])
+    @test only(contact.contacts).dimension==0 && only(contact.contacts).vertices==[p(1,0)]
+    overlap=triangle("overlap",[p(1-epsilon,0),p(2-epsilon,0),p(1-epsilon,1)])
+    @test only(H._marked_triangle_overlay([unit],[overlap]).cells).area==epsilon^2/2
+    # Strictly disjoint geometry must not bypass input validation.
+    far_clockwise=triangle("bad",[p(3,0),p(3,1),p(4,0)])
+    @test_throws ArgumentError H._marked_triangle_overlay([unit],[far_clockwise])
+end
 end
