@@ -1,5 +1,58 @@
 # Heegaard subsystem implementation status
 
+## Marked input integration (2026-10-26)
+
+The active viewer checkout now reuses the existing whole-cellulation kernel,
+reference constructor and cut preparation from the cellulated checkout.
+`marked_topology_report(document)` and the `AbstractDict` overload of
+`compression_boundary_report` compute the actual normalized cut components and
+cap only the newly created boundaries. Auxiliary reference curves do not split
+the mathematical joining disk. The focused public-API test distinguishes a
+meridian from a contractible curve with the same genus and family count, handles
+redundant parallel curves and original surface boundaries, and retains split D.
+
+The decorated ribbon overload now also computes compression by gluing the
+complementary regions across the other family's strips. A genus-one example
+with one curve in each family but a sphere-plus-torus compression is rejected,
+matching an independently built marked torus. Missing zero-intersection
+embedding data is rejected instead of fabricating a genus from curve counts.
+Initial geometry generation, full move/convert coverage and executable book
+figures remain incomplete.
+
+`surface_group_presentation`, `marked_curve_words` and marked
+`fundamental_group_presentation` use a primal tree and dual triangle elimination
+on the same cellulation. They retain the generator edges and each elimination.
+The finite tests cover reference genera 1--4, disk/annulus, sphere, the meridian/
+longitude torus and redundant parallel meridians. Surface group words are
+derived computations, not a replacement for the saved whole embedding.
+The reference constructor records the managed Work's actual OCR image asset and
+hash for Fig. 12.3. The following section describes the earlier implementation.
+
+The genus 1--4 saved reference views now carry that same library provenance.
+The existing app's import, regeneration and JSON save preserve it. The accepted
+coordinates and SVGs were not changed by this provenance refresh.
+
+For cellular marked diagrams with two minimal complete cut systems, the reused
+`cellulated_punctured` adapter checks a bijection from fine regions to ribbon
+boundaries before calling the existing Koda converter. Full auxiliary data is
+retained. `to_odata(::AbstractDict)` and the existing `/api/convert` also accept a
+saved marked view after its source edge words, cut pairing, crossings and entire
+oriented D boundary match the retained marked document. The actual Koda view
+produced the independently supplied o-data (with the documented traversal
+reversal), passed all three closedness checks, and selected the original crossing
+from the resulting graph. Its SVG remained unchanged. This is not an inverse
+construction, nor support for split D or arbitrary non-cellular conversion.
+
+The old suite exposed a Julia 1.12 world-age failure in the late-loaded Catlab
+adapter. Loading Catlab before entering the latest-world callback fixed it;
+the existing Heegaard suite and the source-binding negative checks then passed.
+
+Focused verification: `julia --startup-file=no --compiled-modules=existing
+--pkgimages=no -O0 --project=. test/heegaard/marked_topology.jl`.
+Direct analysis: `scripts/heegaard/analyze_marked.jl INPUT.json REPORT.json`.
+
+## Earlier intersection-only implementation
+
 This worktree implements the core contract from the supplied Heegaard
 specification as `Topology.Heegaard`, not as a standalone package.
 

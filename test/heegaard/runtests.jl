@@ -61,7 +61,10 @@ end
     @test !H.is_homology_sphere(lens)
 
     s2xs1_code = H.heegaard_code([Int[]], [Int[]], H.Intersection[])
-    s2xs1 = H.certify_heegaard(H.decorate(s2xs1_code, nothing; cellular=true))
+    @test !H.validate(H.decorate(s2xs1_code,nothing;cellular=true)).valid
+    # The previous empty-cycle record did not specify the embedding. Keep the
+    # S2 x S1 acceptance condition using the explicit parallel-meridian torus.
+    s2xs1 = JSON.parsefile(joinpath(@__DIR__,"../../vendor/marked_surface_diagrams/examples/torus_parallel_zero_crossings.json"))
     @test H.surface_genus(s2xs1) == 1
     @test H.first_homology(s2xs1).free_rank == 1
     @test H.first_homology(s2xs1).torsion == Int[]
@@ -329,17 +332,7 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
     @test_throws ArgumentError H.load_layout(malformed_path, diagram)
 end
 
-@testset "Typed spine conversion" begin
-    diagram = s3_fixture()
-    punctured = H.make_punctured(diagram)
-    spine = H.to_flow_spine(punctured)
-    ograph = H.to_ograph(spine)
-    bundle = H.to_odata(diagram)
-    @test punctured isa H.PuncturedHeegaardDiagram
-    @test spine isa H.FlowSpine
-    @test ograph isa H.OData
-    @test bundle.ograph isa H.OData
-    @test bundle.certificate.evidence_status == :unverified
-    @test H.to_heegaard(spine) === diagram
-    @test bundle.comparison["canonical_conversion"] == false
-end
+include("joining_disk.jl")
+include("koda_complex.jl")
+include("automatic_layout.jl")
+include("canonical_hash_cache.jl")

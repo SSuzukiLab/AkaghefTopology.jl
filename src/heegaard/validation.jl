@@ -178,9 +178,13 @@ function validate(object; level=:full)
 
     closed = ValidationIssue[]
     if checks[:surface]
-        report = compression_boundary_report(source)
-        report.closed || _add_issue!(closed, :closed_heegaard, :not_closed,
-            "alpha and beta systems do not define two genus-zero compression boundaries", "closedness")
+        try
+            report = compression_boundary_report(source)
+            report.closed || _add_issue!(closed, :closed_heegaard, :not_closed,
+                "alpha and beta systems do not define genus-zero compression boundaries", "closedness")
+        catch err
+            _add_issue!(closed,:closed_heegaard,:compression_failure,sprint(showerror,err),"closedness")
+        end
     else
         _add_issue!(closed, :closed_heegaard, :blocked, "closedness validation blocked by surface failures", "closedness")
     end

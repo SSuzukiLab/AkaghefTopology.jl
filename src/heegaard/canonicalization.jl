@@ -254,4 +254,19 @@ function _canonical_structural_dict(object)
     result
 end
 
-canonical_hash(object) = bytes2hex(SHA.sha256(_canonical_json(_canonical_structural_dict(object))))
+# Rendering/validation repeatedly asks for the same canonical identity. Key the
+# bounded process-local cache by serialized input CONTENT, never object identity:
+# curves/regions are mutable, and an edited input must not reuse an old hash.
+# This preserves `_canonical_structural_dict` and every existing hash value.
+const _canonical_hash_cache = Dict{String,String}()
+const _canonical_hash_lock = ReentrantLock()
+function canonical_hash(object)
+    key = _canonical_json(_json_dict(object))
+    lock(_canonical_hash_lock) do
+        haskey(_canonical_hash_cache,key) && return _canonical_hash_cache[key]
+        result = bytes2hex(SHA.sha256(_canonical_json(_canonical_structural_dict(object))))
+        length(_canonical_hash_cache) >= 32 && empty!(_canonical_hash_cache)
+        _canonical_hash_cache[key] = result
+        result
+    end
+end

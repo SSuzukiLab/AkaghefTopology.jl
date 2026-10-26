@@ -134,6 +134,10 @@ end
 """Read a `.hgd.json` file and return an undecorated or decorated code."""
 function load_heegaard(path::AbstractString)
     parsed = JSON3.read(read(path, String))
+    _heegaard_from_json(parsed)
+end
+
+function _heegaard_from_json(parsed)
     schema = string(_spec_field(parsed, :schema, ""))
     startswith(schema, "akaghef.heegaard/") || throw(ArgumentError("unknown Heegaard schema: $schema"))
     split(schema, "/")[end] == "1" || throw(ArgumentError("unsupported Heegaard schema major version: $schema"))

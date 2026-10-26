@@ -1,6 +1,8 @@
 """The deterministic alpha-cut chart and ordered-port data."""
 
 function cut_along_alpha(H::HeegaardDiagram; diagram_hash=canonical_hash(H))
+    compression_boundary_report(H).alpha_complete || throw(ArgumentError(
+        "alpha-cut coordinates require a complete alpha cut system; use the explicit auxiliary marked cuts otherwise"))
     code = H.code.code
     boundaries = CutBoundary[]
     orders = Dict{Int,Vector{Int}}()

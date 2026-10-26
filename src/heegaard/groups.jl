@@ -14,8 +14,11 @@ end
 
 function fundamental_group_presentation(object)
     code = _presentation_code(object)
+    compression_boundary_report(object).alpha_complete || throw(ArgumentError(
+        "alpha generators require a complete cut system; use the full marked document for redundant systems"))
+    generator_index=Dict(c.id=>i for (i,c) in enumerate(code.alpha))
     GroupPresentation(["x$(curve.id)" for curve in code.alpha],
-        [relator(code, curve.id) for curve in code.beta],
+        [[(generator_index[id],sign) for (id,sign) in relator(code,curve.id)] for curve in code.beta],
         [curve.id for curve in code.beta],
         Dict{String,Any}(
             "generator_convention" => "alpha curve x_i",
@@ -125,8 +128,9 @@ function smith_normal_form(matrix::AbstractMatrix{<:Integer})
     A
 end
 
-function first_homology(object)
-    matrix = abelianization_matrix(fundamental_group_presentation(object))
+first_homology(object)=first_homology(fundamental_group_presentation(object))
+function first_homology(presentation::GroupPresentation)
+    matrix = abelianization_matrix(presentation)
     smith = smith_normal_form(matrix)
     diagonal = [abs(smith[i, i]) for i in 1:min(size(smith)...)]
     nonzero = filter(!=(0), diagonal)

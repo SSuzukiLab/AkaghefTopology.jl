@@ -312,18 +312,51 @@ struct ConversionCertificate
     evidence_status::Symbol
 end
 
+"""Embedded disk face bound to an exact labelled diagram, with disk-left boundary darts."""
+struct JoiningDisk
+    labelled_diagram_hash::String
+    region::Int
+    boundary_darts::Vector{Int}
+end
+
 struct PuncturedHeegaardDiagram
     diagram::HeegaardDiagram
-    joining_disk::Dict{String,Any}
+    joining_disk::JoiningDisk
     cut::CutSurface
     certificate::ConversionCertificate
 end
 
+"""Directed singular edge after removing D and smoothing its corners."""
+struct SpineEdge
+    source_vertex::Int
+    source_family::Symbol
+    target_vertex::Int
+    target_family::Symbol
+    source_darts::Vector{Int}
+end
+
+"""Oriented disk sector, with signed singular-edge attaching word and source cells."""
+struct SpineRegion
+    source_cells::Vector{String}
+    source_darts::Vector{Int}
+    boundary::Vector{Int}
+end
+
+"""K08 B minus D, retaining the face-gluing witness and repeated incidences."""
+struct BranchedSpineComplex
+    regions::Vector{SpineRegion}
+    gluings::Vector{Dict{String,Any}}
+    edge_incidence::Vector{Vector{Tuple{Int,Int}}}
+    checks::Dict{String,Any}
+end
+
 struct FlowSpine
     genus::Int
-    branches::Vector{NamedTuple{(:curve_family, :curve_id, :intersection_ids),Tuple{Symbol,Int,Vector{Int}}}}
+    edges::Vector{SpineEdge}
+    vertex_signs::Dict{Int,Int}
     source::Any
     certificate::ConversionCertificate
+    complex::BranchedSpineComplex
 end
 
 struct OData

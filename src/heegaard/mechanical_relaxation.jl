@@ -696,6 +696,7 @@ function _fit_bezier_layout(H, layout, point_routes;
                             handle_scale, flatness, max_depth,
                             minimum_route_separation)
     scale = handle_scale
+    diagnostic = ""
     for _ in 1:20
         routes = [_bezier_route(route, point_routes[index];
                     handle_scale=scale, flatness, max_depth)
@@ -721,6 +722,7 @@ function _fit_bezier_layout(H, layout, point_routes;
             end_normal[1] * reverse_end_tangent[1] + end_normal[2] * reverse_end_tangent[2] >= -1e-12
         end for route in routes)
         route_separation = _route_pair_clearance([route.points for route in routes])
+        diagnostic = "issues=$(join(string.(getfield.(report.issues,:code)),',')); endpoint_tangents=$endpoint_tangents; separation=$route_separation; required=$minimum_route_separation"
         if report.valid && endpoint_tangents &&
            route_separation >= minimum_route_separation
             accepted = HeegaardLayout(provisional.diagram_hash, provisional.view, provisional.chart,
@@ -743,7 +745,7 @@ function _fit_bezier_layout(H, layout, point_routes;
         end
         scale /= 2
     end
-    throw(ArgumentError("mechanical relaxation could not fit a validated Bezier chain"))
+    throw(ArgumentError("mechanical relaxation could not fit a validated Bezier chain: " * diagnostic))
 end
 
 """Relax a verified PL layout by constrained tension/bending/repulsion dynamics.

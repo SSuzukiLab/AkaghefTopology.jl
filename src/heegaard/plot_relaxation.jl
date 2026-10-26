@@ -15,7 +15,7 @@ end
 # through strands that already run along the boundary. The ports stay fixed;
 # radial spokes connect them to the mapped exterior. Supports are disjoint
 # and d(R)/d(r) >= 1-2*height/width > 0, preserving the exterior isotopy class.
-function _normal_exit_paths(layout, paths; tolerance)
+function _sampled_normal_exit_paths(layout, paths; tolerance)
     disks=layout.punctures
     collars=[begin
         gap=minimum((_vnorm(_vsub(d.center,e.center))-d.radius-e.radius
@@ -53,6 +53,34 @@ function _normal_exit_paths(layout, paths; tolerance)
         out
     end for p in paths]
     transformed,minimum(c.height for c in collars)
+end
+
+# Carry every strand through the SAME piecewise-affine homeomorphism. Exact
+# segment splitting is essential for tightly packed combinatorial seeds:
+# separately approximating a smooth radial map can introduce new crossings.
+function _normal_exit_paths(layout, paths; tolerance)
+    disks=layout.punctures
+    collars=[begin
+        euclidean_gap=minimum((_vnorm(_vsub(d.center,e.center))-d.radius-e.radius
+            for e in disks if e.id!=d.id);init=Inf)
+        square_gap=minimum((max(abs(d.center[1]-e.center[1]),abs(d.center[2]-e.center[2]))-
+            e.radius-d.radius for e in disks if e.id!=d.id);init=Inf)
+        width=min(0.9d.radius,0.45euclidean_gap,0.45square_gap)
+        (disk=d,width=width,height=min(0.08d.radius,0.4width))
+    end for d in disks]
+    # Disjoint circles need not have disjoint bounding squares. The checked
+    # caller refines the radial approximation for that less common placement.
+    any(c->c.width<=0,collars) && return _sampled_normal_exit_paths(layout,paths;tolerance)
+    mapped=[Route(r.family,r.curve_id,r.segment_id,r.start_port,r.end_port,paths[i])
+        for (i,r) in enumerate(layout.routes)]
+    for c in collars
+        point_map,lines,_=_pl_radial_square_map(c.disk.center,c.disk.radius,
+            c.disk.radius+c.height,c.disk.radius+c.width)
+        inside=p->max(abs(p[1]-c.disk.center[1]),abs(p[2]-c.disk.center[2]))<=c.disk.radius+c.width+1e-9
+        mapped=_map_routes_on_line_arrangement(mapped,point_map,lines;split_predicate=inside)
+    end
+    [vcat(paths[i][1:1],r.points,paths[i][end:end]) for (i,r) in enumerate(mapped)],
+        minimum(c.height for c in collars)
 end
 
 function _exit_angle_degrees(layout)
@@ -309,6 +337,19 @@ function _joint_plot_relaxation(H,layout; iterations=500)
     # Normal exits are boundary conditions BEFORE the mechanical solve.
     # Never attach a straight stub or radially warp a converged result.
     normal_paths,collar_length=_normal_exit_paths(layout,tightened;tolerance=1e-4scale)
+    if _validated_polyline_candidate(H,layout,normal_paths)===nothing
+        separation=_route_pair_clearance(tightened)
+        tolerance=min(1e-5scale,0.01separation)
+        accepted_normal=false
+        for _ in 1:8
+            normal_paths,collar_length=_sampled_normal_exit_paths(layout,tightened;tolerance)
+            if _validated_polyline_candidate(H,layout,normal_paths)!==nothing
+                accepted_normal=true;break
+            end
+            tolerance/=4
+        end
+        accepted_normal || throw(ArgumentError("normal-exit construction failed geometric validation before relaxation"))
+    end
     normal_paths,_=_simplify_polylines(H,layout,normal_paths;tolerance=0.004scale)
     current=[_densify_route(p;max_spacing=0.09scale) for p in normal_paths]
     @info "Heegaard plot: joint relaxation" points=sum(length,current)
