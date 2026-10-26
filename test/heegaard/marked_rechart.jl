@@ -113,4 +113,112 @@ if haskey(ENV,"MARKED_RECHART_PROOF")
 else
     println("Actual over-limit rechart scope not executed: MARKED_RECHART_PROOF was not supplied")
 end
+
+function selective_features(source,result)
+    corr=result.correspondence;doc=deepcopy(result.document)
+    edges=Dict(Tuple(r["source"])=>r["target"] for r in corr["edge_images"])
+    vertices=Dict(Tuple(r["source"])=>r["target"] for r in corr["vertex_images"])
+    children=Dict(Tuple(r["source"])=>r["target"] for r in corr["cell_children"])
+    doc["curves"]=deepcopy(source["curves"]);doc["crossings"]=deepcopy(source["crossings"])
+    for c in doc["curves"]
+        ds=M.Dart[]
+        for d in M.parse_word(c["word"]);append!(ds,H._st_darts(edges[(d.face,d.u,d.v)]));end
+        c["word"]=M.print_word(ds)
+    end
+    for x in doc["crossings"];x["at"]=deepcopy(vertices[Tuple(x["at"])]);end
+    haskey(source,"metadata") && (doc["metadata"]=deepcopy(source["metadata"]))
+    if haskey(source,"region_marks")
+        doc["region_marks"]=deepcopy(source["region_marks"])
+        for mark in doc["region_marks"];mark["seed"]=deepcopy(first(children[Tuple(mark["seed"])]));end
+    end
+    infinity=H._mm_infinity(source)
+    infinity!==nothing && (doc["metadata"]["display"]["infinity_triangle"]=deepcopy(first(children[Tuple(infinity)])))
+    doc
+end
+
+# Source: the existing grid builder and directed meridian/longitude example.
+# This is an independently generated oversized raw disk, not the D answer
+# fixture. Existing 64/256 native bounds and all default tests remain unchanged.
+@testset "Selective proper-arc identity partition and actual inverse" begin
+    B=H.MarkedDiagramBuilders;source=B.grid_document(16)
+    B.add_curve!(source,"a","alpha",true,[[(0,1),(16,1)]])
+    B.add_curve!(source,"b","beta",true,[[(1,0),(1,16)]])
+    B.declare_crossing!(source,"x",1,1,"a","b",1)
+    raw=rawgeometry(source);snapshot=deepcopy(raw);pairs=H._marked_rechart_opposites(raw)
+    result=H._marked_rechart_geometry(raw,pairs;specification=Dict("strategy"=>"proper_arc"))
+    @test raw==snapshot
+    @test H.validate(result.document;level=:surface).valid
+    @test length(result.document["patches"])<=64
+    @test maximum(length(Set(v for t in p["triangles"] for v in t)) for p in result.document["patches"])<=256
+    @test !isempty(result.correspondence["proper_cuts"])
+    @test sum(length(p["triangles"]) for p in result.document["patches"])<6*sum(length(p["triangles"]) for p in raw["patches"])
+    @test result.inverse_specification["schema"]=="internal-triangle-partition/1"
+    featured=selective_features(source,result)
+    @test H.validate(featured;level=:surface).valid
+    @test H.intersection_matrix(featured)==[1;;]
+    restored=H._marked_unrechart_geometry(featured,jsonround(result.inverse_specification))
+    @test restored.geometry==raw && restored.opposite_edges==pairs
+    @test restored.construction_only && H._mm_hash(restored.correspondence)==H._mm_hash(result.correspondence)
+    bad=deepcopy(result.inverse_specification)
+    bad["affine_children"][1]["weights"]=circshift(bad["affine_children"][1]["weights"],1)
+    @test_throws ArgumentError H._marked_unrechart_geometry(featured,bad)
+    bad=deepcopy(result.inverse_specification)
+    a=deepcopy(bad["opposite_edges"][1]["target"])
+    bad["opposite_edges"][1]["target"]=deepcopy(bad["opposite_edges"][2]["target"])
+    bad["opposite_edges"][2]["target"]=a
+    @test_throws ArgumentError H._marked_unrechart_geometry(featured,bad)
+    @test_throws ArgumentError H._marked_rechart_geometry(raw,pairs;specification=Dict("strategy"=>"proper_arc","maximum_vertices"=>999))
+    # Source: selective inverse consumes JSON, not a trusted in-memory receipt.
+    # Malformed schema must fail before indexing/allocation, with field context.
+    malformed=[
+        ("triangle_ancestry",s->(s["triangle_ancestry"][1]["source_vertices"]=["x"])),
+        ("affine_children",s->(s["affine_children"]=nothing)),
+        ("fields",s->delete!(s,"affine_children")),
+        ("triangle_count",s->(s["raw_charts"][1]["triangle_count"]=true)),
+        ("raw_surface",s->(s["raw_surface"]=nothing)),
+        ("rational",s->(s["affine_children"][1]["weights"][1][1]="not-a-rational")),
+        ("opposite_edges",s->(s["opposite_edges"][1]["source"]=["x",false,"a","b"]))]
+    for (field,change) in malformed
+        bad=deepcopy(result.inverse_specification);change(bad)
+        error=try
+            H._marked_unrechart_geometry(featured,bad);nothing
+        catch caught
+            caught
+        end
+        @test error isa ArgumentError
+        @test error isa Exception && occursin(field,sprint(showerror,error))
+    end
+end
+
+# The lead supplies the unchanged actual raw D receipt. This bypasses only
+# recomputation of its expensive accepted raw producer, never native capacity,
+# features, exact child incidence, or the independently reconstructed inverse.
+if haskey(ENV,"MARKED_PROPER_ARC_PROOF")
+    @testset "Actual embedded-D raw proof selective native realization" begin
+        bundle=JSON3.read(read(ENV["MARKED_PROPER_ARC_PROOF"],String),Dict{String,Any})
+        @test bundle["construction_only"] && !bundle["native_validity_claimed"]
+        source=bundle["complex"];raw=rawgeometry(source);snapshot=deepcopy(raw)
+        @test sum(length(p["triangles"]) for p in raw["patches"])==8704
+        @test maximum(length(Set(v for t in p["triangles"] for v in t)) for p in raw["patches"])==1055
+        pairs=H._marked_rechart_opposites(raw)
+        println("Actual selective rechart forward started");flush(stdout);started=time()
+        result=H._marked_rechart_geometry(raw,pairs;specification=Dict("strategy"=>"proper_arc"))
+        println("Actual selective rechart forward seconds: ",time()-started);flush(stdout)
+        @test raw==snapshot
+        @test length(result.document["patches"])<=64
+        @test maximum(length(Set(v for t in p["triangles"] for v in t)) for p in result.document["patches"])<=256
+        featured=selective_features(source,result)
+        report=H.validate(featured;level=:surface)
+        @test report.valid
+        @test length(featured["region_marks"])==length(source["region_marks"])
+        @test H._mm_infinity(featured)!==nothing
+        println("Actual selective rechart inverse started");flush(stdout);started=time()
+        restored=H._marked_unrechart_geometry(featured,jsonround(result.inverse_specification))
+        println("Actual selective rechart inverse seconds: ",time()-started);flush(stdout)
+        @test restored.geometry==raw && restored.opposite_edges==pairs
+        @test H._mm_hash(restored.correspondence)==H._mm_hash(result.correspondence)
+    end
+else
+    println("Actual D selective scope not executed: MARKED_PROPER_ARC_PROOF was not supplied")
+end
 end

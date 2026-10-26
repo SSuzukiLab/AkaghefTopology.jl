@@ -107,6 +107,10 @@ rows in actual public-triangle order over their raw parent, for composition.
 """
 function _marked_rechart_geometry(raw_geometry::AbstractDict,opposite_edges::AbstractDict;
                                   specification::AbstractDict=Dict{String,Any}())
+    # The opt-in selective strategy preserves already legal old-chart routes.
+    # Its caller must check that raw external features avoid marking edges and
+    # corners. Empty-spec uniform-star behavior and its inverse remain intact.
+    _plain_value(specification)==Dict("strategy"=>"proper_arc") && return _mr_proper_arc_geometry(raw_geometry,opposite_edges)
     _mm_need(isempty(specification),"private identity rechart accepts no replacement geometry or layout choices")
     first_atlas=_mr_first_atlas(raw_geometry,opposite_edges)
     star=marked_dual_star(first_atlas.atlas,Dict("merge_charts"=>true))
@@ -235,6 +239,7 @@ map inverse on this reconstructed geometry before returning native data.
 """
 function _marked_unrechart_geometry(current_native::AbstractDict,inverse_specification::AbstractDict)
     M=MarkedSurfaceDiagrams;current=_marked_document(current_native);spec=_plain_value(inverse_specification)
+    get(spec,"schema",nothing)=="internal-triangle-partition/1" && return _mr_unpartition_geometry(current,spec)
     _mm_need(get(spec,"schema","")=="internal-triangle-rechart/1","unknown private rechart inverse")
     bare=_st_empty(current)
     _mm_need(_mm_hash(bare)==spec["public_geometry_hash"],"public rechart geometry has changed")
@@ -291,4 +296,482 @@ function _marked_unrechart_geometry(current_native::AbstractDict,inverse_specifi
     _mm_need(regenerated.document==bare && _canonical_json(regenerated.inverse_specification)==_canonical_json(spec) &&
         _mm_hash(regenerated.correspondence)==spec["correspondence_hash"],"forward identity rechart does not regenerate current geometry and inverse data")
     (;geometry,opposite_edges=reconstructed_pairs,correspondence=regenerated.correspondence,construction_only=true)
+end
+# Source: actual 8704-triangle D proof and the independently native-validated
+# proper-arc probe (44 charts, maximum 203 vertices). The local split is the
+# existing exact barycentric midpoint construction: an oriented (a,b,c), with
+# m=(a+b)/2,n=(c+a)/2, becomes (a,m,n),(m,b,c),(m,c,n). It retains every old
+# vertex and is an identity subdivision, not a change of the fixed target.
+_mrp_row(parent,vertices,weights)=(parent=parent,vertices=String.(vertices),weights=weights)
+_mrp_midweights(a,b)=[(x+y)/2 for (x,y) in zip(a,b)]
+function _mrp_incidence(rows)
+    M=MarkedSurfaceDiagrams;inc=Dict{Tuple{String,String},Vector{Tuple{Int,String,String}}}()
+    for (i,row) in enumerate(rows),(u,v) in M.tedges(row.vertices)
+        push!(get!(inc,M.edge(u,v),Tuple{Int,String,String}[]),(i,u,v))
+    end
+    inc
+end
+function _mrp_mesh(rows)
+    M=MarkedSurfaceDiagrams;inc=_mrp_incidence(rows);adj=Dict(i=>Int[] for i in eachindex(rows));boundary=Dict{String,String}()
+    for e in sort(collect(keys(inc)))
+        os=inc[e];_mm_need(length(os) in (1,2),"proper-arc cell has nonmanifold incidence")
+        if length(os)==2
+            _mm_need(os[1][2:3]==reverse(os[2][2:3]),"proper-arc incidence reverses surface orientation")
+            push!(adj[os[1][1]],os[2][1]);push!(adj[os[2][1]],os[1][1])
+        else
+            _,u,v=only(os);_mm_need(!haskey(boundary,u),"proper-arc boundary branches");boundary[u]=v
+        end
+    end
+    for ns in values(adj);sort!(ns);end
+    _mm_need(!isempty(boundary) && length(M.components(eachindex(rows),adj))==1,"proper-arc disk is disconnected or has no boundary")
+    cycle=String[minimum(keys(boundary))]
+    while boundary[last(cycle)]!=first(cycle)
+        push!(cycle,boundary[last(cycle)]);_mm_need(length(cycle)<=length(boundary),"proper-arc boundary does not close")
+    end
+    vertices=Set(v for row in rows for v in row.vertices)
+    _mm_need(length(cycle)==length(boundary) && length(vertices)-length(inc)+length(rows)==1,"proper-arc child is not a disk")
+    (;inc,adj,cycle,vertices)
+end
+function _mrp_check_disk(rows)
+    # Reuse the native disk/link validator on the actual triangle rows. Three
+    # temporary boundary names are geometry-only; final sides are assembled
+    # from maximal paired runs, never from these temporary corner choices.
+    M=MarkedSurfaceDiagrams;s=_mrp_mesh(rows);v=s.cycle
+    p=Dict("face"=>"proper_arc_disk","side_order"=>["a","b","c"],
+        "sides"=>Dict("a"=>v[1:2],"b"=>v[2:3],"c"=>vcat(v[3:end],[v[1]])),
+        "triangles"=>[r.vertices for r in rows])
+    M.patch_info(p);s
+end
+function _mrp_paths(adj,start)
+    # Source: Topology._shortest_path in virtual_planarization.jl. The same BFS
+    # is adjacency-indexed and shared by all sampled endpoints of one source;
+    # repeatedly scanning the full edge table would be quadratic per query.
+    parent=Dict(start=>0);queue=[start];head=1
+    while head<=length(queue)
+        v=queue[head];head+=1
+        for w in adj[v]
+            haskey(parent,w) && continue
+            parent[w]=v;push!(queue,w)
+        end
+    end
+    parent
+end
+function _mrp_path(parent,start,finish)
+    _mm_need(haskey(parent,finish),"proper-arc endpoint is disconnected")
+    path=[finish]
+    while last(path)!=start;push!(path,parent[last(path)]);end
+    reverse(path)
+end
+function _mrp_midpoint!(state,f,u,v)
+    M=MarkedSurfaceDiagrams;key=(f,M.edge(u,v))
+    if !haskey(state.midpoints,key)
+        state.serial[]+=1;state.midpoints[key]=state.prefix*string(state.serial[])
+    end
+    state.midpoints[key]
+end
+function _mrp_boundary_split!(state,f,u,v,m)
+    M=MarkedSurfaceDiagrams;key=(f,M.edge(u,v));haskey(state.labels,key) || return
+    lab,qs=state.labels[key];q=(qs[u]+qs[v])/2
+    state.labels[(f,M.edge(u,m))]=(lab,Dict(u=>qs[u],m=>q))
+    state.labels[(f,M.edge(m,v))]=(lab,Dict(m=>q,v=>qs[v]))
+end
+function _mrp_split_boundary!(state,p,e)
+    rows=p.rows;os=_mrp_incidence(rows)[e];_mm_need(length(os)==1,"mirrored refinement is not on a boundary")
+    i,u,v=only(os);row=rows[i];w=only(setdiff(row.vertices,collect(e)));bw=Dict(zip(row.vertices,row.weights))
+    m=_mrp_midpoint!(state,p.origin,u,v);bm=_mrp_midweights(bw[u],bw[v])
+    splice!(rows,i:i,[_mrp_row(row.parent,[u,m,w],[bw[u],bm,bw[w]]),_mrp_row(row.parent,[m,v,w],[bm,bw[v],bw[w]])])
+    _mrp_boundary_split!(state,p.origin,u,v,m)
+end
+function _mrp_synchronize!(state)
+    # Midpoints are exact dyadic refinements on the existing rational interval.
+    # Mirror old seams AND earlier proper cuts; final side-run segmentation
+    # subsequently promotes matching endpoints to corners on both sides.
+    count=0
+    while true
+        endpoints=Dict();entries=Any[]
+        for name in sort(collect(keys(state.patches)))
+            p=state.patches[name]
+            for (e,os) in sort(collect(_mrp_incidence(p.rows));by=first)
+                length(os)==1 || continue
+                lab,qs=state.labels[(p.origin,e)];union!(get!(endpoints,lab,Set()),values(qs))
+                push!(entries,(name,e,lab,sort(collect(values(qs)))))
+            end
+        end
+        selected=findfirst(x->any(x[4][1]<q<x[4][2] for q in endpoints[x[3]]),entries)
+        selected===nothing && return count
+        name,e,_,_=entries[selected];_mrp_split_boundary!(state,state.patches[name],e);count+=1
+    end
+end
+function _mrp_candidate(state,p,path,e1,e2;temporary=true)
+    M=MarkedSurfaceDiagrams;rows=p.rows;crossed=[e1]
+    for (a,b) in zip(path,path[2:end])
+        common=intersect(Set(rows[a].vertices),Set(rows[b].vertices))
+        _mm_need(length(common)==2,"dual path does not cross one triangle edge")
+        push!(crossed,Tuple(sort(collect(common))))
+    end
+    push!(crossed,e2);_mm_need(length(Set(crossed))==length(crossed),"proper arc repeats an edge")
+    mids=Dict(e=>(temporary ? state.prefix*"candidate_"*string(i) : _mrp_midpoint!(state,p.origin,e...)) for (i,e) in enumerate(crossed))
+    replacements=Dict();seam=Tuple{String,String}[]
+    for (j,i) in enumerate(path)
+        row=rows[i];a=only(intersect(Set(crossed[j]),Set(crossed[j+1])));k=only(findall(==(a),row.vertices))
+        a,b,c=[row.vertices[mod1(k+r,3)] for r in 0:2];m=mids[M.edge(a,b)];n=mids[M.edge(c,a)]
+        bw=Dict(zip(row.vertices,row.weights));bm=_mrp_midweights(bw[a],bw[b]);bn=_mrp_midweights(bw[c],bw[a])
+        replacements[i]=[_mrp_row(row.parent,[a,m,n],[bw[a],bm,bn]),
+            _mrp_row(row.parent,[m,b,c],[bm,bw[b],bw[c]]),_mrp_row(row.parent,[m,c,n],[bm,bw[c],bn])]
+        push!(seam,(mids[crossed[j]],mids[crossed[j+1]]))
+    end
+    refined=Any[r for (i,row) in enumerate(rows) for r in get(replacements,i,[row])]
+    inc=_mrp_incidence(refined);blocked=Set(M.edge(u,v) for (u,v) in seam);adj=Dict(i=>Int[] for i in eachindex(refined))
+    for (e,os) in inc
+        length(os)==2 && !(e in blocked) || continue
+        push!(adj[os[1][1]],os[2][1]);push!(adj[os[2][1]],os[1][1])
+    end
+    components=M.components(eachindex(refined),adj);_mm_need(length(components)==2,"proper arc did not cut the disk into two disks")
+    children=[refined[sort(collect(c))] for c in components]
+    counts=[length(Set(v for r in ch for v in r.vertices)) for ch in children]
+    (;children,counts,seam,mids)
+end
+function _mrp_choose(state,p)
+    M=MarkedSurfaceDiagrams;s=_mrp_check_disk(p.rows);boundary=collect(zip(s.cycle,circshift(s.cycle,-1)));n=length(boundary)
+    sample_count=min(24,n);samples=sort(unique(mod(round(Int,i*n/sample_count),n)+1 for i in 0:sample_count-1))
+    best=nothing;bestscore=nothing
+    for (position,i) in enumerate(samples)
+        e1=M.edge(boundary[i]...);start=only(s.inc[e1])[1];parent=_mrp_paths(s.adj,start)
+        for j in samples[position+1:end]
+            e2=M.edge(boundary[j]...);finish=only(s.inc[e2])[1]
+            start==finish && continue
+            state.labels[(p.origin,e1)][1]==state.labels[(p.origin,e2)][1] && continue
+            path=_mrp_path(parent,start,finish);candidate=_mrp_candidate(state,p,path,e1,e2)
+            maximum(candidate.counts)<length(s.vertices) || continue
+            score=(maximum(candidate.counts),length(path),i,j)
+            if bestscore===nothing || isless(score,bestscore);bestscore=score;best=(path,e1,e2);end
+        end
+    end
+    _mm_need(best!==nothing,"bounded proper-arc search found no reducing disk cut")
+    best
+end
+function _mrp_partition(proof)
+    M=MarkedSurfaceDiagrams;Q=M.Rat;patches=Dict{String,Any}();labels=Dict();midpoints=Dict();serial=Ref(0)
+    prefix="partition_mid_";oldnames=Set(v for t in values(proof.triangles) for v in t)
+    while any(startswith(v,prefix) for v in oldnames);prefix="p_"*prefix;end
+    for f in sort(collect(keys(proof.patches)))
+        rows=Any[_mrp_row((f,i-1),t,[[Q(j==k) for k in 1:3] for j in 1:3]) for (i,t) in enumerate(proof.patches[f]["triangles"])]
+        patches[f]=(origin=f,rows=rows)
+    end
+    for (number,(a,b)) in enumerate(proof.geometry["surface"]["gluings"])
+        for (side,sign) in ((a,1),(b,-1))
+            p=proof.patches[side[1]];vs=p["sides"][side[2]];qs=M.side_parameters(p,side[2]);sign==-1 && (qs=1 .-qs)
+            for j in 1:length(vs)-1
+                labels[(side[1],M.edge(vs[j],vs[j+1]))]=("old$number",Dict(vs[j]=>qs[j],vs[j+1]=>qs[j+1]))
+            end
+        end
+    end
+    state=(;patches,labels,midpoints,serial,prefix);trace=Any[]
+    while true
+        sizes=Dict(name=>length(Set(v for r in p.rows for v in r.vertices)) for (name,p) in patches)
+        bad=sort([name for name in keys(patches) if sizes[name]>224];by=n->(sizes[n],n))
+        isempty(bad) && break
+        name=last(bad);p=patches[name];path,e1,e2=_mrp_choose(state,p)
+        result=_mrp_candidate(state,p,path,e1,e2;temporary=false)
+        for (e,m) in result.mids;_mrp_boundary_split!(state,p.origin,e...,m);end
+        sid="cut$(length(trace))"
+        for (j,(u,v)) in enumerate(result.seam)
+            labels[(p.origin,M.edge(u,v))]=(sid,Dict(u=>Q(j-1)/length(result.seam),v=>Q(j)/length(result.seam)))
+        end
+        delete!(patches,name)
+        childnames=[name*"_"*string(k-1) for k in eachindex(result.children)]
+        _mm_need(all(!haskey(patches,n) for n in childnames),"proper-arc child chart name collides")
+        for (child,rows) in zip(childnames,result.children);_mrp_check_disk(rows);patches[child]=(origin=p.origin,rows=rows);end
+        mirrored=_mrp_synchronize!(state)
+        push!(trace,Dict("source"=>name,"path_triangles"=>path .-1,"entry_edge"=>collect(e1),"exit_edge"=>collect(e2),
+            "children"=>childnames,"mirrored_triangle_splits"=>mirrored))
+        _mm_need(length(patches)<=64,"selective disk partition exceeds native chart count")
+    end
+    (;state,trace)
+end
+
+function _mrp_assemble(partition,raw)
+    M=MarkedSurfaceDiagrams;state=partition.state;patches=state.patches;boundaries=Dict();meshes=Dict()
+    for name in sort(collect(keys(patches)))
+        p=patches[name];s=_mrp_mesh(p.rows);meshes[name]=s
+        for (e,os) in s.inc
+            length(os)==1 || continue
+            i,u,v=only(os);lab,qs=state.labels[(p.origin,e)];lo,hi=minmax(qs[u],qs[v])
+            push!(get!(boundaries,(lab,lo,hi),Any[]),(name,i,u,v,qs[u],qs[v]))
+        end
+    end
+    peer=Dict()
+    for pair in values(boundaries)
+        _mm_need(length(pair)==2,"selective boundary interval has no unique opposite")
+        a,b=pair;_mm_need(a[5:6]==reverse(b[5:6]),"selective boundary interval orientation differs")
+        peer[(a[1],M.edge(a[3],a[4]))]=b[1];peer[(b[1],M.edge(b[3],b[4]))]=a[1]
+    end
+    output=Any[];sidegroups=Dict();affine=Any[];children=Dict();origins=Dict()
+    for name in sort(collect(keys(patches)))
+        p=patches[name];s=meshes[name];boundary=collect(zip(s.cycle,circshift(s.cycle,-1)));n=length(boundary)
+        kinds=[(state.labels[(p.origin,M.edge(u,v))][1],peer[(name,M.edge(u,v))]) for (u,v) in boundary]
+        starts=[i for i in 1:n if kinds[i]!=kinds[mod1(i-1,n)]]
+        _mm_need(length(starts)>=3,"selective child has fewer than three maximal named sides")
+        order=String[];sides=Dict();parameters=Dict()
+        for (k,start) in enumerate(starts)
+            stop=starts[mod1(k+1,length(starts))];indices=Int[];i=start
+            while true;push!(indices,i);i=mod1(i+1,n);i==stop && break;end
+            vs=vcat([boundary[i][1] for i in indices],[boundary[last(indices)][2]])
+            qs=[state.labels[(p.origin,M.edge(boundary[i]...))][2][boundary[i][1]] for i in indices]
+            push!(qs,state.labels[(p.origin,M.edge(boundary[last(indices)]...))][2][last(vs)])
+            _mm_need(all(kinds[i]==kinds[start] for i in indices),"selective side crosses a corner or opposite-chart change")
+            ps=[(q-first(qs))/(last(qs)-first(qs)) for q in qs];sid="e$k";push!(order,sid);sides[sid]=vs;parameters[sid]=M.qstr.(ps)
+            _mm_need(first(ps)==0 && last(ps)==1 && all(ps[i]<ps[i+1] for i in 1:length(ps)-1),"selective side parameters are not strict")
+            lo,hi=minmax(first(qs),last(qs));push!(get!(sidegroups,(kinds[start][1],lo,hi),Any[]),(name,sid,vs,ps))
+        end
+        push!(output,Dict("face"=>name,"side_order"=>order,"sides"=>sides,"side_parameters"=>parameters,"triangles"=>[r.vertices for r in p.rows]))
+        origins[name]=p.origin
+        for (i,row) in enumerate(p.rows)
+            record=Dict("source"=>collect(row.parent),"target"=>[name,i-1],"vertices"=>copy(row.vertices),"weights"=>[M.qstr.(w) for w in row.weights])
+            push!(affine,record);push!(get!(children,row.parent,Any[]),[name,i-1])
+        end
+    end
+    gluings=Any[]
+    for (_,pair) in sort(collect(sidegroups);by=first)
+        _mm_need(length(pair)==2,"selective named side has no unique opposite")
+        a,b=pair;_mm_need(a[4]==[1-q for q in reverse(b[4])],"selective named-side subdivisions disagree")
+        push!(gluings,[collect(a[1:2]),collect(b[1:2])])
+    end
+    surface=deepcopy(raw["surface"]);surface["marking_id"]*="/proper-arc";surface["gluings"]=gluings
+    doc=Dict{String,Any}("version"=>1,"surface"=>surface,"patches"=>output,"curves"=>Any[],"crossings"=>Any[])
+    native=M.validate(doc)
+    (;document=doc,native,affine,children,origins,meshes)
+end
+
+function _mrp_expand(midpoints,f,u,v)
+    M=MarkedSurfaceDiagrams;m=get(midpoints,(f,M.edge(u,v)),nothing)
+    m===nothing && return [(u,v)]
+    vcat(_mrp_expand(midpoints,f,u,m),_mrp_expand(midpoints,f,m,v))
+end
+function _mrp_correspondence(proof,partition,assembled)
+    M=MarkedSurfaceDiagrams;state=partition.state;native=assembled.native;owners=Dict();vertices=Dict()
+    oldvertices=Dict(f=>Set(v for t in p["triangles"] for v in t) for (f,p) in proof.patches)
+    for (name,p) in state.patches
+        mesh=assembled.meshes[name]
+        for e in keys(mesh.inc);push!(get!(owners,(p.origin,e),String[]),name);end
+        for v in mesh.vertices
+            haskey(proof.incidence,p.origin) || continue
+            v in oldvertices[p.origin] || continue
+            key=(p.origin,v);point=collect(M.root!(native.vertex_dsu,(name,v)))
+            _mm_need(!haskey(vertices,key) || vertices[key]==point,"old vertex has inconsistent selective images");vertices[key]=point
+        end
+    end
+    function image(o)
+        f,_,u,v=o;path=Any[]
+        for (a,b) in _mrp_expand(state.midpoints,f,u,v)
+            names=owners[(f,M.edge(a,b))];_mm_need(length(names)==1,"old edge has an ambiguous selective local image")
+            push!(path,[only(names),a,b])
+        end
+        path
+    end
+    canonical=sort([o for (o,p) in proof.opposite_edges if isless(o,p)]);paths=Dict(o=>image(o) for o in canonical)
+    reversepath(xs)=[[x[1],x[3],x[2]] for x in reverse(xs)]
+    edge_records=[Dict("edge"=>_mr_json_occ(o),"target"=>paths[o]) for o in canonical]
+    local_edges=Any[];seen=Set()
+    for o in canonical,path in (paths[o],reversepath(paths[o]))
+        key=_canonical_json(path);_mm_need(!(key in seen),"selective canonical raw edges share one directed path");push!(seen,key)
+    end
+    for f in sort(collect(keys(proof.patches))),e in sort(collect(keys(proof.incidence[f])))
+        i,u,v=first(proof.incidence[f][e]);o=(f,i,u,v);c=min(o,proof.opposite_edges[o]);same=(o==c)==((u,v)==e)
+        path=same ? paths[c] : reversepath(paths[c])
+        push!(local_edges,Dict("source"=>[f,e...],"target"=>path));push!(local_edges,Dict("source"=>[f,reverse(e)...],"target"=>reversepath(path)))
+    end
+    occurrences=[Dict("source"=>_mr_json_occ(o),"edge"=>_mr_json_occ(min(o,p)),"orientation"=>(o==min(o,p) ? 1 : -1)) for (o,p) in sort(collect(proof.opposite_edges);by=first)]
+    Dict{String,Any}("cell_semantics"=>"selective proper-arc identity partition; positive exact children retain each original raw parent",
+        "route_domain"=>"old chart-interior curves with legal noncorner gates; old marking-edge images are geometric incidence only",
+        "edge_images"=>local_edges,"vertex_images"=>[Dict("source"=>collect(k),"target"=>vertices[k]) for k in sort(collect(keys(vertices)))],
+        "cell_children"=>[Dict("source"=>collect(k),"target"=>assembled.children[k]) for k in sort(collect(keys(assembled.children)))],
+        "child_barycentric_rows"=>assembled.affine,"canonical_edges"=>edge_records,"edge_occurrences"=>occurrences,
+        "proper_cuts"=>partition.trace)
+end
+
+# Positive areas alone do not prove subdivision. Read actual target incidence,
+# cancel every parent-internal edge, require each complete oriented unit edge,
+# and pull ACTUAL opposite occurrences back to the full original involution.
+# This is used on construction AND inverse, not just as a saved certificate.
+function _mrp_check_cells(native,affine,ancestry,expected_pairs)
+    M=MarkedSurfaceDiagrams;bytarget=Dict();byparent=Dict();names=Dict()
+    for row in ancestry
+        cell=_mm_cell(row["source"]);_mm_need(!haskey(names,cell),"duplicate selective parent ancestry")
+        names[cell]=String.(row["source_vertices"])
+    end
+    for row in affine
+        target=_mm_cell(row["target"]);parent=_mm_cell(row["source"])
+        _mm_need(haskey(names,parent) && haskey(native.triangles,(target[1],target[2]+1)),"selective affine row has unknown cell")
+        _mm_need(!haskey(bytarget,target) && Tuple(row["vertices"])==native.triangles[(target[1],target[2]+1)],"selective affine row differs from actual target triangle order")
+        w=_mr_weights(row["weights"]);record=(;parent,vertices=String.(row["vertices"]),weights=w)
+        bytarget[target]=record;push!(get!(byparent,parent,Any[]),record)
+    end
+    _mm_need(Set(keys(bytarget))==Set((f,i-1) for (f,i) in keys(native.triangles)) && Set(keys(byparent))==Set(keys(names)),"selective affine ancestry omits an actual or raw cell")
+    units=Dict();recovered=Dict()
+    for (parent,rows) in byparent
+        counts=Dict()
+        _mm_need(sum(_mr_det(row.weights) for row in rows)==1,"selective child areas do not cover one raw parent")
+        for row in rows
+            for j in 1:3
+                a,b=Tuple(row.weights[j]),Tuple(row.weights[mod1(j+1,3)])
+                counts[(a,b)]=get(counts,(a,b),0)+1
+            end
+        end
+        for (a,b) in collect(keys(counts))
+            n=min(get(counts,(a,b),0),get(counts,(b,a),0));counts[(a,b)]-=n;counts[(b,a)]=get(counts,(b,a),0)-n
+        end
+        leftover=[(a,b) for ((a,b),n) in counts if n!=0]
+        _mm_need(all(counts[(a,b)]==1 && count(j->a[j]==b[j]==0,1:3)==1 for (a,b) in leftover),"selective children do not cancel to the raw triangle boundary")
+        for j in 1:3
+            k=mod1(j+2,3);intervals=sort([(a[k],b[k]) for (a,b) in leftover if a[j]==b[j]==0])
+            _mm_need(!isempty(intervals) && first(intervals)[1]==0 && last(intervals)[2]==1 && all(a<b for (a,b) in intervals) &&
+                all(intervals[i][2]==intervals[i+1][1] for i in 1:length(intervals)-1),"selective parent edge interval has a gap, reversal or overlap")
+        end
+    end
+    # Unit corners must be actual current vertices, consistently identified
+    # across every old local occurrence, rather than restored from a cache.
+    for (target,row) in bytarget,j in 1:3
+        corner=findfirst(==(1),row.weights[j]);corner===nothing && continue
+        key=(row.parent[1],names[row.parent][corner]);point=M.root!(native.vertex_dsu,(target[1],row.vertices[j]))
+        _mm_need(!haskey(units,key) || units[key]==point,"selective inverse splits one old vertex");units[key]=point
+    end
+    for (parent,vs) in names
+        _mm_need(all(haskey(units,(parent[1],v)) for v in vs),"selective inverse lacks an actual old unit corner")
+        recovered[parent]=copy(vs)
+    end
+    actual=M.fine_edge_occurrences(native);derived=Dict()
+    for (o,p) in actual
+        isless(o,p) || continue
+        a=bytarget[(o[1],o[2]-1)];b=bytarget[(p[1],p[2]-1)]
+        wa=[a.weights[only(findall(==(v),a.vertices))] for v in o[3:4]]
+        wb=[b.weights[only(findall(==(v),b.vertices))] for v in p[3:4]]
+        a.parent==b.parent && wa==reverse(wb) && continue
+        za=findall(j->wa[1][j]==wa[2][j]==0,1:3);zb=findall(j->wb[1][j]==wb[2][j]==0,1:3)
+        _mm_need(length(za)==length(zb)==1,"selective current edge crosses unrelated raw triangle interiors")
+        j,k=only(za),only(zb);ja,jb=mod1(j+2,3),mod1(k+2,3)
+        _mm_need(wa[1][ja]+wb[2][jb]==1 && wa[2][ja]+wb[1][jb]==1,"selective raw edge parameter is not oppositely identified")
+        va,vb=names[a.parent],names[b.parent]
+        ra=(a.parent[1],a.parent[2]+1,va[mod1(j+1,3)],va[mod1(j+2,3)])
+        rb=(b.parent[1],b.parent[2]+1,vb[mod1(k+1,3)],vb[mod1(k+2,3)])
+        _mm_need(get(derived,ra,rb)==rb && get(derived,rb,ra)==ra,"selective raw edge interval has inconsistent opposite parents")
+        derived[ra]=rb;derived[rb]=ra
+    end
+    _mm_need(derived==expected_pairs,"actual selective current adjacency does not reconstruct the complete raw opposite involution")
+    (;recovered,opposite_edges=derived,unit_vertices=units)
+end
+
+function _mr_proper_arc_geometry(raw_geometry,opposite_edges)
+    proof=_mr_proof(raw_geometry);supplied=Dict(_mr_occ(o)=>_mr_occ(p) for (o,p) in opposite_edges)
+    _mm_need(supplied==proof.opposite_edges,"supplied opposite edges disagree with actual selective raw geometry")
+    partition=_mrp_partition(proof);assembled=_mrp_assemble(partition,proof.geometry)
+    ancestry=[Dict("source"=>[f,i-1],"source_vertices"=>collect(t)) for ((f,i),t) in sort(collect(proof.triangles);by=first)]
+    _mrp_check_cells(assembled.native,assembled.affine,ancestry,supplied)
+    corr=_mrp_correspondence(proof,partition,assembled)
+    inverse=Dict{String,Any}("schema"=>"internal-triangle-partition/1","strategy"=>"proper_arc",
+        "raw_geometry_hash"=>_mm_hash(proof.geometry),"public_geometry_hash"=>_mm_hash(_st_empty(assembled.document)),
+        "raw_surface"=>deepcopy(proof.geometry["surface"]),"raw_charts"=>_mr_chart_provenance(proof.geometry),
+        "triangle_ancestry"=>ancestry,"opposite_edges"=>_mr_pairs_json(supplied),
+        "affine_children"=>assembled.affine,"proper_cuts"=>partition.trace,"correspondence_hash"=>_mm_hash(corr))
+    (;document=assembled.document,correspondence=corr,inverse_specification=inverse)
+end
+function _mr_unpartition_geometry(current_native,spec)
+    _mrp_inverse_schema(spec)
+    M=MarkedSurfaceDiagrams;current=_marked_document(current_native);bare=_st_empty(current);native=M.validate(bare)
+    _mm_need(_mm_hash(bare)==spec["public_geometry_hash"],"public selective geometry has changed")
+    actual=_mrp_check_cells(native,spec["affine_children"],spec["triangle_ancestry"],_mr_pairs_live(spec["opposite_edges"]))
+    charts=deepcopy(spec["raw_charts"])
+    for p in charts
+        n=pop!(p,"triangle_count");p["triangles"]=[actual.recovered[(p["face"],i-1)] for i in 1:n]
+    end
+    geometry=Dict{String,Any}("surface"=>deepcopy(spec["raw_surface"]),"patches"=>charts);proof=_mr_proof(geometry)
+    _mm_need(proof.opposite_edges==actual.opposite_edges && _mm_hash(geometry)==spec["raw_geometry_hash"],"selective actual reassembly disagrees with old macroseams or raw geometry")
+    regenerated=_mr_proper_arc_geometry(geometry,actual.opposite_edges)
+    _mm_need(regenerated.document==bare && _canonical_json(regenerated.inverse_specification)==_canonical_json(spec) &&
+        _mm_hash(regenerated.correspondence)==spec["correspondence_hash"],"fresh selective partition does not regenerate actual current geometry and full inverse data")
+    (;geometry,opposite_edges=actual.opposite_edges,correspondence=regenerated.correspondence,construction_only=true)
+end
+# Source: the selective inverse consumes untrusted JSON before any allocation
+# or indexing. Keep this separate from the unchanged uniform-star schema.
+function _mrp_inverse_schema(spec)
+    required=Set(["schema","strategy","raw_geometry_hash","public_geometry_hash","raw_surface","raw_charts",
+        "triangle_ancestry","opposite_edges","affine_children","proper_cuts","correspondence_hash"])
+    need(ok,field)=_mm_need(ok,"selective inverse has malformed "*field)
+    text(x)=x isa AbstractString && !isempty(x)
+    index(x)=x isa Integer && !(x isa Bool) && 0<=x<typemax(Int)
+    strings(x,n)=x isa AbstractVector && length(x)==n && all(text,x) && length(Set(x))==n
+    cell(x)=x isa AbstractVector && length(x)==2 && text(x[1]) && index(x[2])
+    object(x,fields)=x isa AbstractDict && Set(keys(x))==Set(fields)
+    rational(x,field)=begin
+        need((x isa Rational) || (x isa Integer && !(x isa Bool)) ||
+            (x isa AbstractString && occursin(r"^-?[0-9]+(?:/[1-9][0-9]*)?$",x)),field)
+        try
+            x isa Rational ? MarkedSurfaceDiagrams.Rat(x) : MarkedSurfaceDiagrams.qnum(x)
+        catch err
+            throw(ArgumentError("selective inverse has malformed "*field*": "*sprint(showerror,err)))
+        end
+    end
+    need(Set(keys(spec))==required,"fields")
+    need(spec["schema"]=="internal-triangle-partition/1" && spec["strategy"]=="proper_arc","schema/strategy")
+    for field in ("raw_geometry_hash","public_geometry_hash","correspondence_hash")
+        need(spec[field] isa AbstractString && occursin(r"^[0-9a-f]{64}$",spec[field]),field)
+    end
+    surface=spec["raw_surface"]
+    need(object(surface,("marking_id","genus","gluings","boundary")),"raw_surface")
+    need(text(surface["marking_id"]) && index(surface["genus"]),"raw_surface identity/genus")
+    need(surface["boundary"] isa AbstractVector && isempty(surface["boundary"]),"raw_surface boundary")
+    need(surface["gluings"] isa AbstractVector,"raw_surface gluings")
+    for pair in surface["gluings"]
+        need(pair isa AbstractVector && length(pair)==2 && all(x->x isa AbstractVector && length(x)==2 && all(text,x),pair),"raw_surface gluing pair")
+    end
+    for field in ("raw_charts","triangle_ancestry","opposite_edges","affine_children","proper_cuts")
+        need(spec[field] isa AbstractVector && all(x->x isa AbstractDict,spec[field]),field)
+    end
+    charts=Dict();parents=Dict()
+    for p in spec["raw_charts"]
+        needed=Set(["face","side_order","sides","triangle_count"])
+        need(issubset(needed,Set(keys(p))) && issubset(Set(keys(p)),union(needed,Set(["side_parameters"]))),"raw_charts fields")
+        need(text(p["face"]) && !haskey(charts,p["face"]),"raw_charts face")
+        need(index(p["triangle_count"]) && 0<p["triangle_count"]<=length(spec["triangle_ancestry"]),"raw_charts triangle_count")
+        order=p["side_order"];sides=p["sides"]
+        need(order isa AbstractVector && length(order)>=3 && all(text,order) && length(Set(order))==length(order),"raw_charts side_order")
+        need(sides isa AbstractDict && Set(keys(sides))==Set(order),"raw_charts sides")
+        for path in values(sides);need(path isa AbstractVector && length(path)>=2 && all(text,path) && length(Set(path))==length(path),"raw_charts side path");end
+        parameters=get(p,"side_parameters",Dict())
+        need(parameters isa AbstractDict && issubset(Set(keys(parameters)),Set(order)),"raw_charts side_parameters")
+        for (side,qs) in parameters
+            need(qs isa AbstractVector && length(qs)==length(sides[side]),"raw_charts side parameter count")
+            ts=[rational(q,"raw_charts side parameter") for q in qs]
+            need(first(ts)==0 && last(ts)==1 && all(ts[i]<ts[i+1] for i in 1:length(ts)-1),"raw_charts side parameter order")
+        end
+        charts[p["face"]]=p
+    end
+    need(!isempty(charts),"empty raw_charts")
+    for row in spec["triangle_ancestry"]
+        need(object(row,("source","source_vertices")) && cell(row["source"]) && strings(row["source_vertices"],3),"triangle_ancestry row")
+        f,i=row["source"];need(haskey(charts,f) && i<charts[f]["triangle_count"] && !haskey(parents,(f,i)),"triangle_ancestry parent")
+        parents[(f,i)]=row["source_vertices"]
+    end
+    need(all(haskey(parents,(f,i-1)) for (f,p) in charts for i in 1:p["triangle_count"]),"triangle_ancestry coverage")
+    for row in spec["affine_children"]
+        need(object(row,("source","target","vertices","weights")) && cell(row["source"]) && cell(row["target"]) && strings(row["vertices"],3),"affine_children row")
+        need(haskey(parents,Tuple(row["source"])),"affine_children source")
+        ws=row["weights"];need(ws isa AbstractVector && length(ws)==3 && all(w->w isa AbstractVector && length(w)==3,ws),"affine_children weights")
+        _mr_weights([[rational(q,"affine_children rational") for q in w] for w in ws])
+    end
+    for row in spec["opposite_edges"]
+        need(object(row,("source","target")),"opposite_edges row")
+        for field in ("source","target")
+            o=row[field]
+            need(o isa AbstractVector && length(o)==4 && text(o[1]) && index(o[2]) && text(o[3]) && text(o[4]) && o[3]!=o[4],"opposite_edges occurrence")
+            need(haskey(parents,(o[1],o[2])) && all(v->v in parents[(o[1],o[2])],o[3:4]),"opposite_edges parent vertices")
+        end
+    end
+    for row in spec["proper_cuts"]
+        need(object(row,("source","path_triangles","entry_edge","exit_edge","children","mirrored_triangle_splits")),"proper_cuts fields")
+        need(text(row["source"]) && row["path_triangles"] isa AbstractVector && !isempty(row["path_triangles"]) &&
+            all(index,row["path_triangles"]) && strings(row["entry_edge"],2) && strings(row["exit_edge"],2) &&
+            strings(row["children"],2) && index(row["mirrored_triangle_splits"]),"proper_cuts row")
+    end
+    nothing
 end
