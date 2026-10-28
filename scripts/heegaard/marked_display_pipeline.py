@@ -250,10 +250,10 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
         result.pop('orientation_svg',None)
         result['orientation_display_error']=str(exc)
     if _source_map_geometry:
-        from marked_display_source_map import check_source_map_saved_request_size,_source_map_json
+        from marked_display_source_map import _source_map_json
         if _source_map_proof_output:
             Path(_source_map_proof_output).with_suffix('.candidate.json').write_bytes(_source_map_json(result))
-        check_source_map_saved_request_size(result)
+        # HTTP body limits belong to serve.py; this result is an in-process plot.
     return result,seed
 
 

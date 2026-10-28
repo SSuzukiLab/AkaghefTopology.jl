@@ -50,7 +50,11 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
             command=`$uv run --no-project --offline --python 3.12 --with numpy==2.5.4 --with scipy --with shapely==2.1.2 --with networkx --with triangle==20250106 python $script $input $output --minimum-separation $minimum_separation --puncture-clearance $puncture_clearance --crossing-radius $crossing_radius --maxiter $maxiter --prepared $prepared_file --source-map-geometry --source-map-proof-output $proof`
         end
         diagnostic=IOBuffer()
-        process=run(pipeline(ignorestatus(addenv(command,"OPENBLAS_NUM_THREADS"=>"1")),stdout=stdout,stderr=diagnostic))
+        # Source: marked_cut_layout.py's existing failure-artifact hook.
+        # A fresh scoped path preserves the last iterate without another solve.
+        failure_artifact=get(ENV,"HEEGAARD_FIXED_MESH_FAILURE_ARTIFACT",joinpath(dir,"fixed-mesh-failure.json"))
+        backend=addenv(command,"OPENBLAS_NUM_THREADS"=>"1","HEEGAARD_FIXED_MESH_FAILURE_ARTIFACT"=>failure_artifact)
+        process=run(pipeline(ignorestatus(backend),stdout=stdout,stderr=diagnostic))
         success(process) || error("Marked drawing rejected: "*last(String(take!(diagnostic)),3000))
         result=JSON3.read(read(output,String),Dict{String,Any})
         if fullmap
@@ -66,11 +70,8 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
             bytes2hex(SHA.sha256(Vector{UInt8}(codeunits(result["svg"]))))==recipe["output_svg_sha256"] || error("Source-map SVG differs from the validated output")
             result["source_map_cell_check"]=_mdsm_verify_recipe_cells(recipe)
             delete!(result,"source_map_verification_pending")
-            # Source: the existing /api/render saved-view envelope. Count the
-            # actual compact final object AFTER adding Julia's cell result;
-            # bounding only compressed proof data misses the rest of the view.
-            saved_request_bytes=ncodeunits(JSON3.write(Dict("diagram"=>result)))
-            0<saved_request_bytes<=5_000_000 || error("Saved marked-view request exceeds the existing 5000000-byte limit: "*string(saved_request_bytes))
+            # Source: owner plot-method scope; HTTP request limits are enforced
+            # by serve.py, not by a mathematical in-process drawing result.
         end
         result
       catch err
@@ -116,15 +117,27 @@ function layout_marked(input::AbstractDict;cut_curves=nothing,outer_triangle=not
     uv=Sys.which("uv");uv===nothing && error("uv is required for the shared SciPy drawing backend")
     root=normpath(joinpath(@__DIR__,"../.."));script=joinpath(root,"scripts/heegaard/layout_marked_document.py")
     mktempdir() do dir
+      try
         request=joinpath(dir,"prepared.json");response=joinpath(dir,"layout.json")
         write(request,JSON3.write(p));diagnostic=IOBuffer()
         command=`$uv run --no-project --offline --python 3.12 --with numpy --with scipy --with shapely --with networkx python $script $request $response`
         if _source_map_geometry
             command=`$uv run --no-project --offline --python 3.12 --with numpy==2.5.4 --with scipy --with shapely==2.1.2 --with networkx --with triangle==20250106 python $script $request $response --source-map-geometry`
         end
-        process=run(pipeline(ignorestatus(addenv(command,"OPENBLAS_NUM_THREADS"=>"1")),stdout=stdout,stderr=diagnostic))
+        # Source: marked_cut_layout.py's existing failure-artifact hook.
+        # A fresh scoped path preserves the last iterate without another solve.
+        failure_artifact=get(ENV,"HEEGAARD_FIXED_MESH_FAILURE_ARTIFACT",joinpath(dir,"fixed-mesh-failure.json"))
+        backend=addenv(command,"OPENBLAS_NUM_THREADS"=>"1","HEEGAARD_FIXED_MESH_FAILURE_ARTIFACT"=>failure_artifact)
+        process=run(pipeline(ignorestatus(backend),stdout=stdout,stderr=diagnostic))
         success(process) || error("Initial marked layout rejected: "*last(String(take!(diagnostic)),3000))
         JSON3.read(read(response,String),Dict{String,Any})
+      catch err
+        # Source: same scoped stage retention as plot(view). In particular,
+        # retain the existing fixed-mesh failure artifact before temp cleanup.
+        retained=mktempdir(;prefix="marked-layout-failure-",cleanup=false)
+        cp(dir,joinpath(retained,"stages"))
+        error(sprint(showerror,err)*"; layout stage files retained at "*retained)
+      end
     end
 end
 
