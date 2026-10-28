@@ -547,7 +547,11 @@ def build_port_map(data, seed, oldseed, P, Q, T, holes, maps):
         assert seed['positions'][str(x['vertex'])]==oldseed['positions'][str(x['vertex'])]
     ids=sorted({v for e in constraints for v in e});idx={v:i for i,v in enumerate(ids)};edges=sorted(constraints)
     q=[[float(x) for x in Q[v]] for v in ids]
-    inp=dict(vertices=q,segments=[[idx[u],idx[v]] for u,v in edges],segment_markers=[[i+1] for i in range(len(edges))],holes=[[float(x) for x in Q[c]] for c,_ in holes])
+    inp=dict(vertices=q,segments=[[idx[u],idx[v]] for u,v in edges],segment_markers=[[i+1] for i in range(len(edges))])
+    # Source: Triangle 20250106 triangle.tri.triangulate documents holes as an
+    # optional two-dimensional array. Its Cython bridge indexes row zero even
+    # for an empty array; omit that optional field for the no-cut domain.
+    if holes:inp['holes']=[[float(x) for x in Q[c]] for c,_ in holes]
     result=triangle.triangulate(inp,'pqa0.002')
     assert np.array_equal(result['vertices'][:len(ids)],np.array(q))
     print('CDT proposal',len(result['vertices']),len(result['triangles']),flush=True)
@@ -651,7 +655,7 @@ def build_port_map(data, seed, oldseed, P, Q, T, holes, maps):
     return output
 
 
-def build_exact_circle_anchors(m, d):
+def build_exact_circle_anchors(m, d, *, boundary_cycles):
     """Construct witness-only exact anchors for the decoded circle quotient.
 
     Source: the actual CDT, fixed boundary pairing and the renderer's binary64
@@ -680,9 +684,26 @@ def build_exact_circle_anchors(m, d):
     outer=next(c for c in cycles if area(c)>0);holes=[c for c in cycles if area(c)<0]
     assert len(holes)==len(d['boundaries'])
     records=[];used=set()
+    assert len(boundary_cycles)==len(d['boundaries'])
+    by_cap={int(b['cap']):b['vertices'] for b in boundary_cycles}
+    assert len(by_cap)==len(boundary_cycles)
     for b in d['boundaries']:
         ports={idx[v['vertex']] for v in b['ports']}
-        ring=next(c for c in holes if ports<=set(c));assert not(set(ring)&used);used.update(ring)
+        # Source: build_port_domain's actual ordered inner cycle, retained in
+        # the CDT constraint set even when it contains no visible port.
+        original_ring=[idx[v] for v in by_cap[b['cap']]]
+        # fixed_mesh/build_port_domain order this cycle as the positive cap
+        # disk boundary. The punctured surface induces the opposite direction.
+        # Change only the comparison convention, preserving its first vertex
+        # and the complete order; native edge lambda and mesh data stay fixed.
+        assert len(original_ring)>=3 and len(set(original_ring))==len(original_ring) and area(original_ring)>0
+        original_ring=[original_ring[0]]+original_ring[:0:-1]
+        matches=[c for c in holes if set(original_ring)<=set(c)]
+        assert len(matches)==1;ring=matches[0]
+        actual=[v for v in ring if v in set(original_ring)]
+        offset=actual.index(original_ring[0])
+        assert actual[offset:]+actual[:offset]==original_ring
+        assert ports<=set(ring) and not(set(ring)&used);used.update(ring)
         # Exact interpretation follows the ACTUAL decoded SVG primitive, including
         # its Float64 multiplication by600, rather than exact(normalized)*600.
         center=tuple(F(float(x)*600)/600 for x in d['positions'][str(b['cap'])]);r=F(float(b['radius'])*600)/600
@@ -722,7 +743,7 @@ def build_exact_circle_anchors(m, d):
         boxes.append([(min(q[k] for q in points),max(q[k] for q in points)) for k in range(2)])
     for i,b in enumerate(boxes):
         for c in boxes[i+1:]:assert any(b[k][1]<c[k][0] or c[k][1]<b[k][0] for k in range(2))
-    maxport=max(max(abs(x-y) for x,y in zip(P[v],Q[v])) for pair in port_pairs for v in pair)
+    maxport=max((max(abs(x-y) for x,y in zip(P[v],Q[v])) for pair in port_pairs for v in pair),default=F(0))
     report=dict(exact_paired_ports=len(port_pairs),boundary_vertices=len(used),
                 target_circle_numeric_contract='exact rational of decoded Float64 SVG center/radius, divided by600 for normalized coordinates',
                 whole_step_minimum_double_area=str(minimum),whole_step_positive=True,
@@ -800,7 +821,7 @@ def build_graph_free_collars(m, a):
             halfspace_normals=[list(map(str,n)) for n in normals],halfspace_offsets=list(map(str,bounds))))
     out=dict(report=reports,collars=collars,
         radial_projection='On each ray, map [r_inner(theta), r_outer(theta)] affinely onto [R, r_outer(theta)]; identity beyond. At tangent contact rays both inner/outer equal R and the map is identity. Positive radial slope away from contacts, continuous extension at contacts.',
-        quotient_correction='Between consecutive fixed visible port rays, use coordinates (theta,s), rho=R+s*(r_outer(theta)-R). Send theta to (1-w(s))*theta+w(s)*g(theta), s unchanged, where g is the full native-lambda circle correction fixing both endpoint rays and w(0)=1,w(1)=0. Extend by identity outside. Strictly increasing angular lifts give positive orientation.',
+        quotient_correction='Use the recorded continuous degree-one lifts in coordinates (theta,s), rho=R+s*(r_outer(theta)-R). Send theta to (1-w(s))*theta+w(s)*g(theta), s unchanged, with w(0)=1,w(1)=0. Visible touching port rays are fixed. If there are no visible ports the support has strictly positive width on the whole circle and the same periodic formula applies, using the explicit native lambda-zero and psi lifts. Extend by identity outside. Strictly increasing angular lifts give positive orientation.',
         whole_visible_graph_pointwise_fixed=True,all_time_quotient_recipe_pending=True)
 
     return out
@@ -909,8 +930,15 @@ def build_boundary_gluing(d, fixed, trace):
     for cut in d['cuts']:
         indices=sorted([i for i,b in enumerate(d['boundaries']) if b['cut']==cut],key=lambda i:d['boundaries'][i]['row']);ti,bi=indices
         top,bottom=[d['boundaries'][i] for i in indices];vs=top['source_vertices'];n=len(vs)
-        ports={x['source_vertex']:x for x in fixed['boundaries'][ti]['ports']};anchors=[j for j,v in enumerate(vs) if v in ports];m=len(anchors);assert m
-        start=anchors[0];order=vs[start:]+vs[:start];anchors=[j for j,v in enumerate(order) if v in ports]
+        ports={x['source_vertex']:x for x in fixed['boundaries'][ti]['ports']}
+        anchors=[j for j,v in enumerate(vs) if v in ports];visible_pairs=len(anchors)
+        # Source: retained directed native boundary. With no marked ports its
+        # first source vertex defines lambda zero; this is not a visible curve.
+        assert vs
+        if not anchors:anchors=[0]
+        m=len(anchors)
+        start=anchors[0];order=vs[start:]+vs[:start]
+        anchors=[j for j,v in enumerate(order) if v in ports] if ports else [0]
         lam={};weights={}
         for j,a in enumerate(anchors):
             b=anchors[j+1] if j+1<m else n
@@ -918,7 +946,10 @@ def build_boundary_gluing(d, fixed, trace):
         assert sum(weights.values())==1
         assert all(pairs[v] in bottom['source_vertices'] for v in order)
         bv=bottom['source_vertices'];assert all(order[(order.index(pairs[a])-1)%n]==pairs[b] for a,b in zip(bv,bv[1:]+bv[:1]))
-        center=P[top['cap']];first=ports[order[0]]['vertex'];phase=math.atan2(*(S[first]-S[top['cap']])[::-1]);maxerror=0.
+        phase=None
+        if ports:
+            first=ports[order[0]]['vertex'];phase=math.atan2(*(S[first]-S[top['cap']])[::-1])
+        maxerror=0.
         boundary_records=[]
         for i,b in zip(indices,(top,bottom)):
             side=1 if i==ti else -1;words=[];star_dets=[]
@@ -940,7 +971,7 @@ def build_boundary_gluing(d, fixed, trace):
                 maxerror=max(maxerror,float(np.linalg.norm(S[port['vertex']]-S[b['cap']]-expected)))
             boundary_records.append(dict(side=b['side'],orientation_sign=side,words=words,strict_radial_angle_monotonicity_exact=True))
         assert maxerror<1e-12
-        report=dict(cut=cut,native_paired_edges=n,visible_pairs=m,all_edge_parameters_reflect_exactly=True,visible_port_float_replay_max=maxerror)
+        report=dict(cut=cut,native_paired_edges=n,visible_pairs=visible_pairs,all_edge_parameters_reflect_exactly=True,visible_port_float_replay_max=maxerror)
         reports.append(report);output.append(dict(report=report,phase=phase,angle_formula='orientation_sign * (phase - 2*pi*common_lambda)',boundaries=boundary_records))
     # Rounded PCHIP pieces are numerical proposals and need not form an exact
     # continuous map at their knots. The old diagnostic inverse-PCHIP formula
@@ -992,8 +1023,18 @@ def build_infinity_extension(d,mesh,fixed):
     R={int(v):tuple(F(float(x)) for x in q) for v,q in fixed['positions'].items()}
     frame=d['chart_outer_boundary'];ordered=frame if area([P[v] for v in frame])>0 else frame[::-1]
     ext=mesh['outer'];assert len(ext)==len(ordered)>=3
-    origins=[tuple(2*x-y for x,y in zip(P[v],S[w])) for v,w in zip(ordered,ext)]
-    assert len(set(origins))==1;origin=origins[0];target_origin=(F(0),F(0))
+    direct=not d['boundaries']
+    assert bool(d['cuts'])==bool(d['boundaries'])
+    if direct:
+        assert d['genus']==0 and ext==ordered
+        assert all(S[v]==P[v]==R[v] for v in frame)
+        # Source: existing no-cut fixed_mesh identity and the common quotient's
+        # zero-centered exterior fan. Its exact strict-star test is retained.
+        origin=(F(0),F(0))
+    else:
+        origins=[tuple(2*x-y for x,y in zip(P[v],S[w])) for v,w in zip(ordered,ext)]
+        assert len(set(origins))==1;origin=origins[0]
+    target_origin=(F(0),F(0))
     assert all(orient(origin,S[a],S[b])>0 and orient(target_origin,R[a],R[b])>0 for a,b in zip(ext,ext[1:]+ext[:1]))
     inf=d['infinity_chart'];U=pt(inf['point_barycentric'][1:]);B=[pt(q[1:]) for q in inf['frame_barycentric']]
     assert len(B)==len(frame) and all(sum(map(F,q))==1 and min(map(F,q))>0 for q in [inf['point_barycentric']]+inf['frame_barycentric'])
@@ -1002,7 +1043,7 @@ def build_infinity_extension(d,mesh,fixed):
         native=orient(U,a,b);source=orient(origin,P[u],P[v]);assert native>0 and source<0
         factors.append(-source/native)
     assert inf['source_triangle']==d['display_request']['infinity_triangle']==fixed['display_request']['infinity_triangle']
-    return dict(source_triangle=inf['source_triangle'],
+    return dict(attachment_kind='direct_no_cut' if direct else 'homothetic_collar',source_triangle=inf['source_triangle'],
         infinity_point_native_barycentric=inf['point_barycentric'],native_frame_barycentric=inf['frame_barycentric'],
         source_frame_vertices=frame,source_plane_origin=list(map(str,origin)),
         native_frame_exterior_vertices=[ext[ordered.index(v)] for v in frame],
@@ -1010,8 +1051,8 @@ def build_infinity_extension(d,mesh,fixed):
         target_exterior_positions=[list(map(str,R[v])) for v in ext],target_plane_origin=['0','0'],
         positive_jacobian_factors=list(map(str,factors)),
         fan_map='U+t*(B_i(s)-U) -> O+(Q_i(s)-O)/t; t=0 -> infinity',
-        exterior_map='1/2<=t<=1: existing fixed PL map; 0<t<=1/2: O_target+(R_exterior_i(s)-O_target)/(2*t)',
-        finite_frame_join_parameter='1',outer_collar_join_parameter='1/2')
+        exterior_map='0<t<=1: O_target+(R_frame_i(s)-O_target)/t' if direct else '1/2<=t<=1: existing fixed PL map; 0<t<=1/2: O_target+(R_exterior_i(s)-O_target)/(2*t)',
+        finite_frame_join_parameter='1',outer_collar_join_parameter='1' if direct else '1/2')
 
 
 def build_fixed_quotient(m, a, g, support, d):
@@ -1108,6 +1149,10 @@ def build_fixed_quotient(m, a, g, support, d):
         center=pt(next(h for h in a['holes'] if h['cut']==name and h['side']==top['side'])['center']);topanchors={}
         for port in top['ports']:
             l=native_anchor_lambdas[(top['side'],port['source_vertex'])];v=idx[port['vertex']];topanchors[sub(R[v],center)]=l
+        visible_anchor=bool(topanchors)
+        if not visible_anchor:
+            radius=F(next(h for h in a['holes'] if h['cut']==name and h['side']==top['side'])['radius'])
+            topanchors[(radius,F(0))]=F(0)
         first=next(q for q,l in topanchors.items() if l==0)
         # Quarter-turn auxiliary points make every radial-chord interval < pi;
         # no transcendental angle or unrecorded integer winding is introduced.
@@ -1135,11 +1180,23 @@ def build_fixed_quotient(m, a, g, support, d):
             assert (x-b0)%1==0 and (y-a0)%1==0 and y-x==a0-b0
         for b in (top,bottom):
             record=byside[b['side']]
-            port=next(v for v in b['ports'] if native_anchor_lambdas[(b['side'],v['source_vertex'])]==0)
-            v=idx[port['vertex']];c=pt(next(h for h in a['holes'] if h['cut']==name and h['side']==b['side'])['center']);final=sub(R[v],c)
-            assert all(dot(final,sub(chart[v],c))>0 for chart in (P,Q,U,R))
-            record['lift_anchor']=dict(vertex=v,source=serial(P[v]),seed=serial(Q[v]),rendered=serial(U[v]),final=serial(R[v]),
-                rule='Choose relative angle atan2(det(final,ray),dot(final,ray)) in (-pi/2,pi/2); it ends at0. Extend around the ordered native boundary once with its recorded orientation. No additional integer turn is permitted.')
+            c=pt(next(h for h in a['holes'] if h['cut']==name and h['side']==b['side'])['center'])
+            if visible_anchor:
+                port=next(v for v in b['ports'] if native_anchor_lambdas[(b['side'],v['source_vertex'])]==0)
+                v=idx[port['vertex']];points=[chart[v] for chart in (P,Q,U,R)]
+                identity=dict(vertex=v)
+            else:
+                candidates=[(w,j) for w in record['words'] for j,l in enumerate(w['lambda_values']) if F(l)%1==0]
+                assert candidates
+                points=[pt(candidates[0][0][field][candidates[0][1]]) for field in ('source_points','seed_points','rendered_points','anchor_points')]
+                assert all([pt(w[field][j]) for field in ('source_points','seed_points','rendered_points','anchor_points')]==points for w,j in candidates)
+                identity=dict(native_lambda='0',visible_port=False)
+            final=sub(points[-1],c)
+            assert all(dot(final,sub(q,c))>0 for q in points)
+            target=first if b['side']==top['side'] else (first[0],-first[1])
+            record['lift_anchor']=dict(**identity,source=serial(points[0]),seed=serial(points[1]),rendered=serial(points[2]),final=serial(points[3]),
+                psi_relative_ray=serial(target),psi_lift_from_final_ray=dict(det=str(cross(final,target)),dot=str(dot(final,target))),
+                rule='The native lambda-zero ray uses atan2(det(final,ray),dot(final,ray)) in (-pi/2,pi/2), ending at0. The psi lambda-zero ray uses atan2(recorded det,recorded dot) in (-pi,pi], choosing +pi on the negative axis. Extend each lift once around its recorded oriented boundary; no additional integer turn is permitted.')
         output.append(dict(cut=name,boundaries=boundaries,canonical_paired_boundary=psi))
 
     # Disjoint supports throughout: all variable radial profiles lie below these
@@ -1501,8 +1558,13 @@ def verify_bezier_attachment(d, seed, m, a, replacement, collar_data):
         collar_checks.append(dict(cut=hole['cut'],side=hole['side'],tested_leaf_hulls=tested,exact_port_contacts=len(contacts),corrected_bezier_graph_fixed=True))
 
     allpoints=[q for x in leaves for k in ('q','r') for q in x[k]]
-    lo=[min(q[k] for q in allpoints) for k in range(2)];hi=[max(q[k] for q in allpoints) for k in range(2)]
-    corners=[(x,y) for x in (lo[0],hi[0]) for y in (lo[1],hi[1])]
+    corners=[]
+    if allpoints:
+        lo=[min(q[k] for q in allpoints) for k in range(2)];hi=[max(q[k] for q in allpoints) for k in range(2)]
+        corners=[(x,y) for x in (lo[0],hi[0]) for y in (lo[1],hi[1])]
+    else:
+        assert not d['curves'] and not seed['curves']
+        assert not d.get('disk') and not d.get('disk_pieces') and not d.get('disk_region_marks')
     for chart in (R,A):
         for u,v in zip(outer,outer[1:]+outer[:1]):assert all(orient(chart[u],chart[v],q)>0 for q in corners)
 

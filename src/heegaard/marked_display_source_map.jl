@@ -2,7 +2,7 @@
 # Source: marked_polygon_overlay.jl (Polyhedra), MarkedSurfaceDiagrams exact
 # orientation/segment predicates, and the retained source/collar triangulations.
 # A saved diagnostic receipt is never a substitute for executing these checks.
-# This file is not yet included by Heegaard.jl; common-entry integration is WIP.
+# Heegaard.jl includes this helper for the common native and saved-view path.
 
 const _MDSMQ = Rational{BigInt}
 const _MDSMP = Tuple{_MDSMQ,_MDSMQ}
@@ -85,7 +85,16 @@ function _mdsm_verify_infinity(recipe,native,fixed_source,fixed_target)
     _mdsm_need(_mdsm_boundary_word(S,ext)==_mdsm_boundary_word(S,fixed_source.outer),"Exterior frame differs from fixed source boundary")
     origin=_mdsm_point(extension["source_plane_origin"]);target_origin=_mdsm_point(extension["target_plane_origin"])
     _mdsm_need(all(S[v]==P[v] for v in frame),"Fixed source moved the native frame")
-    _mdsm_need(all(ntuple(k->2*P[v][k]-S[w][k],2)==origin for (v,w) in zip(ordered,ext)),"Exterior source homothety or wedge correspondence changed")
+    direct=isempty(chart["boundaries"])
+    _mdsm_need(get(extension,"attachment_kind","homothetic_collar")== (direct ? "direct_no_cut" : "homothetic_collar"),"Infinity attachment kind differs from the native cut surface")
+    if direct
+        _mdsm_need(chart["genus"]==0 && isempty(chart["cuts"]) && ordered==ext,"No-cut infinity frame correspondence changed")
+        _mdsm_same_domain(native,fixed_source)
+        _mdsm_need(all(S[v]==P[v]==R[v] for v in frame),"Direct infinity join is not pointwise identity")
+        _mdsm_need(origin==target_origin==(_mdsm_q(0),_mdsm_q(0)),"Direct infinity origin differs from the verified exterior family")
+    else
+        _mdsm_need(all(ntuple(k->2*P[v][k]-S[w][k],2)==origin for (v,w) in zip(ordered,ext)),"Exterior source homothety or wedge correspondence changed")
+    end
     _mdsm_need(extension["native_frame_exterior_vertices"]==[ext[only(findall(==(v),ordered))] for v in frame],"Infinity wedge-to-exterior correspondence changed")
     _mdsm_need(_mdsm_point.(extension["source_exterior_positions"])==[S[v] for v in ext] &&
         _mdsm_point.(extension["target_exterior_positions"])==[R[v] for v in ext],"Infinity attachment uses unrelated coordinates")
@@ -101,7 +110,7 @@ function _mdsm_verify_infinity(recipe,native,fixed_source,fixed_target)
     start=_mdsm_point.(first(family["outer_stages"]))
     _mdsm_need(_mdsm_boundary_word(Dict(enumerate(start)),collect(eachindex(start)))==_mdsm_boundary_word(R,ext),"Infinity extension does not join the fixed-quotient family")
     _mdsm_need(_mdsm_point(family["origin"])==target_origin,"Infinity target ray origins differ")
-    _mdsm_need(extension["finite_frame_join_parameter"]=="1" && extension["outer_collar_join_parameter"]=="1/2","Infinity radial join parameters changed")
+    _mdsm_need(extension["finite_frame_join_parameter"]=="1" && extension["outer_collar_join_parameter"]==(direct ? "1" : "1/2"),"Infinity radial join parameters changed")
     length(factors)
 end
 
@@ -148,9 +157,13 @@ function _mdsm_verify_recipe_cells(recipe;progress=identity)
     # fixed_mesh adds the explicitly retained exterior collar before moving the
     # grid. Its source frame contains the old native frame with no crossings.
     outer=outside(fixed_source);inner=outside(native)
-    _mdsm_need(all(_mdsm_strictly_inside(p,outer) for p in inner),"Native infinity frame leaves the retained exterior collar")
-    _mdsm_need(!any(MarkedSurfaceDiagrams.segments_meet(a,b,c,d) for
-        (a,b) in zip(inner,circshift(inner,-1)) for (c,d) in zip(outer,circshift(outer,-1))),"Infinity collar boundaries cross")
+    if isempty(chart["boundaries"])
+        _mdsm_same_domain(native,fixed_source)
+    else
+        _mdsm_need(all(_mdsm_strictly_inside(p,outer) for p in inner),"Native infinity frame leaves the retained exterior collar")
+        _mdsm_need(!any(MarkedSurfaceDiagrams.segments_meet(a,b,c,d) for
+            (a,b) in zip(inner,circshift(inner,-1)) for (c,d) in zip(outer,circshift(outer,-1))),"Infinity collar boundaries cross")
+    end
     domain=recipe["port_domain"];D=_mdsm_points(domain["source_positions"])
     port_domain=_mdsm_mesh(D,domain["triangles"])
     _mdsm_need(_mdsm_boundary_word(Q,fixed_target.outer)==_mdsm_boundary_word(D,port_domain.outer),"Port map changes the exterior frame")
@@ -163,8 +176,8 @@ function _mdsm_verify_recipe_cells(recipe;progress=identity)
     Dict("full_cell_maps_verified"=>true,"native_faces"=>length(native.triangles),
         "fixed_faces"=>length(fixed_source.triangles),"port_faces"=>length(cdt_source.triangles),
         "specified_infinity_wedges"=>infinity_wedges,
-        "collar_sectors"=>sum(length(b["sectors"]) for layer in layers for b in layer["boundaries"]),
-        "collar_common_cells"=>sum(a.common_cells for a in vcat(native_layers,circle_layers)),
+        "collar_sectors"=>sum((length(b["sectors"]) for layer in layers for b in layer["boundaries"]);init=0),
+        "collar_common_cells"=>sum((a.common_cells for a in vcat(native_layers,circle_layers));init=0),
         "port_linear_minimum"=>string(bound),"expanded_global_overlay_required"=>false)
 end
 _mdsm_point(x)=(_mdsm_q(x[1]),_mdsm_q(x[2]))

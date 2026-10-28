@@ -183,23 +183,27 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     if data.get('disks'):raise ValueError('Use source-bound disk_pieces for joining-disk fills')
     if data.get('genus',0)>0 and not data.get('boundary_vertex_pairs'):raise ValueError('Source boundary vertex pairing is required; do not infer it from endpoints')
     seed=pair_ports(data) if correct_ports else copy.deepcopy(data)
-    # Source: fair_marked_paths.setup requires a nonempty branch matrix. Empty
-    # mathematical families remain valid inputs; their whole mesh was already
-    # checked by layout_marked_document and needs no numerical spline proposal.
-    if not seed['curves']:
-        if _source_map_geometry:
-            raise ValueError('Full source-map reconstruction for an empty visible family is not yet implemented')
+    # Preserve the existing legacy empty-view result. Native/saved full-map
+    # inputs continue through the mandatory reconstruction chain below.
+    if not seed['curves'] and not _source_map_geometry:
         from verify_fixed_grid import verify
         result=copy.deepcopy(seed);result['geometry_check']=verify(result,seed)
-        if _source_map_geometry:normalize_shared_endpoints(result,seed)
         result['smooth_check']=dict(crossing_coordinates_unchanged=0,source_disk_boundary_unchanged=True,
             holes_and_ports_unchanged=True,regular_spline_pieces=True,no_extra_bezier_intersections=True,
             normal_port_tangents=True,empty_visible_family=True)
         result['layout_isotopy_check']=dict(method='identity on empty visible family',collisions=0,hole_entries=0)
         result['svg']=render(result)
         return result,seed
-    bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter)
-    result=export(seed,bs,c)
+    # Source: fair_marked_paths.setup requires a nonempty branch matrix.
+    # Empty graph is an identity proposal, not an exemption from source/mesh,
+    # D, infinity, gluing, whole-step or output-readback checks below.
+    if not seed['curves']:
+        assert not seed['crossings'] and not any(b['ports'] for b in seed['boundaries'])
+        assert not seed.get('disk') and not seed.get('disk_pieces') and not seed.get('disk_region_marks'), 'Empty visibility cannot hide a required D boundary'
+        result=copy.deepcopy(seed)
+    else:
+        bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter)
+        result=export(seed,bs,c)
     # Internal full-source reconstruction branch only. Repair the ACTUAL data
     # before ordinary geometry/isotopy checks and SVG emission; normalizing a
     # separate proof copy would not bind the output shown or saved by the app.
@@ -208,6 +212,9 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     def check_output(proposed,original):
         checked=check(proposed,original,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
         checked['layout_isotopy_check']=check_motion(original,checked)
+        if not original['curves']:
+            checked['smooth_check']['empty_visible_family']=True
+            checked['geometry_provenance']='identity proposal on empty visible family; full source-map checks retained'
         return checked
     if not _source_map_geometry:result=check_output(result,seed)
     result['drawing_policy']=dict(minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,port_collar_radius=20)

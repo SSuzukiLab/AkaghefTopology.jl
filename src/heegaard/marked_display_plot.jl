@@ -54,8 +54,8 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
         success(process) || error("Marked drawing rejected: "*last(String(take!(diagnostic)),3000))
         result=JSON3.read(read(output,String),Dict{String,Any})
         if fullmap
-            # The helper must be included by the module owner before this
-            # private branch is enabled. A transport envelope is not proof.
+            # The common native and saved-view path validates this recipe
+            # in the calling Julia process. A transport envelope is not proof.
             0<filesize(proof)<=32*1024*1024 || error("Invalid source-map decoded size")
             raw=read(proof);envelope=result["source_map"]
             length(raw)==envelope["uncompressed_bytes"] && bytes2hex(SHA.sha256(raw))==envelope["sha256"] || error("Source-map proof bytes differ from the output envelope")

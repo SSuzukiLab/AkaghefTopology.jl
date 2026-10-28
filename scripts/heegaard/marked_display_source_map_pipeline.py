@@ -188,7 +188,7 @@ def construct_source_map(prepared, coarse, fixed, result, seed, *, policy, check
     path_binding=verify_fixed_source_paths(coarse,fixed,mesh,collars,circle_collars)
     domain,args=maps.build_port_domain(fixed,circle_input,seed)
     port_map=maps.build_port_map(*args)
-    anchors=maps.build_exact_circle_anchors(port_map,fixed)
+    anchors=maps.build_exact_circle_anchors(port_map,fixed,boundary_cycles=domain['holes'])
     support=maps.build_graph_free_collars(port_map,anchors)
     trace=maps.build_boundary_trace(coarse,mesh,fixed,collars,circle_collars)
     gluing=maps.build_boundary_gluing(coarse,fixed,trace)
