@@ -113,6 +113,22 @@ end
         minmax(M.root!(mesh.vertex_dsu,(p[1],p[3])),M.root!(mesh.vertex_dsu,(p[1],p[4])))
 end
 
+# Source: positive barycentric triangles in one parent. Total area alone cannot
+# distinguish a duplicated half from a partition; a local unsplit T junction
+# is a valid partition but remains subject to the separate continuity tests.
+@testset "Exact local partitions detect equal-area overlap and holes" begin
+    localmesh=(;triangles=Dict(("P",1)=>("a","b","c")))
+    A,B,C=E
+    P=(B+C)/2;N=(A+P)/2
+    duplicate=[map_atom(("P",0),("P",0),[A,B,P],[A,B,P]) for _ in 1:2]
+    junction=[map_atom(("P",0),("P",0),r,r) for r in ([A,B,P],[A,N,C],[N,P,C])]
+    for side in (:source,:target)
+        @test_throws ArgumentError H._mtw_partition(H._mtw_atoms(duplicate,localmesh),side,localmesh)
+        checked=H._mtw_partition(H._mtw_atoms(junction,localmesh),side,localmesh)
+        @test only(checked.areas)["area_ratio"]=="1"
+    end
+end
+
 @testset "Paired polygon rows and prestep RIGHT transvections" begin
     points=[(Q(0),Q(0)),(Q(1//2),Q(0)),(Q(1//2),Q(1//2)),(Q(0),Q(1//2))]
     source=[[1-x-y,x,y] for (x,y) in points]

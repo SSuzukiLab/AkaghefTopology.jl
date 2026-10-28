@@ -71,6 +71,48 @@ function _mtw_point(parent,w,mesh,pairs)
     ("cell",parent,Tuple(w))
 end
 
+# Source: _mtw_rows fixes three positive CCW barycentric vertices in one
+# reference triangle; marked_polygon_overlay.jl::_mpo_triangle defines the SAME
+# convex triangle. Exact boundary-chain equality is equivalent to multiplicity
+# one: winding of sum(boundary(cells))-boundary(parent) is the coverage excess.
+# On each canonical supporting line, endpoint events are the distributional
+# derivative of its compactly supported oriented interval multiplicity. Zero
+# events imply the chain is zero; positive CCW cells then exclude overlaps and
+# holes. Conversely a multiplicity-one partition has exactly the parent chain.
+# All collinear endpoints share a line key, including unsplit T junctions.
+# No polygon intersection, hull, operation replay or continuity check is skipped
+# beyond replacing this local partition decision. Existing _mtw_continuity owns
+# both directions of seam/edge/vertex matching and still runs unchanged below.
+function _mtw_partition_boundary_chain(triangles)
+    Q=MarkedSurfaceDiagrams.Rat
+    cells=_mpo_triangle.(triangles)
+    events=Dict{Any,Int}()
+    function edge!(a,b,coefficient)
+        dx,dy=b[1]-a[1],b[2]-a[2]
+        if dx!=0
+            slope=dy/dx
+            line=(:nonvertical,slope,a[2]-slope*a[1]);u,v=a[1],b[1]
+        else
+            _mm_need(dy!=0,"word partition has a zero boundary edge")
+            line=(:vertical,a[1]);u,v=a[2],b[2]
+        end
+        ku,kv=(line,u),(line,v)
+        events[ku]=get(events,ku,0)+coefficient
+        events[kv]=get(events,kv,0)-coefficient
+    end
+    function boundary!(points,coefficient)
+        for (a,b) in zip(points,circshift(points,-1));edge!(a,b,coefficient);end
+    end
+    for cell in cells
+        _mm_need(all(p->p[1]>=0 && p[2]>=0 && p[1]+p[2]<=1,cell.points),
+            "word partition triangle leaves its fixed parent")
+        boundary!(cell.points,1)
+    end
+    boundary!([(Q(0),Q(0)),(Q(1),Q(0)),(Q(0),Q(1))],-1)
+    _mm_need(all(iszero,values(events)),"word map parent partition has overlapping interiors")
+    nothing
+end
+
 function _mtw_partition(atoms,side,mesh)
     Q=MarkedSurfaceDiagrams.Rat;parents=Set((f,i-1) for (f,i) in keys(mesh.triangles))
     groups=Dict(p=>Int[] for p in parents)
@@ -81,12 +123,9 @@ function _mtw_partition(atoms,side,mesh)
         rows=[getproperty(atoms[i],Symbol(string(side),"_weights")) for i in ids]
         _mm_need(sum(_mt_ratio(w) for w in rows)==1,"word map does not cover a fixed parent in area")
         triangles=[(;id=i,points=_mtw_xy.(w)) for (i,w) in zip(ids,rows)]
-        # This self-overlay is a PAIRWISE nonoverlap check, not merely a total
-        # area comparison: every target already receives its own entire area.
-        # Any positive intersection with a distinct atom adds positive area.
-        overlay=_marked_triangle_overlay(triangles,triangles)
-        _mm_need(all(c->c.source_id==c.target_id,overlay.cells) &&
-            all(c->c.area_matches,overlay.coverage),"word map parent partition has overlapping interiors")
+        # The exact oriented boundary-chain predicate proves the SAME full
+        # positive partition condition; groups/area certificate data stay exact.
+        _mtw_partition_boundary_chain(triangles)
         push!(areas,Dict("parent"=>collect(p),"atoms"=>copy(ids),"area_ratio"=>MarkedSurfaceDiagrams.qstr(Q(1))))
     end
     (;groups,areas)
@@ -128,10 +167,11 @@ end
 
 """Certify full positive exact partitions and both directions of continuity.
 
-Source: exact convex intersection supplies pairwise nonoverlap; every parent
-has area one, and every actual partition edge is paired, including old seams.
-Both endpoint maps and affine edge carriers agree on each pairing. Together
-these establish the piecewise-affine homeomorphism, not area sums alone.
+Source: exact oriented boundary-chain equality supplies full multiplicity-one
+partitions of each fixed parent (positive CCW triangles and winding). Every
+parent still has area one, and every actual partition edge is paired, including
+old seams. Both endpoint maps and affine edge carriers agree on each pairing.
+Together these establish the piecewise-affine homeomorphism, not area sums alone.
 """
 function _mtw_certify(input,mesh)
     _mm_need(mesh.surface_report["boundary_components"]==0,"private RIGHT maps currently require a closed fixed mesh")
