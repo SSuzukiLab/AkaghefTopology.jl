@@ -351,7 +351,8 @@ function _mt_same_call_rechart(geometry,opposites,policy,recovered)
     fresh
 end
 
-function _mt_rechart_overlay(fine_doc,raw,recovered)
+function _mt_rechart_overlay(fine_doc,raw,recovered;partition_policy=nothing)
+    _mm_need(partition_policy===nothing || partition_policy=="chart_demand/1","unknown explicit native partition policy")
     M=MarkedSurfaceDiagrams;Q=M.Rat
     geometry=Dict("surface"=>deepcopy(raw.complex["surface"]),"patches"=>deepcopy(raw.complex["patches"]))
     # Source: marked_rechart.jl's default uniform construction and explicit
@@ -385,9 +386,11 @@ function _mt_rechart_overlay(fine_doc,raw,recovered)
                 "proper-arc raw crossing must lie inside its old chart")
         end
         opposites=_marked_rechart_opposites(geometry);policy=Dict("strategy"=>"proper_arc")
+        partition_policy!==nothing && (policy["partition_policy"]=partition_policy)
         charted=recovered===nothing ? _marked_rechart_geometry(geometry,opposites;specification=policy) :
             _mt_same_call_rechart(geometry,opposites,policy,recovered)
     else
+        _mm_need(partition_policy===nothing,"explicit selective policy requires the proper-arc branch")
         opposites=_marked_rechart_opposites(geometry)
         charted=recovered===nothing ? _marked_rechart_geometry(geometry,opposites) :
             _mt_same_call_rechart(geometry,opposites,Dict{String,Any}(),recovered)
@@ -462,10 +465,11 @@ end
 
 _mt_rechart_overlay(fine_doc,raw)=_mt_rechart_overlay(fine_doc,raw,nothing)
 
-function _mt_accept_map_complex(fine_doc,raw,recovered=nothing)
+function _mt_accept_map_complex(fine_doc,raw,recovered=nothing;partition_policy=nothing)
     M=MarkedSurfaceDiagrams
     oversized=length(raw.complex["patches"])>64 || any(length(Set(v for t in p["triangles"] for v in t))>256 for p in raw.complex["patches"])
-    mapped=oversized ? _mt_rechart_overlay(fine_doc,raw,recovered) :
+    _mm_need(partition_policy===nothing || oversized,"explicit native partition policy cannot change already-native geometry")
+    mapped=oversized ? _mt_rechart_overlay(fine_doc,raw,recovered;partition_policy) :
         (;document=raw.complex,records=raw.records,image_records=raw.image_records,source_children=raw.source_children,target_children=raw.target_children,rechart=nothing)
     doc=mapped.document;before=_marked_states(fine_doc);after=_marked_states(doc)
     region_map=_ms_regions(M.regions(before.mathematics),M.regions(after.mathematics),mapped.source_children)
@@ -710,9 +714,14 @@ prepared surface relator. Preparation's explicit identity transports link this
 basis to the input marking; its generator numbers need not match input numbers.
 Only abelianized equality is asserted here.
 """
-function _mt_old_basis_images(fine_doc,result,core,sign)
+function _mt_map_old_basis_images(fine_doc,result,data,expected_vectors,annotations)
     M=MarkedSurfaceDiagrams;old=_marked_states(fine_doc).geometry;new=_marked_states(result.document).geometry
-    data=marked_curve_words(fine_doc);pairing=M.fine_edge_occurrences(old)
+    _mm_need(data.presentation.metadata["source_hash"]==M.representation_digest(fine_doc) &&
+        data.presentation.metadata["source_marking_sha256"]==M.marking_digest(fine_doc),
+        "map action basis is not the original prepared source")
+    _mm_need(Set(keys(expected_vectors))==Set(c["id"] for c in result.document["curves"]),
+        "map action expectation omits a saved curve")
+    pairing=M.fine_edge_occurrences(old)
     records=Dict(_mm_cell(r["child"])=>r for r in result.records)
     function anchor(v,record)
         j=only(findall(==(v),record["vertices"]));weights=_mt_live_bary(record["target_weights"][j])
@@ -731,7 +740,7 @@ function _mt_old_basis_images(fine_doc,result,core,sign)
         for (i,s) in word;out[i]+=s;end
         out
     end
-    reports=Any[];core_class=exponents(data.curve_words[core])
+    reports=Any[]
     for c in result.document["curves"]
         word=Int[];retractions=Any[]
         for d in M.parse_word(c["word"])
@@ -743,6 +752,30 @@ function _mt_old_basis_images(fine_doc,result,core,sign)
             push!(retractions,Dict("image_dart"=>[d.face,d.u,d.v],"old_triangle"=>collect(cell),"anchors"=>[u,v],"old_edge_word"=>[[i,s] for (i,s) in edge_word]))
         end
         reduced=_marked_reduce(word);image=[(abs(x),Base.sign(x)) for x in reduced]
+        expected=expected_vectors[c["id"]]
+        actual=exponents(image)
+        _mm_need(actual==expected,"constructed twist image has the wrong homology action in the fixed old basis")
+        record=Dict("curve"=>c["id"],"source_word"=>[[i,s] for (i,s) in data.curve_words[c["id"]]],
+            "image_word_old_basis"=>[[i,s] for (i,s) in image],
+            "source_exponents"=>exponents(data.curve_words[c["id"]]),"image_exponents"=>actual,"expected_exponents"=>expected,
+            "edge_retractions"=>retractions,"word_semantics"=>"fixed pre-twist prepared fine-mesh surface presentation; modulo its relator; exponent equality checked")
+        merge!(record,get(annotations,c["id"],Dict{String,Any}()))
+        push!(reports,record)
+    end
+    reports
+end
+
+# Source: the original single-core formula. Keep its independent signed
+# transvection expectation; only the actual fixed-basis reader is shared.
+function _mt_old_basis_images(fine_doc,result,core,sign)
+    data=marked_curve_words(fine_doc);dimension=length(data.presentation.generators)
+    exponents(word)=begin
+        out=zeros(Int,dimension)
+        for (i,s) in word;out[i]+=s;end
+        out
+    end
+    core_class=exponents(data.curve_words[core]);expected=Dict();annotations=Dict()
+    for c in fine_doc["curves"]
         intersection=0
         if c["id"]!=core
             for x in fine_doc["crossings"]
@@ -750,15 +783,10 @@ function _mt_old_basis_images(fine_doc,result,core,sign)
                 intersection+=x["curves"][1]==core ? x["sign"] : -x["sign"]
             end
         end
-        expected=exponents(data.curve_words[c["id"]])+sign*intersection*core_class
-        actual=exponents(image)
-        _mm_need(actual==expected,"constructed twist image has the wrong homology action in the fixed old basis")
-        push!(reports,Dict("curve"=>c["id"],"source_word"=>[[i,s] for (i,s) in data.curve_words[c["id"]]],
-            "image_word_old_basis"=>[[i,s] for (i,s) in image],"intersection_with_core"=>intersection,
-            "source_exponents"=>exponents(data.curve_words[c["id"]]),"image_exponents"=>actual,"expected_exponents"=>expected,
-            "edge_retractions"=>retractions,"word_semantics"=>"fixed pre-twist prepared fine-mesh surface presentation; modulo its relator; exponent equality checked"))
+        expected[c["id"]]=exponents(data.curve_words[c["id"]])+sign*intersection*core_class
+        annotations[c["id"]]=Dict("intersection_with_core"=>intersection)
     end
-    reports
+    _mt_map_old_basis_images(fine_doc,result,data,expected,annotations)
 end
 
 """Apply a signed whole-diagram twist using one recorded annular product.

@@ -110,7 +110,10 @@ function _marked_rechart_geometry(raw_geometry::AbstractDict,opposite_edges::Abs
     # The opt-in selective strategy preserves already legal old-chart routes.
     # Its caller must check that raw external features avoid marking edges and
     # corners. Empty-spec uniform-star behavior and its inverse remain intact.
-    _plain_value(specification)==Dict("strategy"=>"proper_arc") && return _mr_proper_arc_geometry(raw_geometry,opposite_edges)
+    policy=_plain_value(specification)
+    policy==Dict("strategy"=>"proper_arc") && return _mr_proper_arc_geometry(raw_geometry,opposite_edges)
+    policy==Dict("strategy"=>"proper_arc","partition_policy"=>"chart_demand/1") &&
+        return _mr_proper_arc_geometry(raw_geometry,opposite_edges;partition_policy="chart_demand/1")
     _mm_need(isempty(specification),"private identity rechart accepts no replacement geometry or layout choices")
     first_atlas=_mr_first_atlas(raw_geometry,opposite_edges)
     star=marked_dual_star(first_atlas.atlas,Dict("merge_charts"=>true))
@@ -239,7 +242,7 @@ map inverse on this reconstructed geometry before returning native data.
 """
 function _marked_unrechart_geometry(current_native::AbstractDict,inverse_specification::AbstractDict)
     M=MarkedSurfaceDiagrams;current=_marked_document(current_native);spec=_plain_value(inverse_specification)
-    get(spec,"schema",nothing)=="internal-triangle-partition/1" && return _mr_unpartition_geometry(current,spec)
+    get(spec,"schema",nothing) in ("internal-triangle-partition/1","internal-triangle-partition/2") && return _mr_unpartition_geometry(current,spec)
     _mm_need(get(spec,"schema","")=="internal-triangle-rechart/1","unknown private rechart inverse")
     bare=_st_empty(current)
     _mm_need(_mm_hash(bare)==spec["public_geometry_hash"],"public rechart geometry has changed")
@@ -439,7 +442,7 @@ function _mrp_candidate(state,p,path,e1,e2;temporary=true)
     counts=[length(Set(v for r in ch for v in r.vertices)) for ch in children]
     (;children,counts,seam,mids)
 end
-function _mrp_choose(state,p)
+function _mrp_choose(state,p;chart_demand=false)
     M=MarkedSurfaceDiagrams;s=_mrp_check_disk(p.rows);boundary=collect(zip(s.cycle,circshift(s.cycle,-1)));n=length(boundary)
     sample_count=min(24,n);samples=sort(unique(mod(round(Int,i*n/sample_count),n)+1 for i in 0:sample_count-1))
     best=nothing;bestscore=nothing
@@ -451,14 +454,19 @@ function _mrp_choose(state,p)
             state.labels[(p.origin,e1)][1]==state.labels[(p.origin,e2)][1] && continue
             path=_mrp_path(parent,start,finish);candidate=_mrp_candidate(state,p,path,e1,e2)
             maximum(candidate.counts)<length(s.vertices) || continue
-            score=(maximum(candidate.counts),length(path),i,j)
+            # Source: actual same-raw BA diagnostic. This versioned ranking
+            # proxy avoids wasting chart budget near 224; mirrored refinement
+            # can add vertices, so this is NOT a feasibility/capacity theorem.
+            score=chart_demand ? (sum(cld(v,224) for v in candidate.counts),
+                count(v->v>224,candidate.counts),maximum(candidate.counts),length(path),i,j) :
+                (maximum(candidate.counts),length(path),i,j)
             if bestscore===nothing || isless(score,bestscore);bestscore=score;best=(path,e1,e2);end
         end
     end
     _mm_need(best!==nothing,"bounded proper-arc search found no reducing disk cut")
     best
 end
-function _mrp_partition(proof)
+function _mrp_partition(proof;chart_demand=false)
     M=MarkedSurfaceDiagrams;Q=M.Rat;patches=Dict{String,Any}();labels=Dict();midpoints=Dict();serial=Ref(0)
     prefix="partition_mid_";oldnames=Set(v for t in values(proof.triangles) for v in t)
     while any(startswith(v,prefix) for v in oldnames);prefix="p_"*prefix;end
@@ -479,7 +487,7 @@ function _mrp_partition(proof)
         sizes=Dict(name=>length(Set(v for r in p.rows for v in r.vertices)) for (name,p) in patches)
         bad=sort([name for name in keys(patches) if sizes[name]>224];by=n->(sizes[n],n))
         isempty(bad) && break
-        name=last(bad);p=patches[name];path,e1,e2=_mrp_choose(state,p)
+        name=last(bad);p=patches[name];path,e1,e2=_mrp_choose(state,p;chart_demand)
         result=_mrp_candidate(state,p,path,e1,e2;temporary=false)
         for (e,m) in result.mids;_mrp_boundary_split!(state,p.origin,e...,m);end
         sid="cut$(length(trace))"
@@ -669,10 +677,13 @@ function _mrp_check_cells(native,affine,ancestry,expected_pairs)
     (;recovered,opposite_edges=derived,unit_vertices=units)
 end
 
-function _mr_proper_arc_geometry(raw_geometry,opposite_edges)
+# Source: the accepted old proof machinery is shared. An absent policy keeps
+# schema1/default EXACTLY; new ranking is explicitly schema2/chart_demand/1.
+function _mr_proper_arc_geometry(raw_geometry,opposite_edges;partition_policy=nothing)
+    _mm_need(partition_policy===nothing || partition_policy=="chart_demand/1","unknown selective partition policy")
     proof=_mr_proof(raw_geometry);supplied=Dict(_mr_occ(o)=>_mr_occ(p) for (o,p) in opposite_edges)
     _mm_need(supplied==proof.opposite_edges,"supplied opposite edges disagree with actual selective raw geometry")
-    partition=_mrp_partition(proof);assembled=_mrp_assemble(partition,proof.geometry)
+    partition=_mrp_partition(proof;chart_demand=partition_policy!==nothing);assembled=_mrp_assemble(partition,proof.geometry)
     ancestry=[Dict("source"=>[f,i-1],"source_vertices"=>collect(t)) for ((f,i),t) in sort(collect(proof.triangles);by=first)]
     _mrp_check_cells(assembled.native,assembled.affine,ancestry,supplied)
     corr=_mrp_correspondence(proof,partition,assembled)
@@ -681,6 +692,12 @@ function _mr_proper_arc_geometry(raw_geometry,opposite_edges)
         "raw_surface"=>deepcopy(proof.geometry["surface"]),"raw_charts"=>_mr_chart_provenance(proof.geometry),
         "triangle_ancestry"=>ancestry,"opposite_edges"=>_mr_pairs_json(supplied),
         "affine_children"=>assembled.affine,"proper_cuts"=>partition.trace,"correspondence_hash"=>_mm_hash(corr))
+    if partition_policy!==nothing
+        inverse["schema"]="internal-triangle-partition/2"
+        inverse["partition_policy"]=partition_policy
+        corr["partition_policy"]=partition_policy
+        inverse["correspondence_hash"]=_mm_hash(corr)
+    end
     (;document=assembled.document,correspondence=corr,inverse_specification=inverse)
 end
 function _mr_unpartition_geometry(current_native,spec)
@@ -694,14 +711,19 @@ function _mr_unpartition_geometry(current_native,spec)
     end
     geometry=Dict{String,Any}("surface"=>deepcopy(spec["raw_surface"]),"patches"=>charts);proof=_mr_proof(geometry)
     _mm_need(proof.opposite_edges==actual.opposite_edges && _mm_hash(geometry)==spec["raw_geometry_hash"],"selective actual reassembly disagrees with old macroseams or raw geometry")
-    regenerated=_mr_proper_arc_geometry(geometry,actual.opposite_edges)
+    # The input schema was checked before reconstruction. Regenerate the
+    # EXACT recorded policy; never reinterpret old saved witnesses by a new score.
+    partition_policy=get(spec,"partition_policy",nothing)
+    regenerated=_mr_proper_arc_geometry(geometry,actual.opposite_edges;partition_policy)
     _mm_need(regenerated.document==bare && _canonical_json(regenerated.inverse_specification)==_canonical_json(spec) &&
         _mm_hash(regenerated.correspondence)==spec["correspondence_hash"],"fresh selective partition does not regenerate actual current geometry and full inverse data")
     # Same-call reuse contract as the uniform inverse above. The selective
     # policy is explicit in the equality binding; no incoming spec/result is
     # substituted for this invocation's freshly regenerated geometry result.
+    forward_specification=Dict{String,Any}("strategy"=>"proper_arc")
+    partition_policy!==nothing && (forward_specification["partition_policy"]=partition_policy)
     (;geometry,opposite_edges=actual.opposite_edges,correspondence=regenerated.correspondence,construction_only=true,
-        forward_specification=Dict{String,Any}("strategy"=>"proper_arc"),fresh_forward=regenerated)
+        forward_specification,fresh_forward=regenerated)
 end
 # Source: the selective inverse consumes untrusted JSON before any allocation
 # or indexing. Keep this separate from the unchanged uniform-star schema.
@@ -723,8 +745,14 @@ function _mrp_inverse_schema(spec)
             throw(ArgumentError("selective inverse has malformed "*field*": "*sprint(showerror,err)))
         end
     end
-    need(Set(keys(spec))==required,"fields")
-    need(spec["schema"]=="internal-triangle-partition/1" && spec["strategy"]=="proper_arc","schema/strategy")
+    version=get(spec,"schema",nothing)
+    if version=="internal-triangle-partition/2"
+        need(Set(keys(spec))==union(required,Set(["partition_policy"])),"fields")
+        need(get(spec,"partition_policy",nothing)=="chart_demand/1","partition_policy")
+    else
+        need(Set(keys(spec))==required,"fields")
+    end
+    need(version in ("internal-triangle-partition/1","internal-triangle-partition/2") && spec["strategy"]=="proper_arc","schema/strategy")
     for field in ("raw_geometry_hash","public_geometry_hash","correspondence_hash")
         need(spec[field] isa AbstractString && occursin(r"^[0-9a-f]{64}$",spec[field]),field)
     end

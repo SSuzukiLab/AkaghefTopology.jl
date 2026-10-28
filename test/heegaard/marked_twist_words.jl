@@ -250,4 +250,139 @@ end
     target=deepcopy(result.document);target["metadata"]["changed"]=true
     @test_throws ArgumentError H._mtw_restore_total_source_candidate(target,spec)
 end
+
+
+# Source: the UNCHANGED genus-one input in test/heegaard/marked_twists.jl.
+# This is proposed acceptance code, not an executed or accepted word claim.
+function public_word_torus()
+    doc=H.MarkedDiagramBuilders.grid_document(2)
+    H.MarkedDiagramBuilders.add_curve!(doc,"a","alpha",true,[[(0,1),(2,1)]])
+    H.MarkedDiagramBuilders.add_curve!(doc,"b","beta",true,[[(1,0),(1,2)]])
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"x",1,1,"a","b",1)
+    doc["metadata"]=Dict("source"=>"oriented meridian/longitude test","display"=>Dict("infinity_triangle"=>["P",7]))
+    doc
+end
+word_spec(cores)=Dict("word"=>[Dict("core"=>c,"sign"=>s) for (c,s) in cores])
+function action_record(result,cid)
+    only(r for r in result.witness["correspondence"]["old_basis_action"] if r["curve"]==cid)
+end
+
+@testset "PROPOSED actual RIGHT AB versus BA in one original prepared basis" begin
+    doc=public_word_torus();snapshot=deepcopy(doc)
+    AB=H.marked_dehn_twist_word(doc,word_spec([("a",1),("b",1)]))
+    BA=H.marked_dehn_twist_word(doc,word_spec([("b",1),("a",1)]))
+    @test doc==snapshot
+    cab=AB.witness["correspondence"];cba=BA.witness["correspondence"]
+    @test cab["basis_source_hash"]==cba["basis_source_hash"]
+    @test cab["basis_marking_hash"]==cba["basis_marking_hash"]
+    a=action_record(AB,"a");b=action_record(AB,"b")
+    c=action_record(BA,"a");d=action_record(BA,"b")
+    @test a["source_exponents"]==c["source_exponents"] && b["source_exponents"]==d["source_exponents"]
+    av,bv=a["source_exponents"],b["source_exponents"]
+    @test length(av)==length(bv)==2 && abs(av[1]*bv[2]-av[2]*bv[1])==1
+    # Independent original oriented torus classes: A=[[1,1],[0,1]],
+    # B=[[1,0],[-1,1]]. These compare ACTUAL native image retractions with
+    # source-class combinations, never the constructor's expected-vector field.
+    @test a["image_exponents"]==-bv
+    @test b["image_exponents"]==av+bv
+    @test c["image_exponents"]==av-bv
+    @test d["image_exponents"]==av
+    @test hcat(a["image_exponents"],b["image_exponents"])!=hcat(c["image_exponents"],d["image_exponents"])
+    for result in (AB,BA)
+        @test H.validate(result.document;level=:surface).valid
+        @test H.is_closed_heegaard(result.document)
+        @test H.intersection_matrix(result.document)==[1;;]
+        @test [(x["id"],x["sign"]) for x in result.document["crossings"]]==[("x",1)]
+        @test length(result.document["patches"])<=64
+        @test maximum(length(Set(v for t in p["triangles"] for v in t)) for p in result.document["patches"])<=256
+    end
+    mktempdir() do dir
+        target=joinpath(dir,"word-target.hgd.json")
+        H.save_heegaard(target,AB.document)
+        actual=H.load_heegaard(target)
+        inverse=JSON3.read(JSON3.write(AB.witness["inverse_specification"]),Dict{String,Any})
+        @test H.marked_inverse_dehn_twist_word(actual,inverse).document==doc
+        wrong=deepcopy(inverse);wrong["child_cells"][1]["source_weights"][1]=["0","0","0"]
+        @test_throws ArgumentError H.marked_inverse_dehn_twist_word(actual,wrong)
+        wrong=deepcopy(inverse);reverse!(wrong["word"])
+        @test_throws ArgumentError H.marked_inverse_dehn_twist_word(actual,wrong)
+        # Coherent labels bypass the cheap duplicate-word guard. Actual AB
+        # geometry, TOTAL S/T and factor receipts remain unchanged; only the
+        # mandatory complete BA regeneration can reject this claimed word.
+        coherent=deepcopy(inverse);claimed=word_spec([("b",1),("a",1)])["word"]
+        coherent["word"]=deepcopy(claimed)
+        coherent["forward_specification"]["word"]=deepcopy(claimed)
+        coherent["forward_correspondence"]["word"]=deepcopy(claimed)
+        rejected=try H.marked_inverse_dehn_twist_word(actual,coherent);nothing catch err;err end
+        @test rejected isa ArgumentError
+        @test occursin("full factor/RIGHT-word regeneration",sprint(showerror,rejected))
+        # Shape/type failures must reject BEFORE actual unchart/reconstruction,
+        # with stable contextual ArgumentError, not indexing/dispatch errors.
+        malformed=Function[
+            s->delete!(s,"target_hash"),
+            s->(s["extra"]=true),
+            s->(s["forward_correspondence"]=Any[]),
+            s->(s["construction"]=nothing),
+            s->(s["construction"]=Any[]),
+            s->(s["construction"]=7),
+            s->(s["construction"][1]["inverse_specification"]=Any[]),
+            s->(s["construction"][2]["inverse_specification"]["patches"]=nothing),
+            s->(s["child_cells"]=nothing),
+            s->(s["child_cells"][1]["source"]=["unknown",typemax(Int)]),
+            s->(s["child_cells"][1]["source_weights"][1]=["1/0","0","0"]),
+            s->(s["new_vertices"]=nothing),
+            s->(s["curve_images"][1]["edge_images"]=7),
+            s->(s["proof_crossing_locations"]=Any[]),
+            s->(s["fine_source_mesh"]["patches"][1]["triangles"]=[["a","b"]]),
+            s->(s["forward_correspondence"]["composition_stages"][1]["output_atoms"]=typemax(Int)),
+            s->(s["forward_correspondence"]["elementary_maps"][1]["atoms"]=nothing),
+            s->(s["rechart_inverse_specification"]=Dict("schema"=>"unknown")),
+        ]
+        for mutate in malformed
+            bad=deepcopy(inverse);mutate(bad)
+            rejected=try H.marked_inverse_dehn_twist_word(actual,bad);nothing catch err;err end
+            @test rejected isa ArgumentError
+            @test occursin("word inverse",sprint(showerror,rejected))
+        end
+        changed=deepcopy(actual);changed["metadata"]["source"]="changed actual target"
+        @test_throws ArgumentError H.marked_inverse_dehn_twist_word(changed,inverse)
+    end
+    @test_throws ArgumentError H.marked_dehn_twist_word(doc,word_spec([("missing",1)]))
+    @test_throws ArgumentError H.marked_dehn_twist_word(doc,Dict("word"=>[Dict("core"=>"a","sign"=>true)]))
+    @test_throws ArgumentError H.marked_dehn_twist_word(doc,Dict("word"=>[Dict("core"=>"a","sign"=>1,"family"=>"beta")]))
+end
+
+@testset "PROPOSED word pipeline carries the unchanged embedded-D source" begin
+    # This one-factor decorated scope supplements, and cannot replace, the
+    # two-distinct-core native AB/BA case or the original single-D action gate.
+    doc=H.MarkedDiagramBuilders.grid_document(4)
+    H.MarkedDiagramBuilders.add_curve!(doc,"a","alpha",true,[[(1,1),(3,1),(3,3),(1,3),(1,1)]])
+    H.MarkedDiagramBuilders.add_curve!(doc,"b","beta",true,[[(0,2),(4,2)]])
+    H.MarkedDiagramBuilders.add_curve!(doc,"cut","aux",true,[[(2,0),(2,4)]])
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"ab_right",3,2,"a","b",-1)
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"ab_left",1,2,"a","b",1)
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"ac_bottom",2,1,"a","cut",1)
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"ac_top",2,3,"a","cut",-1)
+    H.MarkedDiagramBuilders.declare_crossing!(doc,"bc",2,2,"b","cut",1)
+    doc["region_marks"]=[Dict("id"=>"D","seed"=>["P",10],"claim"=>"embedded_closed_disk")]
+    doc["metadata"]=Dict("display"=>Dict("infinity_triangle"=>["P",0]))
+    before=deepcopy(doc)
+    result=H.marked_dehn_twist_word(doc,word_spec([("cut",1)]))
+    @test doc==before
+    @test H.validate(result.document;level=:surface).valid
+    @test result.document["region_marks"][1]["claim"]=="embedded_closed_disk"
+    @test [(x["id"],x["sign"]) for x in result.document["crossings"]]==[(x["id"],x["sign"]) for x in doc["crossings"]]
+    b=action_record(result,"b");cut=action_record(result,"cut")
+    @test b["image_exponents"]==b["source_exponents"]-cut["source_exponents"]
+    @test b["image_exponents"]!=b["source_exponents"]
+    @test cut["image_exponents"]==cut["source_exponents"]
+    @test length(result.witness["correspondence"]["regions"])==length(H.complement_regions(doc))
+    mktempdir() do dir
+        path=joinpath(dir,"decorated-word-target.hgd.json")
+        H.save_heegaard(path,result.document)
+        actual=H.load_heegaard(path)
+        inverse=JSON3.read(JSON3.write(result.witness["inverse_specification"]),Dict{String,Any})
+        @test H.marked_inverse_dehn_twist_word(actual,inverse).document==doc
+    end
+end
 end

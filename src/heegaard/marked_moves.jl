@@ -331,6 +331,10 @@ function _mm_execute(kind,doc,spec,positions)
         marked_dehn_twist(doc,spec)
     elseif kind=="generated_twist_inverse"
         marked_inverse_dehn_twist(doc,spec)
+    elseif kind=="dehn_twist_word"
+        marked_dehn_twist_word(doc,spec)
+    elseif kind=="generated_twist_word_inverse"
+        marked_inverse_dehn_twist_word(doc,spec)
     else
         throw(ArgumentError("unknown marked move kind $kind"))
     end
