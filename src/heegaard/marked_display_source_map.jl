@@ -8,7 +8,10 @@ const _MDSMQ = Rational{BigInt}
 const _MDSMP = Tuple{_MDSMQ,_MDSMQ}
 _mdsm_q(x::Integer)=_MDSMQ(x)
 _mdsm_q(x::Rational)=BigInt(numerator(x))//BigInt(denominator(x))
-_mdsm_q(x::AbstractFloat)=isfinite(x) ? rationalize(BigInt,x;tol=0) : throw(ArgumentError("Nonfinite source-map coordinate"))
+# Source: Julia 1.12 base/mpfr.jl::Rational{BigInt}(::AbstractFloat) uses
+# precision/exponent/ldexp to retain the exact binary value. Continued-fraction
+# rationalize(tol=0) can differ even at zero tolerance for tiny coordinates.
+_mdsm_q(x::AbstractFloat)=isfinite(x) ? _MDSMQ(x) : throw(ArgumentError("Nonfinite source-map coordinate"))
 function _mdsm_q(x::AbstractString)
     parts=split(replace(x,"//"=>"/"),'/')
     length(parts)==1 && return _MDSMQ(parse(BigInt,parts[1]))
