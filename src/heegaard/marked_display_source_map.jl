@@ -35,6 +35,9 @@ end
 function _mdsm_strictly_inside(p,polygon)
     M=MarkedSurfaceDiagrams;winding=0
     for (a,b) in zip(polygon,circshift(polygon,-1))
+        # Source: the unchanged contact and winding tests require this closed
+        # y interval. Strict separation excludes both; equality stays in.
+        (p[2]<min(a[2],b[2]) || max(a[2],b[2])<p[2]) && continue
         turn=M.orient(a,b,p)
         iszero(turn) && min(a[1],b[1])<=p[1]<=max(a[1],b[1]) &&
             min(a[2],b[2])<=p[2]<=max(a[2],b[2]) && return false
@@ -55,8 +58,7 @@ function _mdsm_bind_collars(layers,source_holes,target_holes,exterior)
     _mdsm_need(Set(word.(source_holes))==Set(word([a.source[v] for v in a.inner]) for a in layers),"Collar source holes differ from full domain")
     _mdsm_need(Set(word.(target_holes))==Set(word([a.target[v] for v in a.inner]) for a in layers),"Collar target holes differ from full domain")
     supports=[[a.source[v] for v in a.outer] for a in layers]
-    meet(a,b)=any(_mdsm_segments_meet(u,v,x,y) for
-        (u,v) in zip(a,circshift(a,-1)) for (x,y) in zip(b,circshift(b,-1)))
+    meet(a,b)=_mdsm_polygons_meet(a,b)
     for (i,p) in enumerate(supports)
         _mdsm_need(!meet(p,exterior) && _mdsm_strictly_inside(first(p),exterior),"Collar support leaves its fixed exterior chart")
         for q in supports[i+1:end]
@@ -163,7 +165,9 @@ function _mdsm_verify_recipe_cells(recipe;progress=identity)
     circle_layers=_mdsm_collar_layer(layers[2];progress=progress)
     holes(m)=[[m.points[v] for v in c] for c in m.cycles if c!=m.outer]
     outside(m)=[m.points[v] for v in m.outer]
+    progress("native collar support binding start")
     _mdsm_bind_collars(native_layers,holes(native),holes(fixed_source),outside(native))
+    progress("native collar support binding complete")
     # fixed_mesh adds the explicitly retained exterior collar before moving the
     # grid. Its source frame contains the old native frame with no crossings.
     outer=outside(fixed_source);inner=outside(native)
@@ -171,17 +175,28 @@ function _mdsm_verify_recipe_cells(recipe;progress=identity)
         _mdsm_same_domain(native,fixed_source)
     else
         _mdsm_need(all(_mdsm_strictly_inside(p,outer) for p in inner),"Native infinity frame leaves the retained exterior collar")
-        _mdsm_need(!any(_mdsm_segments_meet(a,b,c,d) for
-            (a,b) in zip(inner,circshift(inner,-1)) for (c,d) in zip(outer,circshift(outer,-1))),"Infinity collar boundaries cross")
+        _mdsm_need(!_mdsm_polygons_meet(inner,outer),"Infinity collar boundaries cross")
     end
     domain=recipe["port_domain"];D=_mdsm_points(domain["source_positions"])
+    progress("port domain mesh start")
     port_domain=_mdsm_mesh(D,domain["triangles"])
+    progress("port domain mesh complete")
     _mdsm_need(_mdsm_boundary_word(Q,fixed_target.outer)==_mdsm_boundary_word(D,port_domain.outer),"Port map changes the exterior frame")
+    progress("circle collar support binding start")
     _mdsm_bind_collars(circle_layers,holes(fixed_target),holes(port_domain),outside(fixed_target))
+    progress("circle collar support binding complete")
     map=recipe["port_map"];U=_mdsm_points(map["source_positions"]);V=_mdsm_points(map["target_positions"])
-    cdt_source=_mdsm_mesh(U,map["triangles"]);cdt_target=_mdsm_mesh(V,map["triangles"];expected_boundary=cdt_source.cycles)
+    progress("port CDT source mesh start")
+    cdt_source=_mdsm_mesh(U,map["triangles"])
+    progress("port CDT target mesh start")
+    cdt_target=_mdsm_mesh(V,map["triangles"];expected_boundary=cdt_source.cycles)
+    progress("port CDT meshes complete")
+    progress("port domain equality start")
     _mdsm_same_domain(port_domain,cdt_source)
+    progress("port domain equality complete")
+    progress("port whole-step determinants start")
     bound=_mdsm_linear_face_bound(U,V,map["triangles"])
+    progress("port whole-step determinants complete")
     progress("complete port domains and whole-step determinants")
     Dict("full_cell_maps_verified"=>true,"native_faces"=>length(native.triangles),
         "fixed_faces"=>length(fixed_source.triangles),"port_faces"=>length(cdt_source.triangles),
@@ -216,6 +231,18 @@ function _mdsm_boundary_candidate_pairs(boxes; pair_budget=8*min(length(boxes),t
         push!(active,j)
     end
     sort!(pairs)
+end
+
+# Source: _mdsm_boundary_candidate_pairs enumerates exact closed-box overlaps,
+# or its original all-pairs fallback. Concatenation numbers every A edge before
+# every B edge, so retaining only cross pairs preserves A-by-B lexicographic order.
+# Finite rational coordinates and immutable inputs are the exact-cell contract.
+function _mdsm_polygons_meet(a,b)
+    (isempty(a) || isempty(b)) && return false
+    A=collect(zip(a,circshift(a,-1)));B=collect(zip(b,circshift(b,-1)));nA=length(A)
+    boxes=[(minmax(u[1],v[1]),minmax(u[2],v[2])) for (u,v) in vcat(A,B)]
+    any(_mdsm_segments_meet(A[i]...,B[j-nA]...) for
+        (i,j) in _mdsm_boundary_candidate_pairs(boxes) if i<=nA<j)
 end
 
 """Check a complete oriented planar manifold mesh and its exact boundary.
