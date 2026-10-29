@@ -22,6 +22,16 @@ end
 # Source: MarkedSurfaceDiagrams.orient/segments_meet and the directed boundary
 # cycles validated by _mdsm_mesh. Winding is used only after simplicity; a
 # boundary contact is rejected instead of assigned an arbitrary inside value.
+# Source: closed segment endpoint coordinate intervals; strict separation
+# implies disjoint segments. Equal boxes retain the unchanged exact predicate.
+function _mdsm_segments_meet(a,b,c,d)
+    ax=minmax(a[1],b[1]);bx=minmax(c[1],d[1])
+    (ax[2]<bx[1] || bx[2]<ax[1]) && return false
+    ay=minmax(a[2],b[2]);by=minmax(c[2],d[2])
+    (ay[2]<by[1] || by[2]<ay[1]) && return false
+    MarkedSurfaceDiagrams.segments_meet(a,b,c,d)
+end
+
 function _mdsm_strictly_inside(p,polygon)
     M=MarkedSurfaceDiagrams;winding=0
     for (a,b) in zip(polygon,circshift(polygon,-1))
@@ -45,7 +55,7 @@ function _mdsm_bind_collars(layers,source_holes,target_holes,exterior)
     _mdsm_need(Set(word.(source_holes))==Set(word([a.source[v] for v in a.inner]) for a in layers),"Collar source holes differ from full domain")
     _mdsm_need(Set(word.(target_holes))==Set(word([a.target[v] for v in a.inner]) for a in layers),"Collar target holes differ from full domain")
     supports=[[a.source[v] for v in a.outer] for a in layers]
-    meet(a,b)=any(MarkedSurfaceDiagrams.segments_meet(u,v,x,y) for
+    meet(a,b)=any(_mdsm_segments_meet(u,v,x,y) for
         (u,v) in zip(a,circshift(a,-1)) for (x,y) in zip(b,circshift(b,-1)))
     for (i,p) in enumerate(supports)
         _mdsm_need(!meet(p,exterior) && _mdsm_strictly_inside(first(p),exterior),"Collar support leaves its fixed exterior chart")
@@ -161,7 +171,7 @@ function _mdsm_verify_recipe_cells(recipe;progress=identity)
         _mdsm_same_domain(native,fixed_source)
     else
         _mdsm_need(all(_mdsm_strictly_inside(p,outer) for p in inner),"Native infinity frame leaves the retained exterior collar")
-        _mdsm_need(!any(MarkedSurfaceDiagrams.segments_meet(a,b,c,d) for
+        _mdsm_need(!any(_mdsm_segments_meet(a,b,c,d) for
             (a,b) in zip(inner,circshift(inner,-1)) for (c,d) in zip(outer,circshift(outer,-1))),"Infinity collar boundaries cross")
     end
     domain=recipe["port_domain"];D=_mdsm_points(domain["source_positions"])
@@ -243,6 +253,9 @@ function _mdsm_mesh(points,triangles; expected_boundary=nothing)
     _mdsm_need(seen==Set(keys(links)),"Source-map mesh is disconnected")
     areas=[_mpo_area([points[v] for v in c]) for c in cycles]
     _mdsm_need(count(>(0),areas)==1 && all(x->!iszero(x),areas),"Source-map outer/hole orientations disagree")
+    # Source: segments lie in their exact closed endpoint coordinate intervals.
+    # Strictly separated boxes cannot meet; equality retains all touching cases.
+    boundary_boxes=[(minmax(points[a][1],points[b][1]),minmax(points[a][2],points[b][2])) for (a,b) in boundary]
     for i in eachindex(boundary), j in i+1:length(boundary)
         a,b=boundary[i];c,d=boundary[j]
         if !isempty(intersect(Set((a,b)),Set((c,d))))
@@ -252,6 +265,8 @@ function _mdsm_mesh(points,triangles; expected_boundary=nothing)
             q=points[common];x=points[u];y=points[v]
             _mdsm_need(M.orient(q,x,y)!=0 || (x[1]-q[1])*(y[1]-q[1])+(x[2]-q[2])*(y[2]-q[2])<0,"Source-map adjacent boundary edges overlap")
         else
+            (ix,iy)=boundary_boxes[i];(jx,jy)=boundary_boxes[j]
+            (ix[2]<jx[1] || jx[2]<ix[1] || iy[2]<jy[1] || jy[2]<iy[1]) && continue
             _mdsm_need(!M.segments_meet(points[a],points[b],points[c],points[d]),"Source-map boundary intersects")
         end
     end
@@ -368,6 +383,7 @@ function _mdsm_collar_sector(sector)
     for (points,T) in ((A,TA),(B,TB),(C,TA),(C,TB))
         _mdsm_mesh(Dict(enumerate(points)),T;expected_boundary=boundary)
     end
+    Cdict=Dict(enumerate(C));Adict=Dict(enumerate(A));Bdict=Dict(enumerate(B))
     source=[(;id=i,points=C[t]) for (i,t) in enumerate(TA)]
     target=[(;id=i,points=C[t]) for (i,t) in enumerate(TB)]
     overlay=_marked_triangle_overlay(source,target)
@@ -376,8 +392,8 @@ function _mdsm_collar_sector(sector)
     for cell in overlay.cells
         points=cell.vertices;source_points=_MDSMP[];target_points=_MDSMP[]
         for p in points
-            push!(source_points,_mdsm_map_point(p,Dict(enumerate(C)),Dict(enumerate(A)),[TA[cell.source_id]]).point)
-            push!(target_points,_mdsm_map_point(p,Dict(enumerate(C)),Dict(enumerate(B)),[TB[cell.target_id]]).point)
+            push!(source_points,_mdsm_map_point(p,Cdict,Adict,[TA[cell.source_id]]).point)
+            push!(target_points,_mdsm_map_point(p,Cdict,Bdict,[TB[cell.target_id]]).point)
         end
         _mdsm_need(_mpo_area(source_points)>0 && _mpo_area(target_points)>0,"Collar common cell loses orientation")
         push!(maps,(;source=source_points,target=target_points))

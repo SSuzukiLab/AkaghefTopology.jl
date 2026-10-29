@@ -68,7 +68,7 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
             recipe["source_representation_sha256"]==result["preparation_representation_sha256"] || error("Source-map representation changed")
             result["source_document"]==view["source_document"] || error("Source-map native document changed")
             bytes2hex(SHA.sha256(Vector{UInt8}(codeunits(result["svg"]))))==recipe["output_svg_sha256"] || error("Source-map SVG differs from the validated output")
-            result["source_map_cell_check"]=_mdsm_verify_recipe_cells(recipe)
+            result["source_map_cell_check"]=_mdsm_verify_recipe_cells(recipe;progress=message->println(stderr,"source-map cells: ",message))
             delete!(result,"source_map_verification_pending")
             # Source: owner plot-method scope; HTTP request limits are enforced
             # by serve.py, not by a mathematical in-process drawing result.
