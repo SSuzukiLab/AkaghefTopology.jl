@@ -825,6 +825,11 @@ def build_graph_free_collars(m, a):
                 if slope>0:hi=min(hi,room/slope)
                 elif slope<0:lo=max(lo,room/slope)
                 elif room<0:lo,hi=F(1),F(0);break
+                # Source: build_graph_free_collars closed halfspace intersection:
+                # each exact constraint only raises lo and
+                # lowers hi; once empty, later facets cannot restore a point.
+                # Keep tested/contacts and the final port-contact gate unchanged.
+                if lo>hi:break
             if lo>hi:continue
             assert lo==hi and ((lo==0 and u in ports) or (lo==1 and v in ports)),('Visible graph meets collar support',b['cut'],b['side'],u,v,float(lo),float(hi))
             contacts.add(u if lo==0 else v)

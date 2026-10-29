@@ -40,8 +40,8 @@ def _parameter_reference_binding(geometry,reference):
         corrected_polyline_positions_sha256=hashlib.sha256(encode(geometry['positions'])).hexdigest())
 
 
-def correspondence(old,new, *, with_branch_signatures=False, _parameter_source=None):
-    pos,xs,bs=branches(old);starts=[];ends=[];edges=[];ids=[];signatures=[];nextid=max(pos)+1
+def correspondence(old,new, *, with_branch_signatures=False, _parameter_source=None, with_source_parameters=False):
+    pos,xs,bs=branches(old);starts=[];ends=[];edges=[];ids=[];signatures=[];source_parameters=[];nextid=max(pos)+1
     # Source: build_exact_anchor_beziers changes coordinates, not source vertex order.
     # A retained strictly monotone source grid parameterizes that corrected PL.
     reference=None
@@ -115,11 +115,14 @@ def correspondence(old,new, *, with_branch_signatures=False, _parameter_source=N
             start=np.array([np.interp(t,arc,q[:,axis]) for axis in (0,1)])
             if k==0 or k==len(unique)-1:assert np.linalg.norm(start-p)<1e-7
             vs.append((vertex,start,p))
-        for a,b in zip(vs,vs[1:]):
+        for edge_index,(a,b) in enumerate(zip(vs,vs[1:])):
             if np.linalg.norm(a[1]-b[1])+np.linalg.norm(a[2]-b[2])<1e-7:continue
             starts.append([a[1],b[1]]);ends.append([a[2],b[2]]);ids.append((a[0],b[0]));edges.append(branch['curve'])
             signatures.append((branch['curve'],branch['vertices'][0],branch['vertices'][-1]))
+            source_parameters.append(dict(interval=[float(unique[edge_index][0]),float(unique[edge_index+1][0])],
+                source_points_svg=[a[1].tolist()]+q[np.searchsorted(arc,unique[edge_index][0],side='right'):np.searchsorted(arc,unique[edge_index+1][0],side='left')].tolist()+[b[1].tolist()]))
     result=(np.array(starts),np.array(ends),ids,edges)
+    if with_source_parameters:return (*result,signatures,source_parameters)
     return (*result,signatures) if with_branch_signatures else result
 
 
@@ -149,7 +152,7 @@ def _motion_collision_location(p,q):
 
 
 def check(old,new, *, _parameter_source=None):
-    a,b,ids,names,signatures=correspondence(old,new,with_branch_signatures=True,_parameter_source=_parameter_source);delta=b-a
+    a,b,ids,names,signatures,source_parameters=correspondence(old,new,with_branch_signatures=True,_parameter_source=_parameter_source,with_source_parameters=True);delta=b-a
     hulls=[MultiPoint(np.vstack((u,v))).convex_hull for u,v in zip(a,b)]
     holes=[(np.array(old['positions'][str(h['cap'])])*600,h['radius']*600) for h in old['boundaries']]
     for i,h in enumerate(hulls):
@@ -174,7 +177,7 @@ def check(old,new, *, _parameter_source=None):
                 else:
                     orientations=np.array([np.polyval(poly,t) for poly in polynomials])
                     if orientations[0]*orientations[1]>1e-15 or orientations[2]*orientations[3]>1e-15:continue
-                    assert LineString(p).distance(LineString(q))>1e-7,('Interpolation collision',i,int(j),names[i],names[j],t,dict(branch_signatures=[signatures[i],signatures[j]],location_svg=_motion_collision_location(p,q)))
+                    assert LineString(p).distance(LineString(q))>1e-7,('Interpolation collision',i,int(j),names[i],names[j],t,dict(branch_signatures=[signatures[i],signatures[j]],source_parameters=[source_parameters[i],source_parameters[j]],location_svg=_motion_collision_location(p,q)))
         if i%2000==0:print('Continuous edge check',i,len(hulls),tested,flush=True)
     report=dict(method='quadratic orientation events for straight PL interpolation; convex swept hull hole checks',
                 arithmetic='floating-point, tolerance 1e-7 SVG units',moving_edges=len(hulls),candidate_pairs=tested,

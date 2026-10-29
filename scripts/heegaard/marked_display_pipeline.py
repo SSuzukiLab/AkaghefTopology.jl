@@ -174,7 +174,7 @@ not just its endpoints. Outside the collars, crossings and geometry are fixed.
     return d
 
 
-def _plot_once(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None, _fairing_knot_refinement=None, _fairing_capture=None, _fairing_options_path=None, _source_map_context=None):
+def _plot_once(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None, _fairing_knot_refinement=None, _fairing_capture=None, _fairing_options_path=None, _source_map_context=None, _fairing_source_separations=None):
     from check_smooth_marked import check
     if data.get('schema')!='marked-cut-view/1':raise ValueError('Explicit marked-cut-view/1 embedded layout required')
     if 'source_map' in data:
@@ -210,7 +210,7 @@ def _plot_once(data, *, minimum_separation=12., puncture_clearance=12., crossing
         assert not seed.get('disk') and not seed.get('disk_pieces') and not seed.get('disk_region_marks'), 'Empty visibility cannot hide a required D boundary'
         result=copy.deepcopy(seed)
     else:
-        bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter,knot_refinement=_fairing_knot_refinement)
+        bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter,knot_refinement=_fairing_knot_refinement,source_separations=_fairing_source_separations)
         result=export(seed,bs,c)
         if option_binding is not None:result['spline_fairing']['construction_options']=option_binding
     # Internal full-source reconstruction branch only. Repair the ACTUAL data
@@ -220,6 +220,9 @@ def _plot_once(data, *, minimum_separation=12., puncture_clearance=12., crossing
     # Failure capture deliberately retains the pre-finish source seed; the
     # current candidate carries any literal paths established before failure.
     if _fairing_capture is not None:_fairing_capture.update(seed=seed,candidate=result)
+    if _fairing_source_separations:
+        from fair_marked_paths import verify_source_separations
+        verify_source_separations(seed,result,_fairing_source_separations)
     from check_fairing_isotopy import check as check_motion
     def check_output(proposed,original):
         checked=check(proposed,original,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
@@ -284,12 +287,12 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     import os
     finite_options=os.environ.get('HEEGAARD_FAIRING_CONSTRUCTION_OPTIONS')
     import hashlib,tempfile
-    from fair_marked_paths import offending_fairing_branches
+    from fair_marked_paths import offending_fairing_branches,source_separations_from_failure
     source_map_context=None
     if _source_map_geometry:
         from marked_display_source_map_pipeline import _SourceMapCallContext
         source_map_context=_SourceMapCallContext()
-    refinement={};history=[];folder=None
+    refinement={};source_separations=[];history=[];folder=None
     # Fixed construction bounds, never acceptance thresholds.
     maximum_attempts=8;maximum_factor=16
     def retain(capture,error,attempt):
@@ -300,7 +303,7 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
             (folder/'source-seed.json').write_text(json.dumps(capture['seed'],allow_nan=False),encoding='utf-8')
         path=folder/f'attempt-{attempt}.json'
         path.write_text(json.dumps(capture['candidate'],allow_nan=False),encoding='utf-8')
-        history.append(dict(attempt=attempt,candidate_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),error=str(error),knot_refinement=[dict(curve=k[0],start=k[1],end=k[2],factor=v) for k,v in sorted(refinement.items())]))
+        history.append(dict(attempt=attempt,candidate_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),error=str(error),source_separations=copy.deepcopy(source_separations),knot_refinement=[dict(curve=k[0],start=k[1],end=k[2],factor=v) for k,v in sorted(refinement.items())]))
         (folder/'history.json').write_text(json.dumps(dict(maximum_attempts=maximum_attempts,maximum_factor=maximum_factor,attempts=history),indent=2),encoding='utf-8')
     def retain_original(capture,error,attempt):
         # Diagnostic I/O must never replace the rejected mathematical result.
@@ -318,7 +321,7 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
                 # Same finite numerical call and gates; capture is diagnostic.
                 result=_plot_once(data,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,correct_ports=correct_ports,maxiter=maxiter,_source_map_geometry=_source_map_geometry,_source_map_proof_output=_source_map_proof_output,_fairing_options_path=finite_options,_fairing_capture=capture,_source_map_context=source_map_context)
             else:
-                result=_plot_once(data,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,correct_ports=correct_ports,maxiter=maxiter,_source_map_geometry=_source_map_geometry,_source_map_proof_output=_source_map_proof_output,_fairing_knot_refinement=refinement,_fairing_capture=capture,_source_map_context=source_map_context)
+                result=_plot_once(data,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,correct_ports=correct_ports,maxiter=maxiter,_source_map_geometry=_source_map_geometry,_source_map_proof_output=_source_map_proof_output,_fairing_knot_refinement=refinement,_fairing_capture=capture,_source_map_context=source_map_context,_fairing_source_separations=source_separations)
             return result
         except Exception as error:
             if not capture:raise
@@ -328,6 +331,9 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
             if finite_options or not isinstance(error,AssertionError):raise
             try:
                 selected=offending_fairing_branches(capture['seed'],capture['candidate'],error,crossing_radius=crossing_radius)
+                proposed=source_separations_from_failure(capture['seed'],capture['candidate'],error)
+                for record in proposed:
+                    if record not in source_separations:source_separations.append(record)
             except Exception as diagnostic_error:
                 error.add_note('Fairing diagnostic decoder failed: '+type(diagnostic_error).__name__+': '+str(diagnostic_error))
                 selected=None

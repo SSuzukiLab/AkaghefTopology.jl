@@ -87,8 +87,120 @@ def setup(d, *, knot_refinement=None):
     return pos, xs, bs, np.vstack(controls), np.array(fixed), block_diag(mats).tocsr(), block_diag(d1s).tocsr(), block_diag(d2s).tocsr(), np.vstack(targets), np.array(branch_ids), np.array(params)
 
 
-def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., maxiter=1800, knot_refinement=None):
+def _separator_seed_binding(seed):
+    # Source: the SAME original seed passed to the bounded constructor.
+    import hashlib
+    return hashlib.sha256(json.dumps(seed,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def source_separations_from_failure(seed,candidate,error):
+    """Recover actual source intervals, then verify a SOURCE strict separator.
+
+    Source: existing correspondence's optional diagnostic labels and Shapely
+    nearest_points. Floating closest points propose a normal; exact rational
+    projections of the actual old moving edges must certify a positive gap.
+    """
+    from fractions import Fraction as Q
+    from shapely.geometry import LineString
+    from shapely.ops import nearest_points
+    from check_fairing_isotopy import correspondence
+    payload=error.args[0] if len(error.args)==1 else error.args
+    if not isinstance(payload,tuple) or not payload or payload[0]!='Interpolation collision':return []
+    if not isinstance(payload[-1],dict) or 'source_parameters' not in payload[-1]:return []
+    a,_,_,names,signatures,parameters=correspondence(seed,candidate,with_source_parameters=True)
+    i,j=map(int,payload[1:3]);assert [names[i],names[j]]==list(payload[3:5])
+    assert [parameters[i],parameters[j]]==payload[-1]['source_parameters']
+    assert [signatures[i],signatures[j]]==[tuple(x) for x in payload[-1]['branch_signatures']]
+    points=[parameters[k]['source_points_svg'] for k in (i,j)]
+    x,y=nearest_points(LineString(points[0]),LineString(points[1]));normal=np.array(y.coords[0])-np.array(x.coords[0])
+    length=np.linalg.norm(normal)
+    if not np.isfinite(length) or length==0:return []
+    normal=tuple(Q(float(v)) for v in normal/length)
+    old=[[tuple(Q(float(v)) for v in point) for point in path] for path in points]
+    project=lambda point:sum(x*y for x,y in zip(normal,point))
+    left=max(map(project,old[0]));right=min(map(project,old[1]))
+    if not left<right:return []
+    offset=(left+right)/2;margin=(right-left)/4;binding=_separator_seed_binding(seed)
+    return [dict(seed_sha256=binding,branch=list(signatures[k]),interval=list(parameters[k]['interval']),
+        normal=list(map(str,normal)),offset=str(offset),margin=str(margin),sign=sign,
+        source_points_svg=[[str(v) for v in point] for point in points])
+        for k,sign,points in ((i,-1,old[0]),(j,1,old[1]))]
+
+
+def _separator_penalty_rows(bs,records):
+    """Existing BSpline identity basis/derivatives give restricted cubic rows."""
+    from fractions import Fraction as Q
+    result=[];lookup={(b['curve'],b['vertices'][0],b['vertices'][-1]):b for b in bs}
+    for record in records:
+        b=lookup[tuple(record['branch'])];lo,hi=record['interval'];assert 0<=lo<hi<=1
+        knots=sorted(set([lo,hi]+[float(t) for t in b['knots'] if lo<t<hi]))
+        basis=b['basis'];normal=np.array([float(Q(x)) for x in record['normal']])
+        for x,y in zip(knots,knots[1:]):
+            dt=(y-x)/3
+            rows=np.array([basis(x),basis(x)+dt*basis(x,nu=1),basis(y)-dt*basis(y,nu=1),basis(y)])
+            result.append((slice(b['offset'],b['offset']+b['count']),rows,normal,
+                float(Q(record['offset'])),float(Q(record['margin'])),record['sign']))
+    return result
+
+
+def _separator_penalty(controls,rows,weight):
+    value=0.;gradient=np.zeros_like(controls)
+    for indices,matrix,normal,offset,margin,sign in rows:
+        points=matrix@controls[indices];height=sign*(points@normal-offset)
+        deficit=np.maximum(0,margin-height)
+        value+=weight*np.sum(deficit**2)
+        gradient[indices]+=matrix.T@((-2*weight*sign*deficit)[:,None]*normal)
+    return value,gradient
+
+
+def _restrict_exact_cubic(points,lo,hi):
+    # Source: verify_bezier_attachment's exact rational de Casteljau blend/split,
+    # here at the actual emitted span restriction endpoints rather than 1/2.
+    from fractions import Fraction as Q
+    def split(q,t):
+        rows=[q]
+        while len(rows[-1])>1:
+            rows.append([tuple(x+t*(y-x) for x,y in zip(a,b)) for a,b in zip(rows[-1],rows[-1][1:])])
+        return [row[0] for row in rows],[row[-1] for row in reversed(rows)]
+    q=[tuple(Q(x) for x in p) for p in points];lo,hi=Q(lo),Q(hi);assert 0<=lo<hi<=1
+    if lo:q=split(q,lo)[1]
+    if hi<1:q=split(q,(hi-lo)/(1-lo))[0]
+    return q
+
+
+def verify_source_separations(seed,candidate,records):
+    """Construction feasibility only; ordinary smooth/full motion gates follow.
+
+    Actual exported cubic controls/spans, not optimiser flags, certify the
+    strict halfplanes. This is sufficient for these local interval pairs only.
+    """
+    from fractions import Fraction as Q
+    if not records:return
+    assert all(r['seed_sha256']==_separator_seed_binding(seed) for r in records)
+    _,_,bs=branches(seed);edge_branch={(b['curve'],u,v):(b['curve'],b['vertices'][0],b['vertices'][-1])
+        for b in bs for u,v in zip(b['vertices'],b['vertices'][1:])}
+    old={(c['id'],tuple(s['source'])):s for c in seed['curves'] for s in c['segments']}
+    for record in records:
+        lo,hi=map(Q,record['interval']);normal=list(map(Q,record['normal']));offset=Q(record['offset']);pieces=[]
+        for curve in candidate['curves']:
+            for segment in curve['segments']:
+                source=old[curve['id'],tuple(segment['source'])]
+                if edge_branch[curve['id'],*source['vertices'][:2]]!=tuple(record['branch']):continue
+                spans=segment['spline_parameter_intervals'];assert len(spans)==len(segment['beziers'])
+                for (a,b),q in zip(spans,segment['beziers']):
+                    a,b=Q(a),Q(b);x,y=max(lo,a),min(hi,b)
+                    if x<y:pieces.append((x,y,_restrict_exact_cubic(q,(x-a)/(b-a),(y-a)/(b-a))))
+        pieces.sort(key=lambda x:x[0]);assert pieces and pieces[0][0]==lo and pieces[-1][1]==hi
+        assert all(a[1]==b[0] for a,b in zip(pieces,pieces[1:]))
+        assert all(record['sign']*(sum(x*y for x,y in zip(normal,p))-offset)>0 for _,_,q in pieces for p in q), (
+            'Source separator construction infeasible',dict(branch_signatures=[tuple(record['branch'])]))
+
+
+def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., maxiter=1800, knot_refinement=None, source_separations=None):
     pos, xs, bs, c, fixed, B, B1, B2, target, bid, arc = setup(d,knot_refinement=knot_refinement)
+    source_separations=[] if source_separations is None else source_separations
+    assert all(r['seed_sha256']==_separator_seed_binding(d) for r in source_separations)
+    separator_rows=_separator_penalty_rows(bs,source_separations)
     free = np.setdiff1d(np.arange(len(c)), fixed)
     holes = [(pos[b['cap']],b['radius']*600,{p['vertex'] for p in b['ports']}) for b in d['boundaries']]
     target_gap=minimum_separation+2.5
@@ -144,6 +256,9 @@ def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radi
             value += 10*collision_weight*np.sum(deficit**2)
             qgrad += (-20*collision_weight*deficit / np.maximum(dist, 1e-8))[:, None] * dif
             qgrad += (20*collision_weight*deficit)[:,None]*margin_gradient
+        if separator_rows:
+            extra,extra_gradient=_separator_penalty(c,separator_rows,collision_weight)
+            value+=extra;grad+=extra_gradient
         grad += B.T @ qgrad
         return value, grad[free].ravel()
     initial = c.copy()
@@ -272,7 +387,7 @@ def offending_fairing_branches(seed, candidate, error, *, crossing_radius=20.):
             selected.update(controls[i] for i in (payload[1],payload[2]))
             from shapely import wkt
             contexts.append((set(selected),wkt.loads(payload[-1])))
-        elif name in ('Interpolation collision','Incident edges collapse','Swept hull meets hole') and isinstance(payload[-1],dict):
+        elif name in ('Interpolation collision','Incident edges collapse','Swept hull meets hole','Source separator construction infeasible') and isinstance(payload[-1],dict):
             selected.update(tuple(k) for k in payload[-1].get('branch_signatures',[]))
             if payload[-1].get('location_svg') is not None:
                 from shapely.geometry import Point
