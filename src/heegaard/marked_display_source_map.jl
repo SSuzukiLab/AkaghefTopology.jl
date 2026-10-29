@@ -194,6 +194,30 @@ _mdsm_point(x)=(_mdsm_q(x[1]),_mdsm_q(x[2]))
 _mdsm_need(ok,message)=ok ? nothing : throw(ArgumentError(message))
 _mdsm_points(raw)=Dict(parse(Int,string(v))=>_mdsm_point(p) for (v,p) in raw)
 
+# Source: _mdsm_mesh boundary_boxes and _mdsm_segments_meet use closed
+# endpoint intervals. Strict separation excludes contact; equality stays in.
+# Base.sort orders exact endpoints; sort! restores the original pair order.
+# Source: the original _mdsm_mesh nested iterator is the exact fallback.
+# Eight pairs per boundary edge limits added pair storage to O(B); the budget
+# selects computation strategy only. Exceeding it never drops a pair or fails.
+function _mdsm_boundary_candidate_pairs(boxes; pair_budget=8*min(length(boxes),typemax(Int)÷8))
+    all_pairs()=((i,j) for i in eachindex(boxes) for j in i+1:length(boxes))
+    order=sort(collect(eachindex(boxes));by=i->(boxes[i][1][1],i))
+    active=Int[];pairs=Tuple{Int,Int}[]
+    for j in order
+        xlo=boxes[j][1][1];jy=boxes[j][2]
+        filter!(i->boxes[i][1][2]>=xlo,active)
+        for i in active
+            iy=boxes[i][2]
+            (iy[2]<jy[1] || jy[2]<iy[1]) && continue
+            length(pairs)>=pair_budget && return all_pairs()
+            push!(pairs,minmax(i,j))
+        end
+        push!(active,j)
+    end
+    sort!(pairs)
+end
+
 """Check a complete oriented planar manifold mesh and its exact boundary.
 
 Positive faces, connected manifold links and a simple correctly oriented full
@@ -223,10 +247,10 @@ function _mdsm_mesh(points,triangles; expected_boundary=nothing)
     _mdsm_need(length(next)==length(boundary) && Set(keys(next))==Set(values(next)),"Source-map boundary branches")
     boundary_nodes=Set(keys(next));cycles=Vector{Int}[];unseen=copy(boundary_nodes)
     while !isempty(unseen)
-        firstnode=minimum(unseen);cycle=[firstnode];v=next[firstnode]
+        firstnode=minimum(unseen);cycle=[firstnode];cycle_nodes=Set(cycle);v=next[firstnode]
         while v!=firstnode
-            _mdsm_need(v in unseen && !(v in cycle),"Source-map boundary is not a disjoint cycle")
-            push!(cycle,v);v=next[v]
+            _mdsm_need(v in unseen && !(v in cycle_nodes),"Source-map boundary is not a disjoint cycle")
+            push!(cycle,v);push!(cycle_nodes,v);v=next[v]
         end
         setdiff!(unseen,cycle);push!(cycles,cycle)
     end
@@ -256,11 +280,14 @@ function _mdsm_mesh(points,triangles; expected_boundary=nothing)
     # Source: segments lie in their exact closed endpoint coordinate intervals.
     # Strictly separated boxes cannot meet; equality retains all touching cases.
     boundary_boxes=[(minmax(points[a][1],points[b][1]),minmax(points[a][2],points[b][2])) for (a,b) in boundary]
-    for i in eachindex(boundary), j in i+1:length(boundary)
+    for (i,j) in _mdsm_boundary_candidate_pairs(boundary_boxes)
         a,b=boundary[i];c,d=boundary[j]
-        if !isempty(intersect(Set((a,b)),Set((c,d))))
+        # Source: the unchanged endpoint-ID intersection predicate below uses
+        # equality, not coordinates; preserve only's two-distinct-ID rejection.
+        a_shared=a==c || a==d;b_shared=b==c || b==d
+        if a_shared || b_shared
             # Adjacent edges must not overlap along a ray at their common node.
-            common=only(intersect(Set((a,b)),Set((c,d))))
+            common=a_shared ? (b_shared && b!=a ? only(intersect(Set((a,b)),Set((c,d)))) : a) : b
             u=a==common ? b : a;v=c==common ? d : c
             q=points[common];x=points[u];y=points[v]
             _mdsm_need(M.orient(q,x,y)!=0 || (x[1]-q[1])*(y[1]-q[1])+(x[2]-q[2])*(y[2]-q[2])<0,"Source-map adjacent boundary edges overlap")
