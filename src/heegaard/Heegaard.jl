@@ -55,7 +55,7 @@ include("marked_comparison.jl")
 export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        lickorish_reference, prepare_marked_display, marked_topology_report,
        surface_group_presentation, marked_curve_words, marked_computation_report, cellulated_punctured,
-       marked_display_source,
+       marked_display_source, layout_marked,
        marked_triangle_isotopy, marked_vertex_isotopy, marked_simplicial_action,
        replay_marked_move, inverse_marked_move,
        marked_subdivide, marked_collapse_subdivision,

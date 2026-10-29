@@ -40,7 +40,10 @@ end
     @test any(!r["region_preserved"] && r["policy"]=="follow_seed" for r in result.witness["correspondence"]["marked_regions"])
     @test length(result.witness["correspondence"]["pair_of_pants_boundary_cycles"])==3
     inverse=JSON3.read(JSON3.write(result.witness["inverse_specification"]),Dict{String,Any})
-    @test H.marked_inverse_handle_slide(result.document,inverse).document==original
+    inverse_result=H.marked_inverse_handle_slide(result.document,inverse)
+    @test inverse_result.document==original
+    decoration=inverse_result.witness["correspondence"]["decoration_evidence"]
+    @test decoration["direction"]=="inverse" && decoration["policy"]=="follow_seed" && decoration["all_regions_preserved"]===false
     altered=deepcopy(result.document);altered["metadata"]["source"]="changed target"
     @test_throws ArgumentError H.marked_inverse_handle_slide(altered,inverse)
     wrong_core=deepcopy(inverse);wrong_core["core_graph"]["source"][1][3]="nonexistent_vertex"

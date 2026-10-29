@@ -138,6 +138,11 @@ end
     inverse=H.marked_comparison_report(moved.document,source;witnesses=[wire(H.inverse_marked_move(moved.witness))])
     @test inverse["move_equivalence"]["relation"]=="underlying_heegaard_move"
     @test inverse["represented_manifold"]["status"]=="witnessed"
+    @test inverse["region_decoration"]["status"]=="continued"
+    @test inverse["region_decoration"]["original_regions_preserved"]===false
+    inverse_decoration=only(inverse["region_decoration"]["steps"])["evidence"]
+    @test occursin("forward prepared common refinement",inverse_decoration["evidence"]["cell_scope"])
+    @test inverse_decoration["region_claims_revalidated"]===true
     forged=deepcopy(moved.witness);forged["correspondence"]["marked_regions"][1]["region_preserved"]=true
     @test H.marked_comparison_report(source,moved.document;witnesses=[forged])["witness_replay"]["status"]=="rejected"
 end
@@ -211,6 +216,66 @@ end
     @test stale["witness_replay"]["status"]=="rejected"
     @test stale["witness_replay"]["failed_step"]==2
     @test occursin("requires source positions",stale["witness_replay"]["reason"])
+end
+
+# Source: marked_twists.jl::marked_dehn_twist/marked_inverse_dehn_twist,
+# especially fixed prepared basis_scope and distinct inverse raw/native scopes.
+# The embedded-D constructor gate can call this same boundary check with its
+# EXACT accepted source/result, without inventing a substitute source fixture.
+function check_single_twist_comparison(source,result)
+    report=H.marked_comparison_report(source,result.document;witnesses=[wire(result.witness)])
+    @test report["witness_replay"]["status"]=="verified"
+    @test report["move_equivalence"]["relation"]=="oriented_surface_map_under_identification"
+    @test report["marked_isotopy"]["status"]=="unknown"
+    @test report["marked_identification"]["status"]=="unknown"
+    correspondence=only(report["witness_replay"]["steps"])["correspondence"]
+    @test correspondence["old_basis_action"]==result.witness["correspondence"]["old_basis_action"]
+    @test occursin("pre-twist prepared",correspondence["basis_scope"])
+    @test occursin("whole alpha/beta/aux",correspondence["action_scope"])
+    @test correspondence["child_cells"]==result.witness["correspondence"]["child_cells"]
+    if report["left"]["manifold_applicable"] && report["right"]["manifold_applicable"]
+        @test report["represented_manifold"]["status"]=="witnessed"
+        @test report["represented_manifold"]["h1_equal"]
+        @test !report["represented_manifold"]["witness_invariant_conflict"]
+    else
+        @test report["represented_manifold"]["status"]=="inapplicable"
+    end
+    if !isempty(get(source,"region_marks",Any[]))
+        @test report["region_decoration"]["status"]=="preserved"
+        @test report["region_decoration"]["original_regions_preserved"]===true
+        @test correspondence["regions"]==result.witness["correspondence"]["regions"]
+        @test correspondence["geometric_regions"]==result.witness["correspondence"]["geometric_regions"]
+    end
+    inverse=H.marked_comparison_report(result.document,source;witnesses=[wire(H.inverse_marked_move(result.witness))])
+    @test inverse["witness_replay"]["status"]=="verified"
+    @test inverse["move_equivalence"]["relation"]=="oriented_surface_map_under_identification"
+    inverse_context=only(inverse["witness_replay"]["steps"])["correspondence"]
+    @test inverse_context["native_child_cells"]==correspondence["child_cells"]
+    @test occursin("pre-rechart",inverse_context["raw_cell_scope"])
+    @test occursin("forward target native triangles",inverse_context["native_cell_scope"])
+    @test occursin("pre-twist prepared",inverse_context["native_cell_scope"])
+    report
+end
+
+@testset "Whole twist comparison preserves its fixed prepared context" begin
+    # Same original two-by-two torus used by the accepted single-operator
+    # constructor gate. Neither the full source nor its native limits change.
+    source=B.grid_document(2)
+    B.add_curve!(source,"a","alpha",true,[[(0,1),(2,1)]])
+    B.add_curve!(source,"b","beta",true,[[(1,0),(1,2)]])
+    B.declare_crossing!(source,"x",1,1,"a","b",1)
+    source["metadata"]=Dict("source"=>"oriented meridian/longitude test","display"=>Dict("infinity_triangle"=>["P",7]))
+    result=H.marked_dehn_twist(source,Dict("core"=>"a","sign"=>1))
+    report=check_single_twist_comparison(source,result)
+    action=only(report["witness_replay"]["steps"])["correspondence"]["old_basis_action"]
+    a=only(r for r in action if r["curve"]=="a");b=only(r for r in action if r["curve"]=="b")
+    @test b["image_exponents"]==b["source_exponents"]+a["source_exponents"]
+    @test b["image_exponents"]!=b["source_exponents"]
+    @test H.intersection_matrix(source)==H.intersection_matrix(result.document)==[1;;]
+    forged=deepcopy(result.witness);forged["correspondence"]["basis_scope"]="output-rebuilt basis"
+    @test H.marked_comparison_report(source,result.document;witnesses=[forged])["witness_replay"]["status"]=="rejected"
+    unsupported=H.marked_comparison_report(source,source;witnesses=[Dict("kind"=>"dehn_twist_word")])
+    @test unsupported["witness_replay"]["status"]=="unsupported"
 end
 
 @testset "Independent original o-data relations and truthful H1 evidence" begin
