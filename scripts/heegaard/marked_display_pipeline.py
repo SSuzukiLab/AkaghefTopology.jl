@@ -174,7 +174,7 @@ not just its endpoints. Outside the collars, crossings and geometry are fixed.
     return d
 
 
-def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None):
+def _plot_once(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None, _fairing_knot_refinement=None, _fairing_capture=None, _fairing_options_path=None, _source_map_context=None):
     from check_smooth_marked import check
     if data.get('schema')!='marked-cut-view/1':raise ValueError('Explicit marked-cut-view/1 embedded layout required')
     if 'source_map' in data:
@@ -183,6 +183,14 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
     if data.get('disks'):raise ValueError('Use source-bound disk_pieces for joining-disk fills')
     if data.get('genus',0)>0 and not data.get('boundary_vertex_pairs'):raise ValueError('Source boundary vertex pairing is required; do not infer it from endpoints')
     seed=pair_ports(data) if correct_ports else copy.deepcopy(data)
+    returned_seed=seed
+    option_binding=None
+    if _fairing_options_path:
+        from fair_marked_paths import load_fairing_construction_options
+        if _fairing_knot_refinement:raise ValueError('Cannot combine finite options with adaptive branch factors')
+        _fairing_knot_refinement,option_binding=load_fairing_construction_options(seed,_fairing_options_path,
+            policy=dict(minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter))
+
     # Preserve the existing legacy empty-view result. Native/saved full-map
     # inputs continue through the mandatory reconstruction chain below.
     if not seed['curves'] and not _source_map_geometry:
@@ -202,12 +210,16 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
         assert not seed.get('disk') and not seed.get('disk_pieces') and not seed.get('disk_region_marks'), 'Empty visibility cannot hide a required D boundary'
         result=copy.deepcopy(seed)
     else:
-        bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter)
+        bs,c,_=optimise(seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,maxiter=maxiter,knot_refinement=_fairing_knot_refinement)
         result=export(seed,bs,c)
+        if option_binding is not None:result['spline_fairing']['construction_options']=option_binding
     # Internal full-source reconstruction branch only. Repair the ACTUAL data
     # before ordinary geometry/isotopy checks and SVG emission; normalizing a
     # separate proof copy would not bind the output shown or saved by the app.
     if _source_map_geometry:normalize_shared_endpoints(result,seed)
+    # Failure capture deliberately retains the pre-finish source seed; the
+    # current candidate carries any literal paths established before failure.
+    if _fairing_capture is not None:_fairing_capture.update(seed=seed,candidate=result)
     from check_fairing_isotopy import check as check_motion
     def check_output(proposed,original):
         checked=check(proposed,original,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
@@ -231,7 +243,11 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
             stage.with_suffix('.seed.json').write_bytes(_source_map_json(seed))
         # Build the source-bound cut chains BEFORE rendering split-D fills.
         # The new decoder branch consumes those chains, never temporary arcs.
-        recipe=construct_source_map(context['prepared'],context['coarse'],fixed,result,seed,policy=policy,check_output=check_output)
+        recipe=construct_source_map(context['prepared'],context['coarse'],fixed,result,seed,policy=policy,check_output=check_output,_call_context=_source_map_context,_proof_output=_source_map_proof_output)
+        # Only a fully checked finish enriches the returned/CLI sidecar seed.
+        # The original seed remains the immutable context key/failure capture.
+        returned_seed=copy.deepcopy(seed)
+        returned_seed['source_map_boundary_paths']=copy.deepcopy(recipe['attachment_boundaries'])
         # Keep the completed mathematical stages before a later envelope/body
         # assertion can fail. This is the caller's existing temporary directory.
         if _source_map_proof_output:
@@ -254,7 +270,72 @@ def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radiu
         if _source_map_proof_output:
             Path(_source_map_proof_output).with_suffix('.candidate.json').write_bytes(_source_map_json(result))
         # HTTP body limits belong to serve.py; this result is an in-process plot.
-    return result,seed
+    return result,returned_seed
+
+
+
+def plot(data, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., correct_ports=True, maxiter=1800, _source_map_geometry=False, _source_map_proof_output=None):
+    """Bounded knot construction on the SAME original feasible source.
+
+    Source: existing fairer/checkers; only rejected branch knots are refined.
+    Native preparation/fixed mesh are already in data and are never rerun here.
+    Unknown failures and exhausted bounds remain failures with actual artifacts.
+    """
+    import os
+    finite_options=os.environ.get('HEEGAARD_FAIRING_CONSTRUCTION_OPTIONS')
+    import hashlib,tempfile
+    from fair_marked_paths import offending_fairing_branches
+    source_map_context=None
+    if _source_map_geometry:
+        from marked_display_source_map_pipeline import _SourceMapCallContext
+        source_map_context=_SourceMapCallContext()
+    refinement={};history=[];folder=None
+    # Fixed construction bounds, never acceptance thresholds.
+    maximum_attempts=8;maximum_factor=16
+    def retain(capture,error,attempt):
+        nonlocal folder
+        if folder is None:
+            folder=(Path(_source_map_proof_output).parent/'fairing-refinement') if _source_map_proof_output else Path(tempfile.mkdtemp(prefix='marked-fairing-refinement-'))
+            folder.mkdir(exist_ok=True)
+            (folder/'source-seed.json').write_text(json.dumps(capture['seed'],allow_nan=False),encoding='utf-8')
+        path=folder/f'attempt-{attempt}.json'
+        path.write_text(json.dumps(capture['candidate'],allow_nan=False),encoding='utf-8')
+        history.append(dict(attempt=attempt,candidate_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),error=str(error),knot_refinement=[dict(curve=k[0],start=k[1],end=k[2],factor=v) for k,v in sorted(refinement.items())]))
+        (folder/'history.json').write_text(json.dumps(dict(maximum_attempts=maximum_attempts,maximum_factor=maximum_factor,attempts=history),indent=2),encoding='utf-8')
+    def retain_original(capture,error,attempt):
+        # Diagnostic I/O must never replace the rejected mathematical result.
+        try:
+            retain(capture,error,attempt)
+        except Exception as retention_error:
+            error.add_note('Fairing retention failed: '+type(retention_error).__name__+': '+str(retention_error))
+            return False
+        error.add_note('Actual fairing-stage graph retained at '+str(folder))
+        return True
+    for attempt in range(1 if finite_options else maximum_attempts):
+        capture={}
+        try:
+            if finite_options:
+                # Same finite numerical call and gates; capture is diagnostic.
+                result=_plot_once(data,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,correct_ports=correct_ports,maxiter=maxiter,_source_map_geometry=_source_map_geometry,_source_map_proof_output=_source_map_proof_output,_fairing_options_path=finite_options,_fairing_capture=capture,_source_map_context=source_map_context)
+            else:
+                result=_plot_once(data,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius,correct_ports=correct_ports,maxiter=maxiter,_source_map_geometry=_source_map_geometry,_source_map_proof_output=_source_map_proof_output,_fairing_knot_refinement=refinement,_fairing_capture=capture,_source_map_context=source_map_context)
+            return result
+        except Exception as error:
+            if not capture:raise
+            # Retain before any decoder can fail. Only a recognized ordinary
+            # AssertionError may change knots; every other error stops here.
+            if not retain_original(capture,error,attempt):raise
+            if finite_options or not isinstance(error,AssertionError):raise
+            try:
+                selected=offending_fairing_branches(capture['seed'],capture['candidate'],error,crossing_radius=crossing_radius)
+            except Exception as diagnostic_error:
+                error.add_note('Fairing diagnostic decoder failed: '+type(diagnostic_error).__name__+': '+str(diagnostic_error))
+                selected=None
+            if not selected:raise
+            if attempt+1==maximum_attempts or any(refinement.get(k,1)>=maximum_factor for k in selected):
+                raise AssertionError(('Bounded fairing refinement failed',str(error),'actual stages retained at '+str(folder))) from error
+            for k in selected:refinement[k]=2*refinement.get(k,1)
+            print('Fairing knot refinement',attempt+1,'branches',len(selected),'maximum factor',max(refinement.values()),flush=True)
 
 
 if __name__=='__main__':

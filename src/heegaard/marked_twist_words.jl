@@ -481,6 +481,7 @@ Only the FINAL total map is natively realized/recharted. Resource failure is
 explicit; no homology result or retained source can replace that realization.
 """
 function marked_dehn_twist_word(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     original=_marked_document(input);spec=_mtw_word_specification(specification);steps=spec["word"]
     prepared=_mtw_prepare_original_products(original,[s["core"] for s in steps])
     action=_mtw_source_action(prepared,steps);expected=deepcopy(action.vectors)
@@ -1195,6 +1196,7 @@ back, protected full regions are checked, actual preparation is collapsed,
 and every original annulus/factor/composition/native target is regenerated.
 """
 function marked_inverse_dehn_twist_word(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     current=_marked_document(input);spec=_mtwi_inverse_schema(specification,current)
     try
         _mtw_checked_inverse_word(current,spec)

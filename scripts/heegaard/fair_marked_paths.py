@@ -25,7 +25,8 @@ def unit(v):
     return v / np.linalg.norm(v)
 
 
-def setup(d):
+def setup(d, *, knot_refinement=None):
+    knot_refinement={} if knot_refinement is None else knot_refinement
     pos, xs, bs = branches(d)
     ports = {p['vertex']: pos[b['cap']] for b in d['boundaries'] for p in b['ports']}
     rays = {}
@@ -51,7 +52,9 @@ def setup(d):
     fixed = []
     for i, b in enumerate(bs):
         length = b['length']
-        n = max(6, int(np.ceil(length / 55)) + 3)
+        factor=knot_refinement.get((b['curve'],b['vertices'][0],b['vertices'][-1]),1)
+        assert type(factor) is int and 1<=factor<=16
+        n = max(6, int(np.ceil(length / (55/factor))) + 3)
         knots = np.r_[np.zeros(4), np.linspace(0, 1, n - 2)[1:-1], np.ones(4)]
         basis = BSpline(knots, np.eye(n), 3)
         t = np.linspace(0, 1, max(20, int(np.ceil(length / 3)) + 1))
@@ -67,7 +70,7 @@ def setup(d):
                 direction=unit(b['old'][1]-b['old'][-2])*(1 if end==0 else -1)
             else:
                 direction = unit(pos[v] - ports[v])
-            c[inner] = c[end] + direction * min(18., length / 7)
+            c[inner] = c[end] + direction * min(18., length / 7, length/(n-3)/3)
         pinned = [0, 1, n-2, n-1]
         free = list(range(2, n-2))
         c[free] = np.linalg.lstsq(B[:, free], target - B[:, pinned] @ c[pinned], rcond=None)[0]
@@ -84,8 +87,8 @@ def setup(d):
     return pos, xs, bs, np.vstack(controls), np.array(fixed), block_diag(mats).tocsr(), block_diag(d1s).tocsr(), block_diag(d2s).tocsr(), np.vstack(targets), np.array(branch_ids), np.array(params)
 
 
-def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., maxiter=1800):
-    pos, xs, bs, c, fixed, B, B1, B2, target, bid, arc = setup(d)
+def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., maxiter=1800, knot_refinement=None):
+    pos, xs, bs, c, fixed, B, B1, B2, target, bid, arc = setup(d,knot_refinement=knot_refinement)
     free = np.setdiff1d(np.arange(len(c)), fixed)
     holes = [(pos[b['cap']],b['radius']*600,{p['vertex'] for p in b['ports']}) for b in d['boundaries']]
     target_gap=minimum_separation+2.5
@@ -105,18 +108,21 @@ def optimise(d, *, minimum_separation=12., puncture_clearance=12., crossing_radi
                 if b['vertices'][0]==b['vertices'][-1]:
                     cyclic=(bid[ii]==k)&(bid[jj]==k)
                     along[cyclic]=np.minimum(along[cyclic],b['length']-along[cyclic])
-            mask = (bid[ii] != bid[jj]) | (along > 35)
+            # Source: cyclic source-arclength distances above. Adjacent samples
+            # need a tapered gap; omitting all pairs <=35 hides short folds.
+            gaps=np.where(bid[ii] != bid[jj],target_gap,np.minimum(target_gap,along/2))
+            mask = (bid[ii] != bid[jj]) | (along > 0)
             # Adjacent samples of one branch are not separate strands.
-            ii, jj = ii[mask], jj[mask]
+            ii, jj, gaps = ii[mask], jj[mask], gaps[mask]
             mask = np.ones(len(ii), dtype=bool)
             for vertex in xs:
                 incident = np.array([vertex in b['ends'] for b in bs])
                 near = np.linalg.norm(q - pos[vertex], axis=1) < crossing_radius+.1
-                mask &= ~(incident[bid[ii]] & incident[bid[jj]] & (near[ii] | near[jj]))
-            ii, jj = ii[mask], jj[mask]
+                mask &= ~(incident[bid[ii]] & incident[bid[jj]] & (near[ii] & near[jj]))
+            ii, jj, gaps = ii[mask], jj[mask], gaps[mask]
             dif = q[ii] - q[jj]
             dist = np.linalg.norm(dif, axis=1)
-            deficit = np.maximum(0, target_gap - dist)
+            deficit = np.maximum(0, gaps - dist)
             value += collision_weight * np.sum(deficit**2)
             force = (-2*collision_weight*deficit / np.maximum(dist, 1e-8))[:, None] * dif
             np.add.at(qgrad, ii, force)
@@ -198,6 +204,9 @@ def export(d, bs, controls):
             vertices.append(v)
             s['vertices']=vertices
             s['beziers']=[q.tolist() for q in bez]
+            # Source: the actual refined BSpline knot partition used above.
+            # Motion correspondence must use these spans, not recreate /55.
+            s['spline_parameter_intervals']=[[float(lo),float(hi)] for lo,hi in zip(knots,knots[1:])]
             # Map each old microscopic edge to its interval for D reconstruction.
             for a0,z0 in zip(old,old[1:]):edge_paths[a0,z0]=(s,old)
     # D travels entire source edges, possibly in reverse. Resolve through old
@@ -220,6 +229,134 @@ def export(d, bs, controls):
         crossing_positions_fixed=True,port_positions_fixed=True,flatness_bound_svg=.003,
         control_count=len(controls),crossing_exemption_radius=20)
     return d
+
+
+
+
+def offending_fairing_branches(seed, candidate, error, *, crossing_radius=20.):
+    """Recover original branch signatures from actual existing judge failures.
+
+    Source: export's retained source intervals, measure_clearance.branches,
+    verifier edge/control-leaf order and motion check's branch diagnostics.
+    Unknown mathematical/source-map failures are never interpreted as fairing.
+    """
+    _,xs,bs=branches(seed)
+    keys={(b['curve'],b['vertices'][0],b['vertices'][-1]):b for b in bs}
+    edges={(b['curve'],u,v):k for k,b in keys.items() for u,v in zip(b['vertices'],b['vertices'][1:])}
+    oldsegments={(c['id'],tuple(s['source'])):s for c in seed['curves'] for s in c['segments']}
+    def segment_key(cid,s):
+        old=oldsegments[cid,tuple(s['source'])]
+        return edges[cid,*old['vertices'][:2]]
+    payload=error.args[0] if len(error.args)==1 else error.args
+    selected=set();contexts=[]
+    if isinstance(payload,tuple) and payload:
+        name=payload[0]
+        if name=='Extra intersection':
+            for cid,u,v in (payload[3],payload[4]):
+                hits=[s for c in candidate['curves'] if c['id']==cid for s in c['segments'] if any((a,b)==(u,v) for a,b in zip(s['vertices'],s['vertices'][1:]))]
+                if len(hits)!=1:return set()
+                selected.add(segment_key(cid,hits[0]))
+            from shapely import wkt
+            contexts.append((set(selected),wkt.loads(payload[-1])))
+        elif name=='Non-regular spline piece':
+            cid,source=payload[1],payload[2]
+            hits=[s for c in candidate['curves'] if c['id']==cid for s in c['segments'] if s['source']==source]
+            if len(hits)!=1:return set()
+            selected.add(segment_key(cid,hits[0]))
+        elif name=='Bezier hull collision':
+            from check_smooth_marked import leaves
+            controls=[]
+            for c in candidate['curves']:
+                for s in c['segments']:
+                    controls.extend([segment_key(c['id'],s)]*sum(sum(1 for _ in leaves(np.array(q))) for q in s['beziers']))
+            selected.update(controls[i] for i in (payload[1],payload[2]))
+            from shapely import wkt
+            contexts.append((set(selected),wkt.loads(payload[-1])))
+        elif name in ('Interpolation collision','Incident edges collapse','Swept hull meets hole') and isinstance(payload[-1],dict):
+            selected.update(tuple(k) for k in payload[-1].get('branch_signatures',[]))
+            if payload[-1].get('location_svg') is not None:
+                from shapely.geometry import Point
+                contexts.append((set(selected),Point(payload[-1]['location_svg'])))
+    elif isinstance(payload,dict) and 'violations' in payload and 'pairs' in payload:
+        _,_,current=branches(candidate)
+        for pair in payload['pairs']:
+            group=set()
+            for i in pair['branches']:
+                b=current[i];key=(b['curve'],b['vertices'][0],b['vertices'][-1]);selected.add(key);group.add(key)
+            from shapely.geometry import Point
+            contexts.append((group,Point(np.mean(np.array(pair['points']),axis=0))))
+    if not selected or not selected<=keys.keys():return set()
+    # Source: actual rejected component and marked incidence. An interior
+    # self-collision belongs to its one source branch. Only DISTINCT rejected
+    # branches sharing a true crossing near this actual location justify
+    # expanding that crossing's star; unrelated far endpoints do not.
+    from shapely.geometry import Point
+    touched=set()
+    for group,location in contexts:
+        if len(group)<2:continue
+        shared=set.intersection(*(set(keys[k]['ends']) for k in group))&xs.keys()
+        for v in shared:
+            if location.distance(Point(np.array(seed['positions'][str(v)])*600))<=crossing_radius+.1:touched.add(v)
+    selected.update(k for k,b in keys.items() if b['ends']&touched)
+    return selected
+
+
+
+
+def fairing_option_bindings(seed):
+    """Bind options to actual native/prepared data and schema-defined geometry.
+
+    Source: the existing source-map canonical binary64 geometry payload. No
+    saved output controls or coordinates can enter this construction option.
+    """
+    import hashlib
+    from marked_display_source_map import _source_map_json
+    from marked_display_source_map_pipeline import source_map_geometry_payload
+    context=seed.get('_source_map_input')
+    if not isinstance(context,dict) or 'prepared' not in context or 'source_document' not in seed:
+        raise ValueError('Fairing options require the actual native/preparation context')
+    digest=lambda value:hashlib.sha256(_source_map_json(value)).hexdigest()
+    auxiliary={k:seed.get(k) for k in ('genus','cuts','boundary_vertex_pairs','port_transport','preparation_representation_sha256','infinity_source_triangle')}
+    return dict(native_document_sha256=digest(seed['source_document']),
+        preparation_sha256=digest(context['prepared']),seed_geometry_sha256=digest(source_map_geometry_payload(seed)),
+        seed_auxiliary_sha256=digest(auxiliary))
+
+
+def load_fairing_construction_options(seed, path, *, policy):
+    """Read ONLY source-bound integer knot factors, then run the normal fitter.
+
+    Source: existing branches and native/prepared/source-geometry bindings.
+    Strict fields exclude any supplied output positions, controls or curves.
+    This finite option never upgrades the general adaptive default's status.
+    """
+    import hashlib
+    path=Path(path);raw=path.read_bytes();option=json.loads(raw)
+    fields={'schema','native_document_sha256','preparation_sha256','seed_geometry_sha256','seed_auxiliary_sha256','producer_sha256','policy','knot_refinement'}
+    if not isinstance(option,dict) or set(option)!=fields or option['schema']!='marked-fairing-construction-options/1':
+        raise ValueError('Invalid parameters-only fairing option schema')
+    actual=fairing_option_bindings(seed)
+    if any(option[k]!=v for k,v in actual.items()):raise ValueError('Fairing option native/preparation/seed binding mismatch')
+    names={'fair_marked_paths.py','check_fairing_isotopy.py','check_smooth_marked.py','marked_display_pipeline.py'}
+    if not isinstance(option['producer_sha256'],dict) or set(option['producer_sha256'])!=names:
+        raise ValueError('Fairing option producer pin fields differ')
+    for name in names:
+        if hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest()!=option['producer_sha256'][name]:
+            raise ValueError('Fairing option producer changed: '+name)
+    if option['policy']!=policy:raise ValueError('Fairing option numerical policy changed')
+    _,_,source_branches=branches(seed)
+    valid={(b['curve'],b['vertices'][0],b['vertices'][-1]) for b in source_branches}
+    factors={}
+    if not isinstance(option['knot_refinement'],list):raise ValueError('Invalid branch factor list')
+    for record in option['knot_refinement']:
+        if not isinstance(record,dict) or set(record)!={'curve','start','end','factor'}:
+            raise ValueError('Invalid branch factor record')
+        key=(record['curve'],record['start'],record['end']);factor=record['factor']
+        if type(key[0]) is not str or type(key[1]) is not int or type(key[2]) is not int or key not in valid or key in factors:
+            raise ValueError('Unknown or duplicate actual source branch signature')
+        if type(factor) is not int or factor not in (1,2,4,8,16):raise ValueError('Knot factor outside fixed dyadic construction bounds')
+        factors[key]=factor
+    return factors,dict(schema=option['schema'],option_sha256=hashlib.sha256(raw).hexdigest(),**actual,
+        producer_sha256=option['producer_sha256'],policy=policy,knot_refinement=option['knot_refinement'])
 
 
 if __name__=='__main__':

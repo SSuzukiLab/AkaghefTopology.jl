@@ -581,6 +581,9 @@ def render(d, *, orientation_glyphs=False):
          '<style>text{font-family:Arial,sans-serif;fill:#253247}.label{paint-order:stroke;stroke:#fcfbf7;stroke-width:4;stroke-linejoin:round}</style>',
          f'<text x="{left+20}" y="{top+35}" font-size="23">{escape(str(d.get("title", "Heegaard diagram · g = "+str(d["genus"]))))}</text>',
          disk_shape]
+    # Source: native periodic 2-chain/compiler, actual closed cubic boundaries.
+    from periodic_annotations import layer
+    out.append(layer(d))
     colors={'alpha':'#ba433f','beta':'#255dba','aux':'#357e64'}
     for c in d['curves']:
         out.append(f'<g data-curve="{escape(c["id"],quote=True)}" fill="none" stroke="{escape(c.get("color",colors[c["role"]]),quote=True)}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">')

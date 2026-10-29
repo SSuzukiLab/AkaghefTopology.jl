@@ -555,48 +555,62 @@ def build_port_map(data, seed, oldseed, P, Q, T, holes, maps):
     result=triangle.triangulate(inp,'pqa0.002')
     assert np.array_equal(result['vertices'][:len(ids)],np.array(q))
     print('CDT proposal',len(result['vertices']),len(result['triangles']),flush=True)
-    points={i:tuple(map(F,r)) for i,r in enumerate(result['vertices'])}
-    source={i:P[v] for i,v in enumerate(ids)}
-    # Every boundary/curve Steiner point uses the SAME exact edge parameter on
-    # both sides. Project only the internal proof vertex to the actual straight
-    # target constraint, so no rounded Triangle intersection replaces a route.
-    constrained={};segments=[]
-    for edge,marker in zip(result['segments'],result['segment_markers']):
-        u,v=edges[int(marker[0])-1];a,b=Q[u],Q[v];axis=max(range(2),key=lambda k:abs(b[k]-a[k]))
-        for i in map(int,edge):
-            t=(points[i][axis]-a[axis])/(b[axis]-a[axis]);assert 0<=t<=1
-            src,dst=blend(P[u],P[v],t),blend(a,b,t)
-            if i in constrained:assert constrained[i]==(src,dst)
-            constrained[i]=(src,dst)
-        segments.append((tuple(map(int,edge)),int(marker[0])))
-    for i,(src,dst) in constrained.items():
-        if i in source:assert source[i]==src and points[i]==dst
-        source[i]=src;points[i]=dst
-    def inverse(q):
-        q=np.array(list(map(float,q)))*600
-        for center,r,support,src,f in maps:
-            v=q-center;rho=np.linalg.norm(v)
-            if rho<1e-10 or rho>=support:continue
-            z=np.clip((rho-r)/(support-r),0,1);w=1-z*z*(3-2*z);a0=src[0];tau=2*math.pi
-            fun=lambda a:a+w*(float(f(a))-a)
-            lo=fun(a0);angle=lo+(math.atan2(v[1],v[0])-lo)%tau
-            a=brentq(lambda a:fun(a)-angle,a0,a0+tau,xtol=1e-14)
-            return tuple(map(F,(center+rho*np.array([math.cos(a),math.sin(a)]))/600))
-        return tuple(map(F,q/600))
-    for i in points:
-        if i not in source:source[i]=inverse(points[i])
-    tris=[list(map(int,t)) for t in result['triangles']]
-    def low(u,v,w):
-        e,f=sub(source[v],source[u]),sub(source[w],source[u])
-        de,df=sub(sub(points[v],points[u]),e),sub(sub(points[w],points[u]),f)
-        c,b,a=cross(e,f),cross(de,f)+cross(e,df),cross(de,df)
-        candidates=[c,a+b+c]
-        if a>0 and 0 < -b/(2*a) < 1:candidates.append(c-b*b/(4*a))
-        return min(candidates)
-    areas=[low(*t) for t in tris]
-    report=dict(vertices=len(points),faces=len(tris),nonpositive=sum(x<=0 for x in areas),minimum=float(min(areas)),
-                source_nonpositive=sum(orient(*(source[v] for v in t))<=0 for t in tris),target_nonpositive=sum(orient(*(points[v] for v in t))<=0 for t in tris))
-    print(report,flush=True)
+    # Source: Triangle constrained refinement (rpa with per-triangle area
+    # bounds). Nonlinear inverse samples can reverse a straight source cell
+    # although the actual target CDT is positive. Refine only cells rejected by
+    # the SAME exact whole-step gate; original constraints and both paired-edge
+    # parameters remain subject to the existing checks on every proposal.
+    for refinement_round in range(5):
+        points={i:tuple(map(F,r)) for i,r in enumerate(result['vertices'])}
+        source={i:P[v] for i,v in enumerate(ids)}
+        # Every boundary/curve Steiner point uses the SAME exact edge parameter on
+        # both sides. Project only the internal proof vertex to the actual straight
+        # target constraint, so no rounded Triangle intersection replaces a route.
+        constrained={};segments=[]
+        for edge,marker in zip(result['segments'],result['segment_markers']):
+            u,v=edges[int(marker[0])-1];a,b=Q[u],Q[v];axis=max(range(2),key=lambda k:abs(b[k]-a[k]))
+            for i in map(int,edge):
+                t=(points[i][axis]-a[axis])/(b[axis]-a[axis]);assert 0<=t<=1
+                src,dst=blend(P[u],P[v],t),blend(a,b,t)
+                if i in constrained:assert constrained[i]==(src,dst)
+                constrained[i]=(src,dst)
+            segments.append((tuple(map(int,edge)),int(marker[0])))
+        for i,(src,dst) in constrained.items():
+            if i in source:assert source[i]==src and points[i]==dst
+            source[i]=src;points[i]=dst
+        def inverse(q):
+            q=np.array(list(map(float,q)))*600
+            for center,r,support,src,f in maps:
+                v=q-center;rho=np.linalg.norm(v)
+                if rho<1e-10 or rho>=support:continue
+                z=np.clip((rho-r)/(support-r),0,1);w=1-z*z*(3-2*z);a0=src[0];tau=2*math.pi
+                fun=lambda a:a+w*(float(f(a))-a)
+                lo=fun(a0);angle=lo+(math.atan2(v[1],v[0])-lo)%tau
+                a=brentq(lambda a:fun(a)-angle,a0,a0+tau,xtol=1e-14)
+                return tuple(map(F,(center+rho*np.array([math.cos(a),math.sin(a)]))/600))
+            return tuple(map(F,q/600))
+        for i in points:
+            if i not in source:source[i]=inverse(points[i])
+        tris=[list(map(int,t)) for t in result['triangles']]
+        def low(u,v,w):
+            e,f=sub(source[v],source[u]),sub(source[w],source[u])
+            de,df=sub(sub(points[v],points[u]),e),sub(sub(points[w],points[u]),f)
+            c,b,a=cross(e,f),cross(de,f)+cross(e,df),cross(de,df)
+            candidates=[c,a+b+c]
+            if a>0 and 0 < -b/(2*a) < 1:candidates.append(c-b*b/(4*a))
+            return min(candidates)
+        areas=[low(*t) for t in tris]
+        report=dict(vertices=len(points),faces=len(tris),nonpositive=sum(x<=0 for x in areas),minimum=float(min(areas)),
+                    source_nonpositive=sum(orient(*(source[v] for v in t))<=0 for t in tris),target_nonpositive=sum(orient(*(points[v] for v in t))<=0 for t in tris))
+        print(report,flush=True)
+        if min(areas)>0 or refinement_round==4:break
+        limits=np.full((len(tris),1),-1.,dtype=float)
+        for i,(t,value) in enumerate(zip(tris,areas)):
+            if value<=0:limits[i,0]=float(orient(*(points[v] for v in t)))/8
+        proposal=dict(result);proposal['triangle_max_area']=limits
+        result=triangle.triangulate(proposal,'rpa')
+        assert np.array_equal(result['vertices'][:len(ids)],np.array(q))
+    report['refinement_rounds']=refinement_round
     assert min(areas)>0,('CDT whole-step failure',report)
     assert len(set(source.values()))==len(source) and len(set(points.values()))==len(points)
     # Verify connected oriented 2-manifold combinatorics, including every link.
@@ -1304,7 +1318,7 @@ def build_literal_boundary_paths(m, anchors, fixed, family):
     return output
 
 
-def build_exact_anchor_beziers(original, oldseed, m, a, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20.):
+def build_exact_anchor_beziers(original, oldseed, m, a, *, minimum_separation=12., puncture_clearance=12., crossing_radius=20., _diagnostic_output=None):
     """Retain exact witness controls and check their numerical proposal.
 
     Source: the exact decoded-circle anchors, the source-directed Bezier end
@@ -1315,7 +1329,7 @@ def build_exact_anchor_beziers(original, oldseed, m, a, *, minimum_separation=12
     import copy
     import numpy as np
     from check_smooth_marked import check,leaves
-    from check_fairing_isotopy import check as check_motion
+    from check_fairing_isotopy import check as check_motion, _parameter_reference_binding
     result=copy.deepcopy(original);seed=copy.deepcopy(oldseed)
     anchor={};centers={};radii={}
     for hole in a['holes']:
@@ -1343,8 +1357,18 @@ def build_exact_anchor_beziers(original, oldseed, m, a, *, minimum_separation=12
             assert len(points)==len(segment['vertices'])
             for v,q in zip(segment['vertices'],points):result['positions'][str(v)]=(q/600).tolist()
     assert maximum<F(1,10**7), 'Exact endpoint correction exceeds the existing isotopy tolerance'
+    # Diagnostic snapshots are evidence only, never accepted as construction inputs.
+    if _diagnostic_output is not None:
+        from pathlib import Path
+        import json,hashlib
+        encode=lambda x:json.dumps(x,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+        payload=dict(corrected_seed=seed,corrected_candidate=result,parameter_source=oldseed,
+            parameter_source_sha256=hashlib.sha256(encode(oldseed)).hexdigest(),
+            parameter_binding=_parameter_reference_binding(seed,oldseed),
+            corrected_polyline_sha256=hashlib.sha256(encode(seed['positions'])).hexdigest())
+        Path(_diagnostic_output).write_bytes(encode(payload))
     result=check(result,seed,minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,crossing_radius=crossing_radius)
-    motion=check_motion(seed,result)
+    motion=check_motion(seed,result,_parameter_source=oldseed)
     assert result['source_document']==original['source_document'] and result['display_request']==original['display_request']
     return dict(replacements=replacements,report=dict(exact_endpoint_replacements=len(anchor),
         control_replacements=len(replacements),maximum_control_coordinate_change_svg=str(maximum),
@@ -1663,6 +1687,9 @@ def verify_svg_coordinates(d):
                         point=xy(chain[-1])
                 assert point==start;expected.append(('Z',[]))
             assert commands(node.get('d'))==expected
+    # Source: ordinary annotation SVG controls, glyphs and label readback.
+    from periodic_annotations import verify_numeric
+    verify_numeric(d)
     return dict(numeric_decoder='IEEE binary64 round-trip parse, then exact binary rational interpretation',
         cubic_pieces=pieces,control_points=4*pieces,shared_endpoint_vertices=len(endpoints),
         puncture_circle_primitives=len(holes),crossings=len(crossings),D_fill_paths=len(fills),

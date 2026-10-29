@@ -15,10 +15,12 @@ See scripts/heegaard/marked_display_pipeline.py::plot and check_smooth_marked.py
 function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
               crossing_radius=20.,maxiter=1800,cut_curves=nothing,
               outer_triangle=nothing,visible_curves=nothing,_source_map_geometry=false)
+    # Source: immutable annotation source binding, checked before any layout/subprocess.
+    _md_periodic_preflight(view)
     # Native input has no accepted embedded display to preserve. Its ordinary
     # public plot path must construct the full source map; legacy embedded
     # views retain their existing default unless they carry a saved source map.
-    fullmap=_source_map_geometry || haskey(view,"source_map") || get(view,"schema",nothing)!="marked-cut-view/1"
+    fullmap=_source_map_geometry || _md_has_periodic(view) || haskey(view,"source_map") || get(view,"schema",nothing)!="marked-cut-view/1"
     if get(view,"schema",nothing)!="marked-cut-view/1"
         prepared=layout_marked(view;cut_curves=cut_curves,outer_triangle=outer_triangle,visible_curves=visible_curves,_source_map_geometry=fullmap)
         return plot(prepared;minimum_separation=minimum_separation,puncture_clearance=puncture_clearance,
@@ -69,6 +71,8 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
             result["source_document"]==view["source_document"] || error("Source-map native document changed")
             bytes2hex(SHA.sha256(Vector{UInt8}(codeunits(result["svg"]))))==recipe["output_svg_sha256"] || error("Source-map SVG differs from the validated output")
             result["source_map_cell_check"]=_mdsm_verify_recipe_cells(recipe;progress=message->println(stderr,"source-map cells: ",message))
+            # Source: same-process native 2-chain/point compiler; ordinary render/digests.
+            result=_md_finish_periodic(result,recipe;root=root,uv=uv,dir=dir)
             delete!(result,"source_map_verification_pending")
             # Source: owner plot-method scope; HTTP request limits are enforced
             # by serve.py, not by a mathematical in-process drawing result.
@@ -100,6 +104,7 @@ selection and must be used by consumers replaying operations on this view.
 See scripts/heegaard/layout_marked_document.py and marked_cut_layout.py.
 """
 function layout_marked(input::AbstractDict;cut_curves=nothing,outer_triangle=nothing,visible_curves=nothing,_source_map_geometry=false)
+    _md_periodic_preflight(input)
     doc=_plain_value(input)
     options=get(get(doc,"metadata",Dict()),"display",Dict())
     cuts=cut_curves===nothing ? get(options,"cut_curves",nothing) : cut_curves

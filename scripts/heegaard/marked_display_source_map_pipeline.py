@@ -42,6 +42,9 @@ def source_map_geometry_payload(view):
     for curve in geometry['curves']:
         for segment in curve['segments']:
             if 'beziers' in segment:segment['beziers']=cubics(segment['beziers'])
+            # Source: adaptive fairer's actual normalized branch spans.
+            if 'spline_parameter_intervals' in segment:
+                segment['spline_parameter_intervals']=[point(q) for q in segment['spline_parameter_intervals']]
     if geometry['disk_beziers'] is not None:geometry['disk_beziers']=cubics(geometry['disk_beziers'])
     normalization=geometry['source_endpoint_normalization']
     if normalization is not None:
@@ -52,6 +55,10 @@ def source_map_geometry_payload(view):
     paths=geometry['source_map_boundary_paths']
     if paths is not None:
         for boundary in paths['boundaries']:boundary['points_svg']=[point(q) for q in boundary['points_svg']]
+    # Source: same native points/chain consumed by ordinary SVG renderer.
+    if 'periodic_annotations' in view:
+        from periodic_annotations import geometry_payload
+        geometry['periodic_annotations']=geometry_payload(view['periodic_annotations'])
     return geometry
 
 
@@ -87,6 +94,10 @@ def restore_source_map_view(view, prepared):
     import hashlib
     import marked_display_source_map as maps
     recipe=maps.decode_source_map(view['source_map'])
+    if 'periodic_annotations' in view or 'periodic_annotations' in recipe:
+        assert view.get('periodic_annotations')==recipe.get('periodic_annotations'), 'Saved periodic annotations changed'
+        from periodic_annotations import verify_numeric
+        verify_numeric(view)
     digest=lambda value:hashlib.sha256(maps._source_map_json(value)).hexdigest()
     assert digest(view['source_document'])==recipe['source_document_sha256'], 'Source-map native document changed'
     verify_source_map_geometry(view,recipe)
@@ -169,16 +180,10 @@ def verify_fixed_source_paths(coarse, fixed, mesh, native_collars, circle_collar
                 fixed_paths_bound_without_expanded_overlay=True)
 
 
-def construct_source_map(prepared, coarse, fixed, result, seed, *, policy, check_output=None):
-    """Reconstruct the complete current-source recipe from actual common output.
-
-    The returned request still requires exact whole-mesh and collar validation
-    by the calling Julia process. A saved recipe is never used as a pass flag.
-    """
-    import hashlib
+def _prepare_source_map_prefix(prepared, coarse, fixed, seed):
+    """Build the full source-only data from actual inputs, never a pass flag."""
     import marked_display_source_map as maps
     from marked_cut_layout import source_mesh
-    from draw_marked_cut import render
     native=maps.verify_native_chart(coarse,prepared)
     mesh=source_mesh(coarse)
     assert mesh==fixed['source_map_mesh']
@@ -194,16 +199,103 @@ def construct_source_map(prepared, coarse, fixed, result, seed, *, policy, check
     gluing=maps.build_boundary_gluing(coarse,fixed,trace)
     family=maps.build_fixed_quotient(port_map,anchors,gluing,support,fixed)
     literal=maps.build_literal_boundary_paths(port_map,anchors,fixed,family)
-    result['source_map_boundary_paths']=literal
+    return dict(native=native,mesh=mesh,collars=collars,circle_collars=circle_collars,path_binding=path_binding,domain=domain,port_map=port_map,anchors=anchors,support=support,family=family,literal=literal)
+
+
+class _SourceMapCallContext:
+    """Private, empty-created, in-memory prefix owner for ONE plot invocation.
+
+    No dictionary/file/receipt can supply a prepared context. Full source data
+    is freshly built on first use. Copies isolate every candidate from storage;
+    exact input/producer and stored-data digests reject mutation between uses.
+    """
+    __slots__=('_bindings','_components','_integrity')
+    def __init__(self):
+        self._bindings=None;self._components=None;self._integrity=None
+    @staticmethod
+    def _digest(value):
+        import hashlib
+        from marked_display_source_map import _source_map_json
+        return hashlib.sha256(_source_map_json(value)).hexdigest()
+    @classmethod
+    def _bind(cls,prepared,coarse,fixed,seed,policy):
+        import hashlib
+        from pathlib import Path
+        import marked_display_source_map as maps
+        base=Path(maps.__file__).parent
+        producers=[Path(__file__)]+[base/name for name in (
+            'marked_display_source_map.py','marked_cut_layout.py',
+            'marked_display_pipeline.py','draw_marked_cut.py','periodic_annotations.py',
+            'fair_marked_paths.py','check_smooth_marked.py','check_fairing_isotopy.py')]
+        return dict(inputs={name:cls._digest(value) for name,value in (
+            ('prepared',prepared),('coarse',coarse),('fixed',fixed),('seed',seed),('policy',policy))},
+            producers={path.name:hashlib.sha256(path.read_bytes()).hexdigest() for path in producers})
+    def _get(self,prepared,coarse,fixed,seed,policy):
+        import copy
+        binding=self._bind(prepared,coarse,fixed,seed,policy)
+        if self._components is None:
+            components=_prepare_source_map_prefix(prepared,coarse,fixed,seed)
+            if binding!=self._bind(prepared,coarse,fixed,seed,policy):
+                raise ValueError('Source-map inputs/producers changed during preparation')
+            self._components=copy.deepcopy(components)
+            self._integrity=self._digest(self._components);self._bindings=binding
+        elif binding!=self._bindings:
+            raise ValueError('Source-map per-call context input/producer mismatch')
+        if self._digest(self._components)!=self._integrity:
+            raise ValueError('Source-map per-call context data mutated')
+        return copy.deepcopy(self._components)
+    def _assert_current(self,prepared,coarse,fixed,seed,policy):
+        if self._components is None or self._bind(prepared,coarse,fixed,seed,policy)!=self._bindings:
+            raise ValueError('Source-map per-call context input/producer mismatch at finish')
+        if self._digest(self._components)!=self._integrity:
+            raise ValueError('Source-map per-call context data mutated at finish')
+
+
+def construct_source_map(prepared, coarse, fixed, result, seed, *, policy, check_output=None, _call_context=None, _proof_output=None):
+    """Reconstruct the complete current-source recipe from actual common output.
+
+    The returned request still requires exact whole-mesh and collar validation
+    by the calling Julia process. A saved recipe is never used as a pass flag.
+    """
+    if _call_context is not None and type(_call_context) is not _SourceMapCallContext:
+        raise TypeError('Only the private same-plot-call context is supported')
+    import hashlib
+    import marked_display_source_map as maps
+    from draw_marked_cut import render
+    if _call_context is None:
+        components=_prepare_source_map_prefix(prepared,coarse,fixed,seed)
+    else:
+        components=_call_context._get(prepared,coarse,fixed,seed,policy)
+    if _proof_output is not None:
+        # Source: actual prefix built above. Diagnostic evidence only: never loaded.
+        from pathlib import Path
+        binding=_SourceMapCallContext._bind(prepared,coarse,fixed,seed,policy)
+        Path(_proof_output).with_suffix('.prefix.json').write_bytes(maps._source_map_json(dict(
+            diagnostic_only=True,input_producer_binding=binding,components=components)))
+    native=components['native']
+    mesh=components['mesh']
+    collars=components['collars']
+    circle_collars=components['circle_collars']
+    path_binding=components['path_binding']
+    domain=components['domain']
+    port_map=components['port_map']
+    anchors=components['anchors']
+    support=components['support']
+    family=components['family']
+    literal=components['literal']
+    result['source_map_boundary_paths']=copy.deepcopy(literal)
+    seed_for_checks=copy.deepcopy(seed)
+    seed_for_checks['source_map_boundary_paths']=copy.deepcopy(literal)
     # Source: disk_piece_cycles consumes the certified polygonal cut chains in
     # the new decoder branch. They must exist before ordinary D geometry checks.
     if check_output is not None:
-        checked=check_output(result,seed)
+        checked=check_output(result,seed_for_checks)
         result.clear();result.update(checked)
-    replacement=maps.build_exact_anchor_beziers(result,seed,port_map,anchors,**policy)
-    attachment=maps.verify_bezier_attachment(result,seed,port_map,anchors,replacement,support)
+    replacement=maps.build_exact_anchor_beziers(result,seed_for_checks,port_map,anchors,**policy,_diagnostic_output=(str(Path(_proof_output).with_suffix('.anchor-diagnostic.json')) if _proof_output is not None else None))
+    attachment=maps.verify_bezier_attachment(result,seed_for_checks,port_map,anchors,replacement,support)
     result['svg']=render(result)
     numeric=maps.verify_svg_coordinates(result)
+    if _call_context is not None:_call_context._assert_current(prepared,coarse,fixed,seed,policy)
     return pack_source_map(coarse,fixed,result,mesh,collars,circle_collars,domain,
         port_map,anchors,support,family,replacement,literal,
         dict(native=native,source_paths=path_binding,attachment=attachment,numeric=numeric))

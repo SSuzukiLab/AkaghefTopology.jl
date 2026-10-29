@@ -163,6 +163,7 @@ D cell membership. Explicit follow_seed continues its protected point and
 rechecks the same disk/joining claim, recording the changed region boundary.
 """
 function marked_handle_slide(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     original=_marked_document(input);spec=_plain_value(specification);M=MarkedSurfaceDiagrams
     source=String(spec["source"]);target=String(spec["target"])
     initial=_marked_states(original);band=_mh_band(initial.geometry,source,target,spec["band"])
@@ -236,6 +237,7 @@ forward regeneration must reproduce the current target and all inverse data.
 This is a generated geometric inverse, not an arbitrary inverse-band search.
 """
 function marked_inverse_handle_slide(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     current=_marked_document(input);spec=_plain_value(specification);M=MarkedSurfaceDiagrams
     _mm_need(_mm_hash(current)==spec["output_document"],"inverse slide target has changed")
     cells=Set((p["face"],i-1) for p in current["patches"] for i in eachindex(p["triangles"]))

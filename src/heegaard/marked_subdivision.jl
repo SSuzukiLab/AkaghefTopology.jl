@@ -34,6 +34,7 @@ vertices stay fixed. Region marks and infinity map to the first child of their
 saved triangle; their entire region correspondence is independently checked.
 """
 function marked_subdivide(input::AbstractDict,specification::AbstractDict=Dict{String,Any}())
+    _md_guard_periodic_operation(input)
     _mm_need(isempty(specification),"barycentric subdivision takes no replacement or layout specification")
     before=_marked_states(_marked_document(input));st=before.geometry;M=MarkedSurfaceDiagrams
     doc=deepcopy(before.document);midpoints=Dict();children=Dict{Tuple{String,Int},Vector{Tuple{String,Int}}}()
@@ -114,6 +115,7 @@ to the entire current document, proving applicability before returning it.
 This is a generated-collapse operation, not arbitrary mesh simplification.
 """
 function marked_collapse_subdivision(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     before=_marked_states(_marked_document(input));doc=deepcopy(before.document);M=MarkedSurfaceDiagrams
     spec=_plain_value(specification)
     _mm_need(_mm_hash(doc)==spec["refined_document"],"subdivision collapse source has changed")
@@ -183,6 +185,7 @@ optional `subdivision_budget` conservatively bounds its next refinement.
 True-boundary half-disks remain outside this operation's current scope.
 """
 function marked_dual_star(input::AbstractDict,specification::AbstractDict=Dict{String,Any}())
+    _md_guard_periodic_operation(input)
     spec=_plain_value(specification)
     _mm_need(issubset(Set(keys(spec)),Set(["merge_charts","subdivision_budget"])),"unknown dual-star option; replacement data is not accepted")
     merge_charts=get(spec,"merge_charts",false);budget=get(spec,"subdivision_budget",nothing)
@@ -333,6 +336,7 @@ reconstructed from actual paired darts, not a saved source diagram. A fresh
 forward repatching must reproduce the entire current document and provenance.
 """
 function marked_collapse_dual_star(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     before=_marked_states(_marked_document(input));spec=_plain_value(specification);M=MarkedSurfaceDiagrams
     _mm_need(_mm_hash(before.document)==spec["star_document"],"dual-star collapse source has changed")
     lookup=Dict{String,Any}()
@@ -417,6 +421,7 @@ cycle and all new crossing signs are computed from the same marked mesh.
 Resource/atlas restrictions of the preceding constructors remain explicit.
 """
 function marked_parallel_copy(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     original=_marked_document(input);spec=_plain_value(specification);M=MarkedSurfaceDiagrams
     cid=String(spec["curve"]);new_id=String(spec["id"]);side=String(get(spec,"side","left"))
     _mm_need(side in ("left","right"),"parallel side must be left or right")
@@ -483,6 +488,7 @@ end
 
 """Remove a generated auxiliary parallel, then undo its verified mesh history."""
 function marked_remove_parallel(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     doc=_marked_document(input);spec=_plain_value(specification)
     _mm_need(_mm_hash(doc)==spec["output_document"],"generated parallel output has changed")
     before=deepcopy(doc);cid=spec["new_curve"]

@@ -674,6 +674,7 @@ before collapsing to the old mesh. Rebuilding h occurs only as an independent
 verification of the recorded support, never as a replacement inverse action.
 """
 function marked_inverse_dehn_twist(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     current=_marked_document(input);spec=_plain_value(specification);M=MarkedSurfaceDiagrams
     _mm_need(_mm_hash(current)==spec["target_hash"],"generated twist target has changed")
     _mm_need(spec["sign"] isa Integer && !(spec["sign"] isa Bool) && spec["sign"] in (-1,1),"invalid recorded twist sign")
@@ -801,6 +802,7 @@ marked_dehn_twist(input::AbstractDict,specification::AbstractDict)=_mt_dehn_twis
 # supply its same-call verified geometry result; there is no public receipt,
 # cache or verify/skip option. Preparation, product and raw overlay are fresh.
 function _mt_dehn_twist_same_call(input::AbstractDict,specification::AbstractDict,recovered)
+    _md_guard_periodic_operation(input)
     # Source: marked_stabilization.jl's narrow ID preflight. Native topology
     # allows scalar IDs, but JSON inverse lookup objects require string keys.
     # Reject unsupported IDs rather than silently coercing mathematical labels.

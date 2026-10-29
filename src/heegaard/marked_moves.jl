@@ -120,6 +120,7 @@ isotopy construction and region-overlap transport are added here by the agent.
 No crossing births/deaths, seam moves, or general isotopy recognition is claimed.
 """
 function marked_triangle_isotopy(input::AbstractDict, specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     before = _marked_states(_marked_document(input)); st = before.geometry
     doc = deepcopy(before.document); spec = _plain_value(specification)
     M = MarkedSurfaceDiagrams
@@ -184,6 +185,7 @@ Source: unchanged vendor `move_vertex` and cellulated vendor docs/PROOFS_JA.md,
 section "一頂点の線形移動は同位を与える". Only one vertex moves at a time.
 """
 function marked_vertex_isotopy(input::AbstractDict, positions::AbstractDict, specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     before = _marked_states(_marked_document(input)); spec = _plain_value(specification)
     M = MarkedSurfaceDiagrams; pos = _mm_positions(positions)
     face=String(spec["face"]); vertex=String(spec["vertex"])
@@ -208,6 +210,7 @@ actions, not a Dehn-twist constructor or arbitrary mapping-class recognition.
 Source: vendor patch_info/_validate gluing, triangle orientation and Dart rules.
 """
 function marked_simplicial_action(input::AbstractDict, specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     before=_marked_states(_marked_document(input));st=before.geometry;M=MarkedSurfaceDiagrams
     doc=deepcopy(before.document);spec=_plain_value(specification);maps=spec["vertices"]
     _mm_need(Set(keys(maps))==Set(keys(st.patches)),"simplicial action requires every existing patch")
@@ -341,6 +344,7 @@ function _mm_execute(kind,doc,spec,positions)
 end
 
 function replay_marked_move(input::AbstractDict,witness::AbstractDict;positions=nothing)
+    _md_guard_periodic_operation(input)
     w=_plain_value(witness);doc=_marked_document(input)
     _mm_need(get(w,"schema","")=="marked-move/1","unknown marked move witness schema")
     _mm_need(_mm_hash(doc)==w["source_document"],"marked move source document does not match")

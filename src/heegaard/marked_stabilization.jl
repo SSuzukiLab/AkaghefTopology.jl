@@ -149,6 +149,7 @@ system is extended by a distinct constructed auxiliary meridian. Optional
 source cut and the resulting union are checked by actual cut topology.
 """
 function marked_stabilize(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     # Source (app-root relative): ../topology-heegaard-cellulated/vendor/
     # marked_surface_diagrams/schema/diagram.schema.json, items.properties.id
     # of curves/crossings/region_marks; types.jl::_plain_value key normalization.
@@ -347,6 +348,7 @@ from the current collapsed mesh, and the missing face is capped on the actual
 neck. A fresh forward construction must reproduce target AND inverse data.
 """
 function marked_destabilize(input::AbstractDict,specification::AbstractDict)
+    _md_guard_periodic_operation(input)
     M=MarkedSurfaceDiagrams;current=_marked_document(input);spec=_plain_value(specification)
     _mm_need(_mm_hash(current)==spec["output_document"],"generated destabilization target has changed")
     st=_marked_states(current).geometry;ids=String.(spec["new_ids"])

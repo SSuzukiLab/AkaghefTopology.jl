@@ -52,9 +52,9 @@ def check(d, old, prepared=None, base=None, *, minimum_separation=12., puncture_
                 assert np.linalg.norm(a[-1]-b[0])<1e-7
                 va=a[-1]-a[-2];vb=b[1]-b[0]
                 max_join_error=max(max_join_error,np.linalg.norm(va/np.linalg.norm(va)-vb/np.linalg.norm(vb)))
-            for q in pieces:
-                for leaf in leaves(q):
-                    assert np.all(np.diff(leaf,axis=0)@(leaf[-1]-leaf[0])>0),'Non-regular spline piece'
+            for piece_id,q in enumerate(pieces):
+                for leaf_id,leaf in enumerate(leaves(q)):
+                    assert np.all(np.diff(leaf,axis=0)@(leaf[-1]-leaf[0])>0),('Non-regular spline piece',curve['id'],s['source'],piece_id,leaf_id)
                     hulls.append(MultiPoint(leaf).convex_hull);qs.append(leaf);ids.append(curve['id'])
     # Stronger than sampling: a cubic is contained in its control hull.
     holes=[(np.array(d['positions'][str(b['cap'])])*600,b['radius']*600) for b in d['boundaries']]
