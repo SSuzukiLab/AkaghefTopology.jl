@@ -59,6 +59,9 @@ def source_map_geometry_payload(view):
     if 'periodic_annotations' in view:
         from periodic_annotations import geometry_payload
         geometry['periodic_annotations']=geometry_payload(view['periodic_annotations'])
+    for key in ('exterior_face_marker', 'exterior_face_glyph'):
+        if key in view:
+            geometry[key] = copy.deepcopy(view[key])
     return geometry
 
 
@@ -98,6 +101,15 @@ def restore_source_map_view(view, prepared):
         assert view.get('periodic_annotations')==recipe.get('periodic_annotations'), 'Saved periodic annotations changed'
         from periodic_annotations import verify_numeric
         verify_numeric(view)
+    authored_marker = 'exterior_face_marker' in view['source_document'].get('metadata', {})
+    if authored_marker or 'exterior_face_marker' in view or 'exterior_face_glyph' in recipe:
+        if not authored_marker or 'exterior_face_marker' not in view or 'exterior_face_glyph' not in recipe:
+            raise ValueError('Saved exterior marker source/payload presence disagrees')
+        if view.get('exterior_face_glyph') != recipe.get('exterior_face_glyph'):
+            raise ValueError('Saved exterior glyph changed')
+        from exterior_face_annotations import verify
+        verify(view, recipe)
+        maps.verify_svg_coordinates(view)
     digest=lambda value:hashlib.sha256(maps._source_map_json(value)).hexdigest()
     assert digest(view['source_document'])==recipe['source_document_sha256'], 'Source-map native document changed'
     verify_source_map_geometry(view,recipe)

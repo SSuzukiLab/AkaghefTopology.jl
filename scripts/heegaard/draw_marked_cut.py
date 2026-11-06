@@ -584,6 +584,9 @@ def render(d, *, orientation_glyphs=False):
     # Source: native periodic 2-chain/compiler, actual closed cubic boundaries.
     from periodic_annotations import layer
     out.append(layer(d))
+    if 'exterior_face_glyph' in d:
+        from exterior_face_annotations import layer as exterior_face_layer
+        out.append(exterior_face_layer(d))
     colors={'alpha':'#ba433f','beta':'#255dba','aux':'#357e64'}
     for c in d['curves']:
         out.append(f'<g data-curve="{escape(c["id"],quote=True)}" fill="none" stroke="{escape(c.get("color",colors[c["role"]]),quote=True)}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">')

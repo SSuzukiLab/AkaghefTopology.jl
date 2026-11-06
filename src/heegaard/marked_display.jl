@@ -111,7 +111,7 @@ function prepare_marked_display(doc::Dict;cut_curves,visible_curves=nothing)
         curve_darts[(f,v,u)]=Dict("kind"=>"curve","curve"=>c["id"],"source"=>s["source"],"direction"=>-1)
     end
     cut_darts=Dict(Tuple(d)=>(b,k) for b in boundaries for (k,d) in enumerate(b["source"]))
-    for mark in marks, piece in mark["cut_pieces"]
+    function display_boundary_cycles(piece, label)
         cycles=[]
         for cycle in piece["boundary_cycles"]
             first_curve=findfirst(d->!haskey(cut_darts,Tuple(d)),cycle)
@@ -124,7 +124,7 @@ function prepare_marked_display(doc::Dict;cut_curves,visible_curves=nothing)
                     while j<=length(ordered) && haskey(cut_darts,Tuple(ordered[j]))
                         bb,kk=cut_darts[Tuple(ordered[j])]
                         bb===b || break
-                        M.need(kk==mod1(k+j-i,length(b["source"])),"DISPLAY_D_CUT_ORDER",mark["id"])
+                        M.need(kk==mod1(k+j-i,length(b["source"])),"DISPLAY_D_CUT_ORDER",label)
                         push!(run,ordered[j]);j+=1
                     end
                     push!(parts,Dict("kind"=>"cut","cut"=>b["cut"],"side"=>b["side"],
@@ -138,9 +138,39 @@ function prepare_marked_display(doc::Dict;cut_curves,visible_curves=nothing)
             end
             push!(cycles,parts)
         end
-        piece["display_boundary_cycles"]=cycles
+        cycles
     end
-    Dict("schema"=>"marked-display-complex/1","source_representation_sha256"=>M.representation_digest(doc),
+    for mark in marks, piece in mark["cut_pieces"]
+        piece["display_boundary_cycles"]=display_boundary_cycles(piece,mark["id"])
+    end
+    # Source: OS04 Fig. 1 marks z by its exterior component at the lower
+    # A bank. The selector is a triangle address, never a point coordinate.
+    exterior_marker=nothing
+    selector=get(get(doc,"metadata",Dict()),"exterior_face_marker",nothing)
+    if selector!==nothing
+        M.need(selector isa AbstractDict && Set(keys(selector))==
+            Set(["schema","name","seed","infinity","bank"]), "DISPLAY_FACE_SELECTOR","invalid fields")
+        M.need(selector["schema"]=="marked-exterior-face/1" && selector["name"] isa AbstractString && !isempty(strip(selector["name"])),
+            "DISPLAY_FACE_SELECTOR","unsupported exterior marker")
+        seed=selector["seed"];infinity=selector["infinity"];bank=selector["bank"]
+        valid_cell(c)=c isa AbstractVector && length(c)==2 && c[1] isa AbstractString &&
+            c[2] isa Integer && !(c[2] isa Bool)
+        M.need(valid_cell(seed) && valid_cell(infinity) && seed!=infinity,
+            "DISPLAY_FACE_SELECTOR","invalid seed or infinity")
+        M.need(bank isa AbstractVector && length(bank)==2 && bank[1] in cuts && bank[2] in ("left","right"),
+            "DISPLAY_FACE_SELECTOR","invalid source bank")
+        hits=filter(r->seed in r["triangles"],split_regions)
+        M.need(length(hits)==1,"DISPLAY_FACE_SELECTOR","selector does not identify one cut region")
+        piece=only(hits)
+        M.need(infinity in piece["triangles"],"DISPLAY_FACE_SELECTOR","selected region is not exterior")
+        cycles=display_boundary_cycles(piece,selector["name"])
+        bank_parts=[p for cycle in cycles for p in cycle if p["kind"]=="cut"]
+        M.need(any(p->[p["cut"],p["side"]]==bank,bank_parts),
+            "DISPLAY_FACE_SELECTOR","selected source bank is absent from the face")
+        exterior_marker=Dict("selector"=>deepcopy(selector),"triangles"=>deepcopy(piece["triangles"]),
+            "display_boundary_cycles"=>cycles)
+    end
+    prepared=Dict("schema"=>"marked-display-complex/1","source_representation_sha256"=>M.representation_digest(doc),
         "marking_id"=>doc["surface"]["marking_id"],"genus"=>g,"cut_curves"=>cuts,
         "visible_curves"=>[c["id"] for c in curves],
         "grid"=>Dict("rows"=>2,"columns"=>g,"equal_radii"=>true),
@@ -150,6 +180,8 @@ function prepare_marked_display(doc::Dict;cut_curves,visible_curves=nothing)
         "source_cut_corner_classes"=>Dict(join([f,i-1,j-1],",")=>vi[M.root!(vd,(f,i,j))] for (f,i,j) in corners),
         "curves"=>curves,"crossings"=>xs,"region_marks"=>marks,
         "layout_policy"=>"coordinates may realize this embedding; they may not choose or replace routes")
+    exterior_marker===nothing || (prepared["exterior_face_marker"]=exterior_marker)
+    prepared
 end
 
 """Recover a retained marked source only after checking its displayed incidence.
@@ -184,6 +216,11 @@ function marked_display_source(input::AbstractDict)
         outer=request["infinity_triangle"]
         check(outer==d["infinity_source_triangle"] && any(t["source"]==outer for t in p["triangles"]),"source infinity triangle")
         check(get(d,"disk_region_marks",nothing)==p["region_marks"],"D source partition and directed boundaries")
+        marker=get(p,"exterior_face_marker",nothing)
+        if marker!==nothing
+            check(marker["selector"]["infinity"]==outer,"exterior marker infinity")
+        end
+        check(get(d,"exterior_face_marker",nothing)==marker,"exterior marker source partition and directed boundaries")
         expected=[Dict("mark"=>mark["id"],"source_triangles"=>piece["triangles"],
             "boundary_cycles"=>piece["display_boundary_cycles"],"contains_infinity"=>(outer in piece["triangles"]))
             for mark in p["region_marks"] for piece in mark["cut_pieces"]]

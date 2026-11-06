@@ -73,6 +73,12 @@ function plot(view::AbstractDict; minimum_separation=12.,puncture_clearance=12.,
             result["source_map_cell_check"]=_mdsm_verify_recipe_cells(recipe;progress=message->println(stderr,"source-map cells: ",message))
             # Source: same-process native 2-chain/point compiler; ordinary render/digests.
             result=_md_finish_periodic(result,recipe;root=root,uv=uv,dir=dir)
+            if haskey(get(result["source_document"],"metadata",Dict()),"exterior_face_marker") || haskey(result,"exterior_face_marker")
+                haskey(get(result["source_document"],"metadata",Dict()),"periodic_domain") &&
+                    error("Combined periodic and exterior face annotation unsupported")
+                marked_display_source(result)
+                result=_md_finish_exterior_face(result,recipe;root=root,uv=uv,dir=dir)
+            end
             delete!(result,"source_map_verification_pending")
             # Source: owner plot-method scope; HTTP request limits are enforced
             # by serve.py, not by a mathematical in-process drawing result.
@@ -153,4 +159,39 @@ function render(view::AbstractDict; backend=:svg)
     haskey(view,"smooth_check") && haskey(view,"svg") || throw(ArgumentError("Call plot on the explicit embedded layout first"))
     get(view,"source_map_verification_pending",false) && throw(ArgumentError("The full source-map validation has not completed"))
     view["svg"]
+end
+
+# Source: _md_finish_periodic and its post-cell-check bounded proof readback.
+function _md_finish_exterior_face(result,recipe;root,uv,dir)
+    input=joinpath(dir,"exterior-view.json");base=joinpath(dir,"exterior-base-proof.json")
+    output=joinpath(dir,"exterior-output.json");proof=joinpath(dir,"exterior-output-proof.json")
+    write(input,JSON3.write(result));write(base,JSON3.write(recipe))
+    script=joinpath(root,"scripts/heegaard/exterior_face_annotations.py")
+    command=`$uv run --no-project --offline --python 3.12 --with numpy==2.5.4 --with scipy --with shapely==2.1.2 --with networkx --with triangle==20250106 python $script $input $base $output $proof`
+    run(addenv(command,"OPENBLAS_NUM_THREADS"=>"1"))
+    after=JSON3.read(read(output,String),Dict{String,Any})
+    0<filesize(proof)<=32*1024*1024 || error("Invalid exterior proof decoded size")
+    raw=read(proof);envelope=after["source_map"]
+    length(raw)==envelope["uncompressed_bytes"] && bytes2hex(SHA.sha256(raw))==envelope["sha256"] ||
+        error("Exterior proof bytes differ from output envelope")
+    final=JSON3.read(String(raw),Dict{String,Any})
+    for (key,value) in result
+        key in ("svg","source_map") && continue
+        get(after,key,nothing)==value || error("Exterior marker changed existing plot field: "*key)
+    end
+    for (key,value) in recipe
+        key in ("checks","output_geometry_sha256","output_svg_sha256","transport_normalization") && continue
+        get(final,key,nothing)==value || error("Exterior marker changed validated proof field: "*key)
+    end
+    for (key,value) in recipe["checks"]
+        key=="numeric" && continue
+        get(final["checks"],key,nothing)==value || error("Exterior marker changed validated check: "*key)
+    end
+    glyph=after["exterior_face_glyph"]
+    glyph==final["exterior_face_glyph"] &&
+        glyph["name"]==result["exterior_face_marker"]["selector"]["name"] ||
+        error("Exterior marker identity changed")
+    bytes2hex(SHA.sha256(Vector{UInt8}(codeunits(after["svg"]))))==final["output_svg_sha256"] ||
+        error("Exterior marker SVG digest changed")
+    after
 end

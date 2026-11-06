@@ -277,6 +277,7 @@ def coarse_view(p):
             specified_outer_frame_verified=True,
             oriented_faces=len(triangles),minimum_double_area=min(area(t) for t in triangles),
             selected_exterior_retained=True,source_edge_words_retained=True))
+    if 'exterior_face_marker' in p:result['exterior_face_marker']=p['exterior_face_marker']
     if not legacy_disk:result['disk_pieces']=pieces
     for key in ('source_figure','source_status'):
         if key in doc.get('metadata',{}):result[key]=doc['metadata'][key]

@@ -159,6 +159,7 @@ def verify_native_chart(d, p):
     assert d['cuts']==p['cut_curves'] and d['visible_curves']==p['visible_curves'] and d['marking_id']==p['marking_id']
     assert d['infinity_source_triangle']==p['outer_triangle']==d['display_request']['infinity_triangle']
     assert d['disk_region_marks']==p['region_marks']
+    assert d.get('exterior_face_marker')==p.get('exterior_face_marker'), 'Exterior face source partition changed'
     native={tuple(t['source']):t for t in p['triangles']};groups=defaultdict(list);keys={};edge_endpoints={}
     orient=lambda a,b,c:(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
     for n in native.values():
