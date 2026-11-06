@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "surface": {
+    "marking_id": "sphere-two-triangles-v1",
+    "genus": 0,
+    "gluings": [
+      [
+        [
+          "P",
+          "a"
+        ],
+        [
+          "Q",
+          "a"
+        ]
+      ],
+      [
+        [
+          "P",
+          "b"
+        ],
+        [
+          "Q",
+          "c"
+        ]
+      ],
+      [
+        [
+          "P",
+          "c"
+        ],
+        [
+          "Q",
+          "b"
+        ]
+      ]
+    ],
+    "boundary": []
+  },
+  "patches": [
+    {
+      "face": "P",
+      "side_order": [
+        "a",
+        "b",
+        "c"
+      ],
+      "sides": {
+        "a": [
+          "u",
+          "v"
+        ],
+        "b": [
+          "v",
+          "w"
+        ],
+        "c": [
+          "w",
+          "u"
+        ]
+      },
+      "triangles": [
+        [
+          "u",
+          "v",
+          "w"
+        ]
+      ]
+    },
+    {
+      "face": "Q",
+      "side_order": [
+        "a",
+        "b",
+        "c"
+      ],
+      "sides": {
+        "a": [
+          "u",
+          "v"
+        ],
+        "b": [
+          "v",
+          "w"
+        ],
+        "c": [
+          "w",
+          "u"
+        ]
+      },
+      "triangles": [
+        [
+          "u",
+          "v",
+          "w"
+        ]
+      ]
+    }
+  ],
+  "curves": [],
+  "crossings": []
+}

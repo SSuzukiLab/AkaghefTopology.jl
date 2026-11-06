@@ -208,4 +208,7 @@ function build_knot_n6_targeted_barrier8(
         progress=progress)
 end
 
+export Heegaard
+include("heegaard/Heegaard.jl")
+
 end

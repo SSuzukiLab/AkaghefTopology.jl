@@ -6,20 +6,34 @@ authors = ["Akaghef"]
 [deps]
 AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
 AkaghefAlgebra = "7b3f2a9e-4c1d-4e8a-9f6b-2d5a7c1e8b04"
+Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Polyhedra = "67491407-f73d-577b-9b50-8179a7c68029"
+RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
+StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+
+[sources]
+RuntimeGeneratedFunctions = {path = "vendor/RuntimeGeneratedFunctions"}
 
 [compat]
+Catlab = "0.17.6"
 DBInterface = "2.7.0"
 Graphs = "1.14.0"
+JSON3 = "1"
+Polyhedra = "0.8.3"
+RuntimeGeneratedFunctions = "0.5.25"
 SQLite = "1.8.2"
+StructTypes = "1"
 julia = "1.10"
 
 [extras]
