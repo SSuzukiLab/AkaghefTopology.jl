@@ -116,6 +116,14 @@ Do not use the unqualified word **sign** when either passage sign or vertex sign
 could be intended. Avoid **orientation** as a prose synonym for vertex sign,
 because orientation also describes directed components and edges.
 
+Owner terminology decision (2026-11-06): the repository has no global **r/l
+type**. The labels `l`/`r` (also `ℓ`, `L`/`R`) belong to individual sources. The
+only statement to make is a correspondence for a named Work: whether vertex sign
+`+`/`−` corresponds to that Work's `r`/`l`, with a locator and its check status.
+A correspondence checked for one Work does not transfer to another, and an
+unchecked one stays unresolved. The per-Work table is §4 of
+[the source-convention dictionary](../../../../docs/specs/ograph-source-conventions.md).
+
 ## 5. Edges and weights
 
 An **edge** is the oriented segment between consecutive entries of a component
@@ -186,7 +194,7 @@ not duplicate that numerical construction.
 | vertex | crossing, except at a VirtualLink/PD boundary |
 | occurrence, entry | visit; `v` meaning visit |
 | passage sign | Gauss-entry sign, over/under `+/-` sign |
-| vertex sign | crossing orientation, unqualified sign |
+| vertex sign | crossing orientation, unqualified sign; r/l type without a named Work |
 | local port | germ, dart, half-edge when referring specifically to `±i`, `±o` |
 | C2 graph | Graph A, except for source or API correspondence |
 | edge weight | vertex weight |
