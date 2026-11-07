@@ -1,5 +1,11 @@
 # Mathematical input and lossless save
 
+> **Superseded (2026-11-07).** The canonical input is now the Lickorish Data
+> defined in [`docs/specs/heegaard-lickorish-data.md`](../specs/heegaard-lickorish-data.md).
+> The native patch document described below is a derived downstream
+> representation, not the source of truth. Triangle-mesh layout of that
+> document is an explicit owner exclusion; see that specification, §1 and §6.
+
 Use `Heegaard.load_heegaard(path)` and `Heegaard.save_heegaard(path, object)`
 for JSON mathematical data. Legacy `akaghef.heegaard/1` returns its existing code
 types. A native full-cellulation `version=1` document returns a defensive
@@ -12,7 +18,10 @@ closed-Heegaard validity is a separate `validate`/compression question.
 The native schema admits only its registered root fields: `version`, `surface`,
 `patches`, `curves`, `crossings`, and optional `region_marks` and `metadata`.
 Store source locators and other nonmathematical extras inside the metadata
-object. Unknown mathematical fields and unsupported versions are rejected.
+object. Its contents are opaque except the reserved optional `display` object:
+when supplied, `display.infinity_triangle` must name an existing source triangle
+as `[patch_name, zero_based_triangle_index]`. It is not inferred when absent.
+Unknown mathematical fields and unsupported versions are rejected.
 Array order, exact rational side-parameter strings and edge-word spelling are
 retained. JSON whitespace and object-key order need not be retained.
 
