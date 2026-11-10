@@ -1,0 +1,129 @@
+{
+  "schema": "akaghef.evidence-resolution/1",
+  "document": "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/annotations.md",
+  "document_sha256": "88f637edfb45887ff87cec1c327c315775ae6eb7e008986de0278fc8a7b51a43",
+  "mode": "consumer",
+  "references": [
+    {
+      "key": "MST25",
+      "query_kind": "cite_key",
+      "locators": [
+        "^mst25-blk-0076",
+        "^mst25-blk-0078",
+        "^mst25-blk-0080",
+        "^mst25-fig-0081"
+      ],
+      "mentions": 7,
+      "forms": [
+        "[[MST25]]",
+        "[[MST25#^mst25-blk-0076]]",
+        "[[MST25#^mst25-blk-0078]]",
+        "[[MST25#^mst25-blk-0080]]",
+        "[[MST25#^mst25-fig-0081]]"
+      ],
+      "lines": [
+        8,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "status": "resolved",
+      "resolved_as": "MST25",
+      "work_id": "w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa",
+      "state": "admitted",
+      "capabilities": {
+        "identity": "resolved",
+        "text": "source-faithful",
+        "figures": "complete",
+        "locators": "stable",
+        "citeability": "strict-checkable"
+      },
+      "face_path": "items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/MST25.md",
+      "obsidian_link": "[[MST25]]",
+      "locator_resolutions": [
+        {
+          "requested": "^mst25-blk-0076",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-blk-0076]]",
+          "anchor": "^mst25-blk-0076",
+          "locator_digest": "bae7eeabe43b78c48127b5472ee97335c74889ff7c212e2024083a872fba55ab",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:477-477",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "local",
+          "source_status": "active"
+        },
+        {
+          "requested": "^mst25-blk-0078",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-blk-0078]]",
+          "anchor": "^mst25-blk-0078",
+          "locator_digest": "9055abad5c81b8c5e84a87de76685ea1c4813e04fd4f8e7b13a4eeeab582c365",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:484-485",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "local",
+          "source_status": "active"
+        },
+        {
+          "requested": "^mst25-blk-0080",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-blk-0080]]",
+          "anchor": "^mst25-blk-0080",
+          "locator_digest": "61aa784043ab12e0ee902cf8bfba050415a6ab01a7f1c8d3b01de4400ba863d5",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:492-500",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "local",
+          "source_status": "active"
+        },
+        {
+          "requested": "^mst25-fig-0081",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-fig-0081]]",
+          "anchor": "^mst25-fig-0081",
+          "locator_digest": "7b9788ba8382c08d17571bd4d9031c46ae732bcb10789f3d8acdb72b7e1c602c",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:502-507",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": "assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png",
+          "asset_sha256": "4ecde62411556bcdc1558cfecfb352af3d530ca7025bff05789fad1d868a7e2c",
+          "source_version_label": "local",
+          "source_status": "active"
+        }
+      ],
+      "capability_warning": null,
+      "mechanical_resolution": true,
+      "mathematical_match": "not-assessed",
+      "source_conventions": {
+        "document": "docs/specs/ograph-source-conventions.md",
+        "entry": "§8 MST3",
+        "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+      }
+    }
+  ],
+  "evidence_edges": [],
+  "evidence_requirements": [],
+  "strict_ready": false,
+  "mathematical_match_approval": "not-assessed-by-resolver",
+  "summary": {
+    "references": 1,
+    "resolved": 1,
+    "unresolved": 0,
+    "queued": 0
+  },
+  "evidence_summary": {
+    "typed_edges": 0,
+    "subjects": 0,
+    "subjects_missing_required_evidence": 0
+  },
+  "librarian_handoff_required": false
+}

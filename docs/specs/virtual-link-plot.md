@@ -223,6 +223,75 @@ plot_svg(v, path; bending_numbers=bending_numbers)
 A future checked convenience API MAY combine these operations, but it MUST NOT
 silently redefine `plot_svg` output as proof of geometric validity.
 
+### 5.4 Processing outline (informative)
+
+This outline restates the normal branch from a real Gauss code to an SVG, one
+action per line. It adds no requirement; §§6–9 hold the contracts. It was read
+against the source at commit `edea399` on 2026-11-07.
+
+Input and branching:
+
+1. Read the Gauss code (signed crossing visits per component) and the crossing
+   orientations (`+1`, `-1`, or `0` for virtual).
+2. If there are no crossings, draw one circle and stop.
+3. If `real_only` is set, planarise into a temporary object and leave the input
+   unchanged. Otherwise use the stored code, which may already contain virtual
+   crossings.
+
+Planarisation (`planarize_virtual_gauss`):
+
+4. Start with empty region vertex lists, region edge lists, and a graph of
+   region adjacency.
+5. Walk each component in Gauss order, adding one edge per step.
+6. On reaching an unused crossing, place it in the current region.
+7. On reaching a used crossing, find the shortest path in the region graph from
+   the current region to the region holding its other occurrence.
+8. If that connects to another component, merge the regions.
+9. If both ends lie on one region, split that region along the new edge.
+10. If the path crosses other regions, insert one virtual crossing per boundary
+    edge crossed.
+11. Write each inserted crossing into both Gauss components and append
+    orientation `0`.
+12. Close the component by splitting its region at the strand's start. The result
+    is a planar Gauss code with the real visit order preserved.
+
+Combinatorial form:
+
+13. Build the PD code: four slots per crossing, one label per edge.
+14. Give virtual crossings the `+1` slot convention for routing only. They stay
+    virtual and are not drawn.
+15. Derive the region boundaries from the PD code.
+
+Layout (`orthogonal_layout`):
+
+16. Solve the first MILP for a signed bend number per edge, minimising total
+    bends under a flow constraint per region.
+17. Set each region's flow to its edge count minus 4, and the longest region,
+    taken as the outer one, to its edge count plus 4.
+18. Accept whichever optimum the solver returns. The optimum is not unique.
+19. Split edges at their bends and cut regions with reflex turns into rectangles.
+20. Solve the second MILP for integer segment lengths of at least 1, minimising
+    total length with horizontal and vertical closure on every rectangle.
+21. Put the first crossing at the origin and trace unused edges into lattice
+    polylines.
+22. Fix the position and rotation of each crossing as it is reached.
+23. If an edge misses an already placed crossing, trace it from the other end.
+    A disconnected PD raises an error on this path.
+
+Drawing (`plot_svg`):
+
+24. Join PD edges in Gauss order into real arcs, passing through virtual crossings.
+25. Shorten under-strand arc ends to open the crossing gap.
+26. Convert each polyline to an SVG path with rounded corners. There is no global
+    smoothing; the MILP layout fixes the shape.
+27. Add a direction arrow to each arc.
+28. Draw a vertex at each real crossing only.
+29. Place weight and vertex labels, then spread them apart.
+30. Compute the bounding box and write the SVG.
+
+Components with a cut marker differ: each is closed temporarily as a layout
+scaffold, and its closure arc is split in two at half its arclength before drawing.
+
 ## 6. Layout-stage contracts
 
 ### 6.1 Virtual planarisation

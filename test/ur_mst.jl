@@ -33,6 +33,10 @@ isdefined(@__MODULE__, :vl_example) || include(joinpath(@__DIR__, "../examples/V
     end
     @test_throws ArgumentError Z_MST(v,H;strategy=:unknown)
     @test_throws DomainError evaluate_invariant(URMSTExpression(zeros(BigInt,1,1)))
+    # The trace matrix has rank deficit b1 here, so no finite value exists.
+    for name in ("s2xs1", "s2xs1_2vertex", "koda_fig13")
+        @test_throws DomainError Z_MST(vl_example(name),H)
+    end
     two = VirtualLink(); set_data!(two;rgauss=[[1,-1],[2,-2]],orientation=[1,1])
     @test_throws ArgumentError Z_MST(two,H)
     base = vl_example("s3_abalone")

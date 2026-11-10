@@ -1,0 +1,602 @@
+{
+  "schema": "akaghef.heegaard.koda-local/2",
+  "provenance": {
+    "actor": "AI agent",
+    "marker": "XQQQ1500000",
+    "owner_approval": false
+  },
+  "evidence": {
+    "primary": "K08",
+    "locators": [
+      "^k08-sec-0081",
+      "^k08-sec-0082",
+      "^k08-sec-0083",
+      "^k08-sec-0084",
+      "^k08-sec-0085"
+    ],
+    "assets": [
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0014-0019.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0008.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0009.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0010.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0011-0012.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0013-0017.jpeg",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-method-b.png",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png"
+    ],
+    "secondary_locators": [
+      "MST25 ^mst25-fig-0079",
+      "MST25 ^mst25-fig-0081"
+    ]
+  },
+  "source_check": "Independent existing Julia BP97 C2 agrees on 6371/6371 valid input records, including Fig13; K08 p216 text versus Fig13 remains unresolved; no source-error finding",
+  "models": {
+    "1": {
+      "pd_ports_ccw": [
+        "-i",
+        "+o",
+        "-o",
+        "+i"
+      ],
+      "dual_vertex_order_W_to_B": [
+        4,
+        2,
+        1,
+        3
+      ],
+      "tetrahedron_orientation": -1,
+      "sheets": {
+        "12": {
+          "ports": [
+            1,
+            2
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            3
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 3
+          }
+        },
+        "13": {
+          "ports": [
+            1,
+            3
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            2
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 2
+          }
+        },
+        "14": {
+          "ports": [
+            1,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            2,
+            3
+          ],
+          "boundary_lifts": {
+            "W": 2,
+            "B": 3
+          }
+        },
+        "23": {
+          "ports": [
+            2,
+            3
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            1
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 1
+          }
+        },
+        "24": {
+          "ports": [
+            2,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            1,
+            3
+          ],
+          "boundary_lifts": {
+            "W": 1,
+            "B": 3
+          }
+        },
+        "34": {
+          "ports": [
+            3,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            2,
+            1
+          ],
+          "boundary_lifts": {
+            "W": 2,
+            "B": 1
+          }
+        }
+      },
+      "ports": {
+        "1": {
+          "name": "-i",
+          "face_vertices": [
+            4,
+            2,
+            3
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 2,
+            "B": 3
+          },
+          "sheet_lanes": [
+            "13",
+            "14",
+            "12"
+          ],
+          "majority": [
+            "13",
+            "14"
+          ],
+          "minority": "12"
+        },
+        "2": {
+          "name": "+o",
+          "face_vertices": [
+            4,
+            1,
+            3
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 1,
+            "B": 3
+          },
+          "sheet_lanes": [
+            "23",
+            "24",
+            "12"
+          ],
+          "majority": [
+            "23",
+            "24"
+          ],
+          "minority": "12"
+        },
+        "3": {
+          "name": "-o",
+          "face_vertices": [
+            4,
+            2,
+            1
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 2,
+            "B": 1
+          },
+          "sheet_lanes": [
+            "13",
+            "34",
+            "23"
+          ],
+          "majority": [
+            "13",
+            "34"
+          ],
+          "minority": "23"
+        },
+        "4": {
+          "name": "+i",
+          "face_vertices": [
+            2,
+            1,
+            3
+          ],
+          "lifts": {
+            "W": 2,
+            "e": 1,
+            "B": 3
+          },
+          "sheet_lanes": [
+            "34",
+            "24",
+            "14"
+          ],
+          "majority": [
+            "34",
+            "24"
+          ],
+          "minority": "14"
+        }
+      },
+      "boundary_vertices": {
+        "1": {
+          "ports_ccw": [
+            2,
+            3,
+            4
+          ],
+          "order_rank": 2,
+          "stratum": "e",
+          "e_ports": [
+            2,
+            4
+          ],
+          "spur_port": 3,
+          "spur_side": "B"
+        },
+        "2": {
+          "ports_ccw": [
+            1,
+            4,
+            3
+          ],
+          "order_rank": 1,
+          "stratum": "e",
+          "e_ports": [
+            1,
+            3
+          ],
+          "spur_port": 4,
+          "spur_side": "W"
+        },
+        "3": {
+          "ports_ccw": [
+            1,
+            2,
+            4
+          ],
+          "order_rank": 3,
+          "stratum": "B",
+          "e_ports": [],
+          "spur_port": null,
+          "spur_side": null
+        },
+        "4": {
+          "ports_ccw": [
+            1,
+            3,
+            2
+          ],
+          "order_rank": 0,
+          "stratum": "W",
+          "e_ports": [],
+          "spur_port": null,
+          "spur_side": null
+        }
+      },
+      "derivation_status": "agent-derived; boundary comparison with K08 P1 unresolved"
+    },
+    "-1": {
+      "pd_ports_ccw": [
+        "-i",
+        "+i",
+        "-o",
+        "+o"
+      ],
+      "dual_vertex_order_W_to_B": [
+        4,
+        2,
+        3,
+        1
+      ],
+      "tetrahedron_orientation": 1,
+      "sheets": {
+        "12": {
+          "ports": [
+            1,
+            2
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            3
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 3
+          }
+        },
+        "13": {
+          "ports": [
+            1,
+            3
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            2
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 2
+          }
+        },
+        "14": {
+          "ports": [
+            1,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            2,
+            3
+          ],
+          "boundary_lifts": {
+            "W": 2,
+            "B": 3
+          }
+        },
+        "23": {
+          "ports": [
+            2,
+            3
+          ],
+          "dual_edge_W_to_B": [
+            4,
+            1
+          ],
+          "boundary_lifts": {
+            "W": 4,
+            "B": 1
+          }
+        },
+        "24": {
+          "ports": [
+            2,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            3,
+            1
+          ],
+          "boundary_lifts": {
+            "W": 3,
+            "B": 1
+          }
+        },
+        "34": {
+          "ports": [
+            3,
+            4
+          ],
+          "dual_edge_W_to_B": [
+            2,
+            1
+          ],
+          "boundary_lifts": {
+            "W": 2,
+            "B": 1
+          }
+        }
+      },
+      "ports": {
+        "1": {
+          "name": "-i",
+          "face_vertices": [
+            4,
+            2,
+            3
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 2,
+            "B": 3
+          },
+          "sheet_lanes": [
+            "13",
+            "14",
+            "12"
+          ],
+          "majority": [
+            "13",
+            "14"
+          ],
+          "minority": "12"
+        },
+        "2": {
+          "name": "+i",
+          "face_vertices": [
+            4,
+            3,
+            1
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 3,
+            "B": 1
+          },
+          "sheet_lanes": [
+            "12",
+            "24",
+            "23"
+          ],
+          "majority": [
+            "12",
+            "24"
+          ],
+          "minority": "23"
+        },
+        "3": {
+          "name": "-o",
+          "face_vertices": [
+            4,
+            2,
+            1
+          ],
+          "lifts": {
+            "W": 4,
+            "e": 2,
+            "B": 1
+          },
+          "sheet_lanes": [
+            "13",
+            "34",
+            "23"
+          ],
+          "majority": [
+            "13",
+            "34"
+          ],
+          "minority": "23"
+        },
+        "4": {
+          "name": "+o",
+          "face_vertices": [
+            2,
+            3,
+            1
+          ],
+          "lifts": {
+            "W": 2,
+            "e": 3,
+            "B": 1
+          },
+          "sheet_lanes": [
+            "14",
+            "24",
+            "34"
+          ],
+          "majority": [
+            "14",
+            "24"
+          ],
+          "minority": "34"
+        }
+      },
+      "boundary_vertices": {
+        "1": {
+          "ports_ccw": [
+            2,
+            3,
+            4
+          ],
+          "order_rank": 3,
+          "stratum": "B",
+          "e_ports": [],
+          "spur_port": null,
+          "spur_side": null
+        },
+        "2": {
+          "ports_ccw": [
+            1,
+            4,
+            3
+          ],
+          "order_rank": 1,
+          "stratum": "e",
+          "e_ports": [
+            1,
+            3
+          ],
+          "spur_port": 4,
+          "spur_side": "W"
+        },
+        "3": {
+          "ports_ccw": [
+            1,
+            2,
+            4
+          ],
+          "order_rank": 2,
+          "stratum": "e",
+          "e_ports": [
+            2,
+            4
+          ],
+          "spur_port": 1,
+          "spur_side": "B"
+        },
+        "4": {
+          "ports_ccw": [
+            1,
+            3,
+            2
+          ],
+          "order_rank": 0,
+          "stratum": "W",
+          "e_ports": [],
+          "spur_port": null,
+          "spur_side": null
+        }
+      },
+      "derivation_status": "agent-derived; boundary comparison with K08 P1 unresolved"
+    }
+  },
+  "pd_ports_ccw_from_incoming_under": {
+    "1": [
+      "-i",
+      "+o",
+      "-o",
+      "+i"
+    ],
+    "-1": [
+      "-i",
+      "+i",
+      "-o",
+      "+o"
+    ]
+  },
+  "sheet_ids_by_port_pair": {
+    "12": "S_quad_a",
+    "13": "alpha_disk",
+    "14": "S_quad_b",
+    "23": "S_quad_c",
+    "24": "beta_disk",
+    "34": "S_quad_d"
+  },
+  "opposite_port_pairs": [
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      4
+    ]
+  ],
+  "transcription": {
+    "source_read": [
+      "four directed ports",
+      "six sheet corners",
+      "two crossing types"
+    ],
+    "derived": [
+      "port pair numbering",
+      "ordered dual vertices",
+      "sheet lanes",
+      "boundary lift rotations"
+    ]
+  },
+  "chart_port_vectors": {
+    "1": [
+      1,
+      0
+    ],
+    "2": [
+      0,
+      1
+    ],
+    "3": [
+      -1,
+      0
+    ],
+    "4": [
+      0,
+      -1
+    ]
+  }
+}

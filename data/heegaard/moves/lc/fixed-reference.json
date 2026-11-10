@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "lc.fixed.unresolved",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "unspecified",
+      "status": "unresolved",
+      "source": {"fragments": [], "orientation": [], "capacity": []},
+      "target": {"fragments": [], "orientation": [], "capacity": []},
+      "bindings": {},
+      "applicability": [],
+      "inverse_id": null,
+      "expansion": {"op": "literal"},
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.5 — no generic before/after equivalence"
+    }
+  ]
+}

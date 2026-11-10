@@ -1,0 +1,228 @@
+{
+  "schema": "akaghef.heegaard.koda-local/2",
+  "provenance": {
+    "actor": "AI agent",
+    "marker": "XQQQ1500000",
+    "owner_approval": false
+  },
+  "evidence": {
+    "primary": "K08",
+    "locators": [
+      "^k08-sec-0081",
+      "^k08-sec-0082",
+      "^k08-sec-0083",
+      "^k08-sec-0084",
+      "^k08-sec-0085"
+    ],
+    "assets": [
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0014-0019.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0008.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0009.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0010.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0011-0012.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0013-0017.jpeg",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-method-b.png",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png"
+    ],
+    "secondary_locators": [
+      "MST25 ^mst25-fig-0079",
+      "MST25 ^mst25-fig-0081"
+    ]
+  },
+  "source_check": "Independent existing Julia BP97 C2 agrees on 6371/6371 valid input records, including Fig13; K08 p216 text versus Fig13 remains unresolved; no source-error finding",
+  "domain": "finite oriented boundary surface with trivalent pi^-1(S(P)), projection pi, and embedded e circles",
+  "collar": {
+    "A": "small annular collar of e, not an entire component of pi^-1(eta(S(P)))",
+    "normal_coordinate": "positive towards B",
+    "endpoint_offset": {
+      "numerator": 1,
+      "denominator": 4
+    },
+    "given_annulus_refinement": {
+      "input": "A_i with core e_i in its interior",
+      "operation": "successive barycentric flag subdivision and regular collar of the core",
+      "stop_when": "collar is inside int(A_i), contains no off-e vertex, every off-e branch is a spur, and the projection-chart conditions below hold",
+      "projection_chart_conditions": {
+        "edge_strip": "all other endpoints of the same fiber lie outside the union of collars",
+        "vertex_corner": "images of the two e-lift collars overlap only in their shared dual-edge-12 corner",
+        "nonincident_charts": "images are disjoint",
+        "finite_test": "common subdivision of the images of the finite PL charts"
+      },
+      "choice": "least subdivision depth; lexicographic flag order",
+      "termination": "local Koda normal forms have these projection neighborhoods; finitely many remaining closed cells are separated; subdivision mesh tends to zero"
+    },
+    "zero_vertex_circle": {
+      "phase": "least indexed collar edge",
+      "initial_side": "B",
+      "rule": "no_crossing_component"
+    }
+  },
+  "vertex_rules": [
+    {
+      "spur_side": "B",
+      "C_side": "W",
+      "offset": [
+        -1,
+        4
+      ],
+      "projection_dual_edge_ranks": [
+        2,
+        3
+      ]
+    },
+    {
+      "spur_side": "W",
+      "C_side": "B",
+      "offset": [
+        1,
+        4
+      ],
+      "projection_dual_edge_ranks": [
+        0,
+        1
+      ]
+    }
+  ],
+  "edge_rules": {
+    "same_side": [
+      [
+        [
+          0,
+          1
+        ],
+        "source"
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        "source"
+      ]
+    ],
+    "opposite_sides": [
+      [
+        [
+          0,
+          1
+        ],
+        "source"
+      ],
+      [
+        [
+          1,
+          4
+        ],
+        "source"
+      ],
+      [
+        [
+          3,
+          4
+        ],
+        "target"
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        "target"
+      ]
+    ],
+    "no_crossing_component": {
+      "edge": "least edge occurrence in canonical e-cycle",
+      "polyline": [
+        [
+          [
+            0,
+            1
+          ],
+          "source"
+        ],
+        [
+          [
+            1,
+            4
+          ],
+          "source"
+        ],
+        [
+          [
+            1,
+            2
+          ],
+          "opposite-source"
+        ],
+        [
+          [
+            3,
+            4
+          ],
+          "source"
+        ],
+        [
+          [
+            1,
+            1
+          ],
+          "source"
+        ]
+      ],
+      "crossings": [
+        [
+          3,
+          8
+        ],
+        [
+          5,
+          8
+        ]
+      ]
+    }
+  },
+  "disk_types": {
+    "C_in_W": {
+      "type": "D+",
+      "family": "beta",
+      "subset": "W"
+    },
+    "C_in_B": {
+      "type": "E+",
+      "family": "alpha",
+      "subset": "B"
+    }
+  },
+  "theorem_status": "agent proof for the actual boundary and projection; nine closed registry replays and H1 comparisons passed",
+  "output": [
+    "PL C arcs with rational coordinates",
+    "C-to-e crossing list",
+    "D+/E+ lenses and projection maps"
+  ],
+  "joining_corner": {
+    "ports_ccw": [
+      [
+        "before",
+        "C-out"
+      ],
+      [
+        "after",
+        "C-in"
+      ],
+      [
+        "before",
+        "e-in"
+      ],
+      [
+        "after",
+        "e-out"
+      ]
+    ],
+    "J_sector_between": [
+      "C-out-before",
+      "C-in-after"
+    ],
+    "same_family_ports": "opposite",
+    "source": "K08 Fig.11; agent-derived unfolding onto the S chart"
+  }
+}

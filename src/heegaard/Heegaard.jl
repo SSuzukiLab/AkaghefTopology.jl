@@ -50,6 +50,7 @@ include("marked_twists.jl")
 include("marked_twist_words.jl")
 include("cellulated_conversion.jl")
 include("ograph_reverse.jl")
+include("koda_conversion.jl")
 include("marked_comparison.jl")
 
 export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
@@ -65,7 +66,10 @@ export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        marked_stabilize, marked_destabilize,
        marked_dehn_twist, marked_inverse_dehn_twist,
        marked_dehn_twist_word, marked_inverse_dehn_twist_word,
-       marked_comparison_report, odata_computation_report
+       marked_comparison_report, odata_computation_report,
+       LickorishConfiguration, HeegaardLayer, read_lc, read_hc,
+       hc_to_odata, odata_to_spine, spine_to_heegaard_koda, odata_to_hc,
+       compare_odata_words, KodaInputError, KodaSpecificationPending
 
 export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
        HeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,
