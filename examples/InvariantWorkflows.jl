@@ -28,7 +28,6 @@ function run_invariant_workflows()
         "s2xs1_exterior_2"=>hopf_invariant(s2xs1,exterior),
         "abalone_exterior_2"=>hopf_invariant(abalone,exterior),
         "koda_exterior_2"=>hopf_invariant(koda,exterior),
-        "koda_ur_prime"=>ur_prime_invariant(koda),
     )
 end
 

@@ -333,6 +333,7 @@ include(joinpath(@__DIR__, "feasible_router.jl"))
 end
 
 include("joining_disk.jl")
+include("koda_conversion.jl")
 include("koda_complex.jl")
 include("automatic_layout.jl")
 include("canonical_hash_cache.jl")

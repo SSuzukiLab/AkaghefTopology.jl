@@ -1,0 +1,3665 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "lc.isotopy.digon.remove.00",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              1,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "digon_face",
+        "labels_above_k"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.inverse.00",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.inverse.00",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              1,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "gaps_on_common_face"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.00",
+      "expansion": {
+        "op": "gaps"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.01",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              2,
+              -1
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "digon_face",
+        "labels_above_k"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.inverse.01",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.inverse.01",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              2,
+              -1
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "gaps_on_common_face"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.01",
+      "expansion": {
+        "op": "gaps"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.10",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              -1,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "digon_face",
+        "labels_above_k"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.inverse.10",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.inverse.10",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              -1,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "gaps_on_common_face"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.10",
+      "expansion": {
+        "op": "gaps"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.11",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              -2,
+              1
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "digon_face",
+        "labels_above_k"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.inverse.11",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.digon.remove.inverse.11",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": []
+          },
+          {
+            "role": "K",
+            "word": []
+          }
+        ],
+        "orientation": [],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "C",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "K",
+            "word": [
+              -2,
+              1
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2
+        ]
+      },
+      "bindings": {
+        "C": "input",
+        "K": "k"
+      },
+      "applicability": [
+        "gaps_on_common_face"
+      ],
+      "inverse_id": "lc.isotopy.digon.remove.11",
+      "expansion": {
+        "op": "gaps"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.000",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.000",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.000",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.000",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.001",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.001",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.001",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.001",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.010",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.010",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.010",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.010",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.011",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.011",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.011",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.011",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.100",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.100",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.100",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.100",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.101",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.101",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.101",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.101",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.110",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.110",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.110",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.110",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.111",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.inverse.111",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.vertex.inverse.111",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "k",
+        "C": "input",
+        "pin_local": [
+          1
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "pin_is_k"
+      ],
+      "inverse_id": "lc.isotopy.vertex.111",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.000",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.000",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.000",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.000",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.001",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.001",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.001",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.001",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.010",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.010",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.010",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.010",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.011",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.011",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.011",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.011",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.100",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.100",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.100",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.100",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.101",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.101",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.101",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              -1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.101",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.110",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.110",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.110",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              -2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              2,
+              3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              -2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              -3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              3,
+              2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.110",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.111",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.inverse.111",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
+    },
+    {
+      "id": "lc.isotopy.crossing.inverse.111",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              2,
+              1
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              3,
+              -1
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -3,
+              -2
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "fragments": [
+          {
+            "role": "A",
+            "word": [
+              1,
+              2
+            ]
+          },
+          {
+            "role": "B",
+            "word": [
+              -1,
+              3
+            ]
+          },
+          {
+            "role": "C",
+            "word": [
+              -2,
+              -3
+            ]
+          }
+        ],
+        "orientation": [
+          1,
+          1,
+          1
+        ],
+        "capacity": [
+          1,
+          2,
+          3
+        ]
+      },
+      "bindings": {
+        "A": "k",
+        "B": "input",
+        "C": "input",
+        "survive_local": [
+          3
+        ]
+      },
+      "applicability": [
+        "empty_triangle",
+        "k_edge_fixed"
+      ],
+      "inverse_id": "lc.isotopy.crossing.111",
+      "expansion": {
+        "op": "literal"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6"
+    },
+    {
+      "id": "lc.isotopy.digon.create.ab",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {"fragments": [{"role": "C", "word": []}, {"role": "K", "word": []}], "capacity": [1, 2]},
+      "target": {"fragments": [{"role": "C", "word": []}, {"role": "K", "word": []}], "capacity": [1, 2]},
+      "bindings": {"C": "any", "K": "any"},
+      "inverse_id": "lc.isotopy.digon.remove.00",
+      "expansion": {"op": "face_edges", "range": "one face, two distinct boundary edges"},
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.1"
+    },
+    {
+      "id": "lc.isotopy.parallel",
+      "schema_version": 1,
+      "layer": "LC",
+      "relation": "isotopy",
+      "status": "executable",
+      "source": {"fragments": [{"role": "C", "word": []}], "capacity": [1]},
+      "target": {"fragments": [{"role": "C", "word": []}], "capacity": [1]},
+      "bindings": {"C": "any"},
+      "inverse_id": "lc.isotopy.parallel",
+      "expansion": {"op": "parallel", "range": "every nonempty curve, both sides"},
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6"
+    }
+  ]
+}

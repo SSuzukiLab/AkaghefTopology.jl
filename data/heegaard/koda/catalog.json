@@ -1,0 +1,60 @@
+{
+  "schema": "akaghef.heegaard.koda-local/2",
+  "vertex_models": "vertex-models.json",
+  "edge_gluings": "edge-gluings.json",
+  "orientation": "orientation.json",
+  "bw_boundary": "bw-boundary.json",
+  "c_selection": "c-selection.json",
+  "source_examples": "source-examples.json",
+  "numerical_tables_complete": true,
+  "source_alignment_complete": false,
+  "implementation_ready": true,
+  "transcription_status": "all numerical rows present; independent C2 and closed replay accepted in the stated scope",
+  "evidence_kind": "source readings, parent independent calculation, finite native-Julia/Python comparison, and agent proof; no general owner-checked proof claimed",
+  "interpreter": "finite map lookup, copying, composition, occurrence gluing, boundary tracing; no per-case algorithms",
+  "implementation_ready_scope": {
+    "representation": "complete normal o-data with at least one true vertex and disk sectors",
+    "local_models": "both vertex types, all sixteen directed edge types, ordered sheet and boundary gluing",
+    "finite_checks": {
+      "total_records": 6372,
+      "registry_records": 10,
+      "existing_records": 6362,
+      "C2_computed": 6371,
+      "C2_partition_matches": 6371,
+      "C2_multigraph_matches": 6371,
+      "distinct_exact_GC_inputs": 6267,
+      "rejected_inputs": 1,
+      "failures": 0,
+      "directed_edge_types": 16,
+      "closed_inputs": 9,
+      "closed_roundtrip_matches": 9,
+      "closed_H1_matches": 9
+    },
+    "C_rule": "actual finite boundary and projection with the local Koda normal forms; agent proof",
+    "excluded": [
+      "vertex-free singular circles without additional incidence data",
+      "non-disk sectors without additional surface and projection data",
+      "automatic marking by K and LC word extraction",
+      "weighted or framed equivalence"
+    ]
+  },
+  "source_alignment_scope": "K08 p216 stated P1 boundary versus the literal Fig13 word; independent BP97 C2 alignment is complete in the recorded finite scope",
+  "verification": {
+    "base": "research_repository",
+    "C2": ".research-scratch/PJ260922/ld-koda-spec/261109-c2-extended-comparison.json",
+    "closed_C_and_H1": ".research-scratch/PJ260922/ld-koda-spec/261109-closed-c-replay.json"
+  },
+  "P1_source_question": {
+    "literal_figure13_boundary_genera": [
+      0,
+      1,
+      1
+    ],
+    "p216_stated_boundary_genera": [
+      0,
+      1
+    ],
+    "source_error_recognized": false,
+    "unresolved": "text or figure input discrepancy; no determination which is responsible"
+  }
+}

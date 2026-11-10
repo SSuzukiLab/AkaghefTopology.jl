@@ -1,0 +1,835 @@
+{
+  "schema": "akaghef.heegaard.koda-local/2",
+  "provenance": {
+    "actor": "AI agent",
+    "marker": "XQQQ1500000",
+    "owner_approval": false
+  },
+  "evidence": {
+    "primary": "K08",
+    "locators": [
+      "^k08-sec-0081",
+      "^k08-sec-0082",
+      "^k08-sec-0083",
+      "^k08-sec-0084",
+      "^k08-sec-0085"
+    ],
+    "assets": [
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0014-0019.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0008.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0009.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0010.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0011-0012.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0013-0017.jpeg",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-method-b.png",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png"
+    ],
+    "secondary_locators": [
+      "MST25 ^mst25-fig-0079",
+      "MST25 ^mst25-fig-0081"
+    ]
+  },
+  "source_check": "Independent existing Julia BP97 C2 agrees on 6371/6371 valid input records, including Fig13; K08 p216 text versus Fig13 remains unresolved; no source-error finding",
+  "models": {
+    "1:+o->1:-i": {
+      "source": {
+        "sigma": 1,
+        "port": 2
+      },
+      "target": {
+        "sigma": 1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "24": "14",
+        "12": "12",
+        "23": "13"
+      },
+      "permutation_1based": [
+        1,
+        2,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:+o->1:+i": {
+      "source": {
+        "sigma": 1,
+        "port": 2
+      },
+      "target": {
+        "sigma": 1,
+        "port": 4
+      },
+      "source_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "target_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "sheet_map": {
+        "24": "24",
+        "12": "14",
+        "23": "34"
+      },
+      "permutation_1based": [
+        1,
+        3,
+        2
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          2
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:-o->1:-i": {
+      "source": {
+        "sigma": 1,
+        "port": 3
+      },
+      "target": {
+        "sigma": 1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "34": "14",
+        "23": "12",
+        "13": "13"
+      },
+      "permutation_1based": [
+        2,
+        1,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:-o->1:+i": {
+      "source": {
+        "sigma": 1,
+        "port": 3
+      },
+      "target": {
+        "sigma": 1,
+        "port": 4
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "sheet_map": {
+        "34": "24",
+        "23": "14",
+        "13": "34"
+      },
+      "permutation_1based": [
+        3,
+        1,
+        2
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:+o->-1:-i": {
+      "source": {
+        "sigma": 1,
+        "port": 2
+      },
+      "target": {
+        "sigma": -1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "24": "14",
+        "12": "12",
+        "23": "13"
+      },
+      "permutation_1based": [
+        1,
+        2,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:+o->-1:+i": {
+      "source": {
+        "sigma": 1,
+        "port": 2
+      },
+      "target": {
+        "sigma": -1,
+        "port": 2
+      },
+      "source_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "target_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "sheet_map": {
+        "24": "24",
+        "12": "23",
+        "23": "12"
+      },
+      "permutation_1based": [
+        2,
+        1,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          3,
+          1
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:-o->-1:-i": {
+      "source": {
+        "sigma": 1,
+        "port": 3
+      },
+      "target": {
+        "sigma": -1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "34": "14",
+        "23": "12",
+        "13": "13"
+      },
+      "permutation_1based": [
+        2,
+        1,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "1:-o->-1:+i": {
+      "source": {
+        "sigma": 1,
+        "port": 3
+      },
+      "target": {
+        "sigma": -1,
+        "port": 2
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "sheet_map": {
+        "34": "24",
+        "23": "23",
+        "13": "12"
+      },
+      "permutation_1based": [
+        1,
+        2,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:-o->1:-i": {
+      "source": {
+        "sigma": -1,
+        "port": 3
+      },
+      "target": {
+        "sigma": 1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "34": "14",
+        "23": "12",
+        "13": "13"
+      },
+      "permutation_1based": [
+        2,
+        1,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:-o->1:+i": {
+      "source": {
+        "sigma": -1,
+        "port": 3
+      },
+      "target": {
+        "sigma": 1,
+        "port": 4
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "sheet_map": {
+        "34": "24",
+        "23": "14",
+        "13": "34"
+      },
+      "permutation_1based": [
+        3,
+        1,
+        2
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:+o->1:-i": {
+      "source": {
+        "sigma": -1,
+        "port": 4
+      },
+      "target": {
+        "sigma": 1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "24": "14",
+        "34": "12",
+        "14": "13"
+      },
+      "permutation_1based": [
+        2,
+        3,
+        1
+      ],
+      "boundary_lift_map": [
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:+o->1:+i": {
+      "source": {
+        "sigma": -1,
+        "port": 4
+      },
+      "target": {
+        "sigma": 1,
+        "port": 4
+      },
+      "source_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "target_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "sheet_map": {
+        "24": "24",
+        "34": "14",
+        "14": "34"
+      },
+      "permutation_1based": [
+        3,
+        2,
+        1
+      ],
+      "boundary_lift_map": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:-o->-1:-i": {
+      "source": {
+        "sigma": -1,
+        "port": 3
+      },
+      "target": {
+        "sigma": -1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "34": "14",
+        "23": "12",
+        "13": "13"
+      },
+      "permutation_1based": [
+        2,
+        1,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:-o->-1:+i": {
+      "source": {
+        "sigma": -1,
+        "port": 3
+      },
+      "target": {
+        "sigma": -1,
+        "port": 2
+      },
+      "source_incidence_order": [
+        "13",
+        "23",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "sheet_map": {
+        "34": "24",
+        "23": "23",
+        "13": "12"
+      },
+      "permutation_1based": [
+        1,
+        2,
+        3
+      ],
+      "boundary_lift_map": [
+        [
+          4,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:+o->-1:-i": {
+      "source": {
+        "sigma": -1,
+        "port": 4
+      },
+      "target": {
+        "sigma": -1,
+        "port": 1
+      },
+      "source_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "13",
+        "14"
+      ],
+      "sheet_map": {
+        "24": "14",
+        "34": "12",
+        "14": "13"
+      },
+      "permutation_1based": [
+        2,
+        3,
+        1
+      ],
+      "boundary_lift_map": [
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    },
+    "-1:+o->-1:+i": {
+      "source": {
+        "sigma": -1,
+        "port": 4
+      },
+      "target": {
+        "sigma": -1,
+        "port": 2
+      },
+      "source_incidence_order": [
+        "14",
+        "24",
+        "34"
+      ],
+      "target_incidence_order": [
+        "12",
+        "23",
+        "24"
+      ],
+      "sheet_map": {
+        "24": "24",
+        "34": "23",
+        "14": "12"
+      },
+      "permutation_1based": [
+        1,
+        3,
+        2
+      ],
+      "boundary_lift_map": [
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "lane_map_1based": [
+        1,
+        2,
+        3
+      ],
+      "orientation": "ordered face; W/e/B point types preserved"
+    }
+  }
+}

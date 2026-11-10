@@ -450,6 +450,53 @@ function regions(pd::AbstractMatrix{<:Integer})
         throw(ArgumentError("regions require a closed PD code; boundary edge IDs are present"))
     rows = [Int.(collect(row)) for row in eachrow(pd)]
     isempty(rows) && return Vector{Vector{Int}}()
+    # Opposite-slot loops are not monogons (e.g. the torus [1 2 1 2]).
+    # Use occurrences, not crossing indices, to distinguish their endpoints.
+    # Source: lickorish-code.md section 4, rotation-system faces.
+    # Keep the Sage planar path below unchanged, including its face ordering.
+    if any(row -> row[1] == row[3] || row[2] == row[4], rows)
+        Dart = Tuple{Int,Int}
+        occurrences = Dict{Int,Vector{Dart}}()
+        for i in eachindex(rows), slot in 1:4
+            push!(get!(occurrences, rows[i][slot], Dart[]), (i,slot))
+        end
+        twin = Dict{Dart,Dart}()
+        for (edge, ends) in occurrences
+            length(ends) == 2 || throw(ArgumentError("invalid PD edge $edge"))
+            a,b = ends
+            twin[a] = b; twin[b] = a
+        end
+        signed = Dict{Dart,Int}()
+        # Slot 3 is outgoing on the under-strand. A component containing
+        # only over-strands has no such seed; choose slot 2 consistently.
+        for seedslot in (3,2), i in eachindex(rows)
+            dart = (i,seedslot)
+            while !haskey(signed,dart)
+                edge = rows[dart[1]][dart[2]]
+                signed[dart] = edge
+                arrival = twin[dart]
+                signed[arrival] = -edge
+                dart = (arrival[1],mod1(arrival[2]+2,4))
+            end
+        end
+        bysigned = Dict(value=>dart for (dart,value) in signed)
+        available = Set(keys(bysigned))
+        result = Vector{Vector{Int}}()
+        while !isempty(available)
+            start = bysigned[maximum(available)]
+            dart = start
+            region = Int[]
+            while true
+                push!(region,signed[dart])
+                delete!(available,signed[dart])
+                arrival = twin[dart]
+                dart = (arrival[1],mod1(arrival[2]-1,4))
+                dart == start && break
+            end
+            push!(result,region)
+        end
+        return result
+    end
     if length(rows) == 1
         crossing = rows[1]
         return crossing[1] == crossing[4] ?

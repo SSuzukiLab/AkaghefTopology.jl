@@ -1,0 +1,43 @@
+{
+  "schema": "akaghef.heegaard.koda-source-examples/1",
+  "examples": [
+    {
+      "name": "abalone",
+      "gauss": [
+        [
+          1,
+          -1
+        ]
+      ],
+      "orientation": [
+        1
+      ],
+      "source": "owner-designated input; heegaard-koda-conversion.md 12.2",
+      "metadata": {}
+    },
+    {
+      "name": "P1",
+      "gauss": [
+        [
+          3,
+          2,
+          -1,
+          -2,
+          1,
+          4,
+          -3,
+          -4
+        ]
+      ],
+      "orientation": [
+        -1,
+        1,
+        -1,
+        1
+      ],
+      "source": "K08 Fig.13; PDF paths 97:0..20 on PDF page 14; directed tracing independent of conversion code",
+      "source_asset": "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0014-0020.jpeg",
+      "metadata": {}
+    }
+  ]
+}

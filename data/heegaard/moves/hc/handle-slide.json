@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "hc.slide.pants",
+      "schema_version": 1,
+      "layer": "HC",
+      "relation": "handle_slide",
+      "status": "executable",
+      "source": {"fragments": [], "orientation": [], "capacity": []},
+      "target": {"fragments": [], "orientation": [], "capacity": []},
+      "bindings": {"a_i": "same_family", "a_j": "same_family"},
+      "applicability": ["same_family", "band_avoids_family"],
+      "inverse_id": "hc.slide.pants",
+      "expansion": {
+        "op": "glue",
+        "parts": ["component:a_i", "band_forward", "parallel:a_j", "band_reverse"],
+        "replace": "a_i",
+        "keep": "a_j"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "refuse_if_marks",
+      "requires": ["curves", "band"],
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.3"
+    }
+  ]
+}

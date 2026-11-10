@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §3",
+  "files": [
+    "lc/isotopy.json",
+    "lc/dehn-twist.json",
+    "lc/fixed-reference.json",
+    "hc/handle-slide.json",
+    "hc/stabilization.json"
+  ],
+  "expansion_ops": ["literal", "gaps", "affine", "glue", "k_inclusion", "face_edges", "parallel"],
+  "label_policies": ["pin_k", "k_constant_inclusion"]
+}

@@ -13,3 +13,5 @@ Taft 固有の型・移行・受入条件は [要件書](../../../threads/PJ2608
 U(R) は `Z_MST(v, URAlgebra())` で厳密有理数を返す。
 構築・簡約化・評価は同じ共通APIに接続し、URDiagramには依存しない。
 対応範囲と規約は [U(R) backend](260909_ur_mst.md) を参照する。
+
+値がないときの規則は [設計方針](../../algebra.jl/docs/260909_interface_design.md#値がないとき) に従う。不変量ごとの未定義の条件は、各 backend の文書に書く。

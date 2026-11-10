@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "ops": ["literal", "gaps", "affine", "glue", "k_inclusion"],
+  "passage_sign": "minus on b and plus on a means a crosses b from b's right to left",
+  "cell_sequence": "oriented edges {component, at, dir} or a component name denoting that component's edge cycle",
+  "note": "The apply path does not branch on relation. It branches only on expansion.op from this vocabulary."
+}

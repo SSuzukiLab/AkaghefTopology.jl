@@ -1,0 +1,66 @@
+{
+  "schema": "akaghef.heegaard.koda-local/2",
+  "provenance": {
+    "actor": "AI agent",
+    "marker": "XQQQ1500000",
+    "owner_approval": false
+  },
+  "evidence": {
+    "primary": "K08",
+    "locators": [
+      "^k08-sec-0081",
+      "^k08-sec-0082",
+      "^k08-sec-0083",
+      "^k08-sec-0084",
+      "^k08-sec-0085"
+    ],
+    "assets": [
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0014-0019.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0008.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0009.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0010-0010.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0011-0012.jpeg",
+      "references/items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/assets/mistral/p0013-0017.jpeg",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-method-b.png",
+      "references/items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png"
+    ],
+    "secondary_locators": [
+      "MST25 ^mst25-fig-0079",
+      "MST25 ^mst25-fig-0081"
+    ]
+  },
+  "source_check": "Independent existing Julia BP97 C2 agrees on 6371/6371 valid input records, including Fig13; K08 p216 text versus Fig13 remains unresolved; no source-error finding",
+  "sector_interior": {
+    "lifts": [
+      "W",
+      "B"
+    ],
+    "count": 2,
+    "B_selects": "higher endpoint of oriented dual edge"
+  },
+  "edge_interior": {
+    "lifts": [
+      "W",
+      "e",
+      "B"
+    ],
+    "count": 3,
+    "ordered_face_vertices": [
+      0,
+      1,
+      2
+    ]
+  },
+  "vertex": {
+    "count": 4,
+    "lookup": "vertex-models.models[sigma].boundary_vertices"
+  },
+  "global_rules": {
+    "sector_corners": "pair flags (v,p,q) with (v,q,p)",
+    "sector_gluing": "edge-gluings sheet_map on individual occurrences",
+    "boundary_edges": "one per real edge and each of its three boundary_lift_map pairs",
+    "boundary_faces": "two disks per disk sector; endpoint selector W=min, B=max",
+    "BW_regions": "join same-color face occurrences across non-e boundary edges",
+    "e_cycles": "at rank-one boundary vertices join e_ports; retain both occurrences per true vertex"
+  }
+}

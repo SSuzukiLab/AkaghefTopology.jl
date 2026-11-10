@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "hc.stabilization.once",
+      "schema_version": 1,
+      "layer": "HC",
+      "relation": "stabilization",
+      "status": "executable",
+      "source": {"fragments": [{"role": "disk", "word": []}], "orientation": [], "capacity": [1]},
+      "target": {
+        "fragments": [
+          {"role": "alpha0", "word": [-1, -3]},
+          {"role": "beta0", "word": [3, -2]}
+        ],
+        "orientation": [1, 1, 1],
+        "capacity": [1, 2],
+        "local_meaning": {"1": "alpha0∩l_new", "2": "beta0∩m_new", "3": "alpha0∩beta0"}
+      },
+      "bindings": {"disk": "face", "k_identification": "ladder_end"},
+      "applicability": ["disk_supplied", "genus_plus_one"],
+      "inverse_id": "hc.stabilization.inverse",
+      "expansion": {"op": "k_inclusion", "genus_delta": 1, "identification": "ladder_end"},
+      "label_policy": "k_constant_inclusion",
+      "genus_delta": 1,
+      "new_roles": {"alpha0": "alpha", "beta0": "beta"},
+      "transport": "refuse_if_marks",
+      "requires": ["disk", "k_identification"],
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.4"
+    },
+    {
+      "id": "hc.stabilization.inverse",
+      "schema_version": 1,
+      "layer": "HC",
+      "relation": "destabilization",
+      "status": "executable",
+      "source": {"fragments": [], "orientation": [], "capacity": []},
+      "target": {"fragments": [], "orientation": [], "capacity": []},
+      "bindings": {"support": "punctured_torus"},
+      "applicability": ["support_supplied"],
+      "inverse_id": "hc.stabilization.once",
+      "expansion": {"op": "k_inclusion", "genus_delta": -1, "identification": "ladder_end"},
+      "label_policy": "k_constant_inclusion",
+      "genus_delta": -1,
+      "transport": "refuse_if_marks",
+      "requires": ["support"],
+      "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.4 — inverse is the same data reversed, not a search"
+    }
+  ]
+}

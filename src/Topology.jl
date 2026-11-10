@@ -210,5 +210,7 @@ end
 
 export Heegaard
 include("heegaard/Heegaard.jl")
+include("kuperberg_invariant.jl")
+export Z_Kuperberg, KuperbergTensorExpression
 
 end

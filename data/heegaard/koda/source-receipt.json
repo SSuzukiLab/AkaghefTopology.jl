@@ -1,0 +1,2315 @@
+{
+  "schema": "akaghef.evidence-resolution/1",
+  "document": "lib/topology.jl/docs/specs/heegaard-koda-conversion.md",
+  "document_sha256": "f276b2b1cb65a81d6391493b7cd4973bf869053146b50586a72e5ec7999dd4e0",
+  "mode": "consumer",
+  "references": [
+    {
+      "key": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0073",
+        "^k08-sec-0074",
+        "^k08-sec-0078",
+        "^k08-sec-0079",
+        "^k08-sec-0080",
+        "^k08-sec-0081",
+        "^k08-sec-0084",
+        "^k08-sec-0085",
+        "^k08-sec-0086",
+        "^k08-sec-0087",
+        "^k08-sec-0088",
+        "^k08-sec-0094",
+        "^k08-sec-0095",
+        "^k08-sec-0096",
+        "^k08-sec-0082"
+      ],
+      "mentions": 28,
+      "forms": [
+        "[K08, ^k08-sec-0073]",
+        "[K08, ^k08-sec-0074]",
+        "[K08, ^k08-sec-0078]",
+        "[K08, ^k08-sec-0079]",
+        "[K08, ^k08-sec-0080]",
+        "[K08, ^k08-sec-0081]",
+        "[K08, ^k08-sec-0084]",
+        "[K08, ^k08-sec-0085]",
+        "[K08, ^k08-sec-0086]",
+        "[K08, ^k08-sec-0087]",
+        "[K08, ^k08-sec-0088]",
+        "[K08, ^k08-sec-0094]",
+        "[K08, ^k08-sec-0095]",
+        "[K08, ^k08-sec-0096]",
+        "[K08, ^k08-sec-0082]"
+      ],
+      "lines": [
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        390,
+        391,
+        392,
+        393,
+        394,
+        395,
+        449,
+        450,
+        451,
+        688,
+        689,
+        690,
+        691,
+        692
+      ],
+      "status": "resolved",
+      "resolved_as": "K08",
+      "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+      "state": "degraded",
+      "capabilities": {
+        "identity": "resolved",
+        "text": "ocr-unchecked",
+        "figures": "complete",
+        "locators": "stable",
+        "citeability": "reading-aid"
+      },
+      "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+      "obsidian_link": "[[K08]]",
+      "locator_resolutions": [
+        {
+          "requested": "^k08-sec-0073",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0073]]",
+          "anchor": "^k08-sec-0073",
+          "locator_digest": "450ab25b8dd5177ec891ae3785569af799932c15ff06bd49503f8229010276dc",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:88-93",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0074",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0074]]",
+          "anchor": "^k08-sec-0074",
+          "locator_digest": "884993b98ac7e394133c325df1f067c00e414e7638971a695fa35cea13a7d00f",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:94-115",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0078",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0078]]",
+          "anchor": "^k08-sec-0078",
+          "locator_digest": "8a181a7a9ecb0c426d9eac93723b11bebc6d7b86b3c0ee6ed451a9dce53499ef",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:202-219",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0079",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0079]]",
+          "anchor": "^k08-sec-0079",
+          "locator_digest": "5d5c05e084a6d469fdeaf437392c2d39a5cacde4596511f5ce7077be28f5a714",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:220-239",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0080",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0080]]",
+          "anchor": "^k08-sec-0080",
+          "locator_digest": "1e07c85688b198840a8507515ad42de9ea01bdb7c0473c730a4911a9cb8a4d53",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:240-269",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0081",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0081]]",
+          "anchor": "^k08-sec-0081",
+          "locator_digest": "6c9bd60ed30fc9ea6f67906b87bf90f23dcd32572538dabb99a21dc142509242",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:270-310",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0084",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0084]]",
+          "anchor": "^k08-sec-0084",
+          "locator_digest": "028a7c80f2e1d94d77279881a087e1d9dc4644c1a43eb91075f1db41ac6a0bfa",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:377-404",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0085",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0085]]",
+          "anchor": "^k08-sec-0085",
+          "locator_digest": "1818c24fe9ec03567c2fcbe957b5d4a0f64b9771b8b08c293352eb6619656ef0",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:405-446",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0086",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0086]]",
+          "anchor": "^k08-sec-0086",
+          "locator_digest": "ad295229423e97d213102cff9874147ec936a224082a62d9ccb0a05226fdea70",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:447-468",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0087",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0087]]",
+          "anchor": "^k08-sec-0087",
+          "locator_digest": "4e0901e6f2b40367c65e067b4c246f10274e490a5212412faf0422efd5101d10",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:469-507",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0088",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0088]]",
+          "anchor": "^k08-sec-0088",
+          "locator_digest": "615cdf44c5734b0e08156996bd2255fbf8fdfe84e0dabb59b61a32d080d7d7ff",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:508-536",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0094",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0094]]",
+          "anchor": "^k08-sec-0094",
+          "locator_digest": "7e3aba69252f5676d8cd957072896d2ddd6c90bf5414da3496437c8851769520",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:692-715",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0095",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0095]]",
+          "anchor": "^k08-sec-0095",
+          "locator_digest": "ab50e81d6ac67399e56bda1d33a33a6f500c7fed131747d47616ab84084ba1c0",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:716-731",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0096",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0096]]",
+          "anchor": "^k08-sec-0096",
+          "locator_digest": "3cfe817cfb13e554f5ba285c23d0b6583effd8cd86cf6a20b41a369cefa6d6eb",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:732-785",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        },
+        {
+          "requested": "^k08-sec-0082",
+          "status": "resolved",
+          "link": "[[K08#^k08-sec-0082]]",
+          "anchor": "^k08-sec-0082",
+          "locator_digest": "2848e7e9f0f7d6ab44683f0f76b903768b6924cedb5a4a2e21898809fb07fd71",
+          "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+          "source_locator": "lines:311-344",
+          "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+          "asset": null,
+          "asset_sha256": null,
+          "source_version_label": "mistral-ocr",
+          "source_status": "active"
+        }
+      ],
+      "capability_warning": "local Work is degraded or not strict-checkable",
+      "mechanical_resolution": true,
+      "mathematical_match": "not-assessed",
+      "source_conventions": {
+        "document": "docs/specs/ograph-source-conventions.md",
+        "entry": "§8 K08",
+        "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+      }
+    },
+    {
+      "key": "MST25",
+      "query_kind": "cite_key",
+      "locators": [
+        "^mst25-fig-0079",
+        "^mst25-fig-0081"
+      ],
+      "mentions": 2,
+      "forms": [
+        "[MST25, ^mst25-fig-0079]",
+        "[MST25, ^mst25-fig-0081]"
+      ],
+      "lines": [
+        693,
+        694
+      ],
+      "status": "resolved",
+      "resolved_as": "MST25",
+      "work_id": "w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa",
+      "state": "admitted",
+      "capabilities": {
+        "identity": "resolved",
+        "text": "source-faithful",
+        "figures": "complete",
+        "locators": "stable",
+        "citeability": "strict-checkable"
+      },
+      "face_path": "items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/MST25.md",
+      "obsidian_link": "[[MST25]]",
+      "locator_resolutions": [
+        {
+          "requested": "^mst25-fig-0079",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-fig-0079]]",
+          "anchor": "^mst25-fig-0079",
+          "locator_digest": "bd4fe9d09b5d5fef5cdd3c013a3cbcde764a75ec9a6c1a7b91b84e28f76bfc98",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:486-491",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": "assets/MST25-method-b.png",
+          "asset_sha256": "741a4ff1c9d0dfd2189560f81f669fc4c4314270ba3ab6f6d06edc3db822f9f3",
+          "source_version_label": "local",
+          "source_status": "active"
+        },
+        {
+          "requested": "^mst25-fig-0081",
+          "status": "resolved",
+          "link": "[[MST25#^mst25-fig-0081]]",
+          "anchor": "^mst25-fig-0081",
+          "locator_digest": "7b9788ba8382c08d17571bd4d9031c46ae732bcb10789f3d8acdb72b7e1c602c",
+          "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+          "source_locator": "lines:502-507",
+          "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+          "asset": "assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png",
+          "asset_sha256": "4ecde62411556bcdc1558cfecfb352af3d530ca7025bff05789fad1d868a7e2c",
+          "source_version_label": "local",
+          "source_status": "active"
+        }
+      ],
+      "capability_warning": null,
+      "mechanical_resolution": true,
+      "mathematical_match": "not-assessed",
+      "source_conventions": {
+        "document": "docs/specs/ograph-source-conventions.md",
+        "entry": "§8 MST3",
+        "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+      }
+    }
+  ],
+  "evidence_edges": [
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 65,
+      "raw": "- literature: [K08, ^k08-sec-0073]（§3、p.206）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0073"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0073"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0073]（§3、p.206）"
+        ],
+        "lines": [
+          65
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0073]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0073",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0073]]",
+            "anchor": "^k08-sec-0073",
+            "locator_digest": "450ab25b8dd5177ec891ae3785569af799932c15ff06bd49503f8229010276dc",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:88-93",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 66,
+      "raw": "- literature: [K08, ^k08-sec-0074]（Lemma 3.1、p.207）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0074"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0074"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0074]（Lemma 3.1、p.207）"
+        ],
+        "lines": [
+          66
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0074]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0074",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0074]]",
+            "anchor": "^k08-sec-0074",
+            "locator_digest": "884993b98ac7e394133c325df1f067c00e414e7638971a695fa35cea13a7d00f",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:94-115",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 67,
+      "raw": "- literature: [K08, ^k08-sec-0078]（§5、Figs.2–4、p.209）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0078"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0078"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0078]（§5、Figs.2–4、p.209）"
+        ],
+        "lines": [
+          67
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0078]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0078",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0078]]",
+            "anchor": "^k08-sec-0078",
+            "locator_digest": "8a181a7a9ecb0c426d9eac93723b11bebc6d7b86b3c0ee6ed451a9dce53499ef",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:202-219",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 68,
+      "raw": "- literature: [K08, ^k08-sec-0079]（Lemma 5.3、p.210）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0079"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0079"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0079]（Lemma 5.3、p.210）"
+        ],
+        "lines": [
+          68
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0079]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0079",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0079]]",
+            "anchor": "^k08-sec-0079",
+            "locator_digest": "5d5c05e084a6d469fdeaf437392c2d39a5cacde4596511f5ce7077be28f5a714",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:220-239",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 69,
+      "raw": "- literature: [K08, ^k08-sec-0080]（Theorem 5.5、p.211）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0080"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0080"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0080]（Theorem 5.5、p.211）"
+        ],
+        "lines": [
+          69
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0080]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0080",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0080]]",
+            "anchor": "^k08-sec-0080",
+            "locator_digest": "1e07c85688b198840a8507515ad42de9ea01bdb7c0473c730a4911a9cb8a4d53",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:240-269",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 70,
+      "raw": "- literature: [K08, ^k08-sec-0081]（C の条件と Claim 5.6、p.212）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0081"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0081"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0081]（C の条件と Claim 5.6、p.212）"
+        ],
+        "lines": [
+          70
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0081]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0081",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0081]]",
+            "anchor": "^k08-sec-0081",
+            "locator_digest": "6c9bd60ed30fc9ea6f67906b87bf90f23dcd32572538dabb99a21dc142509242",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:270-310",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 71,
+      "raw": "- literature: [K08, ^k08-sec-0084]（Claims 5.9–5.11、p.215）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0084"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0084"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0084]（Claims 5.9–5.11、p.215）"
+        ],
+        "lines": [
+          71
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0084]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0084",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0084]]",
+            "anchor": "^k08-sec-0084",
+            "locator_digest": "028a7c80f2e1d94d77279881a087e1d9dc4644c1a43eb91075f1db41ac6a0bfa",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:377-404",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 72,
+      "raw": "- literature: [K08, ^k08-sec-0085]（Fig.12、p.216）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0085"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0085"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0085]（Fig.12、p.216）"
+        ],
+        "lines": [
+          72
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0085]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0085",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0085]]",
+            "anchor": "^k08-sec-0085",
+            "locator_digest": "1818c24fe9ec03567c2fcbe957b5d4a0f64b9771b8b08c293352eb6619656ef0",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:405-446",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 73,
+      "raw": "- literature: [K08, ^k08-sec-0086]（Theorem 5.14 前半、p.217）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0086"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0086"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0086]（Theorem 5.14 前半、p.217）"
+        ],
+        "lines": [
+          73
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0086]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0086",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0086]]",
+            "anchor": "^k08-sec-0086",
+            "locator_digest": "ad295229423e97d213102cff9874147ec936a224082a62d9ccb0a05226fdea70",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:447-468",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 74,
+      "raw": "- literature: [K08, ^k08-sec-0087]（Theorem 5.14 後半、Example 5.16、p.218）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0087"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0087"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0087]（Theorem 5.14 後半、Example 5.16、p.218）"
+        ],
+        "lines": [
+          74
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0087]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0087",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0087]]",
+            "anchor": "^k08-sec-0087",
+            "locator_digest": "4e0901e6f2b40367c65e067b4c246f10274e490a5212412faf0422efd5101d10",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:469-507",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 75,
+      "raw": "- literature: [K08, ^k08-sec-0088]（Figs.18–19、p.219）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0088"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0088"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0088]（Figs.18–19、p.219）"
+        ],
+        "lines": [
+          75
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0088]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0088",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0088]]",
+            "anchor": "^k08-sec-0088",
+            "locator_digest": "615cdf44c5734b0e08156996bd2255fbf8fdfe84e0dabb59b61a32d080d7d7ff",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:508-536",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 76,
+      "raw": "- literature: [K08, ^k08-sec-0094]（§7、Theorem 7.2、p.223）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0094"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0094"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0094]（§7、Theorem 7.2、p.223）"
+        ],
+        "lines": [
+          76
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0094]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0094",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0094]]",
+            "anchor": "^k08-sec-0094",
+            "locator_digest": "7e3aba69252f5676d8cd957072896d2ddd6c90bf5414da3496437c8851769520",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:692-715",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 77,
+      "raw": "- literature: [K08, ^k08-sec-0095]（Corollary 7.3、Example 7.4、p.224）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0095"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0095"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0095]（Corollary 7.3、Example 7.4、p.224）"
+        ],
+        "lines": [
+          77
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0095]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0095",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0095]]",
+            "anchor": "^k08-sec-0095",
+            "locator_digest": "ab50e81d6ac67399e56bda1d33a33a6f500c7fed131747d47616ab84084ba1c0",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:716-731",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 78,
+      "raw": "- literature: [K08, ^k08-sec-0096]（Fig.24、p.225）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0096"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0096"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0096]（Fig.24、p.225）"
+        ],
+        "lines": [
+          78
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0096]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0096",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0096]]",
+            "anchor": "^k08-sec-0096",
+            "locator_digest": "3cfe817cfb13e554f5ba285c23d0b6583effd8cd86cf6a20b41a369cefa6d6eb",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:732-785",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 390,
+      "raw": "- literature: [K08, ^k08-sec-0073]（S の左手系と圧縮円板の側）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0073"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0073"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0073]（S の左手系と圧縮円板の側）"
+        ],
+        "lines": [
+          390
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0073]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0073",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0073]]",
+            "anchor": "^k08-sec-0073",
+            "locator_digest": "450ab25b8dd5177ec891ae3785569af799932c15ff06bd49503f8229010276dc",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:88-93",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 391,
+      "raw": "- literature: [K08, ^k08-sec-0078]（Fig.2 の sector と strand）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0078"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0078"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0078]（Fig.2 の sector と strand）"
+        ],
+        "lines": [
+          391
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0078]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0078",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0078]]",
+            "anchor": "^k08-sec-0078",
+            "locator_digest": "8a181a7a9ecb0c426d9eac93723b11bebc6d7b86b3c0ee6ed451a9dce53499ef",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:202-219",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 392,
+      "raw": "- literature: [K08, ^k08-sec-0079]（p.210 の符号条件）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0079"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0079"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0079]（p.210 の符号条件）"
+        ],
+        "lines": [
+          392
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0079]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0079",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0079]]",
+            "anchor": "^k08-sec-0079",
+            "locator_digest": "5d5c05e084a6d469fdeaf437392c2d39a5cacde4596511f5ce7077be28f5a714",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:220-239",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 393,
+      "raw": "- literature: [K08, ^k08-sec-0081]（Fig.5 の B-W と射影）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0081"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0081"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0081]（Fig.5 の B-W と射影）"
+        ],
+        "lines": [
+          393
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0081]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0081",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0081]]",
+            "anchor": "^k08-sec-0081",
+            "locator_digest": "6c9bd60ed30fc9ea6f67906b87bf90f23dcd32572538dabb99a21dc142509242",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:270-310",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 394,
+      "raw": "- literature: [K08, ^k08-sec-0085]（Fig.12 の両局所模型、Fig.13）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0085"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0085"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0085]（Fig.12 の両局所模型、Fig.13）"
+        ],
+        "lines": [
+          394
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0085]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0085",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0085]]",
+            "anchor": "^k08-sec-0085",
+            "locator_digest": "1818c24fe9ec03567c2fcbe957b5d4a0f64b9771b8b08c293352eb6619656ef0",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:405-446",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 395,
+      "raw": "- literature: [K08, ^k08-sec-0088]（Fig.19 の独立した二つの入力）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0088"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0088"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0088]（Fig.19 の独立した二つの入力）"
+        ],
+        "lines": [
+          395
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0088]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0088",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0088]]",
+            "anchor": "^k08-sec-0088",
+            "locator_digest": "615cdf44c5734b0e08156996bd2255fbf8fdfe84e0dabb59b61a32d080d7d7ff",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:508-536",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 449,
+      "raw": "- literature: [K08, ^k08-sec-0081]（Fig.5、Fig.6、Claim 5.6）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0081"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0081"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0081]（Fig.5、Fig.6、Claim 5.6）"
+        ],
+        "lines": [
+          449
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0081]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0081",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0081]]",
+            "anchor": "^k08-sec-0081",
+            "locator_digest": "6c9bd60ed30fc9ea6f67906b87bf90f23dcd32572538dabb99a21dc142509242",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:270-310",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 450,
+      "raw": "- literature: [K08, ^k08-sec-0082]（Fig.8 と二つの lens）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0082"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0082"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0082]（Fig.8 と二つの lens）"
+        ],
+        "lines": [
+          450
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0082]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0082",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0082]]",
+            "anchor": "^k08-sec-0082",
+            "locator_digest": "2848e7e9f0f7d6ab44683f0f76b903768b6924cedb5a4a2e21898809fb07fd71",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:311-344",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 451,
+      "raw": "- literature: [K08, ^k08-sec-0084]（Claim 5.9 の連結な弧の条件）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0084"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0084"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0084]（Claim 5.9 の連結な弧の条件）"
+        ],
+        "lines": [
+          451
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0084]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0084",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0084]]",
+            "anchor": "^k08-sec-0084",
+            "locator_digest": "028a7c80f2e1d94d77279881a087e1d9dc4644c1a43eb91075f1db41ac6a0bfa",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:377-404",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 688,
+      "raw": "- literature: [K08, ^k08-sec-0080]（Theorem 5.5、円環に関する本文）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0080"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0080"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0080]（Theorem 5.5、円環に関する本文）"
+        ],
+        "lines": [
+          688
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0080]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0080",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0080]]",
+            "anchor": "^k08-sec-0080",
+            "locator_digest": "1e07c85688b198840a8507515ad42de9ea01bdb7c0473c730a4911a9cb8a4d53",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:240-269",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 689,
+      "raw": "- literature: [K08, ^k08-sec-0081]（Claim 5.6、A′ と D⁺・E⁺ の式）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0081"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0081"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0081]（Claim 5.6、A′ と D⁺・E⁺ の式）"
+        ],
+        "lines": [
+          689
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0081]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0081",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0081]]",
+            "anchor": "^k08-sec-0081",
+            "locator_digest": "6c9bd60ed30fc9ea6f67906b87bf90f23dcd32572538dabb99a21dc142509242",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:270-310",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 690,
+      "raw": "- literature: [K08, ^k08-sec-0082]（Fig.8）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0082"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0082"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0082]（Fig.8）"
+        ],
+        "lines": [
+          690
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0082]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0082",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0082]]",
+            "anchor": "^k08-sec-0082",
+            "locator_digest": "2848e7e9f0f7d6ab44683f0f76b903768b6924cedb5a4a2e21898809fb07fd71",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:311-344",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 691,
+      "raw": "- literature: [K08, ^k08-sec-0085]（Figs.12–13、Example 5.13 の期待境界）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0085"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0085"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0085]（Figs.12–13、Example 5.13 の期待境界）"
+        ],
+        "lines": [
+          691
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0085]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0085",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0085]]",
+            "anchor": "^k08-sec-0085",
+            "locator_digest": "1818c24fe9ec03567c2fcbe957b5d4a0f64b9771b8b08c293352eb6619656ef0",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:405-446",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 692,
+      "raw": "- literature: [K08, ^k08-sec-0086]（Figs.14–15）",
+      "query": "K08",
+      "query_kind": "cite_key",
+      "locators": [
+        "^k08-sec-0086"
+      ],
+      "resolution": {
+        "key": "K08",
+        "query_kind": "cite_key",
+        "locators": [
+          "^k08-sec-0086"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [K08, ^k08-sec-0086]（Figs.14–15）"
+        ],
+        "lines": [
+          692
+        ],
+        "status": "resolved",
+        "resolved_as": "K08",
+        "work_id": "w-74eb606e-3061-4192-b7e6-22abd44ef542",
+        "state": "degraded",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "ocr-unchecked",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "reading-aid"
+        },
+        "face_path": "items/article/w-74eb606e-3061-4192-b7e6-22abd44ef542/K08.md",
+        "obsidian_link": "[[K08#^k08-sec-0086]]",
+        "locator_resolutions": [
+          {
+            "requested": "^k08-sec-0086",
+            "status": "resolved",
+            "link": "[[K08#^k08-sec-0086]]",
+            "anchor": "^k08-sec-0086",
+            "locator_digest": "ad295229423e97d213102cff9874147ec936a224082a62d9ccb0a05226fdea70",
+            "source_id": "src-7c43bd93-125c-4776-81b8-cb2b75bdc0ce",
+            "source_locator": "lines:447-468",
+            "source_sha256": "03f7d94950c7bdc0a316e5d88e00b9f3b315fe1dea4caa612b911fbfa2b12142",
+            "asset": null,
+            "asset_sha256": null,
+            "source_version_label": "mistral-ocr",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": "local Work is degraded or not strict-checkable",
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 K08",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 693,
+      "raw": "- literature: [MST25, ^mst25-fig-0079]（六 sheet の境界 occurrence の補助読図）",
+      "query": "MST25",
+      "query_kind": "cite_key",
+      "locators": [
+        "^mst25-fig-0079"
+      ],
+      "resolution": {
+        "key": "MST25",
+        "query_kind": "cite_key",
+        "locators": [
+          "^mst25-fig-0079"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [MST25, ^mst25-fig-0079]（六 sheet の境界 occurrence の補助読図）"
+        ],
+        "lines": [
+          693
+        ],
+        "status": "resolved",
+        "resolved_as": "MST25",
+        "work_id": "w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa",
+        "state": "admitted",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "source-faithful",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "strict-checkable"
+        },
+        "face_path": "items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/MST25.md",
+        "obsidian_link": "[[MST25#^mst25-fig-0079]]",
+        "locator_resolutions": [
+          {
+            "requested": "^mst25-fig-0079",
+            "status": "resolved",
+            "link": "[[MST25#^mst25-fig-0079]]",
+            "anchor": "^mst25-fig-0079",
+            "locator_digest": "bd4fe9d09b5d5fef5cdd3c013a3cbcde764a75ec9a6c1a7b91b84e28f76bfc98",
+            "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+            "source_locator": "lines:486-491",
+            "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+            "asset": "assets/MST25-method-b.png",
+            "asset_sha256": "741a4ff1c9d0dfd2189560f81f669fc4c4314270ba3ab6f6d06edc3db822f9f3",
+            "source_version_label": "local",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": null,
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 MST3",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    },
+    {
+      "evidence_type": "literature",
+      "claim_ids": [
+        "lib/topology.jl/docs/specs/heegaard-koda-conversion.md"
+      ],
+      "line": 694,
+      "raw": "- literature: [MST25, ^mst25-fig-0081]（三 sheet と三 lane の順序）",
+      "query": "MST25",
+      "query_kind": "cite_key",
+      "locators": [
+        "^mst25-fig-0081"
+      ],
+      "resolution": {
+        "key": "MST25",
+        "query_kind": "cite_key",
+        "locators": [
+          "^mst25-fig-0081"
+        ],
+        "mentions": 1,
+        "forms": [
+          "- literature: [MST25, ^mst25-fig-0081]（三 sheet と三 lane の順序）"
+        ],
+        "lines": [
+          694
+        ],
+        "status": "resolved",
+        "resolved_as": "MST25",
+        "work_id": "w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa",
+        "state": "admitted",
+        "capabilities": {
+          "identity": "resolved",
+          "text": "source-faithful",
+          "figures": "complete",
+          "locators": "stable",
+          "citeability": "strict-checkable"
+        },
+        "face_path": "items/article/w-49d1ab60-89f9-43f8-99f6-839e1ae5b0aa/MST25.md",
+        "obsidian_link": "[[MST25#^mst25-fig-0081]]",
+        "locator_resolutions": [
+          {
+            "requested": "^mst25-fig-0081",
+            "status": "resolved",
+            "link": "[[MST25#^mst25-fig-0081]]",
+            "anchor": "^mst25-fig-0081",
+            "locator_digest": "7b9788ba8382c08d17571bd4d9031c46ae732bcb10789f3d8acdb72b7e1c602c",
+            "source_id": "src-65c498e8-2946-4991-9fc2-20aa62ac3dd3",
+            "source_locator": "lines:502-507",
+            "source_sha256": "91ce3bfd9b5c1eea43165141ec42922f24cc43a4555232217cd4a188e3b87072",
+            "asset": "assets/MST25-correspondence-between-configuration-of-2-cells-around-triple-line-and-lines-in-circuit-diagram.png",
+            "asset_sha256": "4ecde62411556bcdc1558cfecfb352af3d530ca7025bff05789fad1d868a7e2c",
+            "source_version_label": "local",
+            "source_status": "active"
+          }
+        ],
+        "capability_warning": null,
+        "mechanical_resolution": true,
+        "mathematical_match": "not-assessed",
+        "source_conventions": {
+          "document": "docs/specs/ograph-source-conventions.md",
+          "entry": "§8 MST3",
+          "check": "read this entry before translating this Work's terms, signs, or figures into repository usage"
+        }
+      }
+    }
+  ],
+  "evidence_requirements": [],
+  "strict_ready": false,
+  "mathematical_match_approval": "not-assessed-by-resolver",
+  "summary": {
+    "references": 2,
+    "resolved": 2,
+    "unresolved": 0,
+    "queued": 0
+  },
+  "evidence_summary": {
+    "typed_edges": 30,
+    "subjects": 0,
+    "subjects_missing_required_evidence": 0
+  },
+  "librarian_handoff_required": false
+}

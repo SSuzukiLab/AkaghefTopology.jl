@@ -1,0 +1,13 @@
+{
+  "convention": "candidate_A",
+  "B_sector_orientation": "same_as_S",
+  "strand_on_J": "positive_boundary",
+  "over_family": "beta",
+  "under_family": "alpha",
+  "d_gamma_equals": "c_gamma",
+  "vertex_sigma": "sign_det_S(d_beta*t_beta, d_alpha*t_alpha)",
+  "notes": "Fig.19 independent paths; spec heegaard-koda-conversion.md §7.3",
+  "schema": "akaghef.heegaard.koda-orientation/2",
+  "positive_transverse": "W to B in each recorded boundary fiber; check source chart separately",
+  "source_check": "Independent existing Julia BP97 C2 agrees on 6371/6371 valid input records, including Fig13; K08 p216 text versus Fig13 remains unresolved; no source-error finding"
+}
