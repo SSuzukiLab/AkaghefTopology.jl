@@ -1,0 +1,126 @@
+# Lickorish drawing reference port
+
+This is a partial library port of the owner-approved 2026-11-09 drawing mock.
+It is not acceptance of the original Koda figure or completion of drawing for
+all valid Lickorish Data. No existing drawing entry point is replaced.
+
+Paths below are relative to the topology-heegaard-full-curves repository root.
+
+## Entry and implementation
+
+`scripts/heegaard/lickorish_draw.py` exposes `read_ld`, `NativeChecker`,
+`validate`, and `draw`. A `NativeChecker` context retains Julia for a batch.
+`draw(data, output_svg, native, steps=300)` saves authoritative placement to
+`.placement.json` and `.placement.svg`, then finishes to `.finished.json` and
+the requested SVG. Optional PNG export uses installed Inkscape.
+
+The Python dependency is NumPy. The finish uses Node.js, keeping the approved
+JavaScript arithmetic directly. The native checker uses this repository's
+Julia environment. The command-line entry accepts `.ld` or the reference
+JSON, `--output-dir`, `--julia`, `--project`, `--steps`, and `--png`.
+
+`lickorish_input.py` retains the existing research `ld_check.py` parser and
+extension-reference checks. The drawing entry calls `VirtualLink`, `set_data!`,
+`pd_code`, `regions`, and `lickorish_reference(g)` through
+`lickorish_native_check.jl`; it derives K constants from the reference, not
+from a second table. Genus limits of that existing function still apply.
+
+`lickorish_placement.py` is the direct function extraction of `mock3.py`:
+general-genus triangle geometry, chord comparison, Tutte fallback, infinity
+disk model, radial map, and incircle extensions. Arithmetic order, the
+160-by-160 center search, and 300 samples per outer model segment are retained.
+No legacy geometry, mesh optimizer, or route search is called.
+
+`lickorish_relaxation.cjs` extracts the numerical functions of `app/index.html`
+without its DOM controls or drawing code. Defaults, knot placement, shared
+vertices, segment repulsion, hole walls, momentum, per-step gates, and optional
+adaptive resampling are unchanged. `createRelaxer` exposes `step`, `resample`,
+`snapshot`, and `status`. Adaptive resampling remains an explicit action, as
+in the app; it is not silently inserted into the default step sequence.
+
+`lickorish_render.py` writes polylines and hole circles. SVG export expands
+the viewport to include every computed point: the original fixed app viewport
+can clip the outer Koda arc. No coordinates are altered by this export choice.
+
+## Verified finite scope
+
+The reference source is the research workspace's
+`.research-scratch/PJ260922/261109-lickorish-drawing-mock/`.
+Execution evidence is in its sibling `ld-draw-astra/` directory.
+
+- Koda: all placement coordinates equal the stored `koda-place.svg.json`
+  exactly; the requested tolerance is 1e-6.
+- P28: section 8.1 words reproduce deterministic coordinates and equal an
+  independent run of the original `mock3.py`.
+- Both: the original, unmodified `index.html` script was executed in an
+  independent Node VM with a DOM/canvas stub for numerical comparison.
+  Initial points, 300 steps, and optional resampling equal the extracted
+  numerical module exactly. This is a numerical test, not browser acceptance.
+- Both: the `.ld` entry uses the native Julia checker and generates SVG/PNG.
+  Native Euler characteristics are -4 and -2 respectively.
+- Both exported full-view PNGs were opened and visually inspected.
+
+## Continuation: square, empty words, regions, and corpus
+
+`lickorish_square.py` implements the genus-one square with paired, ordered
+ports on l1 (top/bottom) and m1 (left/right). `lickorish_faces.py` is the common
+chord/Tutte extraction used by this square and the original general-genus
+geometry. `lickorish_empty.py` places contractible polygonal circles in the
+specified rotation face, using the left side of an oriented edge and local
+geometric clearance; named curve sides and nested empty components are
+supported. The genus-zero, crossing-free case uses the `outer` region.
+Genus-zero crossing diagrams remain outside this mock port.
+
+The only modified pre-existing library source is `regions` in
+`src/virtual_link.jl`. Opposite-slot self-loops use an occurrence-based face
+walk; the previous Sage planar branch and ordering remain unchanged.
+The direct driver verified 45 existing VLExample/o-graph fixtures and face
+counts for all 99 input-check-passing corpus files. `[1 2 1 2]` now has one
+four-edge face. This direct driver is not the full package test suite.
+
+All 128 files in the two requested corpus directories were classified: 99
+pass input checks, 28 fail, and one has unresolved genus. All 99 eligible
+files were placed: 93 produced output, six stopped in a face. Three produced
+Tutte outputs collapse distinct edges onto the same segment and are diagnostic
+artifacts, not accepted drawings. One further output has very narrow closed
+lenses that look like isolated strokes at overview scale. The complete input
+inventory, failures with faces and words, and viewed image gallery are in the
+research scratch `ld-draw-astra/261109_continuation-report.md`.
+
+A separate valid three-arc example genuinely fails the chord ordering check
+and succeeds with Tutte without collapsed edges. Genus-zero nested curves,
+genus-one square and empty curves, and genus-two empty curves in both named
+faces and in a nested region were executed and viewed. Synthetic parallel
+copies of l_i were also placed at genus 14 and 28; these do not replace the
+invalid high-genus corpus inputs. The normal native checker still inherits
+`lickorish_reference`'s existing genus limit 16. That function was not changed.
+
+## Remaining acceptance and known limitations
+
+The reference Tutte implementation does not separate parallel edges of its
+planarized graph. Its stray-intersection and crossing-sign checks do not catch
+all overlaps. The debug/test module `test/lickorish_placement_geometry.py`
+reports these failures; it is not an extra default input gate. The reference
+Finf Tutte sign check also uses the same convention as inner faces despite
+the orientation-reversing disk-to-outer-annulus map. No parameters or geometry
+were changed to hide these findings. This port does not claim all valid LD
+inputs are drawable with the reference algorithm.
+
+Full real-project tests and replay of the new normal entry are blocked by
+Julia's sandbox `longpath` access error. The existing package tests were
+invoked but did not reach their bodies. The explicit binary and direct-driver
+route follow research `docs/ENVIRONMENT.md`; no drive mapping is used.
+
+Actual browser side-by-side screenshots remain unverified. Headless Playwright
+was found and invoked but browser launch failed with `spawn EPERM`. The
+unchanged reference HTML and independent mock-produced data are served by the
+prepared static capture script. No Computer Use or existing Chrome operation
+was used in the continuation. Run the scratch `261109_parent_verify.ps1` from
+the parent's unsandboxed shell for the full tests, normal entry, and screenshot
+capture. Numerical equality is not counted as browser acceptance.
+
+Higher-layer `disk`, `point`, and `weight` records are checked but not rendered
+by this base-layer port. No commits or edits to the specification, research
+ledger, or old `ld_draw*.py` implementations are part of this work. The research
+`lib/topology.jl` copy remains unchanged; a regions-only patch preserving its
+additional boundary guard is supplied in the scratch continuation report.

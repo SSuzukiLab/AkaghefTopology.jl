@@ -1,0 +1,11 @@
+{
+  "entry": "existing surface.html and /api/render",
+  "genus4_display": true,
+  "genus2_import": true,
+  "genus2_regeneration": true,
+  "svg_download_exact": true,
+  "missing_pairing_rejected": true,
+  "library_source_displayed": true,
+  "library_source_roundtrip": true,
+  "page_errors": []
+}

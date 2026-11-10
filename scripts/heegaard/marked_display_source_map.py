@@ -1381,6 +1381,65 @@ def build_exact_anchor_beziers(original, oldseed, m, a, *, minimum_separation=12
         rounded_candidate_is_diagnostic_only=True,emitted_output_unchanged=True))
 
 
+
+def _planar_orient(x, y, z):
+    sub = lambda a, b: (a[0] - b[0], a[1] - b[1])
+    cross = lambda a, b: a[0] * b[1] - a[1] * b[0]
+    return cross(sub(y, x), sub(z, x))
+
+
+def convex_hull_points(points):
+    """Monotone-chain convex hull.
+
+    Source: verify_bezier_attachment::hull; shared by fixed-frame support probes.
+    """
+    points = sorted(set(points))
+    if len(points) < 3:
+        return points
+    orient = _planar_orient
+    lower, upper = [], []
+    for chain, seq in ((lower, points), (upper, reversed(points))):
+        for q in seq:
+            while len(chain) > 1 and orient(chain[-2], chain[-1], q) <= 0:
+                chain.pop()
+            chain.append(q)
+    return lower[:-1] + upper[:-1]
+
+
+def aabb_corner_points(points):
+    """Axis-aligned bounding box corners (sufficient-only outer support test)."""
+    lo = [min(q[k] for q in points) for k in range(2)]
+    hi = [max(q[k] for q in points) for k in range(2)]
+    return [(lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]), (lo[0], hi[1])]
+
+
+def fixed_frame_outer_support_probe_points(allpoints):
+    """Probe set used by verify_bezier_attachment for fixed convex outers.
+
+    Source: verify_bezier_attachment allpoints block; not the AABB shortcut.
+    """
+    return convex_hull_points(allpoints)
+
+
+def _fixed_attachment_outer_support_probes(chart, outer, probe_points, orient):
+    """Strict interior of a fixed convex outer attachment polygon.
+
+    Source: verify_bezier_attachment verification contract; local hull helper
+    below. When every q/r Bezier control lies in int Q and Q is convex, the
+    common exact subdivision, convex combinations and de Casteljau splits keep
+    the homotopy inside Q. AABB corners are a stronger sufficient test only.
+
+    Preconditions (caller must establish): rounded R and anchored A share the
+    same outer vertex coordinates; outer is positively oriented convex in chart.
+    This helper does not certify moving outer boundaries.
+    """
+    for u, v in zip(outer, outer[1:] + outer[:1]):
+        for q in probe_points:
+            assert orient(chart[u], chart[v], q) > 0, (
+                'fixed attachment outer support failed', u, v, q)
+
+
+
 def verify_bezier_attachment(d, seed, m, a, replacement, collar_data):
     """Check the actual normalized control graph through its attachment chart.
 
@@ -1421,15 +1480,7 @@ def verify_bezier_attachment(d, seed, m, a, replacement, collar_data):
     def moving_dot(n0,n1,q0,q1):
         dn,dq=sub(n1,n0),sub(q1,q0)
         return minimum(dot(n0,q0),dot(dn,q0)+dot(n0,dq),dot(dn,dq))
-    def hull(points):
-        points=sorted(set(points))
-        if len(points)<3:return points
-        lower=[];upper=[]
-        for chain,seq in ((lower,points),(upper,reversed(points))):
-            for q in seq:
-                while len(chain)>1 and orient(chain[-2],chain[-1],q)<=0:chain.pop()
-                chain.append(q)
-        return lower[:-1]+upper[:-1]
+    hull=convex_hull_points
     def separate(A,B):
         for polygon in (A,B):
             for u,v in zip(polygon,polygon[1:]+polygon[:1]):
@@ -1587,15 +1638,18 @@ def verify_bezier_attachment(d, seed, m, a, replacement, collar_data):
         collar_checks.append(dict(cut=hole['cut'],side=hole['side'],tested_leaf_hulls=tested,exact_port_contacts=len(contacts),corrected_bezier_graph_fixed=True))
 
     allpoints=[q for x in leaves for k in ('q','r') for q in x[k]]
-    corners=[]
     if allpoints:
-        lo=[min(q[k] for q in allpoints) for k in range(2)];hi=[max(q[k] for q in allpoints) for k in range(2)]
-        corners=[(x,y) for x in (lo[0],hi[0]) for y in (lo[1],hi[1])]
+        # Source: build_rendered_mesh; fixed outer frame for endpoint attachment.
+        # Heisenberg-class cases satisfy R[v]==A[v] on outer before anchor only
+        # moves interior vertices. Moving-outer proofs remain hole/port checks.
+        for v in outer:
+            assert R[v] == A[v], ('outer attachment frame not fixed between R and A', v)
+        probes = fixed_frame_outer_support_probe_points(allpoints)
+        for chart in (R, A):
+            _fixed_attachment_outer_support_probes(chart, outer, probes, orient)
     else:
         assert not d['curves'] and not seed['curves']
         assert not d.get('disk') and not d.get('disk_pieces') and not d.get('disk_region_marks')
-    for chart in (R,A):
-        for u,v in zip(outer,outer[1:]+outer[:1]):assert all(orient(chart[u],chart[v],q)>0 for q in corners)
 
     # D is encoded by these same directed source intervals; keep its word and all
     # crossing labels unchanged. No independent approximate D route is introduced.

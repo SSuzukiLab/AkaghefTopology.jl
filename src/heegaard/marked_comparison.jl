@@ -82,8 +82,12 @@ function _mc_replay(left,right,witnesses,positions)
     identifications=Set(["barycentric_subdivision","barycentric_collapse","dual_star","dual_star_collapse"])
     slides=Set(["handle_slide","handle_slide_inverse"])
     stabilizations=Set(["stabilization","generated_destabilization"])
+    # Source: marked_twists.jl::marked_dehn_twist/marked_inverse_dehn_twist.
+    # Whole alpha/beta/aux and region action on the fixed prepared background;
+    # native chart names change only through the recorded identity rechart.
+    twists=Set(["dehn_twist","generated_twist_inverse"])
     underlying_moves=union(slides,stabilizations)
-    supported=union(Set(["triangle_isotopy","vertex_isotopy","simplicial_action"]),identifications,underlying_moves)
+    supported=union(Set(["triangle_isotopy","vertex_isotopy","simplicial_action"]),identifications,underlying_moves,twists)
     try
         for (i,w) in enumerate(witnesses)
             w isa AbstractDict || throw(ArgumentError("move witness step $i must be an object"))
@@ -98,6 +102,7 @@ function _mc_replay(left,right,witnesses,positions)
             result=replay_marked_move(current,w;positions=realization)
             push!(steps,Dict("index"=>i,"kind"=>kind,
                 "relation"=>kind in slides ? "underlying_heegaard_move" : kind in stabilizations ? "underlying_stabilization_move" :
+                    kind in twists ? "oriented_surface_map_under_identification" :
                     kind in identifications ? "explicit_marked_identification" :
                     kind=="simplicial_action" ? "oriented_surface_map" : "fixed_model_ambient_isotopy",
                 "correspondence"=>deepcopy(result.witness["correspondence"])))
@@ -107,7 +112,7 @@ function _mc_replay(left,right,witnesses,positions)
             # Source: marked_subdivision.jl::marked_subdivide/marked_dual_star
             # certify underlying surface identity through new cells. They do
             # not return a positional realization on the changed mesh.
-            (kind in identifications || kind in underlying_moves) && (realization=nothing)
+            (kind in identifications || kind in underlying_moves || kind in twists) && (realization=nothing)
         end
         endpoint=current==right
         Dict{String,Any}("status"=>endpoint ? "verified" : "rejected",
@@ -153,6 +158,9 @@ reported separately from ambient isotopy on one fixed triangulated model.
 Handle slides and generated stabilization/inverse preserve the underlying
 Heegaard manifold; they are not simultaneous surface maps. Selected-region
 preservation or explicit continuation is reported separately for those moves.
+Whole signed twists are simultaneous surface maps under the recorded prepared
+background/rechart identification. Their old_basis_action and raw/native inverse
+cell scopes stay in the reconstructed correspondence's original context.
 Rejected or absent witnesses do not refute existence of another equivalence.
 Metadata-only changes leave the mathematical representation equal, but explicit
 infinity selection is additionally protected for an identity-isotopy claim.
@@ -172,8 +180,8 @@ function marked_comparison_report(left::AbstractDict,right::AbstractDict;witness
         Dict{String,Any}("status"=>"inapplicable","reason"=>"invalid marked input","steps"=>Any[])
     witnessed=replay["status"]=="verified"
     isotopies=witnessed && all(s["relation"]=="fixed_model_ambient_isotopy" for s in replay["steps"])
-    identified=witnessed && any(s["relation"]=="explicit_marked_identification" for s in replay["steps"])
-    surface_action=witnessed && any(s["relation"]=="oriented_surface_map" for s in replay["steps"])
+    identified=witnessed && any(s["relation"] in ("explicit_marked_identification","oriented_surface_map_under_identification") for s in replay["steps"])
+    surface_action=witnessed && any(s["relation"] in ("oriented_surface_map","oriented_surface_map_under_identification") for s in replay["steps"])
     slide=witnessed && any(s["relation"]=="underlying_heegaard_move" for s in replay["steps"])
     stabilization=witnessed && any(s["relation"]=="underlying_stabilization_move" for s in replay["steps"])
     underlying=slide || stabilization

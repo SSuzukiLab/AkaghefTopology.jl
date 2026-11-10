@@ -1,0 +1,16 @@
+{
+  "entry": "existing marked surface view and /api/convert",
+  "source_incidence_checked": true,
+  "independent_odata_match": true,
+  "closedness": {
+    "criteria": [
+      true,
+      true,
+      true
+    ],
+    "closed": true
+  },
+  "original_svg_unchanged": true,
+  "source_crossing_selection": true,
+  "page_errors": []
+}

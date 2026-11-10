@@ -1,0 +1,97 @@
+---
+title: "Heegaard diagram — both curve systems"
+format:
+  html:
+    embed-resources: true
+jupyter: heegaard-full-curves
+execute:
+  echo: true
+  error: false
+---
+
+The surface is assembled from a sphere with 2g holes and g annuli.
+Each red α curve is the closed core of an annulus. The β curves run across
+the sphere chart and the annuli. A black point is one signed mathematical
+intersection; open points marked xᵢ are attachment ports, not extra crossings.
+There are no projection crossings. The outside of the sphere chart includes ∞.
+
+The outer boundary of annulus i attaches to Bᵢ+, and its inner boundary to
+Bᵢ−. With t the α cyclic parameter, θ on the annulus is −2πt; θ on
+the sphere is +2πt at Bᵢ+ and −2πt at Bᵢ−. The base has orientation
+−dx∧dy and each annulus dx∧dy. Thus α runs clockwise and a positive
+β crossing runs from the inner to the outer boundary.
+
+```{julia}
+using Topology
+const H = Topology.Heegaard
+const ROOT = dirname(Base.active_project())
+const SOURCE = joinpath(ROOT, "artifacts", "heegaard", "app")
+
+function atlas_example(id)
+    diagram = H.certify_heegaard(H.load_heegaard(joinpath(SOURCE, "$id.hgd.json")))
+    fixed_plot = H.load_layout(joinpath(SOURCE, "$id.hgd.layout.json"), diagram)
+    chart = H.surface_chart(diagram, fixed_plot)
+    (diagram=diagram, fixed_plot=fixed_plot, chart=chart)
+end
+```
+
+## S³
+
+```{julia}
+s3 = atlas_example("S3")
+H.plot(s3.chart)
+```
+
+## L(5,2)
+
+```{julia}
+lens = atlas_example("L5_2")
+lens.chart
+```
+
+## Poincaré
+
+The inherited Poincaré fixture has source-transcribed cyclic words and a
+candidate region decoration. Its saved feasible geometry is fixture-scoped.
+Rendering preserves that provenance and does not certify the source attribution
+or establish a complete general router.
+
+```{julia}
+poincare = atlas_example("Poincare")
+poincare.chart
+```
+
+## Compare the original alpha-cut view
+
+```{julia}
+poincare.fixed_plot
+```
+
+The plots above reuse the versioned fixed-100 elastic geometry, producing the
+same SVG as the dedicated web page. To compute a new fixed-production plot
+from a feasible seed, the matching entrance is:
+
+```julia
+figure = H.plot(diagram, feasible; view=:surface)
+# The existing default H.plot(diagram, feasible) still gives the alpha-cut view.
+```
+
+## Save the exact displayed SVG
+
+```{julia}
+output = joinpath(ROOT, "artifacts", "heegaard", "full_curves", "qmd")
+mkpath(output)
+for (id, sample) in [("S3", s3), ("L5_2", lens), ("Poincare", poincare)]
+    H.render(sample.chart; backend=:svg, path=joinpath(output, "$id.svg"))
+end
+(genus=poincare.chart.genus,
+ intersections=length(poincare.chart.intersections),
+ hash=poincare.chart.diagram_hash)
+```
+
+Scope: currently certified closed Heegaard diagrams with g curves in each
+family, a validated alpha-cut layout, and at least one intersection on every
+β curve. Raw/decorated codes are not promoted implicitly. Zero-intersection
+β components need additional geometric data and are rejected. Certification
+here means the existing software checks, not a new proof of completeness of
+meridian systems. Layout coordinates remain derived data.

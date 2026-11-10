@@ -1,0 +1,11 @@
+{
+  "method": "quadratic orientation events for straight PL interpolation; convex swept hull hole checks",
+  "arithmetic": "floating-point, tolerance 1e-7 SVG units",
+  "moving_edges": 11494,
+  "candidate_pairs": 20630,
+  "crossings_and_ports_fixed": true,
+  "collisions": 0,
+  "hole_entries": 0,
+  "source_sha256": "b9527cfef0717c36c3555f38623ff1c1485d9b5e970af0a8c849cc43d344d57e",
+  "candidate_sha256": "f6c5597fe1a94f955417efec375914c6a6d84a94eb33797bd8a0f65a93ede86d"
+}

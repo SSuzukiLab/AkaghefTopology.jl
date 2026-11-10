@@ -34,6 +34,9 @@ download('#download-svg',data.svg,'image/svg+xml',data.id+'-surface.svg');downlo
 function showMarkedDisplay(d,id='imported'){
  const oriented=Boolean(d.display_options?.orientation_glyphs&&d.orientation_svg);
  const svg=oriented?d.orientation_svg:d.svg,report=d.smooth_check;
+ // draw_marked_cut.py::render retains all source-bound pieces of D after cuts.
+ // Visibility is a display operation; conversion still checks its own domain.
+ const hasDisk=Boolean(d.disk?.length||d.disk_pieces?.length);
  if(!svg||!report?.no_extra_bezier_intersections||!report.normal_port_tangents)throw Error('共通描画処理の検証済み結果が必要です');
  current={marked:true,id,title:d.title||'Heegaard diagram',diagram:d};urls.forEach(URL.revokeObjectURL);urls=[];
  $('#title').textContent=current.title;
@@ -42,16 +45,17 @@ function showMarkedDisplay(d,id='imported'){
  $('.intro').textContent=d.reference_only?'Lickorish生成曲線。l は上下の穴の対、青が m、赤が n。同じ接続口を上下反転で貼ると閉曲線になります。穴上の点は l との交点の二つのコピーです。':'αとは独立した基準曲線で切り、等径の穴を2行×genus列に配置。赤がα、青がβ、黄色が指定されたjoining disk Dです。';
  $('.aside-note').textContent='固定された埋込みを共通処理で平滑化。穴の対は上下反転で接続。';
  $('aside details').hidden=true;
- $('#drawing').innerHTML=svg;$('#figure-label').textContent=`${d.boundaries.length} PUNCTURES · MARKED CURVES${d.disk?.length?' · JOINING DISK':''}`;
+ $('#drawing').innerHTML=svg;$('#figure-label').textContent=`${d.boundaries.length} PUNCTURES · MARKED CURVES${hasDisk?' · JOINING DISK':''}`;
  for(const id of ['atlas','original-link','convert-koda','comparison','koda-section'])$('#'+id).hidden=true;
  $('#convert-koda').hidden=!(d.source_document&&d.disk?.length);
  $('#open-import').hidden=false;$('#regenerate').hidden=false;$('#regenerate').textContent='同じ埋込みを共通処理で描画';
  $('#cut').textContent=`2 × ${d.genus}`;$('#cut').onclick=()=>{};
- $('#operation-status').textContent=`非交差部分の最小線間隔 ${report.minimum_branch_spacing_svg?.toFixed(2)??'100以上'} · 接続口以外の穴との余白 ${report.minimum_nonport_hole_clearance.toFixed(2)} SVG単位`;
- $('#joining-section').hidden=!d.disk?.length;$('#joining-description').textContent='元の境界辺と同じ曲線を使用';
+ const clearance=report.minimum_nonport_hole_clearance;
+ $('#operation-status').textContent=`非交差部分の最小線間隔 ${d.curves.length?(report.minimum_branch_spacing_svg?.toFixed(2)??'100以上'):'対象なし'} · 接続口以外の穴との余白 ${Number.isFinite(clearance)?clearance.toFixed(2)+' SVG単位':'対象なし'}`;
+ $('#joining-section').hidden=!hasDisk;$('#joining-description').textContent='元の境界辺と同じ曲線を使用';
  $('#joining-boundary').textContent='';
  $('#joining-section small').textContent='Dは元の指定領域です。表示側で別の領域を選んでいません。';
- $('#toggle-disk').hidden=!d.disk?.length;$('#toggle-disk').setAttribute('aria-pressed','true');$('#toggle-disk').onclick=()=>{const el=$('#drawing [data-disk]');el.style.display=el.style.display==='none'?'':'none';$('#toggle-disk').setAttribute('aria-pressed',String(el.style.display!=='none'));};
+ $('#toggle-disk').hidden=!hasDisk;$('#toggle-disk').setAttribute('aria-pressed','true');$('#toggle-disk').onclick=()=>{const visible=$('#toggle-disk').getAttribute('aria-pressed')!=='true';document.querySelectorAll('#drawing [data-disk]').forEach(el=>el.style.display=visible?'':'none');$('#toggle-disk').setAttribute('aria-pressed',String(visible));};
  $('#status').textContent='同じ名前の上下境界を、保存された接続口対応に従って貼る';
  $('#legend').replaceChildren();
  const reset=()=>document.querySelectorAll('#drawing [data-curve]').forEach(e=>e.style.opacity='1');

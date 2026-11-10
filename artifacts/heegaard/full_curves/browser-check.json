@@ -1,0 +1,28 @@
+{
+  "url": "http://localhost:8741/surface_Poincare.html",
+  "page_errors": [],
+  "quarto_html_svg_equality": true,
+  "examples": [
+    "Poincare",
+    "S3",
+    "L5_2"
+  ],
+  "checked": [
+    "both families",
+    "intersection tracking",
+    "beta highlighting",
+    "alpha-cut comparison",
+    "SVG download equality",
+    "old application link",
+    "narrow viewport",
+    "missing fixture fails explicitly"
+  ],
+  "screenshots": [
+    "Poincare-page.png",
+    "Poincare-chart.png",
+    "Poincare-intersection-6.png",
+    "S3-chart.png",
+    "L5_2-chart.png",
+    "S3-mobile.png"
+  ]
+}

@@ -3,6 +3,13 @@
 This directory is an in-progress MATLAB-to-Julia migration. It is not yet a
 complete or fidelity-verified port.
 
+## Heegaard app convention
+
+Before using, explaining, changing or validating the Heegaard app, read the
+mandatory [standard spatial display convention](C:/Users/Akaghef/data/21_研究/threads/PJ260922/docs/notes/2026-09-25-marked-paths-integration.md#標準立体表示規約).
+That owner-specified contract is authoritative; do not infer or override the
+convention from renderer behavior. The Heegaard project owns this specification.
+
 The dependency boundary is deliberately scoped: the maintained Julia
 plot/layout pipeline must not require Sage or Python, but this is **not** a
 project-wide policy to replace Sage. Mature general-purpose CAS operations,

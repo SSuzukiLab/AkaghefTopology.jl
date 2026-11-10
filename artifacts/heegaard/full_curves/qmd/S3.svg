@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 510" role="img" data-heegaard-view="surface" data-genus="1" data-diagram-hash="d61e0bbd512dee133f8c2c6de5318ab43d8158f6f45ea77d0fc805725593913f" font-family="system-ui,sans-serif">
+<title>Heegaard surface atlas · genus 1</title>
+<desc>A sphere with 2 holes, joined by 1 annuli. Red alpha cores cross blue/green beta curves at the signed black points. Open points mark chart attachments. No projection crossings.</desc>
+<metadata>{&quot;provenance&quot;:{},&quot;base_orientation&quot;:&quot;-dx wedge dy&quot;,&quot;alpha_cycles&quot;:[{&quot;id&quot;:1,&quot;label&quot;:&quot;a1&quot;,&quot;visits&quot;:[1]}],&quot;genus&quot;:1,&quot;model&quot;:&quot;punctured sphere + annuli&quot;,&quot;beta_cycles&quot;:[{&quot;id&quot;:1,&quot;label&quot;:&quot;b1&quot;,&quot;visits&quot;:[1]}],&quot;annulus_orientation&quot;:&quot;dx wedge dy&quot;,&quot;annuli&quot;:[{&quot;alpha_id&quot;:1,&quot;pair&quot;:1,&quot;inner_radius&quot;:0.43,&quot;core_radius&quot;:0.7,&quot;outer_radius&quot;:1.0,&quot;plus_boundary&quot;:1,&quot;minus_boundary&quot;:2,&quot;visits&quot;:[1],&quot;orientation&quot;:&quot;dx wedge dy&quot;,&quot;outer_map&quot;:&quot;base theta = -annulus theta&quot;,&quot;inner_map&quot;:&quot;base theta = annulus theta&quot;}]}</metadata>
+<rect x="8" y="8" width="782" height="494" rx="16" fill="#f6f7f3"/>
+<text x="34.0" y="41.0" font-size="21.0" fill="#34444e" text-anchor="start" >S² ∖ 2 disks</text>
+<text x="34.0" y="66.0" font-size="13.0" fill="#6b787d" text-anchor="start" >The outside continues through ∞. Dashed circles attach to the annuli.</text>
+<svg x="15" y="78" width="768" height="365" viewBox="0.086716 -1.792 1.705284 3.584" data-chart="sphere">
+<path data-curve-family="beta" data-curve-id="1" data-route-segment="1" d="M 0.72 -1.0 C 0.712533 -1.0 0.705067 -1.0 0.6976 -1.0 C 0.690133 -1.0 0.680111 -0.99459 0.673163 -0.988969 C 0.666215 -0.983348 0.650296 -0.962525 0.642371 -0.947129 C 0.634446 -0.931733 0.626698 -0.905595 0.621721 -0.884031 C 0.616743 -0.862468 0.612747 -0.827801 0.610026 -0.799479 C 0.607305 -0.771158 0.604624 -0.710069 0.603235 -0.674136 C 0.601846 -0.638203 0.601221 -0.602241 0.600736 -0.566285 C 0.600252 -0.530328 0.598882 -0.175525 0.598732 -0.036045 C 0.598581 0.103434 0.599001 0.312236 0.599409 0.382393 C 0.599817 0.452549 0.600831 0.558511 0.601515 0.592856 C 0.602198 0.627201 0.602903 0.661556 0.604585 0.695866 C 0.606267 0.730177 0.610221 0.800493 0.61363 0.828292 C 0.617039 0.856092 0.622359 0.89097 0.628329 0.911019 C 0.634299 0.931068 0.646422 0.959133 0.652939 0.968749 C 0.659456 0.978365 0.671684 0.989639 0.677651 0.993321 C 0.683619 0.997003 0.690588 1.0 0.6976 1.0 C 0.705067 1.0 0.712533 1.0 0.72 1.0" fill="none" stroke="#2459a9" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+<polygon data-curve-family="beta" data-curve-id="1" data-route-segment="1" points="0.59872,0.053134 0.617928,-0.010864 0.579528,-0.010869" fill="#2459a9"/>
+<circle cx="1.0" cy="-1.0" r="0.28" fill="#fff" stroke="#80918e" stroke-width="1.4" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" data-boundary-id="1"/>
+<text x="1.0" y="-0.97" font-size="0.1008" fill="#637670" text-anchor="middle" >B1+</text>
+<circle data-link-id="1" data-port-id="1" data-curve-family="beta" data-curve-id="1" cx="0.72" cy="-1.0" r="0.0126" fill="white" stroke="#2459a9" stroke-width="1.4" vector-effect="non-scaling-stroke"><title>Attachment x1 at B1+; not an additional intersection</title></circle>
+<text x="0.8012" y="-0.982" font-size="0.07" fill="#34444e" text-anchor="middle" data-link-id="1" data-port-id="1" data-curve-family="beta" data-curve-id="1">x1</text>
+<circle cx="1.0" cy="1.0" r="0.28" fill="#fff" stroke="#80918e" stroke-width="1.4" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" data-boundary-id="2"/>
+<text x="1.0" y="1.03" font-size="0.1008" fill="#637670" text-anchor="middle" >B1−</text>
+<circle data-link-id="1" data-port-id="2" data-curve-family="beta" data-curve-id="1" cx="0.72" cy="1.0" r="0.0126" fill="white" stroke="#2459a9" stroke-width="1.4" vector-effect="non-scaling-stroke"><title>Attachment x1 at B1−; not an additional intersection</title></circle>
+<text x="0.8012" y="1.018" font-size="0.07" fill="#34444e" text-anchor="middle" data-link-id="1" data-port-id="2" data-curve-family="beta" data-curve-id="1">x1</text>
+</svg>
+<text x="34.0" y="482.0" font-size="13.0" fill="#34444e" text-anchor="start" >○ chart attachment xᵢ        ● signed intersection i± (in annulus)</text>
+<g data-chart="annulus" data-alpha-id="1" transform="translate(980 182)">
+<text x="0.0" y="-130.0" font-size="18.0" fill="#34444e" text-anchor="middle" >Annulus 1 · α1</text>
+<g transform="scale(106)">
+<circle r="1" fill="#eef4ee" stroke="#80918e" stroke-width="1.3" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+<circle r="0.43" fill="white" stroke="#80918e" stroke-width="1.3" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+<circle data-curve-family="alpha" data-curve-id="1" r="0.70" fill="none" stroke="#be4c45" stroke-width="2.8" vector-effect="non-scaling-stroke"/>
+<polygon data-curve-family="alpha" data-curve-id="1" points="0.7,0.036 0.7216,-0.036 0.6784,-0.036" fill="#be4c45"/>
+<text x="0.0" y="-0.08" font-size="0.21" fill="#be4c45" text-anchor="middle" data-curve-family="alpha" data-curve-id="1">α1</text>
+<text x="0.0" y="0.16" font-size="0.14" fill="#637670" text-anchor="middle" >B1−</text>
+<path data-curve-family="beta" data-curve-id="1" data-link-id="1" d="M -0.43,0.0 L -1.0,0.0" fill="none" stroke="#2459a9" stroke-width="2" vector-effect="non-scaling-stroke"/>
+<polygon data-curve-family="beta" data-curve-id="1" data-link-id="1" points="-0.9,-0.0 -0.84,0.018 -0.84,-0.018" fill="#2459a9"/>
+<circle data-curve-family="beta" data-curve-id="1" data-link-id="1" cx="-0.43" cy="0.0" r="0.021" fill="white" stroke="#2459a9" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+<circle data-curve-family="beta" data-curve-id="1" data-link-id="1" cx="-1.0" cy="0.0" r="0.021" fill="white" stroke="#2459a9" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+<circle data-intersection-id="1" data-sign="1" data-alpha-id="1" data-beta-id="1" data-link-id="1" cx="-0.7" cy="0.0" r="0.030" fill="#24333c" stroke="white" stroke-width="1" vector-effect="non-scaling-stroke"><title>Intersection 1+ · α1 visit 1 · β1 visit 1</title></circle>
+<text x="-1.16" y="0.035" font-size="0.12" fill="#34444e" text-anchor="middle" data-link-id="1">1+</text>
+</g>
+<text x="0.0" y="139.0" font-size="12.0" fill="#637670" text-anchor="middle" >B1+ outer ↔ sphere +</text>
+<text x="0.0" y="158.0" font-size="12.0" fill="#637670" text-anchor="middle" >B1− inner ↔ sphere −</text>
+</g>
+</svg>

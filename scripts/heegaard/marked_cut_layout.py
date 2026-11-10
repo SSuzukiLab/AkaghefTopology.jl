@@ -24,6 +24,47 @@ def source_mesh(data):
     return fixed_mesh(data,retain_source_map=True,_source_mesh_only=True)
 
 
+
+def _consume_fixed_candidate(candidate, data, ids, T, source, pins, free, boundaries, outer):
+    """Bind external coordinates to this exact native/preparation/source prefix.
+
+    Source: fixed_mesh failure artifact schema and original strict double-area
+    assertion. Saved metrics/Booleans are deliberately never consulted.
+    """
+    import hashlib,json
+    from pathlib import Path
+    def require(ok, message):
+        if not ok:raise ValueError('Fixed candidate: '+message)
+    def bits(a,b):
+        # Source: numpy.asarray/view; compare IEEE Float64 bits, including -0.
+        a=np.asarray(a,dtype=np.float64);b=np.asarray(b,dtype=np.float64)
+        return a.shape==b.shape and np.isfinite(a).all() and np.isfinite(b).all() and np.array_equal(a.view(np.uint64),b.view(np.uint64))
+    c=json.loads(Path(candidate).read_text(encoding='utf-8'))
+    require(c.get('schema')=='marked-fixed-mesh-failure/1','unknown source schema')
+    doc=data.get('source_document')
+    require(isinstance(doc,dict),'missing complete native document')
+    digest=hashlib.sha256(json.dumps(doc,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')).hexdigest()
+    binding=c.get('source_binding',{})
+    require(binding.get('source_document_canonical_json_sha256')==digest,'native document mismatch')
+    prep=data.get('preparation_representation_sha256')
+    require(isinstance(prep,str) and len(prep)==64 and binding.get('preparation_representation_sha256')==prep,'preparation mismatch')
+    require(c.get('vertex_ids')==ids,'vertex order mismatch')
+    require(c.get('triangle_indexing')=='indices into vertex_ids' and c.get('triangles')==T.tolist(),'triangles mismatch')
+    require(bits(c.get('source_positions'),source),'source Float64 bits mismatch')
+    require(c.get('free_vertex_ids')==free,'free order mismatch')
+    saved_pins=c.get('pinned_positions',{})
+    require(set(saved_pins)=={str(v) for v in pins},'pin IDs mismatch')
+    require(all(bits(saved_pins[str(v)],q) for v,q in pins.items()),'pin Float64 bits mismatch')
+    require(c.get('boundaries')==boundaries and c.get('outer_boundary')==outer,'boundary/outer mismatch')
+    Q=np.asarray(c.get('target_positions'),dtype=np.float64)
+    require(Q.shape==source.shape and np.isfinite(Q).all(),'invalid target coordinates')
+    ix={v:i for i,v in enumerate(ids)}
+    require(all(bits(Q[ix[v]],q) for v,q in pins.items()),'target moved pin')
+    areas=cross(Q[T[:,1]]-Q[T[:,0]],Q[T[:,2]]-Q[T[:,0]])
+    require(np.isfinite(areas).all() and np.all(areas>1e-8),'original strict area gate failed')
+    return Q,areas
+
+
 def fixed_mesh(data, *, retain_source_map=False, _source_mesh_only=False):
     """Realize the same cut triangulation with prescribed boundary collars.
 
@@ -186,36 +227,85 @@ def fixed_mesh(data, *, retain_source_map=False, _source_mesh_only=False):
             boundary_cycles=[b['mesh_boundary'] for b in d['boundaries']],outer=ext)
     print('Source collar mesh',d['source_mesh_check'],flush=True)
     if _source_mesh_only:return d['source_map_mesh']
-    adjacency=defaultdict(set)
-    for t in mesh:
-        for u,v in zip(t,t[1:]+t[:1]):adjacency[u].add(v);adjacency[v].add(u)
-    A=lil_matrix((len(free),len(free)));rhs=np.zeros((len(free),2))
-    for v,i in fi.items():
-        A[i,i]=len(adjacency[v])
-        for w in adjacency[v]:
-            if w in fi:A[i,fi[w]]=-1
-            else:rhs[i]+=pins[w]
-    solution=spsolve(A.tocsr(),rhs)
-    for v in ids:P[ix[v]]=pins[v] if v in pins else solution[fi[v]]
-    freeidx=np.array([ix[v] for v in free]);target_area=17./len(T)
-    def objective(x,eps):
-        Q=P.copy();Q[freeidx]=x.reshape((-1,2));a,b,c=(Q[T[:,j]] for j in range(3));D=cross(b-a,c-a)
-        S=np.sum((a-b)**2+(b-c)**2+(c-a)**2,axis=1)
-        root=np.sqrt(D*D+eps*eps);chi=np.where(D>=0,(D+root)/2,eps*eps/(2*(root-D)))
-        derivative=.5*(1+D/root);beta=1/target_area
-        num=S+beta*(D*D+target_area*target_area);value=np.sum(num/chi)
-        dd=2*beta*D/chi-num*derivative/(chi*chi);grad=np.zeros_like(Q)
-        for j,u,v,w in ((0,a,b,c),(1,b,c,a),(2,c,a,b)):
-            ds=2*(2*u-v-w)/chi[:,None]
-            da=np.column_stack((v[:,1]-w[:,1],w[:,0]-v[:,0]))*dd[:,None]
-            np.add.at(grad,T[:,j],ds+da)
-        return float(value),grad[freeidx].ravel()
-    x=P[freeidx].ravel()
-    for eps in (.03,.01,.003,.001,.0003,.0001,.00003):
-        opt=minimize(lambda x:objective(x,eps),x,jac=True,method='L-BFGS-B',options={'maxiter':4000,'ftol':1e-11,'maxls':50,'maxcor':25})
-        x=opt.x;P[freeidx]=x.reshape((-1,2));areas=cross(P[T[:,1]]-P[T[:,0]],P[T[:,2]]-P[T[:,0]])
-        print('Fixed-boundary mesh',eps,'negative faces',sum(areas<=0),'min',min(areas),'iterations',opt.nit,opt.message,flush=True)
-        if min(areas)>1e-7:break
+    # Optional failure-only evidence for this exact solver invocation. This
+    # retains coordinates, not a new candidate or a relaxed acceptance rule.
+    import os
+    failure_artifact=os.environ.get('HEEGAARD_FIXED_MESH_FAILURE_ARTIFACT')
+    diagnostic_source=P.copy() if failure_artifact else None
+    diagnostic_stages=[] if failure_artifact else None
+    # Optional verified geometry is consumed after rebuilding the exact source
+    # prefix, before harmonic overwrite. Normal export below remains common.
+    candidate=os.environ.get('HEEGAARD_FIXED_MESH_CANDIDATE')
+    if candidate:
+        P,areas=_consume_fixed_candidate(candidate,data,ids,T,P,pins,free,d['boundaries'],ext)
+        diagnostic_harmonic=None
+    else:
+        adjacency=defaultdict(set)
+        for t in mesh:
+            for u,v in zip(t,t[1:]+t[:1]):adjacency[u].add(v);adjacency[v].add(u)
+        A=lil_matrix((len(free),len(free)));rhs=np.zeros((len(free),2))
+        for v,i in fi.items():
+            A[i,i]=len(adjacency[v])
+            for w in adjacency[v]:
+                if w in fi:A[i,fi[w]]=-1
+                else:rhs[i]+=pins[w]
+        solution=spsolve(A.tocsr(),rhs)
+        for v in ids:P[ix[v]]=pins[v] if v in pins else solution[fi[v]]
+        diagnostic_harmonic=P.copy() if failure_artifact else None
+        freeidx=np.array([ix[v] for v in free]);target_area=17./len(T)
+        def objective(x,eps):
+            Q=P.copy();Q[freeidx]=x.reshape((-1,2));a,b,c=(Q[T[:,j]] for j in range(3));D=cross(b-a,c-a)
+            S=np.sum((a-b)**2+(b-c)**2+(c-a)**2,axis=1)
+            root=np.sqrt(D*D+eps*eps);chi=np.where(D>=0,(D+root)/2,eps*eps/(2*(root-D)))
+            derivative=.5*(1+D/root);beta=1/target_area
+            num=S+beta*(D*D+target_area*target_area);value=np.sum(num/chi)
+            dd=2*beta*D/chi-num*derivative/(chi*chi);grad=np.zeros_like(Q)
+            for j,u,v,w in ((0,a,b,c),(1,b,c,a),(2,c,a,b)):
+                ds=2*(2*u-v-w)/chi[:,None]
+                da=np.column_stack((v[:,1]-w[:,1],w[:,0]-v[:,0]))*dd[:,None]
+                np.add.at(grad,T[:,j],ds+da)
+            return float(value),grad[freeidx].ravel()
+        x=P[freeidx].ravel()
+        for eps in (.03,.01,.003,.001,.0003,.0001,.00003,.00001,.000003):
+            opt=minimize(lambda x:objective(x,eps),x,jac=True,method='L-BFGS-B',options={'maxiter':4000,'ftol':1e-11,'maxls':50,'maxcor':25})
+            x=opt.x;P[freeidx]=x.reshape((-1,2));areas=cross(P[T[:,1]]-P[T[:,0]],P[T[:,2]]-P[T[:,0]])
+            print('Fixed-boundary mesh',eps,'negative faces',sum(areas<=0),'min',min(areas),'iterations',opt.nit,opt.message,flush=True)
+            if failure_artifact:
+                diagnostic_stages.append(dict(eps=eps,negative_faces=int(sum(areas<=0)),
+                    minimum_double_area=float(min(areas)),iterations=int(opt.nit),
+                    success=bool(opt.success),message=str(opt.message),objective=float(opt.fun)))
+            if min(areas)>1e-7:break
+    if failure_artifact and not min(areas)>1e-8:
+        # Source: existing producer input plus this exact affine source mesh,
+        # harmonic proposal and final iterate. No additional solve is run.
+        try:
+            import hashlib,json
+            from pathlib import Path
+            source_document=data.get('source_document')
+            document_bytes=json.dumps(source_document,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
+            record=dict(schema='marked-fixed-mesh-failure/1',
+                source_binding=dict(preparation_representation_sha256=data.get('preparation_representation_sha256'),
+                    source_document_canonical_json_sha256=hashlib.sha256(document_bytes).hexdigest(),
+                    canonical_encoding='UTF-8 JSON, sorted keys, compact separators, ensure_ascii=False',
+                    source_marking_id=source_document.get('surface',{}).get('marking_id') if isinstance(source_document,dict) else None),
+                producer_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                vertex_ids=ids,triangles=T.tolist(),triangle_indexing='indices into vertex_ids',
+                source_positions=diagnostic_source.tolist(),harmonic_positions=diagnostic_harmonic.tolist(),
+                last_positions=P.tolist(),pinned_positions={str(v):q.tolist() for v,q in pins.items()},
+                free_vertex_ids=free,boundaries=d['boundaries'],outer_boundary=ext,
+                source_mesh_check=d['source_mesh_check'],stages=diagnostic_stages,
+                acceptance=dict(minimum_double_area_strictly_greater_than=1e-8),
+                failure='Could not realize fixed boundary mesh')
+            # Refuse overwrite. Capture errors are reported but cannot mask the
+            # original geometric failure immediately below.
+            with Path(failure_artifact).open('x',encoding='utf-8') as stream:
+                # Nonfinite data may prevent JSON capture; report and retain
+                # the original geometric failure, never allow nonstandard JSON.
+                json.dump(record,stream,ensure_ascii=False,allow_nan=False)
+                stream.write('\n')
+            print('Fixed-boundary failure artifact',failure_artifact,flush=True)
+        except Exception as error:
+            print('Fixed-boundary failure capture error',str(error),flush=True)
     assert min(areas)>1e-8,('Could not realize fixed boundary mesh',min(areas))
     pp={v:P[ix[v]] for v in ids}
     for b in d['boundaries']:
