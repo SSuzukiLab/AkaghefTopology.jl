@@ -5,7 +5,11 @@
 The pre-Lickorish-Code subsystems were deleted from the tree. They were written
 on the `codex/heegaard-*` branches from 2026-08-26 to 2026-10-30 and promoted
 to `main` in `9d8a35f`. The last commit that contains them is `3d25011`;
-read or restore them from there.
+read them there for history only.
+
+Owner decision: the current LC drawing supersedes these. Do not restore, port or
+reimplement the removed drawing, layout, marked or app code, from `3d25011`, the
+old `codex/heegaard-*` branches or the archived worktrees.
 
 - Old layout and drawing: `layout`, `mechanical_relaxation`, `feasible_router`,
   `planar_embedding`, `layout_transport`, `automatic_layout`, `plot_relaxation`,
