@@ -218,41 +218,16 @@ end
 
 """Retrieve retained source; this overload is not an inverse construction.
 `:block` is retained as a compatibility spelling for `:retained_source`.
-Use `to_heegaard(::OData)` for the independent dual-tetrahedron construction.
+For o-data input use `odata_to_heegaard_koda` (koda_reverse.jl).
 """
 function to_heegaard(PH::PuncturedHeegaardDiagram;strategy=:retained_source)
     strategy in (:retained_source,:block) || throw(ArgumentError("this overload only retrieves the retained source"))
     PH.diagram
 end
 function to_heegaard(spine::FlowSpine;strategy=:retained_source,display_cuts::Bool=false)
-    # Source: OData reverse below. Display scaffolding belongs only to the new
-    # independent splitting; never mutate a retrieved marked/source diagram.
-    strategy==:dual_tetrahedra && return to_heegaard(to_ograph(spine);strategy=strategy,display_cuts=display_cuts)
-    display_cuts && throw(ArgumentError("display_cuts requires the independent :dual_tetrahedra strategy"))
+    display_cuts && throw(ArgumentError("display_cuts belonged to the removed marked o-data reverse"))
     spine.source isa PuncturedHeegaardDiagram || throw(ArgumentError("no retained Heegaard source"))
     to_heegaard(spine.source;strategy=strategy)
-end
-
-"""Independently construct a marked splitting from o-data, without source metadata.
-The output represents the oriented dual-triangulated manifold; source marking,
-joining D and branching/vector-field recovery are explicitly outside its claim.
-`display_cuts=true` adds distinct alpha-left auxiliary meridians and an explicit
-new infinity seed. Alpha and beta stay visible mathematical curves; their role
-is never changed into a display cut. This option does not generate coordinates.
-"""
-function to_heegaard(G::OData;strategy=:dual_tetrahedra,display_cuts::Bool=false)
-    strategy==:dual_tetrahedra || throw(ArgumentError("o-data reverse strategy must be :dual_tetrahedra"))
-    _ograph_to_marked_heegaard(G;display_cuts=display_cuts)
-end
-
-"""Construct independently from the bundle's actual o-data.
-
-Source: `to_heegaard(::OData)`; retained punctured diagrams, certificates and
-comparison metadata are not consulted. This is a new splitting, not a marked
-round-trip or recovery of the source joining disk or genus.
-"""
-function to_heegaard(bundle::ODataBundle;strategy=:dual_tetrahedra,display_cuts::Bool=false)
-    to_heegaard(bundle.ograph;strategy=strategy,display_cuts=display_cuts)
 end
 
 _ograph_hash(G::OData) = bytes2hex(SHA.sha256(_canonical_json(Dict("gauss"=>G.gauss,"orientation"=>G.orientation))))

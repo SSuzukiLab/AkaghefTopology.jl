@@ -108,3 +108,12 @@ function _cycle_signature(graph::RibbonGraph, cycle::AbstractVector{<:Integer};
     rotations = [vcat(raw[i:end], raw[1:i-1]) for i in eachindex(raw)]
     _lexmin(rotations)
 end
+
+"Equality of cycles up to cyclic rotation."
+function _cyclic_equal(first_cycle, second_cycle)
+    length(first_cycle) == length(second_cycle) || return false
+    isempty(first_cycle) && return true
+    any(all(first_cycle[index] == second_cycle[mod1(index + shift, length(second_cycle))]
+            for index in eachindex(first_cycle))
+        for shift in 0:length(second_cycle)-1)
+end
