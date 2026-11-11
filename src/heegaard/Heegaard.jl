@@ -1,4 +1,14 @@
-"""Heegaard diagram subsystem for `Topology.jl`."""
+"""Heegaard diagrams in `Topology.jl`.
+
+`Topology.HeegaardDiagram` is the resolved HC, the same struct as
+`HeegaardLayer`. `Topology` exports that type beside `VirtualLink`. An
+o-graph is one presentation held by `VirtualLink`. `to_odata` and
+`hc_to_odata` map into that o-data; the image is not the diagram.
+
+The cellulated certificate is `CellularHeegaardDiagram`. This module still
+binds that struct to the name `HeegaardDiagram` for existing methods,
+including `lescop_theta.jl`, and does not export that binding.
+"""
 module Heegaard
 
 using SHA
@@ -51,7 +61,13 @@ include("marked_twist_words.jl")
 include("cellulated_conversion.jl")
 include("ograph_reverse.jl")
 include("koda_conversion.jl")
+include("hc_validate.jl")
+# cf: docs/specs/heegaard-moves.md §3 — catalog rows applied by one move method
+include("lc_moves.jl")
+include("lc_draw.jl")
 include("marked_comparison.jl")
+# cf: lib/topology.jl/src/heegaard/hc_compare.jl — α–β intersection, Smith factors, H₁, and compare_hc on HeegaardLayer
+include("hc_compare.jl")
 
 export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        lickorish_reference, prepare_marked_display, marked_topology_report,
@@ -68,11 +84,14 @@ export MarkedSurfaceDiagrams, MarkedDiagramBuilders,
        marked_dehn_twist_word, marked_inverse_dehn_twist_word,
        marked_comparison_report, odata_computation_report,
        LickorishConfiguration, HeegaardLayer, read_lc, read_hc,
-       hc_to_odata, odata_to_spine, spine_to_heegaard_koda, odata_to_hc,
+       resolve_hc, is_standard,
+       validate_diagram, movable, move, draw_heegaard,
+       hc_intersection, hc_first_homology, compare_hc, hc_to_odata,
+       odata_to_spine, spine_to_heegaard_koda, odata_to_hc,
        compare_odata_words, KodaInputError, KodaSpecificationPending
 
 export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
-       HeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,
+       CellularHeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,
        BranchedSpineComplex, FlowSpine, OData,
        ValidationIssue, ValidationReport, ValidationError, MoveCertificate,
        ConversionCertificate, HeegaardLayout, CutSurface, Puncture, Port,

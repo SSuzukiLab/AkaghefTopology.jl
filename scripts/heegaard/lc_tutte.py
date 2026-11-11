@@ -4,8 +4,6 @@ cf:docs/heegaard/261109_tutte_construction.md 組合せ的な細分 — incidenc
 """
 import math
 import numpy as np
-from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import spsolve
 
 DEBUG_MODE = False
 
@@ -105,8 +103,12 @@ def embed_face(arcs, words, corners, *, exterior=False):
             if fixed[w] is None:
                 rows.append(i); cols.append(indices[w]); values.append(-1)
             else: rhs[i] += fixed[w]
-    matrix = coo_matrix((values,(rows,cols)), shape=(len(free),len(free))).tocsc()
-    solution = spsolve(matrix, rhs)
+    # cf: numpy.linalg.solve — 固定境界の均一重み平均。疎な Tutte 方程式を密行列で解く
+    size = rhs.shape[0]
+    matrix = np.zeros((size, size), dtype=float)
+    for row, col, value in zip(rows, cols, values):
+        matrix[row, col] += value
+    solution = np.linalg.solve(matrix, rhs)
     points = [p if p is not None else tuple(solution[indices[v]]) for v,p in enumerate(fixed)]
     mesh['points'] = points
     for a, chain, events in zip(arcs, mesh['chains'], mesh['events']):

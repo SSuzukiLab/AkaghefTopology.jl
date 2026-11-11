@@ -1,7 +1,7 @@
 <!-- XQQQ1500000 -->
 # Lickorish Code 仕様への案内
 
-語と place、描画の正本は [LC 仕様](lickorish-code.md)、役割と追加行は [HC 仕様](heegaard-code.md) にあります。
+語と place、描画の正本は [LC 仕様](lickorish-code.md)、役割と追加行は [HC 仕様](heegaard-code.md) にあります。公開型 `HeegaardDiagram` は `VirtualLink` と同格であり、Koda 変換は `HeegaardDiagram` から `VirtualLink` の o-data への射である。境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。
 
 <a id="heegaardcodehd-一般化-heegaard-図式の正本データ仕様"></a>
 [Lickorish Code（LC）: 曲面上の曲線配置の正本データ仕様](lickorish-code.md)

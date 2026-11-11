@@ -7,6 +7,8 @@ const ROOT = abspath(joinpath(@__DIR__, "..", "..", "..", ".."))
     tabs = H.load_koda_local_tables()
     @test tabs.catalog["schema"] == "akaghef.heegaard.koda-local/2"
     @test tabs.catalog["implementation_ready"] == true
+    @test H._koda_reference_names_to_forget(1, Dict("m1" => :alpha, "b1" => :beta)) == ["l1"]
+    @test H._koda_reference_names_to_forget(1, Dict("a1" => :alpha, "b1" => :beta)) == ["l1", "m1"]
     model = tabs.vertex["models"]["1"]
     @test model["pd_ports_ccw"] == ["-i", "+o", "-o", "+i"]
     pending = H.koda_pending_table_fields(model)
@@ -54,6 +56,18 @@ end
     hr = H.first_homology(ph.diagram)
     @test hb.free_rank == hr.free_rank
     @test hb.torsion == hr.torsion
+    mapped = H.hc_to_odata(ex.diagram; joining_disk=ex.disk)
+    @test mapped.value isa Topology.VirtualLink
+    @test !(mapped.value isa H.HeegaardDiagram)
+    @test mapped.correspondence["source_object"] == "HeegaardDiagram"
+    @test mapped.correspondence["image"] == "VirtualLink"
+    Gmap = mapped.correspondence["odata"]
+    @test Gmap isa H.OData
+    @test H.compare_odata_words(G, Gmap)["equal_up_to_metadata"]
+    @test mapped.value.gauss == Gmap.gauss
+    @test mapped.value.orientation == Gmap.orientation
+    curve_words = [Int.(c.visits) for c in vcat(ex.diagram.code.code.alpha, ex.diagram.code.code.beta)]
+    @test mapped.value.gauss != curve_words
 end
 
 function _closed(G)
@@ -329,7 +343,8 @@ end
         e
     end
     @test err isa H.KodaNotComputed
-    @test err.reason == :vertex_free_odata_not_encoded
+    @test !(err isa H.KodaDomainExcluded)
+    @test err.reason == :non_disk_sector
     spine = H.heegaard_to_spine(forgot; joining_region=region.id).value
     topo = H.spine_topology(spine)
     @test topo["vertex_free"] == true
@@ -348,11 +363,16 @@ end
         end
     end
     @test all(n == 3 for n in values(counts))
-    @test length(topo["vertices"]) - length(topo["edges"]) + sum(s["chi"] for s in topo["sectors"]) == 1
-    pres_spine = H.spine_pi1_presentation(spine)
-    pres_word = _test_word_presentation(hc)
-    for (name, table) in _TEST_TABLES
-        @test _test_count_hom(pres_spine, table) == _test_count_hom(pres_word, table)
+    euler = length(topo["vertices"]) - length(topo["edges"]) + sum(s["chi"] for s in topo["sectors"])
+    if err isa H.KodaNotComputed && err.reason == :non_disk_sector
+        @test err.detail["euler"] == euler
+    else
+        @test euler == 1
+        pres_spine = H.spine_pi1_presentation(spine)
+        pres_word = _test_word_presentation(hc)
+        for (name, table) in _TEST_TABLES
+            @test _test_count_hom(pres_spine, table) == _test_count_hom(pres_word, table)
+        end
     end
 end
 
@@ -384,5 +404,39 @@ end
     for (name, table) in _TEST_TABLES
         @test _test_count_hom(pres_spine, table) == _test_count_hom(pres_word, table)
     end
+end
+
+@testset "group-15 bigons convert when the joining disk is selected" begin
+    # F5 and F6 are both joining disks. The HC names neither, so the bare call
+    # has nothing to puncture. Each selected bigon is its own disk and the same
+    # one-vertex o-graph.
+    path = joinpath(ROOT, "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc")
+    hc = H.read_hc(path)
+    forgot = H.forget_reference(H.realize_hc(hc))
+    bare = try
+        H.hc_to_odata(hc)
+        nothing
+    catch e
+        e
+    end
+    @test bare isa H.KodaInputError
+    if bare isa H.KodaInputError
+        @test length(bare.detail["candidates"]) == 2
+    end
+    ribbons = Int[]
+    for id in (2, 3)
+        mapped = H.hc_to_odata(hc; joining_disk=id)
+        @test mapped.value isa Topology.VirtualLink
+        @test !(mapped.value isa H.HeegaardDiagram)
+        @test mapped.correspondence["image"] == "VirtualLink"
+        @test mapped.correspondence["source_object"] == "HeegaardDiagram"
+        @test mapped.value.gauss == [[1, -1]]
+        @test mapped.value.orientation == [1]
+        @test mapped.choices["cγ_agreement"] == true
+        closed, = _closed(mapped.correspondence["odata"])
+        @test closed
+        push!(ribbons, H.as_punctured_heegaard(forgot, id).value.joining_disk.region)
+    end
+    @test ribbons == [1, 3]
 end
 end

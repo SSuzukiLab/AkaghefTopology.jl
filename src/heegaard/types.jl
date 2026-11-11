@@ -103,14 +103,18 @@ function Base.showerror(io::IO, err::ValidationError)
     end
 end
 
-struct HeegaardDiagram
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — セル分割で認証した図式は公開 HC ではない。公開名は Topology で HeegaardLayer に束縛する
+struct CellularHeegaardDiagram
     code::DecoratedHeegaardCode
     validation::ValidationReport
-    function HeegaardDiagram(code::DecoratedHeegaardCode, report::ValidationReport, ::Val{:certified})
+    function CellularHeegaardDiagram(code::DecoratedHeegaardCode, report::ValidationReport, ::Val{:certified})
         report.valid || throw(ArgumentError("only a valid report can certify a Heegaard diagram"))
         new(code, report)
     end
 end
+
+# Existing methods, including lescop_theta.jl, still annotate this name.
+const HeegaardDiagram = CellularHeegaardDiagram
 
 struct RibbonEdge
     id::Int

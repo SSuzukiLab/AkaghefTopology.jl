@@ -10,6 +10,8 @@ Owner context: 東京科学大学 情報理工学院 数理・計算科学系 �
 
 土台のデータを **Lickorish Code（LC）**、Heegaard の層のデータを **HeegaardCode（HC）** と呼ぶ。数学の対象は **Heegaard diagram** と呼び、略さない。この三つの名称と区別は所有者確定である。
 
+ライブラリの公開型 `HeegaardDiagram` は `VirtualLink` と同格である。o-data は `VirtualLink` の表示である。Koda 変換は、`HeegaardDiagram` からその o-data への射である。公開境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。
+
 語と配置は [LC 仕様](lickorish-code.md)、役割と追加行は [HC 仕様](heegaard-code.md)、相互変換は [Koda 変換仕様](heegaard-koda-conversion.md) が定める。o-graph 側の用語は、研究リポジトリ基準の `lib/topology.jl/docs/specs/ograph-terminology.md` に従う。
 
 ## 2. LC と HC の層構造
@@ -19,6 +21,7 @@ Owner context: 東京科学大学 情報理工学院 数理・計算科学系 �
 | Lickorish Code | LC | 曲面、Lickorish 基準曲線網 K、役割を持たない曲線の語、place を持つ土台のデータ |
 | HeegaardCode | HC、`HeegaardCode` | LC に α・β の役割、joining disk など Heegaard 固有の情報を加えたデータ |
 | Heegaard diagram | (S;α,β) | 閉連結向き付け可能曲面と、互いに横断する二つのコンパクトな 1 次元部分多様体。各族内の曲線は互いに交わらない。曲線本数は任意 |
+| HeegaardDiagram | `HeegaardDiagram` | 認証した Heegaard diagram の公開型。`VirtualLink` と同格 |
 | joining disk 付き Heegaard diagram | (S;α,β;D) | Heegaard diagram と選択した joining disk |
 | punctured Heegaard diagram | (S;α,β;J) | Koda の joining union J を備える Heegaard diagram |
 | 曲面 | S、Σ_g | 曲線を載せる向き付き閉連結曲面。g は種数 |
@@ -127,7 +130,7 @@ Heegaard diagramの定義、joining 条件、閉多様体を得る条件、完�
 | dα、dβ | ±1 | LC の曲線の向きに対する strand の向きの倍率。S の ∂J と LC の向きとの比を c とすると d=c。B の向きは S と同じにする |
 | 分岐 | branching | sector の向きと各特異辺での一枚側・二枚側の整合 |
 | flow-spine | flow-spine | 閉多様体の branched spine で、正則近傍の垂直境界が一つの円環になるもの |
-| o-data | `OData` | normal o-graph の成分語と vertex sign を保存するデータ |
+| o-data | `OData` | `VirtualLink` の表示。normal o-graph の成分語と vertex sign を保存する |
 | spine の対応 | correspondence | 真頂点・特異辺・sector・分岐・横断向きと、各貼付けを保つ明示的な写像 |
 
 Fig.2 の局所規約では、strand は二枚側の誘導境界向きであり、branch direction は一枚側を向く。J に沿う branch direction は外向きである。採用する候補 A は B=S、d=c である。S の正の局所枠では β が over、α が under になる。根拠は [Koda 変換仕様 §7.3](heegaard-koda-conversion.md#73-向きの規約と局所符号) の Fig.19 の独立転写と全対応の比較に置く。局所翻訳の論証は agent の証明、14交点・28辺の照合は有限計算である。K08 p.210 の「∂J の逆」という文は、この採用規約と符号が反対になる。
@@ -184,6 +187,7 @@ sector は spine の領域である。Heegaard 側の面・補領域との対応
 | HeegaardCode、HC | Heegaard の層のデータ |
 | Lickorish 基準曲線網 K | 基準曲線の網 |
 | Heegaard diagram | 数学的な図式 |
+| `HeegaardDiagram` | `VirtualLink` と同格の公開型 |
 | 交点 | 本文と図の説明 |
 | crossing | 語の要素とそのプログラム上の記録 |
 | 面 | K で切った単位 |

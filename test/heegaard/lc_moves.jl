@@ -173,8 +173,9 @@ end
     @test_throws H.LCMoveError H.movable(digon, "lc.fixed.unresolved")
 end
 
-# Spec §8: a partial twist with β′ = a+2b changes the intersection determinant from 1 to 2.
-# This test states that property. It is not adjusted to the current expander.
+# Spec §6.2: F_q(s,t)=(s+q*t mod 1, t), support a along s. q=2 sends b to 2a+b,
+# so <a,b> stays ±1. b meets m1, which crosses a, once per turn. §8 writes
+# β′=a+2b and determinant 2; that swaps the two coefficients of this matrix.
 @testset "partial twist determinant" begin
     torus = parse_lc("""
     genus: 1
@@ -185,13 +186,16 @@ end
     """)
     before = algebraic_intersections(torus, ["a"], ["b"])[1, 1]
     @test abs(before) == 1
+    @test algebraic_intersections(torus, ["m1"], ["b"])[1, 1] == 0
     hits = H.movable(torus, "lc.twist.annulus"; q=2, support="a", acted_components=["b"])
     @test !isempty(hits)
     result = H.move(torus, only(hits))
     ok, report = checker(result.output)
     @test ok
     after = algebraic_intersections(result.output, ["a"], ["b"])[1, 1]
-    @test abs(after) == 2
+    @test abs(after) == 1
+    transverse = algebraic_intersections(result.output, ["m1"], ["b"])[1, 1]
+    @test abs(transverse) == 2
     @test result.output.genus == torus.genus
 end
 
@@ -221,6 +225,19 @@ end
     @test tok
     undone = H.move(stabilized.output, stabilized.inverse)
     @test undone.output.lc.genus == base.genus
+    @test same_up_to(base, undone.output.lc)
+end
+
+@testset "group-15 annulus twist inverse restores words" begin
+    hc = H.read_hc(joinpath(ROOT, "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc"))
+    original = Dict(name => copy(word) for (name, word) in hc.lc.words)
+    for (support, acted) in (("m1", ["alpha1"]), ("alpha1", ["beta1"]), ("beta1", ["alpha1"]))
+        hit = only(H.movable(hc, "lc.twist.annulus"; q=1, support=support, acted_components=acted))
+        forward = H.move(hc, hit)
+        back = H.move(forward.output, forward.inverse)
+        @test back.output.lc.genus == hc.lc.genus
+        @test back.output.lc.words == original
+    end
 end
 end
 

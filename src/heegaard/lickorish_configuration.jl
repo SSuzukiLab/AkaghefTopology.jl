@@ -117,87 +117,144 @@ struct HeegaardLayer
     hc_path::Union{Nothing, String}
 end
 
-function _hc_parse_text(text::AbstractString, lc_path_hint=nothing)
-    roles = Dict{String, Symbol}()
-    disks = Dict{String, Vector{String}}()
-    points = Dict{String, String}()
-    weights = Dict{String, Int}()
-    lc_ref = lc_path_hint
-    for raw in split(text, '\n')
-        line = strip(split(raw, '#', limit=2)[1])
-        isempty(line) && continue
-        if startswith(line, "lc")
-            parts = split(strip(line))
-            length(parts) >= 2 || throw(KodaInputError(:read_hc, "bad lc reference line", Dict()))
-            lc_ref = strip(parts[2])
-            continue
-        end
-        if startswith(line, "role")
-            parts = split(strip(line))
-            length(parts) == 3 || throw(KodaInputError(:read_hc, "bad role line", Dict("line" => raw)))
-            fam = Symbol(lowercase(parts[3]))
-            fam in (:alpha, :beta) || throw(KodaInputError(:read_hc, "role must be alpha or beta", Dict()))
-            roles[parts[2]] = fam
-            continue
-        end
-        parts_colon = split(line, ':', limit=2)
-        length(parts_colon) != 2 && continue
-        left, rest = parts_colon[1], parts_colon[2]
-        head = split(strip(left))[1]
-        name = split(strip(left))[2]
-        if head == "disk"
-            refs = split(strip(rest))
-            disks[name] = refs
-        elseif head == "point"
-            points[name] = strip(rest)
-        elseif head == "weight"
-            weights[name] = parse(Int, strip(rest))
-        end
-    end
-    lc_ref === nothing && throw(KodaInputError(:read_hc, "HC file must reference an lc file", Dict()))
-    throw(KodaImplementationError(:_hc_parse_text, "parser output must be completed by read_hc", Dict()))
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/heegaard-code.md §2.3–§2.4 — `standard` は各 m_i への α 束縛であり、順序付き α 支持が [m1,…,mg] のときだけ standard
+function hc_component_names(lc::LickorishConfiguration)
+    reference = lc.genus > 0 ? _lc_k_names(lc.genus) : String[]
+    vcat(reference, sort([name for name in keys(lc.words) if !(name in reference)]))
 end
 
-function read_hc(path::AbstractString)
-    dir = dirname(abspath(path))
-    text = read(path, String)
-    lc_ref = nothing
-    roles = Dict{String, Symbol}()
-    disks = Dict{String, Vector{String}}()
-    points = Dict{String, String}()
-    weights = Dict{String, Int}()
-    for raw in split(text, '\n')
+"""Bind `standard` onto the reference meridians. The LC words are not copied or rewritten."""
+function resolve_hc(lc::LickorishConfiguration, roles::AbstractDict;
+                    standard::Bool=false, disks=Dict{String,Vector{String}}(),
+                    points=Dict{String,String}(), weights=Dict{String,Int}(), hc_path=nothing)
+    r = Dict{String,Symbol}(String(k) => Symbol(v) for (k, v) in roles)
+    if standard
+        any(==(:alpha), values(r)) && throw(KodaInputError(:resolve_hc,
+            "standard and explicit alpha roles are mutually exclusive", Dict{String,Any}()))
+        for i in 1:lc.genus
+            name = "m$i"
+            haskey(lc.words, name) || throw(KodaInputError(:resolve_hc,
+                "missing reference meridian", Dict{String,Any}("curve" => name)))
+            haskey(r, name) && throw(KodaInputError(:resolve_hc,
+                "meridian already has a conflicting role", Dict{String,Any}("curve" => name)))
+            r[name] = :alpha
+        end
+    end
+    knames = Set(_lc_k_names(lc.genus))
+    for name in keys(lc.words)
+        name in knames && continue
+        haskey(r, name) || throw(KodaInputError(:resolve_hc,
+            "non-K curve has no role", Dict{String,Any}("curve" => String(name))))
+    end
+    for (name, role) in r
+        haskey(lc.words, name) || throw(KodaInputError(:resolve_hc,
+            "role target does not exist", Dict{String,Any}("curve" => name)))
+        role in (:alpha, :beta) || throw(KodaInputError(:resolve_hc,
+            "invalid role", Dict{String,Any}("curve" => name, "role" => String(role))))
+    end
+    hc = HeegaardLayer(lc, r,
+        deepcopy(Dict{String,Vector{String}}(disks)),
+        copy(Dict{String,String}(points)),
+        copy(Dict{String,Int}(weights)),
+        hc_path)
+    validate_hc_input(hc)
+    hc
+end
+
+hc_curve_names(hc::HeegaardLayer, family::Symbol) =
+    String[n for n in hc_component_names(hc.lc) if get(hc.roles, n, :none) == family]
+
+function is_standard(hc::HeegaardLayer)
+    validate_hc_input(hc)
+    hc_curve_names(hc, :alpha) == String["m$i" for i in 1:hc.lc.genus]
+end
+
+function _hc_parse_text(text::AbstractString, lc_path_hint=nothing)
+    roles = Dict{String,Symbol}()
+    disks = Dict{String,Vector{String}}()
+    points = Dict{String,String}()
+    weights = Dict{String,Int}()
+    lc_ref = lc_path_hint
+    saw_lc = lc_path_hint !== nothing
+    format_version = nothing
+    saw_standard = false
+    for (lineno, raw) in enumerate(split(replace(text, "\ufeff" => ""), '\n'))
         line = strip(split(raw, '#', limit=2)[1])
         isempty(line) && continue
-        if occursin(r"^lc\s*:", line)
-            lc_ref = joinpath(dir, strip(split(line, ':', limit=2)[2]))
+        detail = Dict{String,Any}("line" => lineno, "text" => String(raw))
+        if line == "standard"
+            saw_standard && throw(KodaInputError(:read_hc, "duplicate standard directive", detail))
+            saw_standard = true
             continue
         end
-        if startswith(line, "role")
-            parts = split(strip(line))
-            length(parts) >= 3 || throw(KodaInputError(:read_hc, "bad role line", Dict("line" => raw)))
-            if occursin(':', line)
-                left, right = split(line, ':', limit=2)
-                name = strip(split(strip(left))[2])
-                fam = strip(right)
-            else
-                name = parts[2]
-                fam = parts[3]
-            end
-            roles[name] = Symbol(lowercase(fam))
+        legacy = match(r"^role\s+(\S+)\s+(alpha|beta)$"i, line)
+        if legacy !== nothing && !occursin(':', line)
+            name, family = String.(legacy.captures)
+            haskey(roles, name) && throw(KodaInputError(:read_hc, "duplicate role", detail))
+            roles[name] = Symbol(lowercase(family))
             continue
         end
-        parts_colon = split(line, ':', limit=2)
-        length(parts_colon) != 2 && continue
-        left, rest = parts_colon[1], parts_colon[2]
-        head, name = split(strip(left))[1:2]
-        head == "disk" && (disks[name] = split(strip(rest)))
-        head == "point" && (points[name] = strip(rest))
-        head == "weight" && (weights[name] = parse(Int, strip(rest)))
+        colon = match(r"^([^:]+)\s*:\s*(.*)$", line)
+        colon === nothing && throw(KodaInputError(:read_hc, "unknown HC directive", detail))
+        lhs, rhs = strip.(String.(colon.captures))
+        isempty(rhs) && throw(KodaInputError(:read_hc, "empty directive value", detail))
+        if lhs == "format"
+            format_version === nothing || throw(KodaInputError(:read_hc, "duplicate format directive", detail))
+            rhs == "hc/2" || throw(KodaInputError(:read_hc, "unsupported HC format version", detail))
+            format_version = 2
+            continue
+        end
+        if lhs == "lc"
+            saw_lc && throw(KodaInputError(:read_hc, "duplicate lc directive", detail))
+            saw_lc = true
+            lc_ref = rhs
+            continue
+        end
+        head = split(lhs)
+        length(head) == 2 || throw(KodaInputError(:read_hc, "unknown HC directive", detail))
+        kind, name = String.(head)
+        if kind == "role"
+            lowercase(rhs) in ("alpha", "beta") || throw(KodaInputError(:read_hc, "role must be alpha or beta", detail))
+            haskey(roles, name) && throw(KodaInputError(:read_hc, "duplicate role", detail))
+            roles[name] = Symbol(lowercase(rhs))
+        elseif kind == "disk"
+            haskey(disks, name) && throw(KodaInputError(:read_hc, "duplicate disk", detail))
+            disks[name] = String.(split(rhs))
+        elseif kind == "point"
+            haskey(points, name) && throw(KodaInputError(:read_hc, "duplicate point", detail))
+            points[name] = rhs
+        elseif kind == "weight"
+            haskey(weights, name) && throw(KodaInputError(:read_hc, "duplicate weight", detail))
+            value = tryparse(Int, rhs)
+            value === nothing && throw(KodaInputError(:read_hc, "weight must be an integer", detail))
+            weights[name] = value
+        else
+            throw(KodaInputError(:read_hc, "unknown HC directive", detail))
+        end
     end
-    lc_ref === nothing && throw(KodaInputError(:read_hc, "missing lc reference", Dict("hc" => path)))
-    lc = read_lc(lc_ref)
-    HeegaardLayer(lc, roles, disks, points, weights, abspath(path))
+    lc_ref === nothing && throw(KodaInputError(:read_hc, "missing lc reference", Dict{String,Any}()))
+    (; lc_ref=String(lc_ref), roles, disks, points, weights, standard=saw_standard, format_version)
+end
+
+"""Read an `.hc` file as one resolved HC.
+
+`standard` assigns α to the existing meridians `m1,…,mg`. The value is a
+`HeegaardLayer`, the same struct `Topology` exports as `HeegaardDiagram`.
+No second curve and no stored standard flag are created.
+"""
+function read_hc(path::AbstractString)
+    absolute = abspath(path)
+    parsed = _hc_parse_text(read(absolute, String))
+    isabspath(parsed.lc_ref) && throw(KodaInputError(:read_hc,
+        "lc reference must be relative", Dict{String,Any}("path" => parsed.lc_ref)))
+    lc = read_lc(normpath(joinpath(dirname(absolute), parsed.lc_ref)))
+    if parsed.standard || any(name -> haskey(parsed.roles, name), _lc_k_names(lc.genus))
+        parsed.format_version == 2 || throw(KodaInputError(:read_hc,
+            "standard/reference-role input requires 'format : hc/2' to protect against legacy readers",
+            Dict{String,Any}()))
+    end
+    resolve_hc(lc, parsed.roles; standard=parsed.standard, disks=parsed.disks,
+        points=parsed.points, weights=parsed.weights, hc_path=absolute)
 end
 
 function validate_hc_input(hc::HeegaardLayer)

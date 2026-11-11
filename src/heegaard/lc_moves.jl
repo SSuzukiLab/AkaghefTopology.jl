@@ -73,7 +73,8 @@ function load_heegaard_moves(; force::Bool=false)
             rows[row["id"]] = row
         end
     end
-    loaded = Dict{String,Any}("schema_version" => catalog["schema_version"], "rows" => rows, "dir" => root)
+    loaded = Dict{String,Any}("schema_version" => catalog["schema_version"], "rows" => rows, "dir" => root,
+        "shared" => _load_json(joinpath(root, "shared.json")))
     _LC_CATALOG[] = loaded
     loaded
 end
@@ -85,6 +86,8 @@ function heegaard_move_row(id::AbstractString)
 end
 
 heegaard_move_ids() = sort(collect(keys(load_heegaard_moves()["rows"])))
+
+include("lc_moves_support.jl")
 
 _k_limit(g::Integer) = g <= 0 ? 0 : 3 * g - 2
 _lc_of(lc::LickorishConfiguration) = lc
@@ -368,7 +371,8 @@ function _vmax(frags)
     isempty(labels) ? 0 : maximum(labels)
 end
 
-function _kernel_apply(names, words, before_frags, after_frags, locations, vertices, capacity)
+function _kernel_apply(names, words, before_frags, after_frags, locations, vertices, capacity;
+        label_map=nothing)
     work = [copy(get(words, name, Int[])) for name in names]
     locs = Tuple{Int,Int}[]
     rotations = zeros(Int, length(names))
@@ -390,12 +394,21 @@ function _kernel_apply(names, words, before_frags, after_frags, locations, verti
     after = _LC_MV.MovePattern("lc", after_frags, ones(Int, _vmax(after_frags)), capacity)
     max_label = maximum(vcat([0], abs.(reduce(vcat, work; init=Int[]))))
     orientation = ones(Int, max(max_label, 0))
-    length(vertices) == before.vertex_count || throw(LCMoveError(
-        :witness, "vertex vector does not match the source pattern",
-        Dict("vertices" => length(vertices), "expected" => before.vertex_count)))
-    old_to_new, after_vertices, new_orientation = _LC_MV._vertex_maps(orientation, vertices, before, after)
-    mapped_before = [_LC_MV._map_fragment(frag, vertices) for frag in before_frags]
-    mapped_after = [_LC_MV._map_fragment(frag, after_vertices) for frag in after_frags]
+    if label_map === nothing
+        length(vertices) == before.vertex_count || throw(LCMoveError(
+            :witness, "vertex vector does not match the source pattern",
+            Dict("vertices" => length(vertices), "expected" => before.vertex_count)))
+        old_to_new, after_vertices, new_orientation = _LC_MV._vertex_maps(orientation, vertices, before, after)
+    else
+        # Fragments are already global labels. The row supplies the surviving map.
+        old_to_new = label_map
+        after_vertices = Int[]
+        new_orientation = Int[]
+    end
+    mapped_before = label_map === nothing ?
+        [_LC_MV._map_fragment(frag, vertices) for frag in before_frags] : before_frags
+    mapped_after = label_map === nothing ?
+        [_LC_MV._map_fragment(frag, after_vertices) for frag in after_frags] : after_frags
     for (i, (comp, start)) in enumerate(locs)
         frag = mapped_before[i]
         isempty(frag) && continue
@@ -409,6 +422,8 @@ function _kernel_apply(names, words, before_frags, after_frags, locations, verti
     converted = same ? _LC_MV._simple_pattern_rewrite(
         work, weights, candidate, mapped_before, mapped_after, old_to_new, new_orientation; weighted=false) : nothing
     if converted === nothing
+        label_map === nothing || throw(LCMoveError(
+            :witness, "global fragment rewrite did not apply", Dict("components" => names)))
         converted = _LC_MV._reconnect_pattern(
             work, weights, candidate, mapped_before, mapped_after, old_to_new, new_orientation; weighted=false)
     end
@@ -458,6 +473,35 @@ function _insert_before(word, prev_signed, next_signed)
     next_at
 end
 
+function _adjacent_gap(word, prev_signed, next_signed)
+    isempty(word) && return 1
+    prev_signed == next_signed && return 1
+    prev_at = findfirst(==(prev_signed), word)
+    next_at = findfirst(==(next_signed), word)
+    (prev_at === nothing || next_at === nothing) && return nothing
+    mod1(prev_at + 1, length(word)) == next_at || return nothing
+    next_at
+end
+
+# cf: lib/topology.jl/docs/specs/heegaard-moves.md §7 — 隣接して消した交点の再挿入空位は、その位置より前に残る文字の個数; reconstructed
+function _output_gap_after_deletions(names, locations, before_frags, after_frags, input_words, comp, start)
+    word = get(input_words, names[comp], Int[])
+    n = length(word)
+    removed = falses(n)
+    for (i, (c, s)) in enumerate(locations)
+        c == comp || continue
+        isempty(after_frags[i]) || continue
+        for k in 0:(length(before_frags[i]) - 1)
+            p = s + k
+            (1 <= p <= n) || return nothing
+            removed[p] && return nothing
+            removed[p] = true
+        end
+    end
+    (1 <= start <= n + 1) || return nothing
+    count(p -> !removed[p], 1:(start - 1)) + 1
+end
+
 function _reinsert_locations(names, locations, before_frags, after_frags, input_words, output_words, old_to_new)
     found = Tuple{Int,Int}[]
     for (i, (comp, start)) in enumerate(locations)
@@ -480,7 +524,17 @@ function _reinsert_locations(names, locations, before_frags, after_frags, input_
         end
         prev, next = neighbors
         out = get(output_words, names[comp], Int[])
-        push!(found, (comp, _insert_before(out, _map_entry(prev, old_to_new), _map_entry(next, old_to_new))))
+        mapped_prev = _map_entry(prev, old_to_new)
+        mapped_next = _map_entry(next, old_to_new)
+        gap = _adjacent_gap(out, mapped_prev, mapped_next)
+        if gap === nothing
+            gap = _output_gap_after_deletions(
+                names, locations, before_frags, after_frags, input_words, comp, start)
+        end
+        if gap === nothing
+            gap = _insert_before(out, mapped_prev, mapped_next)
+        end
+        push!(found, (comp, gap))
     end
     found
 end
@@ -584,6 +638,9 @@ function _install_words(lc, names, result, places, assigned=Dict{String,String}(
     for (name, face) in assigned
         new_places[name] = face
     end
+    for (name, word) in words
+        isempty(word) || delete!(new_places, name)
+    end
     active = Dict(k => v for (k, v) in words if !isempty(v))
     face_ids = String[]
     if !isempty(active)
@@ -646,14 +703,41 @@ function _inverse_locations(names, output_words, mapped_after, locations, rotati
     found
 end
 
+function _label_map_of(extra)
+    raw = get(extra, "label_map", nothing)
+    raw isa AbstractDict ? raw : nothing
+end
+
+function _copy_extra(extra)
+    Dict{String,Any}(String(k) => v for (k, v) in extra)
+end
+
+function _attach_roles(output, witness::LCMoveWitness, drop_names)
+    output isa HeegaardLayer || return output
+    roles = copy(output.roles)
+    for name in drop_names
+        delete!(roles, name)
+    end
+    if witness.genus_delta > 0
+        for (name, role) in get(witness.extra, "new_roles", Dict{String,Any}())
+            roles[String(name)] = role isa Symbol ? role : Symbol(String(role))
+        end
+    end
+    HeegaardLayer(output.lc, roles, output.disks, output.points, output.weights, output.hc_path)
+end
+
 function _apply_witness(input, witness::LCMoveWitness)
+    if get(witness.extra, "identity", false)
+        return LCMoveResult(input, witness, Dict{String,Any}("relation" => witness.relation, "identity" => true))
+    end
     lc = _lc_of(input)
     _fingerprint(lc, _roles_of(input)) == witness.fingerprint || throw(LCMoveError(
         :witness_mismatch, "witness was not built for this input", Dict("row" => witness.row_id)))
     words = Dict(name => copy(get(lc.words, name, Int[])) for name in witness.names)
     result, old_to_new, after_vertices, mapped_before, mapped_after, locs, rotations = _kernel_apply(
         witness.names, words, witness.before_frags, witness.after_frags,
-        witness.locations, witness.vertices, witness.capacity)
+        witness.locations, witness.vertices, witness.capacity;
+        label_map=_label_map_of(witness.extra))
     removed = setdiff(witness.vertices, keys(old_to_new))
     witness.label_policy == "pin_k" && _pin_ok(lc, old_to_new, removed)
     preview = Dict(witness.names[i] => result[i] for i in eachindex(witness.names) if i <= length(result))
@@ -691,7 +775,9 @@ function _apply_witness(input, witness::LCMoveWitness)
     else
         new_words, new_places, _ = _install_words(lc, witness.names, result, lc.places, assigned)
     end
-    output = _build_output(input, lc.genus + witness.genus_delta, new_words, new_places)
+    output = _attach_roles(
+        _build_output(input, lc.genus + witness.genus_delta, new_words, new_places),
+        witness, drop_names)
     out_lc = _lc_of(output)
     out_words = Dict(name => get(out_lc.words, name, Int[]) for name in witness.names)
     inverse_locations = any(isempty, mapped_after) ?
@@ -703,6 +789,21 @@ function _apply_witness(input, witness::LCMoveWitness)
     inverse_after = witness.before_frags
     if _vmax(inverse_before) == 0
         inverse_vertices = Int[]
+    end
+    inverse_extra = _copy_extra(witness.extra)
+    if haskey(inverse_extra, "label_map") && haskey(inverse_extra, "inverse_label_map")
+        forward_map = inverse_extra["label_map"]
+        inverse_extra["label_map"] = inverse_extra["inverse_label_map"]
+        inverse_extra["inverse_label_map"] = forward_map
+    end
+    # Added crossings are fresh locals above the surviving ones. _vertex_maps sorts
+    # the selected globals and would hand the inverse the wrong surviving labels.
+    # Carry the output words themselves and skip that renumbering.
+    if get(witness.extra, "global_inverse", false)
+        inverse_before = mapped_after
+        inverse_after = [Int[x == 0 ? 0 : sign(x) * get(old_to_new, abs(x), abs(x)) for x in frag] for frag in mapped_before]
+        inverse_vertices = Int[]
+        inverse_extra["label_map"] = Dict{Int,Int}()
     end
     inverse = LCMoveWitness(
         witness.inverse_id == "" ? witness.row_id : witness.inverse_id,
@@ -719,7 +820,7 @@ function _apply_witness(input, witness::LCMoveWitness)
         _fingerprint(out_lc, _roles_of(output)),
         witness.label_policy,
         -witness.genus_delta,
-        witness.extra,
+        inverse_extra,
     )
     correspondence = Dict{String,Any}(
         "label_map" => old_to_new,
@@ -750,10 +851,8 @@ function _expand_gaps(input, row, selections)
         haskey(index, comp) || throw(LCMoveError(:missing_selection, "gap component is not in the LC", Dict("component" => comp)))
         push!(locations, (index[comp], start))
     end
-    before = [Int[] for _ in target]
-    after = [_frag_word(fragment) for fragment in target]
-    capacity = _capacity_of(row["target"], length(target))
-    [_witness_from(input, row, names, locations, Int[], before, after, capacity)]
+    # Gaps alone are not a support. Select only embeddings certified by a face.
+    [w for w in _expand_face_edges(input, row, selections) if w.locations == locations]
 end
 
 function _owner_of(words, label, sign_char)
@@ -765,6 +864,30 @@ function _owner_of(words, label, sign_char)
     nothing
 end
 
+# Equal-gap inserts are applied from the left, so the partner word comes out reversed.
+# Emit each gap last-to-first. The new curve's order is the one that keeps χ = 2-2g.
+function _emit_gap_inserts!(locations, before_frags, after_frags, index, ops)
+    grouped = Dict{Tuple{String,Int},Vector{Int}}()
+    keys = Tuple{String,Int}[]
+    for (partner, gap, signed_local) in ops
+        key = (partner, gap)
+        if !haskey(grouped, key)
+            push!(keys, key)
+            grouped[key] = Int[]
+        end
+        push!(grouped[key], signed_local)
+    end
+    for key in keys
+        partner, gap = key
+        for signed_local in reverse(grouped[key])
+            push!(locations, (index[partner], gap))
+            push!(before_frags, Int[])
+            push!(after_frags, [-signed_local])
+        end
+    end
+end
+
+# cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.2 — F_q(s,t)=(s+q*t mod 1, t); reconstructed; q>0 is one right parallel of the support at every visit, q<0 one left parallel
 function _expand_affine(input, row, selections)
     _require_selection(row, selections)
     q = Int(selections["q"])
@@ -779,9 +902,13 @@ function _expand_affine(input, row, selections)
     haskey(lc.words, core) || throw(LCMoveError(:missing_selection, "support component is missing", Dict("support" => core)))
     q == 0 && return [_witness_from(input, row, _component_names(lc), Tuple{Int,Int}[], Int[], Vector{Vector{Int}}(), Vector{Vector{Int}}(), Int[];
         extra=Dict{String,Any}("identity" => true))]
-    # Concrete pattern: at each acted visit whose partner is the core, insert |q| copies of the core word
-    # with the intersection letter removed. Signs follow F_q: positive q inserts the core in its own direction
-    # when the acted curve holds the + visit.
+    # F_q shears the acted curve along the support. Each other support crossing is copied
+    # onto that crossing's partner, |q| times. The partner is the opposite passage, not the
+    # support itself: a visit on the support does not split a face. Every visit uses the same
+    # bank. q>0 uses the right bank and q<0 the left. A forward reading of that bank is placed
+    # before the visit; a backward reading is placed after it. Splitting the visits across
+    # both banks is not this twist, and the rotation system then has the wrong Euler
+    # characteristic for this genus.
     names = _component_names(lc)
     index = Dict(name => i for (i, name) in enumerate(names))
     words = lc.words
@@ -796,47 +923,79 @@ function _expand_affine(input, row, selections)
     before_frags = Vector{Vector{Int}}()
     after_frags = Vector{Vector{Int}}()
     locations = Tuple{Int,Int}[]
+    # Partner inserts are emitted after every visit is known. An after-gap stack
+    # is reversed so the first visit stays next to the support crossing; the kernel
+    # writes equal gaps from the left.
+    visits = NamedTuple{(:ops, :before, :after, :pos, :curve), Tuple{Vector{Tuple{String,Int,Int,Bool}}, Vector{Int}, Vector{Int}, Int, String}}[]
     core_word = words[core]
+    # Existing visits take the low local ids. Fresh ids then sit strictly above
+    # before.vertex_count, which is the range _vertex_maps treats as new labels.
+    for curve in acted
+        haskey(words, curve) || throw(LCMoveError(:missing_selection, "acted component is missing", Dict("component" => curve)))
+        for entry in words[curve]
+            _owner_of(words, abs(entry), entry > 0 ? "-" : "+") == core || continue
+            local_label(abs(entry))
+        end
+    end
     for curve in acted
         haskey(words, curve) || throw(LCMoveError(:missing_selection, "acted component is missing", Dict("component" => curve)))
         word = words[curve]
         for (pos, entry) in enumerate(word)
             partner = _owner_of(words, abs(entry), entry > 0 ? "-" : "+")
             partner == core || continue
-            rest = Int[]
             core_pos = findfirst(x -> abs(x) == abs(entry), core_word)
             core_pos === nothing && throw(LCMoveError(:expansion, "core visit missing", Dict("label" => abs(entry))))
+            rest = Int[]
             for offset in 1:(length(core_word) - 1)
                 rest_entry = core_word[mod1(core_pos + offset, length(core_word))]
+                other = _owner_of(words, abs(rest_entry), rest_entry > 0 ? "-" : "+")
+                other === nothing && throw(LCMoveError(
+                    :expansion, "support visit has no partner", Dict("visit" => rest_entry)))
+                other == curve && continue
                 push!(rest, rest_entry)
             end
-            insert_word = Int[]
-            copies = abs(q)
             direction = sign(q) * (entry > 0 ? 1 : -1)
-            for _ in 1:copies
-                piece = direction > 0 ? rest : reverse(-rest)
-                append!(insert_word, piece)
+            side = q > 0 ? "right" : "left"
+            insert_word = Int[]
+            for _ in 1:abs(q)
+                append!(insert_word, direction > 0 ? rest : reverse(-rest))
             end
-            # Replace the single visit by itself plus the inserted labels. New labels are allocated as locals
-            # beyond the existing ones; existing visit keeps its global label via vertices.
-            before = [sign(entry) * local_label(abs(entry))]
-            after = copy(before)
+            inserted_signed = Int[]
+            ops = Tuple{String,Int,Int,Bool}[]
             for inserted in insert_word
-                partner_name = _owner_of(words, abs(inserted), inserted > 0 ? "+" : "-")
-                partner_name === nothing && throw(LCMoveError(:expansion, "inserted visit has no owner", Dict("visit" => inserted)))
+                core_letter = direction > 0 ? inserted : -inserted
+                partner_name = _owner_of(words, abs(core_letter), core_letter > 0 ? "-" : "+")
+                partner_name === nothing && throw(LCMoveError(
+                    :expansion, "support visit has no partner", Dict("visit" => core_letter)))
+                ppos = findfirst(x -> abs(x) == abs(core_letter), words[partner_name])
+                ppos === nothing && throw(LCMoveError(
+                    :expansion, "partner visit missing", Dict("visit" => core_letter, "partner" => partner_name)))
                 fresh = next_local
                 next_local += 1
-                push!(after, sign(inserted) * fresh)
-                # partner receives the opposite sign at the gap after its visit
-                ppos = findfirst(x -> abs(x) == abs(inserted), words[partner_name])
-                push!(locations, (index[partner_name], ppos + 1))
-                push!(before_frags, Int[])
-                push!(after_frags, [-sign(inserted) * fresh])
+                acted_signed = sign(inserted) * fresh
+                push!(inserted_signed, acted_signed)
+                gap = _parallel_after(core_letter > 0, side) ? ppos + 1 : ppos
+                push!(ops, (partner_name, gap, acted_signed, gap != ppos))
             end
-            push!(locations, (index[curve], pos))
-            push!(before_frags, before)
-            push!(after_frags, after)
+            visit = [sign(entry) * local_label(abs(entry))]
+            # Forward along the bank, the parallel is read before the visit.
+            # Backward, it is read after the visit. Both readings stay on `side`.
+            after = direction > 0 ? vcat(inserted_signed, visit) : vcat(visit, inserted_signed)
+            push!(visits, (ops=ops, before=visit, after=after, pos=pos, curve=curve))
         end
+    end
+    for after_bank in (false, true)
+        seq = after_bank ? reverse(visits) : visits
+        for rec in seq
+            chosen = Tuple{String,Int,Int}[(op[1], op[2], op[3]) for op in rec.ops if op[4] == after_bank]
+            isempty(chosen) && continue
+            _emit_gap_inserts!(locations, before_frags, after_frags, index, chosen)
+        end
+    end
+    for rec in visits
+        push!(locations, (index[rec.curve], rec.pos))
+        push!(before_frags, rec.before)
+        push!(after_frags, rec.after)
     end
     isempty(locations) && throw(LCMoveError(
         :expansion, "acted components do not meet the support", Dict("support" => core, "acted" => acted)))
@@ -849,7 +1008,7 @@ function _expand_affine(input, row, selections)
     # and fresh locals in after fragments are assigned by _vertex_maps if they are > that count.
     capacity = collect(1:length(before_frags))
     [_witness_from(input, row, names, locations, vertices[1:_vmax(before_frags)], before_frags, after_frags, capacity;
-        extra=Dict{String,Any}("q" => q, "support" => core, "acted" => acted))]
+        extra=Dict{String,Any}("q" => q, "support" => core, "acted" => acted, "global_inverse" => true))]
 end
 
 function _shift_label(label, genus)
@@ -859,6 +1018,7 @@ function _shift_label(label, genus)
     label + 3
 end
 
+# cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.3 — empty band is a left parallel of a_j; reconstructed
 function _expand_glue(input, row, selections)
     _require_selection(row, selections)
     input isa HeegaardLayer || throw(LCMoveError(:layer, "handle slide requires an HC", Dict("row" => row["id"])))
@@ -903,14 +1063,24 @@ function _expand_glue(input, row, selections)
         push!(after_frags, [-sign_on_new * fresh])
         fresh
     end
+    # Same passage signs as a_j, on its left. The opposite signs sit off the surface:
+    # the rotation system then has the wrong Euler characteristic for this genus.
+    ops = Tuple{String,Int,Int}[]
     for entry in words[a_j]
         partner = _owner_of(words, abs(entry), entry > 0 ? "-" : "+")
         partner === nothing && throw(LCMoveError(:expansion, "a_j visit has no partner", Dict("visit" => entry)))
         ppos = findfirst(x -> abs(x) == abs(entry), words[partner])
-        # Parallel on the left of a_j: the new curve takes the opposite passage sign.
-        fresh = add_fresh(partner, ppos, -sign(entry))
-        push!(after_i, -sign(entry) * fresh)
+        ppos === nothing && throw(LCMoveError(
+            :expansion, "partner visit missing", Dict("visit" => entry, "partner" => partner)))
+        sign_on_new = sign(entry)
+        gap = _parallel_after(entry > 0, "left") ? ppos + 1 : ppos
+        fresh = next_local
+        next_local += 1
+        signed = sign_on_new * fresh
+        push!(after_i, signed)
+        push!(ops, (partner, gap, signed))
     end
+    _emit_gap_inserts!(locations, before_frags, after_frags, index, ops)
     for step in band
         crossed = String(step["component"])
         gap = Int(step["at"]) + 1
@@ -929,8 +1099,24 @@ function _expand_glue(input, row, selections)
     used = _vmax(before_frags)
     capacity = collect(1:length(before_frags))
     [_witness_from(input, row, names, locations, vertices[1:used], before_frags, after_frags, capacity;
-        extra=Dict{String,Any}("a_i" => a_i, "a_j" => a_j))]
+        extra=Dict{String,Any}("a_i" => a_i, "a_j" => a_j, "global_inverse" => true))]
 end
+
+# cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.4 — ladder_end crossing tokens; reconstructed
+function _ladder_letter(token, env)
+    text = String(token)
+    sig = 1
+    if startswith(text, "-")
+        sig = -1
+        text = text[2:end]
+    elseif startswith(text, "+")
+        text = text[2:end]
+    end
+    haskey(env, text) || throw(LCMoveError(:expansion, "unknown ladder token", Dict("token" => text)))
+    sig * env[text]
+end
+
+_ladder_word(tokens, env) = Int[_ladder_letter(token, env) for token in tokens]
 
 function _expand_k_inclusion(input, row, selections)
     _require_selection(row, selections)
@@ -944,63 +1130,100 @@ function _expand_k_inclusion(input, row, selections)
     String(selections["k_identification"]) == "ladder_end" || throw(LCMoveError(
         :missing_selection, "only the ladder_end identification is in the row data",
         Dict("k_identification" => selections["k_identification"])))
+    pattern = get(get(row, "expansion", Dict()), "pattern", nothing)
+    pattern isa AbstractDict || throw(LCMoveError(
+        :expansion, "ladder_end pattern is not in the row", Dict("row" => row["id"])))
     lc = input.lc
     g = lc.genus
     g >= 1 || throw(LCMoveError(:applicability, "ladder_end stabilization starts at genus >= 1", Dict("genus" => g)))
-    names = _component_names(lc)
-    index = Dict(name => i for (i, name) in enumerate(names))
-    shifted = Dict(name => Int[_shift_label(abs(entry), g) * sign(entry) for entry in word] for (name, word) in lc.words)
-    new_ln = g + 2
+    disk = String(selections["disk"])
+    active = Dict(k => copy(v) for (k, v) in lc.words if !isempty(v))
+    faces, _ = _lc_faces(active)
+    any(face -> face.id == disk, faces) || throw(LCMoveError(
+        :missing_selection, "disk is not a face of this diagram", Dict("disk" => disk)))
     lname = "l$g"
-    # One identification, from the row: insert -ln[g,g] immediately after the lm visit.
-    lm = -g
-    pos = findfirst(==(lm), shifted[lname])
+    mname = "m$g"
+    haskey(lc.words, lname) && haskey(lc.words, mname) || throw(LCMoveError(
+        :expansion, "ladder end is missing l_g or m_g", Dict("genus" => g)))
+    pos = findfirst(==(-g), lc.words[lname])
     pos === nothing && throw(LCMoveError(:expansion, "lm visit not found on l_g", Dict("component" => lname)))
+    limit = _k_limit(g)
+    non_k = [entry for entry in lc.words[mname] if abs(entry) > limit]
+    length(non_k) == 1 || throw(LCMoveError(
+        :expansion, "ladder_end needs one non-K visit on m_g",
+        Dict("component" => mname, "visits" => non_k)))
+    entry = only(non_k)
+    partner = _owner_of(lc.words, abs(entry), entry > 0 ? "-" : "+")
+    (partner === nothing || partner == lname) && throw(LCMoveError(
+        :expansion, "m_g visit has no ladder partner", Dict("visit" => entry)))
+    ref = _lc_k_constants(g + 1)
+    old_k = Int[sign(e) * _shift_label(abs(e), g) for e in lc.words[lname] if abs(e) <= limit]
+    fresh_k = [letter for letter in ref[lname] if !(abs(letter) in Set(abs.(old_k)))]
+    length(fresh_k) == 1 || throw(LCMoveError(
+        :expansion, "new l_g K letter is not unique", Dict("letters" => fresh_k)))
+    new_signed = only(fresh_k)
+    labels = unique(abs(e) for word in values(lc.words) for e in word)
+    forward = Dict{Int,Int}()
+    backward = Dict{Int,Int}()
+    shifted_max = 0
+    for label in labels
+        image = _shift_label(label, g)
+        forward[label] = image
+        backward[image] = label
+        shifted_max = max(shifted_max, image)
+    end
+    nxt = max(shifted_max, _k_limit(g + 1)) + 1
+    env = Dict("A" => nxt, "B" => nxt + 1, "C" => nxt + 2, "D" => nxt + 3, "E" => nxt + 4)
+    l_new = "l$(g + 1)"
+    m_new = "m$(g + 1)"
+    n_name = "n$g"
+    aname = "alpha$(g + 1)"
+    bname = "beta$(g + 1)"
+    for name in (l_new, m_new, n_name, aname, bname)
+        haskey(lc.words, name) && throw(LCMoveError(
+            :component_name, "stabilization name is already used", Dict("name" => name)))
+    end
+    nref = ref[n_name]
+    length(nref) == 2 || throw(LCMoveError(
+        :expansion, "n_g constant is not a pair", Dict("word" => nref)))
+    created_words = Dict(
+        l_new => vcat(ref[l_new], _ladder_word(pattern["l_suffix"], env)),
+        m_new => vcat(ref[m_new], _ladder_word(pattern["m_suffix"], env)),
+        n_name => vcat(nref[1:1], _ladder_word(pattern["n_between"], env), nref[2:2]),
+        aname => _ladder_word(pattern["alpha0"], env),
+        bname => _ladder_word(pattern["beta0"], env),
+    )
+    touch = only(_ladder_word([pattern["old_touch"]], env))
+    ppos = findfirst(x -> abs(x) == abs(entry), lc.words[partner])
+    ppos === nothing && throw(LCMoveError(
+        :expansion, "partner visit missing", Dict("visit" => entry, "partner" => partner)))
+    # cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.4 — n meets the partner on the right bank of the m_g visit; reconstructed
+    gap = _parallel_after(entry > 0, "right") ? ppos + 1 : ppos
+    names = vcat(_component_names(lc), [l_new, m_new, n_name, aname, bname])
+    index = Dict(name => i for (i, name) in enumerate(names))
     before_frags = Vector{Vector{Int}}()
     after_frags = Vector{Vector{Int}}()
     locations = Tuple{Int,Int}[]
-    # Represent the whole-component rewrites as one fragment per changed component.
-    # Existing labels stay; the new K visit and the new handle crossings are fresh locals above them.
-    max_existing = maximum(vcat([0], abs.(reduce(vcat, values(shifted); init=Int[]))))
-    local_of = Dict(label => label for label in 1:max_existing)
-    next_local = max_existing + 1
-    function fresh()
-        label = next_local
-        next_local += 1
-        label
+    function push_frag(name, start, pre, post)
+        push!(locations, (index[name], start))
+        push!(before_frags, pre)
+        push!(after_frags, post)
     end
-    ln_local = fresh()
-    a_l = fresh()
-    b_m = fresh()
-    ab = fresh()
-    function replace_whole(name, new_word)
-        old = shifted[name]
-        push!(locations, (index[name], 1))
-        push!(before_frags, old)
-        push!(after_frags, new_word)
+    push_frag(lname, pos, Int[-g], Int[-g, new_signed])
+    push_frag(partner, gap, Int[], Int[touch])
+    for name in (l_new, m_new, n_name, aname, bname)
+        push_frag(name, 1, Int[], created_words[name])
     end
-    new_l = vcat(shifted[lname][1:pos], [-ln_local], shifted[lname][pos + 1:end])
-    replace_whole(lname, new_l)
-    # New components are not in the current code vector. The kernel cannot name them.
-    # Record them for the installer via extra, and also splice their crossings into existing words here.
-    extra_components = Dict{String,Vector{Int}}(
-        "l$(g + 1)" => [- (g + 1), a_l],
-        "m$(g + 1)" => [g + 1, b_m],
-        "n$g" => [ln_local, -(g + 1) == 0 ? 0 : -(fresh())],
+    extra = Dict{String,Any}(
+        "label_map" => forward,
+        "inverse_label_map" => backward,
+        "created_components" => [l_new, m_new, n_name, aname, bname],
+        "new_roles" => Dict{String,Symbol}(aname => :alpha, bname => :beta),
+        "disk" => disk,
+        "acted" => [lname, partner],
     )
-    # The n_g word must be [ln[g,g], -ln[g+1,g]]. ln[g+1,g] is a new K∩K label, not a fresh input label.
-    # Using fresh() above consumed a local that is not the constant label. Rebuild from the constant numbers
-    # after the kernel, in the installer. Here, refuse to pretend the constant numbers came from _vertex_maps.
-    throw(LCMoveError(
-        :label_policy,
-        "安定化の新しい K∩K ラベルは _vertex_maps の末尾追加では定数番号にならない",
-        Dict(
-            "needed" => "src/moves.jl::_vertex_maps に、pin した K ラベルと供給した新ラベル列を使う label_policy",
-            "genus" => g,
-            "new_ln" => new_ln,
-            "disk" => selections["disk"],
-        ),
-    ))
+    [_witness_from(input, row, names, locations, Int[], before_frags, after_frags,
+        collect(1:length(before_frags)); extra=extra)]
 end
 
 function _kind_ok(lc, kind, name)
@@ -1011,17 +1234,11 @@ function _kind_ok(lc, kind, name)
 end
 
 function _derived_digon(push_forward, cross_forward)
-    # Digon boundary runs against the face walk. The four catalog orientations
-    # are the four combinations of those two directions. One rule, not a search.
-    if push_forward && cross_forward
-        return [-1, 2], [1, -2]
-    elseif push_forward && !cross_forward
-        return [-2, 1], [-1, 2]
-    elseif !push_forward && cross_forward
-        return [1, -2], [2, -1]
-    else
-        return [2, -1], [-2, 1]
-    end
+    # cf: .research-scratch/PJ260922/261111-gpt-pro-review.md §4 — left-face table;
+    # checked against all 384 insertions on g1-base (48 opposite-sign passes).
+    key = string(push_forward ? "+" : "-", cross_forward ? "+" : "-")
+    entry = load_heegaard_moves()["shared"]["digon_left_face"][key]
+    Int.(entry["push"]), Int.(entry["cross"])
 end
 
 function _expand_face_edges(input, row, selections)
@@ -1040,16 +1257,19 @@ function _expand_face_edges(input, row, selections)
     k_kind = String(get(bindings, "K", "any"))
     witnesses = LCMoveWitness[]
     for face in faces
-        edges = NamedTuple{(:component, :position, :forward), Tuple{String,Int,Bool}}[]
-        for (label, sign, way) in face.corners
-            haskey(occ, label) && haskey(occ[label], sign) || continue
-            comp, pos0 = occ[label][sign]
-            push!(edges, (component=comp, position=pos0 + 1, forward=way == "out"))
-        end
+        # A place-only circle makes this region punctured; its side and the
+        # path around it are not encoded by two edge occurrences alone.
+        face.id in values(lc.places) && continue
+        edges = _move_left_boundary(active, occ, face)
         for push_edge in edges, cross_edge in edges
             push_edge.component == cross_edge.component && continue
             _kind_ok(lc, c_kind, push_edge.component) || continue
             _kind_ok(lc, k_kind, cross_edge.component) || continue
+            if input isa HeegaardLayer
+                a = get(input.roles, push_edge.component, nothing)
+                b = get(input.roles, cross_edge.component, nothing)
+                a !== nothing && a == b && continue
+            end
             c_pat, k_pat = _derived_digon(push_edge.forward, cross_edge.forward)
             fixed && (c_pat != fixed_c || k_pat != fixed_k) && continue
             c_len = length(lc.words[push_edge.component])
@@ -1061,6 +1281,8 @@ function _expand_face_edges(input, row, selections)
                 "face" => face.id,
                 "push" => push_edge.component,
                 "cross" => cross_edge.component,
+                "support" => Dict("kind" => "disk_band", "face" => face.id,
+                    "start" => collect(push_edge.corner), "finish" => collect(cross_edge.corner)),
             )
             push!(witnesses, _witness_from(
                 input, row, names,
@@ -1205,7 +1427,6 @@ end
 function move(input::Union{LickorishConfiguration,HeegaardLayer}, witness::LCMoveWitness)
     row = heegaard_move_row(witness.row_id)
     _refuse_marks(input, row)
-    get(witness.extra, "identity", false) && return LCMoveResult(input, witness, Dict{String,Any}("relation" => witness.relation, "identity" => true))
     _apply_witness(input, witness)
 end
 
@@ -1222,12 +1443,23 @@ function lc_text(lc::LickorishConfiguration)
     join(lines, "\n") * "\n"
 end
 
-function hc_text(hc::HeegaardLayer; lc_filename::AbstractString)
-    lines = String["lc : $lc_filename"]
-    for name in _component_names(hc.lc)
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/heegaard-code.md §5.1 — encoding はテキストの選択であり、役割も語も変えない
+function hc_text(hc::HeegaardLayer; lc_filename::AbstractString, encoding::Symbol=:auto)
+    validate_hc_input(hc)
+    encoding in (:auto, :standard, :explicit) || throw(ArgumentError("unknown HC encoding: $encoding"))
+    (isempty(lc_filename) || occursin(r"[\r\n#]", lc_filename) || isabspath(lc_filename)) &&
+        throw(ArgumentError("lc_filename must be a nonempty relative HC-safe path"))
+    aligned = is_standard(hc)
+    encoding == :standard && !aligned &&
+        throw(ArgumentError("cannot serialize a nonstandard binding as standard"))
+    compact = encoding != :explicit && aligned
+    lines = String["format : hc/2", "lc : $lc_filename"]
+    compact && push!(lines, "standard")
+    for name in hc_component_names(hc.lc)
         haskey(hc.roles, name) || continue
-        role = hc.roles[name] == :alpha ? "alpha" : hc.roles[name] == :beta ? "beta" : throw(LCMoveError(
-            :role, "role is not alpha or beta", Dict("component" => name, "role" => string(hc.roles[name]))))
+        compact && hc.roles[name] == :alpha && continue
+        role = hc.roles[name] == :alpha ? "alpha" : hc.roles[name] == :beta ? "beta" :
+            throw(ArgumentError("role is not alpha or beta"))
         push!(lines, "role $name : $role")
     end
     for name in sort(collect(keys(hc.disks)))
@@ -1249,9 +1481,10 @@ function write_lc(path::AbstractString, lc::LickorishConfiguration)
     path
 end
 
-function write_hc(path::AbstractString, hc::HeegaardLayer; lc_filename::AbstractString)
+function write_hc(path::AbstractString, hc::HeegaardLayer; lc_filename::AbstractString, encoding::Symbol=:auto)
+    text = hc_text(hc; lc_filename=lc_filename, encoding=encoding)
     open(path, "w") do io
-        write(io, hc_text(hc; lc_filename=lc_filename))
+        write(io, text)
     end
     path
 end

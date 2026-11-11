@@ -20,7 +20,19 @@
       "bindings": {"disk": "face", "k_identification": "ladder_end"},
       "applicability": ["disk_supplied", "genus_plus_one"],
       "inverse_id": "hc.stabilization.inverse",
-      "expansion": {"op": "k_inclusion", "genus_delta": 1, "identification": "ladder_end"},
+      "expansion": {
+        "op": "k_inclusion",
+        "genus_delta": 1,
+        "identification": "ladder_end",
+        "pattern": {
+          "alpha0": ["-A", "-C"],
+          "beta0": ["E", "C", "-B"],
+          "l_suffix": ["A"],
+          "m_suffix": ["B"],
+          "n_between": ["D", "-E"],
+          "old_touch": "-D"
+        }
+      },
       "label_policy": "k_constant_inclusion",
       "genus_delta": 1,
       "new_roles": {"alpha0": "alpha", "beta0": "beta"},

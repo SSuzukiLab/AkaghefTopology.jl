@@ -83,7 +83,7 @@ o-graph の用語は、研究リポジトリ基準の `lib/topology.jl/docs/spec
 
 LC は、向き付き閉連結曲面 S、基準曲線網 K、役割を持たない曲線の語と place を持つ。LC の読込と曲面の実現は土台だけで完結する。
 
-HC は LC に α・β の役割、disk などを加える。point と weight は HC に置く案を採る。HC の実現は、LC の実現に役割と追加行を載せたものである。Koda 変換の入口と出口は HC である。
+HC は LC に α・β の役割、disk などを加える。point と weight は HC に置く案を採る。HC の実現は、LC の実現に役割と追加行を載せたものである。公開型 `HeegaardDiagram` は `VirtualLink` と同格であり、HC はそのデータ層である。o-data は `VirtualLink` の表示である。Koda 変換が公開する射は、`HeegaardDiagram` からその o-data への写像である。境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。
 
 Koda §3 の Heegaard diagram は、閉連結向き付け可能曲面上の二つのコンパクトな横断的 1 次元部分多様体 α、β である。同族の曲線は互いに交わらない。曲線本数は任意である。joining union を備えるときは #α=#β が必要である。
 
@@ -91,7 +91,7 @@ normal o-graph の出力には branched standard spine を使う。一般の bra
 
 ### 2.2 工程ごとの契約
 
-次の関数名は草稿の公開境界である。型名とフィールド名も含め、確定後に Composer が実装する。
+次の関数名は、`HeegaardDiagram` から `VirtualLink` の o-data への射を段階に分けた草稿の工程名である。型名とフィールド名も含め、確定後に Composer が実装する。
 
 | 工程 | 入力 | 計算 | 出力 |
 |---|---|---|---|

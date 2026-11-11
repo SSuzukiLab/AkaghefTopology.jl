@@ -13,7 +13,7 @@ function _hc_compare_source()
     abspath(specified)
 end
 
-Base.include(Topology.Heegaard, _hc_compare_source())
+isdefined(Topology.Heegaard, :compare_hc) || Base.include(Topology.Heegaard, _hc_compare_source())
 import JSON
 
 const ROOT = pwd()

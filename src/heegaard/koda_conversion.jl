@@ -20,6 +20,7 @@ export LickorishConfiguration, HeegaardLayer, ForgottenHeegaard, CombinatorialPu
        enumerate_joining_disk_candidates, as_punctured_heegaard, heegaard_to_spine,
        odata_to_spine, spine_to_odata, spine_to_heegaard_koda,
        odata_to_heegaard_koda, mark_heegaard, odata_to_hc, hc_to_odata,
+       odata_to_virtual_link, virtual_link_to_odata,
        compare_odata_words, koda_table_decode, koda_hc_from_boundary, koda_forward_gauss_from_hc,
        spine_topology, spine_pi1_presentation, joining_disk_failure,
        KodaConversionResult, KodaInputError, KodaSpecificationPending, KodaImplementationError, KodaDomainExcluded, KodaNotComputed,

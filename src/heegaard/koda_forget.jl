@@ -52,6 +52,17 @@ function _curve_family(name::AbstractString, roles::Dict{String, Symbol})
     get(roles, name, :none)
 end
 
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/hc-standard.md §計算と忘却 — K_forget is the reference curves with no α/β role
+function _koda_reference_names_to_forget(genus::Integer, roles)
+    [name for name in _lc_k_names(genus) if !haskey(roles, name)]
+end
+
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/hc-standard.md §計算と忘却 — reference names, then the other component names in dictionary order
+function _koda_component_order(words, genus::Integer)
+    reference = _lc_k_names(genus)
+    vcat(reference, sort([name for name in keys(words) if !(name in reference)]))
+end
+
 function _ab_labels(words::AbstractDict, roles::Dict{String, Symbol})
     labels = Set{Int}()
     for (name, word) in words
@@ -71,7 +82,7 @@ function _ab_labels(words::AbstractDict, roles::Dict{String, Symbol})
     sort(collect(intersect(alpha, beta)))
 end
 
-function _crossing_records(words::AbstractDict, roles::Dict{String, Symbol}, occ)
+function _crossing_records(words::AbstractDict, roles::Dict{String, Symbol}, occ; order=nothing)
     out = Dict{String, Any}[]
     for label in _ab_labels(words, roles)
         plus = occ[label]["+"]
@@ -82,12 +93,12 @@ function _crossing_records(words::AbstractDict, roles::Dict{String, Symbol}, occ
         ai, bi = 0, 0
         if ra == :alpha && rb == :beta
             sign = 1
-            ai = _curve_index(words, roles, :alpha, ap)
-            bi = _curve_index(words, roles, :beta, an)
+            ai = _curve_index(words, roles, :alpha, ap; order=order)
+            bi = _curve_index(words, roles, :beta, an; order=order)
         elseif ra == :beta && rb == :alpha
             sign = -1
-            ai = _curve_index(words, roles, :alpha, an)
-            bi = _curve_index(words, roles, :beta, ap)
+            ai = _curve_index(words, roles, :alpha, an; order=order)
+            bi = _curve_index(words, roles, :beta, ap; order=order)
         else
             throw(KodaImplementationError(:forget_reference, "non-transverse crossing", Dict("label" => label)))
         end
@@ -97,8 +108,12 @@ function _crossing_records(words::AbstractDict, roles::Dict{String, Symbol}, occ
     out
 end
 
-function _curve_index(words, roles, fam::Symbol, name::AbstractString)
-    ids = sort([n for (n, _) in words if _curve_family(n, roles) == fam])
+function _curve_index(words, roles, fam::Symbol, name::AbstractString; order=nothing)
+    ids = if order === nothing
+        sort([n for (n, _) in words if _curve_family(n, roles) == fam])
+    else
+        [n for n in order if haskey(words, n) && _curve_family(n, roles) == fam]
+    end
     idx = findfirst(==(name), ids)
     idx === nothing && throw(KodaImplementationError(:forget_reference, "unknown curve", Dict("name" => name)))
     idx
@@ -128,7 +143,8 @@ function _region_boundary_ports(
     faces::Vector{LCFace},
     corner_face::Dict{LCCorner, String},
     occ,
-    k_names::Set{String},
+    k_names::Set{String};
+    order=nothing,
 )
     face_set = face_ids
     edges = Tuple{LCCorner, LCCorner, String}[]
@@ -183,7 +199,7 @@ function _region_boundary_ports(
             # of the arc. The arc direction is the first corner's word step.
             ports[end] = RegionPort(ports[end].curve, ports[end].family, ports[end].curve_id, ports[end].from_label, b, ports[end].word_step)
         else
-            cid = _curve_index(words, roles, fam, comp)
+            cid = _curve_index(words, roles, fam, comp; order=order)
             push!(ports, RegionPort(string(comp), fam, cid, a, b, step))
         end
     end
@@ -397,8 +413,8 @@ function _build_heegaard_from_combinatorial(forgot::ForgottenHeegaard)
     xs = forgot.crossings
     labels = [x["id"] for x in xs]
     pids = Dict(x => i for (i, x) in enumerate(labels))
-    anames = sort(collect(keys(forgot.alpha_words)))
-    bnames = sort(collect(keys(forgot.beta_words)))
+    anames = get(forgot.correspondence, "alpha_order", sort(collect(keys(forgot.alpha_words))))
+    bnames = get(forgot.correspondence, "beta_order", sort(collect(keys(forgot.beta_words))))
     α_curves = [
         Curve(:alpha, i, Int[pids[abs(x)] for x in forgot.alpha_words[name] if haskey(pids, abs(x))]; label = name)
         for (i, name) in enumerate(anames)
@@ -426,28 +442,56 @@ function _ribbon_joining_indices(h::HeegaardDiagram)
     idxs
 end
 
-function _ribbon_boundary_arcs(h::HeegaardDiagram, cycle::Vector{Int})
-    graph = ribbon_graph(h)
-    [(graph.edges[graph.darts[d].edge].family, graph.edges[graph.darts[d].edge].curve_id) for d in cycle]
+function _source_label_ids(h::HeegaardDiagram)
+    ids = Dict{Int, Int}()
+    for point in h.code.code.intersections
+        point.source_label === nothing && continue
+        label = tryparse(Int, point.source_label)
+        label === nothing && continue
+        ids[label] = point.id
+    end
+    ids
 end
 
-"""Match §5.2 combinatorial boundary ports to a ribbon complement region."""
+"""Consecutive darts of one curve are one boundary arc. A cycle that starts
+mid-arc splits that arc across the two ends; those two runs are the same arc."""
+function _ribbon_boundary_runs(h::HeegaardDiagram, cycle::Vector{Int})
+    graph = ribbon_graph(h)
+    runs = Tuple{Symbol, Int, Int, Int}[]
+    for dart_id in cycle
+        dart = graph.darts[dart_id]
+        edge = graph.edges[dart.edge]
+        if !isempty(runs) && runs[end][1] == edge.family && runs[end][2] == edge.curve_id
+            prev = runs[end]
+            runs[end] = (prev[1], prev[2], prev[3], dart.target)
+        else
+            push!(runs, (edge.family, edge.curve_id, dart.origin, dart.target))
+        end
+    end
+    if length(runs) > 1 &&
+       runs[1][1] == runs[end][1] && runs[1][2] == runs[end][2] &&
+       runs[end][4] == runs[1][3]
+        last = runs[end]
+        first = runs[1]
+        runs[1] = (first[1], first[2], last[3], first[4])
+        pop!(runs)
+    end
+    runs
+end
+
+"""Same curve is not the same arc. The corners have to be the same α∩β points."""
 function _ribbon_cycle_matches_ports(h::HeegaardDiagram, cycle::Vector{Int}, ports::Vector{RegionPort})
-    arcs = _ribbon_boundary_arcs(h, cycle)
-    length(arcs) == length(ports) || return false
-    expected = [(p.family, p.curve_id) for p in ports]
-    for k in 0:(length(arcs) - 1)
-        rotated = circshift(arcs, -k)
-        rotated == expected && return true
+    runs = _ribbon_boundary_runs(h, cycle)
+    length(runs) == length(ports) || return false
+    labels = _source_label_ids(h)
+    expected = Tuple{Symbol, Int, Int, Int}[]
+    for port in ports
+        from_id = get(labels, port.from_label, nothing)
+        to_id = get(labels, port.to_label, nothing)
+        (from_id === nothing || to_id === nothing) && return false
+        push!(expected, (port.family, port.curve_id, from_id, to_id))
     end
-    port_keys = [(p.family, p.curve_id) for p in ports]
-    length(arcs) == length(port_keys) || return false
-    for key in unique(port_keys)
-        hits = [i for (i, a) in enumerate(arcs) if a == key]
-        length(hits) == 1 || return false
-        !_contiguous_on_cycle(hits, length(arcs)) && return false
-    end
-    sort(arcs) == sort(port_keys)
+    any(k -> circshift(runs, k) == expected, 0:(length(runs) - 1))
 end
 
 function _find_ribbon_joining_disk(h::HeegaardDiagram, region::CombinatorialRegion)
@@ -483,8 +527,9 @@ function forget_reference(realized::KodaConversionResult)
     roles = get(doc, "roles_applied", Dict{String, Symbol}())
     isempty(roles) && (roles = get(realized.correspondence, "roles_applied", Dict{String, Symbol}()))
     g = lc.genus
-    k_names = _lc_k_names(g)
+    k_names = _koda_reference_names_to_forget(g, roles)
     words = lc.words
+    order = _koda_component_order(words, g)
     occ = realization.occurrence
     groups = _merge_faces_forget(realization, k_names)
     regions = CombinatorialRegion[]
@@ -499,7 +544,8 @@ function forget_reference(realized::KodaConversionResult)
             realization.faces,
             realization.corner_face,
             realization.occurrence,
-            Set(k_names),
+            Set(k_names);
+            order=order,
         )
         chi, h, b = _region_topology(length(face_ids), ports)
         region = CombinatorialRegion(rid, face_ids, chi, h, b, ports, false)
@@ -516,8 +562,14 @@ function forget_reference(realized::KodaConversionResult)
     end
     αw = Dict(n => copy(words[n]) for n in keys(words) if _curve_family(n, roles) == :alpha)
     βw = Dict(n => copy(words[n]) for n in keys(words) if _curve_family(n, roles) == :beta)
-    crossings = _crossing_records(words_active, roles, occ)
-    forgot = ForgottenHeegaard(g, realization, αw, βw, crossings, regions, nothing, Dict{String, Any}())
+    crossings = _crossing_records(words_active, roles, occ; order=order)
+    role_map = Dict{String, Any}(
+        "alpha_order" => [n for n in order if get(roles, n, :none) == :alpha],
+        "beta_order" => [n for n in order if get(roles, n, :none) == :beta],
+        "forgotten_reference" => k_names,
+        "retained_reference" => [n for n in _lc_k_names(g) if haskey(roles, n)],
+    )
+    forgot = ForgottenHeegaard(g, realization, αw, βw, crossings, regions, nothing, role_map)
     ribbon_map = Dict{Int, Int}()
     diagram_build_error = nothing
     try
@@ -527,7 +579,7 @@ function forget_reference(realized::KodaConversionResult)
     catch err
         diagram_build_error = sprint(showerror, err)
     end
-    corr = Dict(
+    corr = merge(copy(role_map), Dict(
         "regions" => [
             Dict(
                 "id" => r.id,
@@ -541,7 +593,7 @@ function forget_reference(realized::KodaConversionResult)
         "crossings" => length(crossings),
         "ribbon_joining_map" => ribbon_map,
         "diagram_build_error" => diagram_build_error,
-    )
+    ))
     ForgottenHeegaard(forgot.genus, forgot.realization, forgot.alpha_words, forgot.beta_words, forgot.crossings, forgot.regions, forgot.diagram, corr)
 end
 

@@ -78,6 +78,28 @@ function _non_disk_sector(spine::FlowSpine)
     nothing
 end
 
+# cf: lib/topology.jl/src/virtual_link.jl set_data! — store the o-graph Gauss code and vertex signs on a VirtualLink
+function odata_to_virtual_link(G::OData)
+    T = parentmodule(@__MODULE__)
+    link = T.VirtualLink()
+    T.set_data!(link; rgauss=deepcopy(G.gauss), orientation=copy(G.orientation))
+    link
+end
+
+# cf: lib/topology.jl/src/virtual_link.jl VirtualLink — gauss and orientation are the stored o-data presentation
+function virtual_link_to_odata(link)
+    T = parentmodule(@__MODULE__)
+    link isa T.VirtualLink || throw(KodaInputError(
+        :virtual_link_to_odata,
+        "expected a VirtualLink",
+        Dict(),
+    ))
+    OData(deepcopy(link.gauss), copy(link.orientation), Dict{String, Any}(
+        "representation" => "normal-o-graph",
+        "source" => "VirtualLink",
+    ))
+end
+
 function spine_to_odata(spine::FlowSpine)
     if get(spine.complex.checks, "vertex_free", false) || isempty(spine.vertex_signs)
         koda_not_computed(:spine_to_odata, :vertex_free_odata_not_encoded, Dict{String, Any}(

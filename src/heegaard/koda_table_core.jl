@@ -260,8 +260,8 @@ function _koda_word_vectors_from_dict(alpha_words, beta_words)
 end
 
 function _koda_word_vectors_from_forgot(forgot::ForgottenHeegaard)
-    anames = sort(collect(keys(forgot.alpha_words)))
-    bnames = sort(collect(keys(forgot.beta_words)))
+    anames = get(forgot.correspondence, "alpha_order", sort(collect(keys(forgot.alpha_words))))
+    bnames = get(forgot.correspondence, "beta_order", sort(collect(keys(forgot.beta_words))))
     α = [collect(forgot.alpha_words[n]) for n in anames]
     β = [collect(forgot.beta_words[n]) for n in bnames]
     α, β

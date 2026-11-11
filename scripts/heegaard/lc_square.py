@@ -47,5 +47,11 @@ def place_square(data):
             owners[f'{c}#{j}']=c
             doc['crossing_structure'][f'{c}#{j}']=[next(x for x in words[c] if abs(x)==m) for m in a['mids']]
     attach_crossing_knots(doc,arcs,owners,lambda face,p:p)
+    # cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md 現行ソースを見て必要になった修正 — 上下 l1・左右 m1 は上で作った cuts
+    doc['reference_curves']={
+        'l1':[dict(points=[list(p) for p in cuts[0]],closed=False),
+              dict(points=[list(p) for p in cuts[1]],closed=False)],
+        'm1':[dict(points=[list(p) for p in cuts[2]],closed=False),
+              dict(points=[list(p) for p in cuts[3]],closed=False)]}
     return doc,'',dict(methods=methods,arcs=arcs,tutte=meshes,intervals=intervals,cuts=cuts,
                        holes=[],map_point=lambda face,p:p)

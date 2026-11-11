@@ -8,6 +8,8 @@ Scope: Lickorish Code に Heegaard 固有の情報を加える形式と入力検
 
 HeegaardCode（HC）は、Lickorish Code（LC）に α・β の役割、joining disk などを加えたデータである。数学の対象は Heegaard diagram と呼ぶ。語と `place` は [LC 仕様](lickorish-code.md) が定める。用語は [用語正本](heegaard-terminology.md)、spine との相互変換は [Koda 変換仕様](heegaard-koda-conversion.md) が定める。
 
+公開型 `HeegaardDiagram` は `VirtualLink` と同格である。HC は、その図式が持つデータ層である。o-data は `VirtualLink` の表示であり、Koda 変換は `HeegaardDiagram` からその o-data への射である。境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。
+
 HC は LC を一つ持つ。LC に含まれる K 以外の成分へ、HC が α・β の役割を与える。LC の成分名は文字列として扱う。たとえば LC の `alpha1` という名前も、LC 単独では役割を指定しない。
 
 本書の形式は、HC が使う LC の非 K 成分すべてに α または β の役割を明示する形式である。追加の無役割の曲線を表示したい場合は LC の表示として扱う。HC の数学的対象に使う曲線集合が、形式から一意に決まる。

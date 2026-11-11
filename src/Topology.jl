@@ -6,7 +6,7 @@ using GLPK
 using Graphs
 import AkaghefAlgebra
 
-export URDiagram, VirtualLink, lens_space_rgauss, lens_space_link,
+export URDiagram, VirtualLink, HeegaardDiagram, lens_space_rgauss, lens_space_link,
        framed_lens_space_input, framed_lens_space_link, framed_lens_space_series,
        SymExpr, sym,
        LaurentPolynomial, LaurentRational, laurent_variable, laurent_variables, evaluate, limit_zero,
@@ -210,6 +210,20 @@ end
 
 export Heegaard
 include("heegaard/Heegaard.jl")
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — 公開 HeegaardDiagram は解決済み HC（struct HeegaardLayer）と同じ型。standard は α の支持を既存の m に束縛する入力略記であり、別型ではない
+# cf: lib/topology.jl/src/heegaard/hc_compare.jl::compare_hc — same word, same homology, and move-equivalence
+# cf: lib/topology.jl/docs/specs/heegaard-diagram.md — one resolved diagram; these names are the existing operations
+using .Heegaard: HeegaardLayer, draw_heegaard, compare_hc, validate_diagram,
+    hc_intersection, hc_first_homology, hc_to_odata, is_standard
+const HeegaardDiagram = HeegaardLayer
+move(diagram::HeegaardDiagram, witness::Heegaard.LCMoveWitness) =
+    Heegaard.move(diagram, witness)
+movable(diagram::HeegaardDiagram, row::AbstractDict; kwargs...) =
+    Heegaard.movable(diagram, row; kwargs...)
+movable(diagram::HeegaardDiagram, row_id::AbstractString; kwargs...) =
+    Heegaard.movable(diagram, row_id; kwargs...)
+export draw_heegaard, compare_hc, validate_diagram, is_standard,
+    hc_intersection, hc_first_homology, hc_to_odata
 include("kuperberg_invariant.jl")
 export Z_Kuperberg, KuperbergTensorExpression
 

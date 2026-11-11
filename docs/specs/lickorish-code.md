@@ -27,7 +27,7 @@ Heegaard diagramに与える。α∩β の交点語だけでは固定曲面上�
 
 HeegaardCode（HC）は LC に α・β の役割、`disk` などを加える上の層である。基点 `point` と領域係数 `weight` は、所有者の確定に従って HC に置く。支持と書式は HC 仕様 §3 に定める。語と `place` は LC、役割と `disk` は HC という区別は確定している。
 
-曲線の実現と §6 の配置は LC が定める。数学の対象は Heegaard diagram と呼ぶ。HC の形式と追加の入力条件は [HC 仕様](heegaard-code.md) が定める。ベクトル場、twist front、framing は、これらに付随する別の構造として扱う。
+曲線の実現と §6 の配置は LC が定める。数学の対象は Heegaard diagram と呼ぶ。公開型 `HeegaardDiagram` は `VirtualLink` と同格である。o-data は `VirtualLink` の表示であり、Koda 変換は `HeegaardDiagram` からその o-data への射である。境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。HC の形式と追加の入力条件は [HC 仕様](heegaard-code.md) が定める。ベクトル場、twist front、framing は、これらに付随する別の構造として扱う。
 
 ### 1.2 検証の方針（所有者決定、2026-11-07）
 
@@ -101,6 +101,9 @@ Lickorish Code は、K の曲線と入力曲線を成分とする、向き付き
 型としては既存の `VirtualLink(gauss, orientation)` が曲線の語をそのまま持てる
 （`gauss::Vector{Vector{Int}}`, `orientation` は全て `+1`）。`real_only` の
 planarization 経路は使わない。
+<!-- XQQQ1500000 -->
+この配列は曲線の語の保存である。公開型は `HeegaardDiagram` であり、`VirtualLink` と同格である。Koda 変換は `HeegaardDiagram` から `VirtualLink` の o-data への射である。
+<!-- XQQQ1000000 -->
 
 <!-- XQQQ1300000 -->
 ### 3.1 交点を持たない曲線と place
