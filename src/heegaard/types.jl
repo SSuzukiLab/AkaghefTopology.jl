@@ -188,106 +188,11 @@ struct Port
     point::NTuple{2,Float64}
 end
 
-abstract type RouteCurve end
-
-struct PolylineCurve <: RouteCurve
-    points::Vector{NTuple{2,Float64}}
-    function PolylineCurve(points::AbstractVector)
-        normalized = [(Float64(point[1]), Float64(point[2])) for point in points]
-        length(normalized) >= 2 || throw(ArgumentError("a route curve needs at least two points"))
-        all(isfinite(point[1]) && isfinite(point[2]) for point in normalized) ||
-            throw(ArgumentError("route curve contains a non-finite point"))
-        new(normalized)
-    end
-end
-
-struct CubicBezierSegment
-    p0::NTuple{2,Float64}
-    p1::NTuple{2,Float64}
-    p2::NTuple{2,Float64}
-    p3::NTuple{2,Float64}
-    function CubicBezierSegment(points::NTuple{4,NTuple{2,Float64}})
-        all(isfinite(point[1]) && isfinite(point[2]) for point in points) ||
-            throw(ArgumentError("Bezier segment contains a non-finite point"))
-        new(points...)
-    end
-end
-
-function CubicBezierSegment(p0::AbstractVector, p1::AbstractVector,
-                            p2::AbstractVector, p3::AbstractVector)
-    CubicBezierSegment((_point2(p0), _point2(p1), _point2(p2), _point2(p3)))
-end
-
-struct BezierChain <: RouteCurve
-    segments::Vector{CubicBezierSegment}
-    flatness::Float64
-    max_depth::Int
-    function BezierChain(segments::AbstractVector{<:CubicBezierSegment};
-                         flatness=1e-4, max_depth=20)
-        normalized = collect(segments)
-        isempty(normalized) && throw(ArgumentError("Bezier chain needs at least one segment"))
-        tolerance = Float64(flatness)
-        tolerance > 0 && isfinite(tolerance) || throw(ArgumentError("Bezier flatness must be positive and finite"))
-        depth = Int(max_depth)
-        depth >= 1 || throw(ArgumentError("Bezier max_depth must be positive"))
-        for index in 1:length(normalized)-1
-            normalized[index].p3 == normalized[index + 1].p0 ||
-                throw(ArgumentError("Bezier chain segments are not endpoint-continuous"))
-        end
-        new(normalized, tolerance, depth)
-    end
-end
-
 struct WiringProblem
     diagram_hash::String
     boxes::Vector{Int}
     ports::Vector{Port}
     wires::Vector{NamedTuple{(:beta_id, :from_port, :to_port),Tuple{Int,Int,Int}}}
-end
-
-struct Route
-    family::Symbol
-    curve_id::Int
-    segment_id::Int
-    start_port::Union{Nothing,Int}
-    end_port::Union{Nothing,Int}
-    points::Vector{NTuple{2,Float64}}
-    curve::RouteCurve
-
-    function Route(family::Symbol, curve_id::Integer, segment_id::Integer,
-                   start_port::Union{Nothing,Integer}, end_port::Union{Nothing,Integer},
-                   points::Vector{NTuple{2,Float64}}, curve::RouteCurve)
-        new(family, Int(curve_id), Int(segment_id),
-            start_port === nothing ? nothing : Int(start_port),
-            end_port === nothing ? nothing : Int(end_port), points, curve)
-    end
-end
-
-function Route(family::Symbol, curve_id::Integer, segment_id::Integer,
-               start_port, end_port, points::AbstractVector; curve=nothing)
-    normalized = [(Float64(point[1]), Float64(point[2])) for point in points]
-    actual = curve === nothing ? PolylineCurve(normalized) : curve
-    flattened = curve === nothing ? normalized : _flatten_curve(actual)
-    normalized == flattened || throw(ArgumentError("route points do not match its curve representation"))
-    Route(family, curve_id, segment_id, start_port, end_port, flattened, actual)
-end
-
-struct LayoutValidationReport
-    valid::Bool
-    issues::Vector{ValidationIssue}
-    checks::Dict{Symbol,Bool}
-end
-
-struct HeegaardLayout
-    diagram_hash::String
-    view::Symbol
-    chart::Dict{String,Any}
-    punctures::Vector{Puncture}
-    ports::Vector{Port}
-    routes::Vector{Route}
-    crossings::Vector{Tuple{Int,Int}}
-    backend_trace::Dict{String,Any}
-    report::LayoutValidationReport
 end
 
 struct MoveCertificate

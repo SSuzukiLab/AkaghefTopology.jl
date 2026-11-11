@@ -1,5 +1,9 @@
 # Joining disk and abalone smoke example
 
+> The drawing, app and marked-document parts below (`H.plot`, `H.surface_chart`,
+> layouts, `/surface*.html`) describe code removed on 2026-11-11; see
+> `IMPLEMENTATION-STATUS.md`. The joining-disk and Koda conversion parts are current.
+
 ## Koda executable complex and app integration (2026-09-22)
 
 `to_flow_spine(ph).complex` now contains oriented sector attaching words,

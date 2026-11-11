@@ -1,5 +1,36 @@
 # Heegaard subsystem implementation status
 
+## Legacy drawing and marked family removed (2026-11-11)
+
+The pre-Lickorish-Code subsystems were deleted from the tree. They were written
+on the `codex/heegaard-*` branches from 2026-08-26 to 2026-10-30 and promoted
+to `main` in `9d8a35f`. The last commit that contains them is `3d25011`;
+read or restore them from there.
+
+- Old layout and drawing: `layout`, `mechanical_relaxation`, `feasible_router`,
+  `planar_embedding`, `layout_transport`, `automatic_layout`, `plot_relaxation`,
+  `render`, `surface_chart`, `surface_chart_render`, `joining_disk_layout`,
+  `marked_display_plot`. This removes `Heegaard.plot`, `render`,
+  `layout_heegaard`, `smooth_layout` and the layout types (`HeegaardLayout`,
+  `Route`, `RouteCurve`, `PolylineCurve`, `BezierChain`).
+- Marked family: `marked_*`, `cellulated_conversion`,
+  `vendor/marked_surface_diagrams`, and the marked document format in
+  `load_heegaard`/`save_heegaard`.
+- Old o-data reverse `to_heegaard(::OData)` (`ograph_reverse.jl`). The
+  reverse direction is `odata_to_heegaard_koda` (`koda_reverse.jl`).
+- Their tests, `examples/HeegaardInput.jl`, the Python display pipeline under
+  `scripts/heegaard/` (marked, periodic and exterior-face scripts), and the
+  Poincaré layout fixture.
+
+Kept: the old core type `HeegaardDiagram` with its schema, validation, moves and
+`cut_surface.jl`, because the Koda forward conversion and Lescop still use it.
+`lickorish_reference(g)` keeps only the K transcription of Ahara–Sakasai
+Fig. 12.3; the marked surface it used to build is gone, and its genus is now
+checked by V − E + F = 2 − 2g. Its crossings and curve words for g = 1..6 are
+identical to `3d25011`.
+
+Sections below describe the removed code as it was; they are history.
+
 ## Constructive marked-operation checkpoint (2026-10-26)
 
 The native whole-cellulation API now constructs empty-triangle and exact

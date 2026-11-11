@@ -33,7 +33,7 @@ function surface_genus(object)
         a,b=owner[2e.id-1],owner[2e.id]
         push!(get!(adj,a,Set{Int}()),b);push!(get!(adj,b,Set{Int}()),a)
     end
-    length(MarkedSurfaceDiagrams.components(eachindex(blocks),adj))==1 ||
+    length(_components(eachindex(blocks),adj))==1 ||
         throw(ArgumentError("the decorated ribbon surface is disconnected"))
     iseven(2 - χ) || throw(ArgumentError("reconstructed surface has non-integral genus"))
     genus = (2 - χ) ÷ 2
@@ -75,7 +75,7 @@ function _ribbon_family_compression(object,role::Symbol)
         a,b=owner[2e.id-1],owner[2e.id]
         push!(get!(adj,a,Set{Int}()),b);push!(get!(adj,b,Set{Int}()),a)
     end
-    groups=MarkedSurfaceDiagrams.components(eachindex(blocks),adj)
+    groups=_components(eachindex(blocks),adj)
     membership=Dict(r=>i for (i,rs) in enumerate(groups) for r in rs)
     curves=role==:alpha ? code.alpha : code.beta
     sides=[Tuple{Int,Symbol}[] for _ in groups]
@@ -119,4 +119,22 @@ function compression_boundary_report(object)
        alpha_complete, beta_complete,
        closed=alpha_spherical && beta_spherical,alpha,beta,
        method="genus-zero regions glued across transverse edge strips, then capped")
+end
+
+"Connected components of `nodes` under the adjacency `adj`, as sets."
+function _components(nodes,adj)
+    unseen=Set(nodes);out=Set{eltype(nodes)}[]
+    while !isempty(unseen)
+        seed=minimum(unseen);delete!(unseen,seed);comp=Set([seed]);stack=[seed]
+        while !isempty(stack)
+            v=pop!(stack)
+            for w in get(adj,v,())
+                if w in unseen
+                    delete!(unseen,w);push!(comp,w);push!(stack,w)
+                end
+            end
+        end
+        push!(out,comp)
+    end
+    out
 end
