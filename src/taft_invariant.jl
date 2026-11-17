@@ -52,7 +52,9 @@ end
 evaluate_invariant(x::MSTTensorExpression)=_contract(copy(x.factors))
 
 function _canonical_taft(H::FiniteHopfAlgebra{TaftKind{N,M,S}}) where {N,M,S}
-    prototype=get(_UQSL2_BOREL_CACHE,(M//N,S),nothing)
+    # cf:hopf_invariant.jl _UQSL2_BOREL_CACHE — owned by the algebra's defining module, including split-module layouts.
+    cache=getfield(parentmodule(FiniteHopfAlgebra),:_UQSL2_BOREL_CACHE)
+    prototype=get(cache,(M//N,S),nothing)
     prototype!==nothing && H.dimension==prototype.dimension && all(name->begin
         a=getfield(H,name); b=getfield(prototype,name)
         a.variables==b.variables && a.terms==b.terms

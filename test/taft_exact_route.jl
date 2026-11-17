@@ -19,6 +19,14 @@ import AkaghefAlgebra
     @test_throws ArgumentError hopf_invariant(fractional,1//5)
     h=uqsl2_borel_small(1//5)
     @test hopf_invariant(v,h)==q^-1
+    # cf:src/taft_invariant.jl invariant_expression, Z_MST — finite data must reach the staged exact path across module boundaries.
+    @test Z_MST(v,h)==Z_MST(v,TaftAlgebra(5))
+    staged=simplify_invariant(invariant_expression(v,h);strategy=:qa)
+    @test evaluate_invariant(staged,5)==q^-1
+    h2=uqsl2_borel_small(2//5)
+    @test Z_MST(v,h2)==q^-2
+    @test Z_MST(v,h2) isa Cyclotomic{5,2}
+    @test hopf_invariant(v,h2;method=:exact)==q^-2
     @test ComplexF64(hopf_invariant(v,h))≈hopf_invariant(v,h;method=:numeric)
     empty!(h.positive_vertex.terms)
     @test hopf_invariant(v,h)==0
