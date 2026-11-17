@@ -25,6 +25,7 @@ end
 # Untagged user-built algebras retain the generic tensor contraction path.
 FiniteHopfAlgebra(args...) = FiniteHopfAlgebra{Nothing}(args...)
 struct TaftKind{N,M,Style} end
+struct GroupAlgebraKind end
 
 _sparse_data(terms)=SparseFactor(Int[],terms)
 

@@ -118,7 +118,7 @@ function _make_hopf_algebra(dimension,multiplication,unit,coproduct,counit,antip
         _sparse_data(left_cointegral))
 end
 
-"""Construct the complex group Hopf algebra from a finite multiplication table.
+"""Construct the integer-coefficient group Hopf algebra from a finite multiplication table.
 
 `table[i,j] == k` means that the product of basis elements `i` and `j` is
 basis element `k`. The table must describe a group; closure, a two-sided
@@ -144,8 +144,8 @@ function group_algebra(table::AbstractMatrix{<:Integer})
         length(candidates)==1 || throw(ArgumentError("group element $i has no unique two-sided inverse"))
         inverses[i]=only(candidates)
     end
-    multiplication=Dict{Tuple,ComplexF64}()
-    coproduct=Dict{Tuple,ComplexF64}(); antipode=Dict{Tuple,ComplexF64}()
+    multiplication=Dict{Tuple,BigInt}()
+    coproduct=Dict{Tuple,BigInt}(); antipode=Dict{Tuple,BigInt}()
     for i in 1:order,j in 1:order
         multiplication[(i,j,values[i,j])]=1
     end
@@ -153,12 +153,13 @@ function group_algebra(table::AbstractMatrix{<:Integer})
         coproduct[(i,i,i)]=1
         antipode[(inverses[i],i)]=1
     end
-    unit=Dict{Tuple,ComplexF64}((identity,)=>1)
-    counit=Dict{Tuple,ComplexF64}((i,)=>1 for i in 1:order)
-    positive,negative=_vertex_constants(multiplication,coproduct,antipode)
-    integral=Dict{Tuple,ComplexF64}((identity,)=>1)
-    cointegral=Dict{Tuple,ComplexF64}((i,)=>1 for i in 1:order)
-    FiniteHopfAlgebra(order,_sparse_data(multiplication),_sparse_data(unit),
+    unit=Dict{Tuple,BigInt}((identity,)=>1)
+    counit=Dict{Tuple,BigInt}((i,)=>1 for i in 1:order)
+    positive=Dict{Tuple,BigInt}((values[a,b],b,a,b)=>1 for a in 1:order,b in 1:order)
+    negative=Dict{Tuple,BigInt}((values[a,inverses[b]],b,a,b)=>1 for a in 1:order,b in 1:order)
+    integral=Dict{Tuple,BigInt}((identity,)=>1)
+    cointegral=Dict{Tuple,BigInt}((i,)=>1 for i in 1:order)
+    FiniteHopfAlgebra{GroupAlgebraKind}(order,_sparse_data(multiplication),_sparse_data(unit),
         _sparse_data(coproduct),_sparse_data(counit),_sparse_data(positive),
         _sparse_data(negative),_sparse_data(antipode),_sparse_data(integral),
         _sparse_data(cointegral),_sparse_data(integral),_sparse_data(cointegral))
