@@ -83,7 +83,7 @@ weakdeps = ["SparseArrays", "StaticArrays"]
     AdaptStaticArraysExt = "StaticArrays"
 
 [[AkaghefAlgebra]]
-deps = ["AbstractAlgebra", "LinearAlgebra", "SparseArrays", "Symbolics"]
+deps = ["AbstractAlgebra", "Graphs", "LinearAlgebra", "SparseArrays", "Symbolics"]
 path = "../algebra.jl"
 uuid = "7b3f2a9e-4c1d-4e8a-9f6b-2d5a7c1e8b04"
 version = "0.0.1-dev"

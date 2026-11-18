@@ -10,6 +10,10 @@
 
 Taft 固有の型・移行・受入条件は [要件書](../../../threads/PJ260830/docs/reports/260909_mst_interface_requirements.md) に置く。
 
+<!-- XQQQ1500000 -->
+厳密な局所構造定数を使う評価は、`Topology.mst_network(v, adapter)` で閉ネットワークを構築し、`AkaghefAlgebra.FiniteFactorEvaluation.contract` で縮約する。`Topology.kp_adapter()` は Kac–Paljutkin Hopf 代数の有理係数の局所写像を返す。`Topology.group_adapter(H)` は有限群環の整数係数を読み取る。既存の正負頂点と辺の規約を使い、共通の有限因子評価器へ渡す明示的な入口である。
+<!-- XQQQ1000000 -->
+
 U(R) は `Z_MST(v, URAlgebra())` で厳密有理数を返す。
 構築・簡約化・評価は同じ共通APIに接続し、URDiagramには依存しない。
 対応範囲と規約は [U(R) backend](260909_ur_mst.md) を参照する。

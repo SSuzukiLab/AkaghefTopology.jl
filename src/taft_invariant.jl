@@ -121,3 +121,4 @@ export Z_MST, TaftAlgebra, Cyclotomic, RootSpec, invariant_expression,
        specified_root, canonical_value, with_root, taft_reduce, taft_evaluate
 
 include("group_mst.jl")
+include("local_hopf_adapter.jl")
