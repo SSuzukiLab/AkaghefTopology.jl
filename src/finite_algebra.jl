@@ -196,54 +196,58 @@ _kp_index(x,y,z)=1+x+2y+4z
 _kp_bits(index)=((index-1)&1,(index-1)>>1&1,(index-1)>>2&1)
 
 """Multiply basis elements `x^a*y^b*z^c` of the Kac–Paljutkin algebra H8."""
-function _kp_basis_product(left::Int,right::Int)
+function _kp_basis_product(left::Int,right::Int,::Type{T}=ComplexF64) where T
     a,b,c=_kp_bits(left); d,e,f=_kp_bits(right)
     # z*x=y*z and z*y=x*z, so a left z swaps the x/y powers on its right.
     p=xor(a,c==1 ? e : d); q=xor(b,c==1 ? d : e)
     if c+f<2
-        return Dict(_kp_index(p,q,c+f)=>1.0+0im)
+        return Dict(_kp_index(p,q,c+f)=>one(T))
     end
     # 2z^2=1+x+y-xy.
     Dict(
-        _kp_index(p,q,0)=>0.5+0im,
-        _kp_index(xor(p,1),q,0)=>0.5+0im,
-        _kp_index(p,xor(q,1),0)=>0.5+0im,
-        _kp_index(xor(p,1),xor(q,1),0)=>-0.5+0im,
+        _kp_index(p,q,0)=>one(T)/2,
+        _kp_index(xor(p,1),q,0)=>one(T)/2,
+        _kp_index(p,xor(q,1),0)=>one(T)/2,
+        _kp_index(xor(p,1),xor(q,1),0)=>-one(T)/2,
     )
 end
 
-function _kp_tensor_product(left::Dict{Tuple{Int,Int},ComplexF64},
-                            right::Dict{Tuple{Int,Int},ComplexF64})
-    result=Dict{Tuple{Int,Int},ComplexF64}()
+function _kp_tensor_product(left::Dict{Tuple{Int,Int},T},
+                            right::Dict{Tuple{Int,Int},T}) where T
+    result=Dict{Tuple{Int,Int},T}()
     for ((l1,r1),v1) in left,((l2,r2),v2) in right
-        for (lo,lv) in _kp_basis_product(l1,l2),(ro,rv) in _kp_basis_product(r1,r2)
+        for (lo,lv) in _kp_basis_product(l1,l2,T),(ro,rv) in _kp_basis_product(r1,r2,T)
             key=(lo,ro); result[key]=get(result,key,0)+v1*v2*lv*rv
         end
     end
-    filter!(pair -> abs(last(pair))>1e-12,result)
+    approximate=T<:Union{AbstractFloat,Complex{<:AbstractFloat}}
+    filter!(pair -> approximate ? abs(last(pair))>1e-12 : !iszero(last(pair)),result)
     result
 end
 
-"""Eight-dimensional Kac–Paljutkin Hopf algebra in MATLAB's `[1,x,y,xy,z,xz,yz,xyz]` basis."""
-function kac_paljutkin_algebra()
+"""Local structure constants of H8 in `[1,x,y,xy,z,xz,yz,xyz]` order.
+
+cf:src/finite_algebra.jl @ b224700, kac_paljutkin_algebra — same local definition, now parameterized independently of numerical integrals.
+"""
+function _kp_structure_constants(::Type{T}=ComplexF64) where T
     dimension=8
-    multiplication=Dict{Tuple,ComplexF64}()
-    for left in 1:dimension,right in 1:dimension,(output,value) in _kp_basis_product(left,right)
+    multiplication=Dict{Tuple,T}()
+    for left in 1:dimension,right in 1:dimension,(output,value) in _kp_basis_product(left,right,T)
         multiplication[(left,right,output)]=value
     end
 
-    delta_x=Dict((_kp_index(1,0,0),_kp_index(1,0,0))=>1.0+0im)
-    delta_y=Dict((_kp_index(0,1,0),_kp_index(0,1,0))=>1.0+0im)
+    delta_x=Dict((_kp_index(1,0,0),_kp_index(1,0,0))=>one(T))
+    delta_y=Dict((_kp_index(0,1,0),_kp_index(0,1,0))=>one(T))
     delta_z=Dict(
-        (_kp_index(0,0,1),_kp_index(0,0,1))=>0.5+0im,
-        (_kp_index(1,0,1),_kp_index(0,0,1))=>0.5+0im,
-        (_kp_index(0,0,1),_kp_index(0,1,1))=>0.5+0im,
-        (_kp_index(1,0,1),_kp_index(0,1,1))=>-0.5+0im,
+        (_kp_index(0,0,1),_kp_index(0,0,1))=>one(T)/2,
+        (_kp_index(1,0,1),_kp_index(0,0,1))=>one(T)/2,
+        (_kp_index(0,0,1),_kp_index(0,1,1))=>one(T)/2,
+        (_kp_index(1,0,1),_kp_index(0,1,1))=>-one(T)/2,
     )
-    coproduct=Dict{Tuple,ComplexF64}()
+    coproduct=Dict{Tuple,T}()
     for source in 1:dimension
         a,b,c=_kp_bits(source)
-        terms=Dict((1,1)=>1.0+0im)
+        terms=Dict((1,1)=>one(T))
         a==1 && (terms=_kp_tensor_product(terms,delta_x))
         b==1 && (terms=_kp_tensor_product(terms,delta_y))
         c==1 && (terms=_kp_tensor_product(terms,delta_z))
@@ -252,13 +256,13 @@ function kac_paljutkin_algebra()
         end
     end
 
-    antipode=Dict{Tuple,ComplexF64}()
+    antipode=Dict{Tuple,T}()
     for source in 1:dimension
         a,b,c=_kp_bits(source)
-        terms=Dict(1=>1.0+0im)
+        terms=Dict(1=>one(T))
         for factor in vcat(c==1 ? [5] : Int[],b==1 ? [3] : Int[],a==1 ? [2] : Int[])
-            next=Dict{Int,ComplexF64}()
-            for (left,left_value) in terms,(output,value) in _kp_basis_product(left,factor)
+            next=Dict{Int,T}()
+            for (left,left_value) in terms,(output,value) in _kp_basis_product(left,factor,T)
                 next[output]=get(next,output,0)+left_value*value
             end
             terms=next
@@ -267,9 +271,16 @@ function kac_paljutkin_algebra()
             antipode[(output,source)]=value
         end
     end
-    unit=Dict{Tuple,ComplexF64}((1,)=>1)
-    counit=Dict{Tuple,ComplexF64}((index,)=>1 for index in 1:dimension)
-    _make_hopf_algebra(dimension,multiplication,unit,coproduct,counit,antipode)
+    unit=Dict{Tuple,T}((1,)=>one(T))
+    counit=Dict{Tuple,T}((index,)=>one(T) for index in 1:dimension)
+    (;dimension,multiplication,unit,coproduct,counit,antipode)
+end
+
+# cf:_kp_structure_constants — same local definition, retaining the existing approximate integral construction.
+"""Eight-dimensional Kac–Paljutkin Hopf algebra with the existing approximate integral construction."""
+function kac_paljutkin_algebra()
+    h=_kp_structure_constants()
+    _make_hopf_algebra(h.dimension,h.multiplication,h.unit,h.coproduct,h.counit,h.antipode)
 end
 
 function dual_algebra(algebra::FiniteHopfAlgebra)
