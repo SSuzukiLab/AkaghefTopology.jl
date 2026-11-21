@@ -27,12 +27,26 @@ const OGRAPH_INVARIANT_TEST_RELEASE = "2026-09-04T00:00:00Z"
     @test_throws ArgumentError OGraphPi1Presentation("synthetic", 1, [[0]])
     @test_throws ArgumentError OGraphPi1Presentation("synthetic", 1, [[2]])
 
-    crossing_free = certify_closed_ograph(OGraphState(Int[], Int[]))
+    # N1 [BP97, §1.4] refuses the empty code.  The MST path is separate.
+    empty_state = OGraphState(Int[], Int[])
+    n1_error = try
+        certify_closed_ograph(empty_state)
+        nothing
+    catch error
+        error
+    end
+    @test n1_error isa ArgumentError
+    @test occursin("N1", n1_error.msg)
+    @test occursin("[BP97, §1.4]", n1_error.msg)
+    crossing_free = Topology.mst_crossing_free_circuit()
+    @test crossing_free.witness.n1 == false
     @test crossing_free.witness.criteria == (true, true, true)
     @test crossing_free.witness.method_circuit_lengths == (0,)
     crossing_free_pi1 = ograph_pi1_presentation(crossing_free)
     @test crossing_free_pi1.generator_count == 1
     @test isempty(crossing_free_pi1.relators)
+    @test occursin("MST", crossing_free_pi1.evidence_json)
+    @test occursin("not a closed normal o-graph", crossing_free_pi1.evidence_json)
     crossing_free_h1 = ograph_h1(crossing_free_pi1)
     @test (crossing_free_h1.free_rank,
            crossing_free_h1.torsion_invariant_factors,

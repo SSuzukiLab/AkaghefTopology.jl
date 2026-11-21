@@ -1,9 +1,19 @@
-"""Immutable, one-circuit presentation state for an unweighted normal o-graph.
+"""Immutable one-circuit presentation.
+
+A nonempty value is the Gauss code of an unweighted normal o-graph.  The empty
+word is the MST crossing-free circuit, outside that class.  [BP97, §1.4] N1
+excludes it from `ClosedNormalOGraph`.
 
 This value records representation-level data only.  Raw equality and `hash`
 compare the stored root and labels exactly.  `canonicalize_ograph` and
 `ograph_canonical_hash` identify cyclic re-rooting and crossing relabeling; they
 do not identify MP-, PS-, CP-, mirror-, or orientation-reversal equivalence.
+
+N2 ([BP97, §1.4]) holds by construction of one oriented cyclic word: each edge
+is directed from one entry to the next, so opposite directions match through
+each vertex.  A head-to-head mismatch cannot be stored.  The passage-sign rule
+is the one in `virtual-link-rgauss/1`: a positive entry is the over passage.
+The one-over-one-under check below is N1's passage mark, not N2.
 """
 
 using SHA
@@ -12,7 +22,12 @@ const OGRAPH_PRESENTATION_SCHEMA = "akaghef.ograph/1"
 const OGRAPH_PRESENTATION_CANON_VERSION = 1
 const OGRAPH_PRESENTATION_CANONICALIZATION = "ograph-presentation/1"
 const OGRAPH_DEFAULT_CONVENTION = "virtual-link-rgauss/1"
+# Persisted evidence still uses this version.  N1 is a gate on
+# `ClosedNormalOGraph`; it does not change the stored C2/C3 numbers.
+# See docs/specs/ograph-terminology.md, "Persisted closedness evidence".
 const OGRAPH_CLOSEDNESS_VERIFIER_VERSION = "virtual-link-c1-c3/2"
+const N2_ENFORCEMENT_SITE = "OGraphState"   # N2 [BP97, §1.4], by construction
+const C1_ENFORCEMENT_SITE = "ograph_state"  # C1 [BP97, §1.4], one cyclic word
 const C2_GRAPH_SPEC_VERSION = "bp97-fig1.2-pd-slots/1"
 
 struct OGraphState
@@ -27,7 +42,8 @@ struct OGraphState
         signs = Int.(collect(vertex_signs))
         convention = strip(String(convention_id))
         isempty(convention) && throw(ArgumentError("convention_id must not be empty"))
-        iseven(length(code)) || throw(ArgumentError("o-graph Gauss code must have even length"))
+        iseven(length(code)) || throw(ArgumentError(
+            "N1 preamble: an o-graph Gauss code has even length (quadrivalence) [BP97, §1.4]"))
         all(!=(0), code) || throw(ArgumentError("o-graph real Gauss labels cannot be zero"))
         all(sign -> sign in (-1, 1), signs) || throw(ArgumentError(
             "o-graph vertex signs must be +1 or -1"))
@@ -36,9 +52,9 @@ struct OGraphState
         for label in eachindex(signs)
             occurrences = filter(value -> abs(value) == label, code)
             length(occurrences) == 2 || throw(ArgumentError(
-                "true vertex $label must occur exactly twice"))
+                "N1 preamble: true vertex $label must occur exactly twice (quadrivalence) [BP97, §1.4]"))
             occurrences[1] * occurrences[2] < 0 || throw(ArgumentError(
-                "true vertex $label must occur once positive and once negative"))
+                "N1: true vertex $label must occur once as an over passage and once as an under passage [BP97, §1.4]"))
         end
         new(Tuple(code), Tuple(signs), convention)
     end
@@ -133,11 +149,30 @@ function ograph_state(link::VirtualLink;
     link.is_weighted && throw(ArgumentError(
         "weighted VirtualLink input must not be silently projected to an unweighted o-graph"))
     code, signs = real_gauss_code(link)
+    # C1 ([BP97, §1.4]): deleting vertices and joining opposite edges leaves
+    # one oriented circuit.  The Gauss components are that circuit decomposition.
+    # An OGraphState holds one word, so the condition cannot fail inside the type.
     length(code) == 1 || throw(ArgumentError(
-        "closed normal o-graph state requires one oriented Gauss circuit"))
+        "C1: deleting the vertices and joining opposite edges must leave one oriented circuit [BP97, §1.4]"))
     OGraphState(only(code), signs; convention_id=convention_id)
 end
 
+"""C1–C3 record for one `OGraphState`, plus the N1 and N2 marks.
+
+`criteria` is `(C1 slot, C2, C3)`.  The C1 slot is true because the state
+holds one cyclic word.  It is not a count of smoothed circuits.  C1's
+enforcement site is `c1_enforcement` (`ograph_state`).  N2's site is
+`n2_enforcement` (`OGraphState`).  `n1` is the computed [BP97, §1.4] vertex
+count check, true when `true_vertices >= 1`.
+
+`c1_oriented_circuits` is the integer derived from the single-word
+representation, persisted under `virtual-link-c1-c3/2`.  Stored evidence
+compares that integer exactly.  It is not a smoothing count and not the C1
+test.  On the empty word the same integer is the MST contract.  C2 and C3
+are the computed fields.
+
+cf:[[BP97]] §1.4 — N1, N2, C1, C2, C3; the zero-vertex branch is the MST extension
+"""
 struct ClosednessWitness
     canonical_hash::String
     verifier_version::String
@@ -147,6 +182,21 @@ struct ClosednessWitness
     c3_method_circuits::Int
     true_vertices::Int
     method_circuit_lengths::Tuple{Vararg{Int}}
+    n1::Bool
+    n2_enforcement::String
+    c1_enforcement::String
+
+    function ClosednessWitness(canonical_hash, verifier_version, criteria,
+            c1_oriented_circuits, c2_trivalent_components, c3_method_circuits,
+            true_vertices, method_circuit_lengths)
+        vertices = Int(true_vertices)
+        new(String(canonical_hash), String(verifier_version),
+            NTuple{3,Bool}(criteria),
+            Int(c1_oriented_circuits), Int(c2_trivalent_components),
+            Int(c3_method_circuits), vertices,
+            Tuple(Int(n) for n in method_circuit_lengths),
+            vertices >= 1, N2_ENFORCEMENT_SITE, C1_ENFORCEMENT_SITE)
+    end
 end
 
 """Duplicate-preserving BP Figure 1.2 graph and GC-edge provenance.
@@ -183,7 +233,8 @@ function _validate_c2_gc(component_words, vertex_signs)
     words = [Int.(collect(word)) for word in component_words]
     signs = Int.(collect(vertex_signs))
     n = length(signs)
-    n >= 1 || throw(ArgumentError("C2 is defined here only for n >= 1"))
+    n >= 1 || throw(ArgumentError(
+        "N1: the Figure 1.2 graph is stated for a normal o-graph with at least one vertex [BP97, §1.4]"))
     !isempty(words) && all(!isempty, words) || throw(ArgumentError(
         "C2 component words must be nonempty cyclic words"))
     all(sign -> sign in (-1, 1), signs) || throw(ArgumentError(
@@ -196,7 +247,7 @@ function _validate_c2_gc(component_words, vertex_signs)
     for label in 1:n
         count(==(label), entries) == 1 && count(==(-label), entries) == 1 ||
             throw(ArgumentError(
-                "C2 vertex $label must occur once positive and once negative"))
+                "N1: C2 vertex $label must occur once as an over passage and once as an under passage [BP97, §1.4]"))
     end
     words, signs
 end
@@ -290,35 +341,51 @@ end
 function _ograph_virtual_link(state::OGraphState)
     link = VirtualLink()
     # `collect(())` has element type `Union{}`.  Preserve the concrete integer
-    # representation so the crossing-free one-circuit state remains a valid
-    # closed o-graph input rather than failing in `_normalize_gauss`.
+    # representation so the MST crossing-free state remains a valid
+    # `OGraphState` rather than failing in `_normalize_gauss`.
     set_data!(link; rgauss=[Int[state.gauss...]],
               orientation=Int[state.vertex_signs...])
 end
 
-"""Recompute a finite, auditable C1-C3 implementation witness from immutable data.
+"""Recompute the closedness record for one presentation.
 
-This is an operational replay under `OGRAPH_CLOSEDNESS_VERIFIER_VERSION`, not a
-standalone proof that the implementation exactly realizes the source theorem.
+C2 is the component count of the [BP97, §1.4] Figure 1.2 graph.  C3, when
+there is at least one vertex, is the row count of `disk_table` (Method B;
+the spec identifies this count with Figure 1.3).  C1 is not measured here.
+
+The zero-vertex branch is the MST crossing-free circuit: one declared
+circuit, length 0, and `n1 == false`.  It is not a Figure 1.3 count.
+`ClosedNormalOGraph` refuses that branch under N1.  Callers that only read
+`criteria`, including the move verifier on a zero-vertex raw target, still
+see `(true, true, true)`.
+
+cf:[[BP97]] §1.4 — C2 and C3; N1 and C1 are recorded, not counted here
 """
 function closedness_witness(state::OGraphState)
     canonical = canonicalize_ograph(state)
-    link = _ograph_virtual_link(canonical)
-    table = disk_table(link)
-    c1_count = 1
-    c2_count = _ograph_trivalent_component_count(link)
     vertices = true_vertex_count(canonical)
-    # The crossing-free one-circuit o-graph has one Method circuit although
-    # `disk_table` has no vertex-local nodes from which to reconstruct it.
-    # Record that boundary case explicitly (with zero local-node length).
-    c3_count = vertices == 0 ? 1 : size(table.delta, 1)
-    method_circuit_lengths = vertices == 0 ? (0,) : Tuple(Int.(table.path_lengths))
-    criteria = (c1_count == 1, c2_count == 1, c3_count == vertices + 1)
+    if vertices == 0
+        # MST extension.  `disk_table` has no vertex-local nodes on this input.
+        c2_count = 1
+        c3_count = 1
+        method_circuit_lengths = (0,)
+    else
+        link = _ograph_virtual_link(canonical)
+        table = disk_table(link)
+        c2_count = _ograph_trivalent_component_count(link)
+        c3_count = size(table.delta, 1)
+        method_circuit_lengths = Tuple(Int.(table.path_lengths))
+    end
+    # Derived from the single-word representation.  Persisted under
+    # `virtual-link-c1-c3/2`.  Not a smoothing count.  C1 is enforced
+    # by `ograph_state`.  On the empty word this integer is the MST contract.
+    c1_word_count = 1
+    criteria = (true, c2_count == 1, c3_count == vertices + 1)
     ClosednessWitness(
         ograph_canonical_hash(canonical),
         OGRAPH_CLOSEDNESS_VERIFIER_VERSION,
         criteria,
-        c1_count,
+        c1_word_count,
         c2_count,
         c3_count,
         vertices,
@@ -326,25 +393,74 @@ function closedness_witness(state::OGraphState)
     )
 end
 
+function _closedness_failure(witness::ClosednessWitness)
+    failed = String[]
+    witness.criteria[2] || push!(failed, "C2")
+    witness.criteria[3] || push!(failed, "C3")
+    "presentation fails $(join(failed, ", ")) [BP97, §1.4] under $(witness.verifier_version): $(witness.criteria)"
+end
+
+"""A closed normal o-graph in the sense of [BP97, §1.4].
+
+N1 requires at least one vertex.  N2 and C1 hold by construction of the
+state.  C2 and C3 are the computed witness bits.
+
+cf:[[BP97]] §1.4 — class of closed normal o-graphs
+"""
 struct ClosedNormalOGraph
     state::OGraphState
     witness::ClosednessWitness
 
     function ClosedNormalOGraph(state::OGraphState, witness::ClosednessWitness)
         canonical = canonicalize_ograph(state)
+        true_vertex_count(canonical) >= 1 || throw(ArgumentError(
+            "N1: a closed normal o-graph has at least one vertex [BP97, §1.4]"))
         expected = closedness_witness(canonical)
         witness == expected || throw(ArgumentError(
             "closedness witness is stale or does not match the presentation"))
-        all(witness.criteria) || throw(ArgumentError(
-            "presentation is not a closed normal o-graph under $(witness.verifier_version): $(witness.criteria)"))
+        all(witness.criteria) || throw(ArgumentError(_closedness_failure(witness)))
         new(canonical, witness)
     end
 end
 
-"""Return an operationally C1-C3-validated wrapper, rejecting any failed check."""
+"""Certify a presentation as a closed normal o-graph.
+
+The empty Gauss code is refused.  N1 ([BP97, §1.4]) requires at least one
+vertex.  The MST crossing-free circuit is `mst_crossing_free_circuit`.
+
+cf:[[BP97]] §1.4 — N1, N2, C1, C2, C3
+"""
 function certify_closed_ograph(state::OGraphState)
     canonical = canonicalize_ograph(state)
     ClosedNormalOGraph(canonical, closedness_witness(canonical))
+end
+
+"""MST/MATLAB crossing-free one-circuit state, outside [BP97, §1.4].
+
+One oriented circuit, no vertex.  The fundamental group is infinite cyclic
+and the first homology is Z.  This is not a closed normal o-graph.
+
+cf: lib/topology.jl/src/ograph_invariants.jl — MATLAB crossing-free circuit; source MST, owner decision 2026-11-22
+"""
+struct MSTCrossingFreeCircuit
+    state::OGraphState
+    witness::ClosednessWitness
+
+    function MSTCrossingFreeCircuit(state::OGraphState, witness::ClosednessWitness)
+        canonical = canonicalize_ograph(state)
+        true_vertex_count(canonical) == 0 || throw(ArgumentError(
+            "MST crossing-free circuit has no vertices"))
+        witness == closedness_witness(canonical) || throw(ArgumentError(
+            "MST crossing-free witness does not match the empty presentation"))
+        witness.n1 && throw(ArgumentError(
+            "MST crossing-free circuit is outside N1 [BP97, §1.4]"))
+        new(canonical, witness)
+    end
+end
+
+function mst_crossing_free_circuit()
+    state = OGraphState(Int[], Int[])
+    MSTCrossingFreeCircuit(state, closedness_witness(state))
 end
 
 function certify_closed_ograph(link::VirtualLink; kwargs...)

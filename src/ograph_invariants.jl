@@ -134,6 +134,36 @@ function ograph_pi1_presentation(graph::ClosedNormalOGraph;
         convention_id=convention_id, evidence=evidence)
 end
 
+"""π₁ of the MST crossing-free circuit: one generator and no relations.
+
+cf: lib/topology.jl/src/ograph_invariants.jl — MATLAB crossing-free circuit; source MST, not [BP97, §1.4]
+"""
+function ograph_pi1_presentation(circuit::MSTCrossingFreeCircuit;
+        algorithm_id::AbstractString=OGRAPH_PI1_ALGORITHM,
+        algorithm_version::Integer=OGRAPH_PI1_ALGORITHM_VERSION,
+        convention_id::AbstractString=OGRAPH_PI1_CONVENTION)
+    String(algorithm_id) == OGRAPH_PI1_ALGORITHM &&
+        Int(algorithm_version) == OGRAPH_PI1_ALGORITHM_VERSION &&
+        String(convention_id) == OGRAPH_PI1_CONVENTION || throw(ArgumentError(
+            "unsupported o-graph pi1 presentation algorithm metadata"))
+    serialization = ograph_canonical_serialization(circuit.state)
+    state_id = bytes2hex(SHA.sha256(codeunits(
+        "v$(OGRAPH_PRESENTATION_CANON_VERSION)\0$(serialization)")))
+    evidence = Dict(
+        "pd_rows" => Vector{Vector{Int}}(),
+        "pd_row_slots" => ["g", "k", "l", "h"],
+        "generator_rule" =>
+            "max PD edge label plus one generator per crossing-free circuit",
+        "crossing_free_circuit_count" => 1,
+        "relation_order" => "all g*l^-1, then all h*g*k^-1",
+        "matlab_scope" => "calcSpec(pi1), closed ordinary strands only",
+        "source_rule" => "MST: one generator for the crossing-free circuit; not a closed normal o-graph",
+    )
+    OGraphPi1Presentation(state_id, 1, ();
+        algorithm_id=algorithm_id, algorithm_version=algorithm_version,
+        convention_id=convention_id, evidence=evidence)
+end
+
 struct OGraphH1Result
     result_id::String
     presentation_id::String

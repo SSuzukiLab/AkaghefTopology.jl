@@ -1009,6 +1009,9 @@ end
 
 function is_closed(v::VirtualLink)
     code,orientation=real_gauss_code(v)
+    # C1, C2, C3 at the VirtualLink boundary ([BP97, §1.4]).
+    # C1 is the Gauss-component count.  The zero-vertex MST circuit is not
+    # this predicate: `disk_table` has no rows there, so the third flag fails.
     c1 = length(code) == 1
     unsupported = any(==(0), v.orientation) ||
                   any(word -> any(==(0), word), v.gauss) ||

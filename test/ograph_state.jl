@@ -88,6 +88,129 @@ end
     @test_throws ArgumentError ClosedNormalOGraph(s3.state, stale)
 end
 
+# N1 [BP97, §1.4], N2 [BP97, §1.4], C1 [BP97, §1.4], C2 [BP97, §1.4], C3 [BP97, §1.4]
+@testset "N1 N2 C1 C2 C3 of a closed normal o-graph" begin
+    function _argument_error(body)
+        try
+            body()
+            nothing
+        catch error
+            error
+        end
+    end
+
+    empty_state = OGraphState(Int[], Int[])
+    empty_witness = closedness_witness(empty_state)
+    @test empty_witness.n1 == false
+    @test empty_witness.n2_enforcement == "OGraphState"
+    @test empty_witness.c1_enforcement == "ograph_state"
+    # MST numeric contract read by the move verifier.  Not an N1 certificate.
+    @test empty_witness.criteria == (true, true, true)
+    @test empty_witness.c1_oriented_circuits == 1
+    @test empty_witness.method_circuit_lengths == (0,)
+    n1_error = _argument_error(() -> certify_closed_ograph(empty_state))
+    @test n1_error isa ArgumentError
+    @test occursin("N1", n1_error.msg)
+    @test occursin("[BP97, §1.4]", n1_error.msg)
+    direct = _argument_error(() -> ClosedNormalOGraph(empty_state, empty_witness))
+    @test direct isa ArgumentError
+    @test occursin("N1", direct.msg)
+    @test occursin("[BP97, §1.4]", direct.msg)
+
+    over_pair = _argument_error(() -> OGraphState([1, 1], [1]))
+    @test over_pair isa ArgumentError
+    @test occursin("N1", over_pair.msg)
+    @test occursin("[BP97, §1.4]", over_pair.msg)
+    @test !occursin("N2", over_pair.msg)
+
+    odd_length = _argument_error(() -> OGraphState([1, -1, 2], [1]))
+    @test odd_length isa ArgumentError
+    @test occursin("N1", odd_length.msg)
+    @test occursin("[BP97, §1.4]", odd_length.msg)
+
+    missing_vertex = _argument_error(() -> OGraphState([1, 2, -2, 2], [1, 1]))
+    @test missing_vertex isa ArgumentError
+    @test occursin("N1", missing_vertex.msg)
+    @test occursin("[BP97, §1.4]", missing_vertex.msg)
+
+    # N2 has no representable failing word.  The site string is the check.
+    hopf = closedness_witness(OGraphState([1, -1], [1]))
+    @test hopf.n1
+    @test hopf.n2_enforcement == Topology.N2_ENFORCEMENT_SITE
+    @test hopf.c1_enforcement == Topology.C1_ENFORCEMENT_SITE
+
+    multi = VirtualLink()
+    set_data!(multi; rgauss=[[1, -1], [2, -2]], orientation=[1, 1])
+    c1_error = _argument_error(() -> ograph_state(multi))
+    @test c1_error isa ArgumentError
+    @test occursin("C1", c1_error.msg)
+    @test occursin("[BP97, §1.4]", c1_error.msg)
+
+    crossing_free_link = VirtualLink()
+    set_data!(crossing_free_link; rgauss=[Int[]], orientation=Int[])
+    @test ograph_state(crossing_free_link) == empty_state
+    @test is_closed(crossing_free_link) == (false, (true, true, false))
+
+    c2_failure = OGraphState([1, 2, -1, -2], [1, -1])
+    c2_report = closedness_witness(c2_failure)
+    @test c2_report.n1
+    @test c2_report.criteria == (true, false, true)
+    @test c2_report.c2_trivalent_components == 2
+    @test c2_report.c3_method_circuits == 3
+    @test c2_report.true_vertices == 2
+    c2_error = _argument_error(() -> certify_closed_ograph(c2_failure))
+    @test c2_error isa ArgumentError
+    @test occursin("fails C2 [BP97, §1.4]", c2_error.msg)
+    @test !occursin("C3", c2_error.msg)
+
+    c3_failure = OGraphState([1, 2, -1, -2], [1, 1])
+    c3_report = closedness_witness(c3_failure)
+    @test c3_report.criteria == (true, true, false)
+    @test c3_report.c3_method_circuits == 1
+    c3_error = _argument_error(() -> certify_closed_ograph(c3_failure))
+    @test c3_error isa ArgumentError
+    @test occursin("fails C3 [BP97, §1.4]", c3_error.msg)
+    @test !occursin("C2", c3_error.msg)
+
+    both = OGraphState([1, -1, -2, 2], [1, -1])
+    both_report = closedness_witness(both)
+    @test both_report.criteria == (true, false, false)
+    both_error = _argument_error(() -> certify_closed_ograph(both))
+    @test both_error isa ArgumentError
+    @test occursin("fails C2, C3 [BP97, §1.4]", both_error.msg)
+
+    empty_c2 = _argument_error(() -> c2_graph(Vector{Vector{Int}}(), Int[]))
+    @test empty_c2 isa ArgumentError
+    @test occursin("N1", empty_c2.msg)
+    @test occursin("[BP97, §1.4]", empty_c2.msg)
+    same_sign_c2 = _argument_error(() -> c2_graph([[1, 1]], [1]))
+    @test same_sign_c2 isa ArgumentError
+    @test occursin("N1", same_sign_c2.msg)
+    @test occursin("[BP97, §1.4]", same_sign_c2.msg)
+
+    isdefined(@__MODULE__, :vl_example) ||
+        include(joinpath(@__DIR__, "../examples/VLExample.jl"))
+    for name in ("s3_abalone", "lens_2_1", "lens_3_1_mst2_example23",
+                 "poincare", "quaternion", "s2xs1", "s2xs1_2vertex")
+        certified = certify_closed_ograph(vl_example(name))
+        @test certified isa ClosedNormalOGraph
+        @test certified.witness.n1
+        @test certified.witness.criteria == (true, true, true)
+        @test certified.witness.n2_enforcement == "OGraphState"
+        @test certified.witness.c1_enforcement == "ograph_state"
+    end
+
+    circuit = Topology.mst_crossing_free_circuit()
+    @test circuit isa Topology.MSTCrossingFreeCircuit
+    @test circuit.state == empty_state
+    @test circuit.witness == empty_witness
+    nonempty = OGraphState([1, -1], [1])
+    refused = _argument_error(() -> Topology.MSTCrossingFreeCircuit(
+        nonempty, closedness_witness(nonempty)))
+    @test refused isa ArgumentError
+    @test occursin("no vertices", refused.msg)
+end
+
 @testset "BP Figure 1.2 C2 multigraph" begin
     one = c2_graph([[1, -1]], [1])
     @test one.node_count == 4

@@ -4,7 +4,12 @@ Status: source figure and all four local lane traces independently transcribed;
 raw dual-partition comparator passed on 500 production-computed records  
 Scope: the underlying normal o-graph with at least one true vertex; edge
 weights are outside C2 and no weighted equivalence is inferred  
-Terminology: [`ograph-terminology.md`](ograph-terminology.md)
+Terminology: [`ograph-terminology.md`](ograph-terminology.md).
+The identifiers N1, N2, C1, C2, and C3, their enforcement sites, and the MST
+crossing-free circuit are defined in that file,
+[§11](ograph-terminology.md#11-closed-normal-conditions-n1-n2-c1-c2-c3).
+Each of N1, N2, C1, C2, C3 is a condition of [BP97, §1.4]. This file
+specifies the Figure 1.2 graph used by C2.
 
 ## Source statement
 
