@@ -11,7 +11,7 @@ end
 
 struct LCRealization
     genus::Int
-    lc::LickorishConfiguration
+    lc::LickorishCode
     faces::Vector{LCFace}
     corner_face::Dict{LCCorner, String}
     occurrence::Dict{Int, Dict{String, Tuple{String, Int}}}
@@ -147,7 +147,7 @@ function _lc_faces_incident_to_band(words::AbstractDict, corner_face::Dict{LCCor
     unique(filter(!isnothing, [f1, f2]))
 end
 
-function _lc_validate_surface!(lc::LickorishConfiguration)
+function _lc_validate_surface!(lc::LickorishCode)
     g = lc.genus
     active = _lc_nonempty_words(lc.words)
     if isempty(active)
@@ -165,7 +165,7 @@ function _lc_validate_surface!(lc::LickorishConfiguration)
         ))
 end
 
-function _lc_realize_combinatorial(lc::LickorishConfiguration)
+function _lc_realize_combinatorial(lc::LickorishCode)
     _lc_validate_surface!(lc)
     active = isempty(_lc_nonempty_words(lc.words)) ? lc.words : _lc_nonempty_words(lc.words)
     faces, corner_face = _lc_faces(active)

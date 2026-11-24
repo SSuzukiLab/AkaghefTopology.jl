@@ -1,8 +1,9 @@
-"""Polyline-only SVG output for mock-compatible y-up placement documents.
+"""Polyline-only SVG output for Lickorish Code placement documents.
 
 Source: owner-approved app/index.html::draw; mock3.py::SVG export.
 The rendering bounds and colors follow the reference; no curve interpolation.
 """
+# cf: lib/topology.jl/docs/conventions/LickorishCodes.md — placement is displayed in screen coordinates
 from html import escape
 from pathlib import Path
 import subprocess
@@ -13,13 +14,13 @@ def svg(data, title='Lickorish Code', dots=False):
     w,h=data['W'],data['H']
     # Export the entire computed polyline. The interactive mock's fixed canvas
     # bounds can crop an outer arc; enlarging only the viewport preserves data.
-    pts=[(x,h-y) for c in data['curves'].values() for x,y in c['points']]
-    pts += [(x-r,h-y-r) for (x,y),r in data['holes'].values()]
-    pts += [(x+r,h-y+r) for (x,y),r in data['holes'].values()]
+    pts=[(x,y) for c in data['curves'].values() for x,y in c['points']]
+    pts += [(x-r,y-r) for (x,y),r in data['holes'].values()]
+    pts += [(x+r,y+r) for (x,y),r in data['holes'].values()]
     if data.get('show_reference'):
         for pieces in data.get('reference_curves', {}).values():
             for piece in pieces:
-                pts.extend((x, h-y) for x, y in piece['points'])
+                pts.extend(piece['points'])
     xmin=min([-(w*.25)]+[p[0] for p in pts])-40
     ymin=min([-(h*.25)]+[p[1] for p in pts])-40
     xmax=max([w*1.25]+[p[0] for p in pts])+40
@@ -32,10 +33,10 @@ def svg(data, title='Lickorish Code', dots=False):
         if not (data.get('show_reference') and data.get('reference_curves')):
             out.append(f'<path d="M0,0 H{w} V{h} H0 Z" fill="none" stroke="#555" stroke-width="1.5"/>')
         family='Segoe UI, Arial, sans-serif' if data.get('show_reference') else 'Arial'
-        for x,y,label in [(w/2,-12,'l₁ →'),(w/2,h+24,'l₁ →'),(-28,h/2,'m₁ ↓'),(w+28,h/2,'m₁ ↓')]:
+        for x,y,label in [(w/2,-12,'ℓ₁⁻ →'),(w/2,h+24,'ℓ₁⁺ →'),(-28,h/2,'m₁ ↑'),(w+28,h/2,'m₁ ↑')]:
             out.append(f'<text x="{x}" y="{y}" text-anchor="middle" font-family="{family}" font-size="14">{label}</text>')
     for name,(c,r) in data['holes'].items():
-        out.append(f'<circle cx="{c[0]}" cy="{h-c[1]}" r="{r}" fill="#fcfbf7" stroke="#333" stroke-width="1.5"/>')
+        out.append(f'<circle cx="{c[0]}" cy="{c[1]}" r="{r}" fill="#fcfbf7" stroke="#333" stroke-width="1.5"/>')
     if data.get('show_reference'):
         roles=data.get('roles') or {}
         for support, pieces in data.get('reference_curves', {}).items():
@@ -50,7 +51,7 @@ def svg(data, title='Lickorish Code', dots=False):
                 color,width,extra='#7a6a9c','1.4',' stroke-dasharray="6 4"'
             kind='display-cut' if str(support).startswith('l') else 'reference'
             for piece in pieces:
-                path='M'+' L'.join(f'{x},{h-y}' for x,y in piece['points'])+(' Z' if piece.get('closed') else '')
+                path='M'+' L'.join(f'{x},{y}' for x,y in piece['points'])+(' Z' if piece.get('closed') else '')
                 out.append(
                     f'<path data-support="{escape(str(support), quote=True)}" data-kind="{kind}" '
                     f'd="{path}" fill="none" stroke="{color}" stroke-width="{width}"{extra}/>')
@@ -62,7 +63,7 @@ def svg(data, title='Lickorish Code', dots=False):
             color='#255dba'
         else:
             color='#ba433f' if name.startswith(('a','α')) else '#255dba'
-        path='M'+' L'.join(f'{x},{h-y}' for x,y in curve['points'])+(' Z' if curve['closed'] else '')
+        path='M'+' L'.join(f'{x},{y}' for x,y in curve['points'])+(' Z' if curve['closed'] else '')
         if data.get('show_reference') or role:
             support=escape(str(curve.get('support_id', name.split('#',1)[0])), quote=True)
             out.append(
@@ -71,11 +72,13 @@ def svg(data, title='Lickorish Code', dots=False):
         else:
             out.append(f'<path d="{path}" fill="none" stroke="{color}" stroke-width="2.2"/>')
         if dots:
-            out.extend(f'<circle cx="{x}" cy="{h-y}" r="1.8" fill="{color}"/>' for x,y in curve['points'])
+            out.extend(f'<circle cx="{x}" cy="{y}" r="1.8" fill="{color}"/>' for x,y in curve['points'])
     for name,(c,r) in data['holes'].items():
-        label=escape(data.get('labels',{}).get(name,name))
+        default = ('ℓ'+name[3:]+('⁺' if name.startswith('top') else '⁻')
+                   if name.startswith(('top','bot')) and name[3:].isdigit() else name)
+        label=escape(data.get('labels',{}).get(name,default))
         family='Segoe UI, Arial, sans-serif' if data.get('show_reference') else 'Arial'
-        out.append(f'<text x="{c[0]}" y="{h-c[1]+4}" text-anchor="middle" font-family="{family}" font-size="12" fill="#253247">{label}</text>')
+        out.append(f'<text x="{c[0]}" y="{c[1]+4}" text-anchor="middle" font-family="{family}" font-size="12" fill="#253247">{label}</text>')
     out.append('</svg>')
     return '\n'.join(out)
 

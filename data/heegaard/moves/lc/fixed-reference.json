@@ -15,7 +15,7 @@
       "expansion": {"op": "literal"},
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.5 — no generic before/after equivalence"
     }
   ]

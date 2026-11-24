@@ -88,22 +88,34 @@ end
 heegaard_move_ids() = sort(collect(keys(load_heegaard_moves()["rows"])))
 
 include("lc_moves_support.jl")
+include("lc_moves_ribbon.jl")
+include("lc_moves_annulus.jl")
+include("lc_moves_pl.jl")
+include("lc_moves_surface.jl")
+include("lc_moves_roles.jl")
+include("lc_moves_marks.jl")
+include("lc_moves_mark_edit.jl")
+include("lc_moves_sequence.jl")
+include("lc_moves_prepare.jl")
+include("lc_moves_certificates.jl")
+# cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.2–§6.4 — candidates when a selection is omitted
+include("lc_moves_enumerate.jl")
 
 _k_limit(g::Integer) = g <= 0 ? 0 : 3 * g - 2
-_lc_of(lc::LickorishConfiguration) = lc
-_lc_of(hc::HeegaardLayer) = hc.lc
-_roles_of(::LickorishConfiguration) = Dict{String,Symbol}()
-_roles_of(hc::HeegaardLayer) = hc.roles
-_marks(lc::LickorishConfiguration) = (disks=lc.disks, points=lc.points, weights=lc.weights)
-_marks(hc::HeegaardLayer) = (disks=hc.disks, points=hc.points, weights=hc.weights)
+_lc_of(lc::LickorishCode) = lc
+_lc_of(hc::HeegaardCode) = hc.lc
+_roles_of(::LickorishCode) = Dict{String,Symbol}()
+_roles_of(hc::HeegaardCode) = hc.roles
+_marks(lc::LickorishCode) = (disks=lc.disks, points=lc.points, weights=lc.weights)
+_marks(hc::HeegaardCode) = (disks=hc.disks, points=hc.points, weights=hc.weights)
 
-function _component_names(lc::LickorishConfiguration)
+function _component_names(lc::LickorishCode)
     k = lc.genus > 0 ? _lc_k_names(lc.genus) : String[]
     rest = sort([n for n in keys(lc.words) if !(n in k)])
     String[vcat(k, rest)...]
 end
 
-function _fingerprint(lc::LickorishConfiguration, roles=Dict{String,Symbol}())
+function _fingerprint(lc::LickorishCode, roles=Dict{String,Symbol}())
     parts = String["g=$(lc.genus)"]
     for name in _component_names(lc)
         push!(parts, name * ":" * join(get(lc.words, name, Int[]), ","))
@@ -115,6 +127,8 @@ function _fingerprint(lc::LickorishConfiguration, roles=Dict{String,Symbol}())
     bytes2hex(sha256(join(parts, "|")))
 end
 
+_input_fingerprint(input) = _fingerprint(_lc_of(input),_roles_of(input))
+
 function _missing_marks(input)
     marks = _marks(input)
     missing = String[]
@@ -124,15 +138,8 @@ function _missing_marks(input)
     missing
 end
 
-function _refuse_marks(input, row)
-    get(row, "transport", "") == "refuse_if_marks" || return
-    missing = _missing_marks(input)
-    isempty(missing) || throw(LCMoveError(
-        :missing_transport,
-        "印の輸送指定が足りない",
-        Dict("missing" => missing, "row" => row["id"]),
-    ))
-end
+# Free marks never gate a geometric move (owner decision 2026-11-12).
+_refuse_marks(input,row;policy=nothing) = nothing
 
 _frag_word(fragment) = Int[Int(x) for x in fragment["word"]]
 _frags(side) = side["fragments"]
@@ -182,7 +189,7 @@ function _assignments(lc, roles, kinds)
             acc[roles[i]] = name
             visit(i + 1, used, acc)
             delete!(acc, roles[i])
-            pop!(used)
+            delete!(used, name)
         end
     end
     visit(1, Set{String}(), Dict{String,String}())
@@ -239,9 +246,9 @@ function _applicability_ok(lc, row, words, labels)
     label_set = Set(values(labels))
     for check in checks
         if check == "digon_face"
-            any(face.n == 2 && face.labels == label_set for face in faces) || return false
+            any(face.n == 2 && face.labels == label_set && !(face.id in values(lc.places)) for face in faces) || return false
         elseif check == "empty_triangle"
-            any(face.n == 3 && face.labels == label_set for face in faces) || return false
+            any(face.n == 3 && face.labels == label_set && !(face.id in values(lc.places)) for face in faces) || return false
         elseif check == "labels_above_k"
             all(label > limit for label in values(labels)) || return false
         elseif check == "pin_is_k"
@@ -263,6 +270,7 @@ end
 
 function _witness_from(input, row, names, locations, vertices, before_frags, after_frags, capacity; extra=Dict{String,Any}())
     lc = _lc_of(input)
+    extra["origin_row_id"]=String(row["id"])
     LCMoveWitness(
         String(row["id"]),
         row["inverse_id"] === nothing ? "" : String(row["inverse_id"]),
@@ -275,7 +283,7 @@ function _witness_from(input, row, names, locations, vertices, before_frags, aft
         before_frags,
         after_frags,
         capacity,
-        _fingerprint(lc, _roles_of(input)),
+        _input_fingerprint(input),
         String(get(row, "label_policy", "pin_k")),
         Int(get(row, "genus_delta", 0)),
         extra,
@@ -303,8 +311,12 @@ function _search_literal(input, row)
         :catalog, "source and target fragment counts differ", Dict("row" => row["id"])))
     witnesses = LCMoveWitness[]
     seen = Set{Any}()
-    for assignment in _assignments(lc, roles, kinds)
-        function visit(role_index, subst)
+    # Join bindings through already matched labels instead of materializing
+    # the Cartesian product of all curves (which explodes at genus 28).
+    assignment = Dict{String,String}()
+    used_names = Set{String}()
+    pools = Dict(role => _candidates_for(lc,kinds[role]) for role in roles)
+    function visit(role_index, subst)
             if role_index > length(roles)
                 substituted = Vector{Vector{Int}}()
                 options = Vector{Vector{Tuple{Int,Int}}}()
@@ -335,12 +347,18 @@ function _search_literal(input, row)
                 return
             end
             role = roles[role_index]
-            for (_, next) in _consistent_windows(words[assignment[role]], patterns[role], subst)
-                visit(role_index + 1, next)
+            for name in pools[role]
+                name in used_names && continue
+                assignment[role] = name
+                push!(used_names,name)
+                for (_, next) in _consistent_windows(words[name], patterns[role], subst)
+                    visit(role_index + 1, next)
+                end
+                delete!(used_names,name)
+                delete!(assignment,role)
             end
-        end
-        visit(1, Dict{Int,Int}())
     end
+    visit(1, Dict{Int,Int}())
     witnesses
 end
 
@@ -388,6 +406,13 @@ function _kernel_apply(names, words, before_frags, after_frags, locations, verti
             work[comp] = _rot_left(work[comp], r)
             locs[i] = (comp, 1)
             rotations[comp] = r
+        elseif start > 1 && start + length(frag) - 1 == n && isempty(after_frags[i])
+            # An empty image is deleted from the end, so its next neighbor is
+            # the first letter. Reinsertion uses that cyclic gap and writes the
+            # fragment at the front. A non-empty image stays where the splice
+            # wrote it. Rotating that word (vertex.100 on a suffix) shifts a
+            # restoration that was already linear.
+            rotations[comp] = start - 1
         end
     end
     before = _LC_MV.MovePattern("lc", before_frags, ones(Int, _vmax(before_frags)), capacity)
@@ -662,14 +687,14 @@ end
 
 function _build_output(input, genus, words, places)
     lc0 = _lc_of(input)
-    lc = LickorishConfiguration(genus, words, places, copy(lc0.disks), copy(lc0.points), copy(lc0.weights), lc0.source_path)
+    lc = LickorishCode(genus, words, places, copy(lc0.disks), copy(lc0.points), copy(lc0.weights), lc0.source_path)
     validate_lc_input(lc)
     if any(!isempty(word) for word in values(words))
         _lc_validate_surface!(lc)
     end
-    if input isa HeegaardLayer
+    if input isa HeegaardCode
         roles = copy(input.roles)
-        return HeegaardLayer(lc, roles, copy(input.disks), copy(input.points), copy(input.weights), input.hc_path)
+        return HeegaardCode(lc, roles, copy(input.disks), copy(input.points), copy(input.weights), input.hc_path)
     end
     lc
 end
@@ -713,7 +738,7 @@ function _copy_extra(extra)
 end
 
 function _attach_roles(output, witness::LCMoveWitness, drop_names)
-    output isa HeegaardLayer || return output
+    output isa HeegaardCode || return output
     roles = copy(output.roles)
     for name in drop_names
         delete!(roles, name)
@@ -723,21 +748,49 @@ function _attach_roles(output, witness::LCMoveWitness, drop_names)
             roles[String(name)] = role isa Symbol ? role : Symbol(String(role))
         end
     end
-    HeegaardLayer(output.lc, roles, output.disks, output.points, output.weights, output.hc_path)
+    for t in get(witness.extra,"role_transfers",Any[])
+        get(output.roles,t.from,nothing)==t.role || throw(LCMoveError(:role_transport_conflict,"source role differs",Dict("component"=>t.from)))
+        haskey(roles,t.to) && throw(LCMoveError(:role_transport_conflict,"target already has a role",Dict("component"=>t.to)))
+        delete!(roles,t.from);roles[t.to]=t.role
+    end
+    HeegaardCode(output.lc, roles, output.disks, output.points, output.weights, output.hc_path)
 end
 
 function _apply_witness(input, witness::LCMoveWitness)
+    _input_fingerprint(input) == witness.fingerprint || throw(LCMoveError(
+        :witness_mismatch, "witness was not built for these words, places and roles", Dict("row"=>witness.row_id)))
+    haskey(witness.extra,"mark_patch") && return _move_apply_mark_patch(input,witness)
     if get(witness.extra, "identity", false)
         return LCMoveResult(input, witness, Dict{String,Any}("relation" => witness.relation, "identity" => true))
     end
     lc = _lc_of(input)
-    _fingerprint(lc, _roles_of(input)) == witness.fingerprint || throw(LCMoveError(
-        :witness_mismatch, "witness was not built for this input", Dict("row" => witness.row_id)))
+    if get(witness.extra,"annulus_recompute",false)
+        inverse_plan=_move_affine_witness(input,heegaard_move_row(witness.row_id),
+            witness.extra["annulus_atlas"],witness.extra["acted"],witness.extra["q"])
+        return _restore_recorded_marks(_apply_witness(input,inverse_plan), witness)
+    end
+    if get(witness.extra,"embedded_annulus_recompute",false)
+        inverse_plan=_move_embedded_affine(input,heegaard_move_row(witness.row_id),
+            witness.extra["embedded_annulus_atlas"],witness.extra["acted"],witness.extra["q"])
+        return _restore_recorded_marks(_apply_witness(input,inverse_plan), witness)
+    end
     words = Dict(name => copy(get(lc.words, name, Int[])) for name in witness.names)
     result, old_to_new, after_vertices, mapped_before, mapped_after, locs, rotations = _kernel_apply(
         witness.names, words, witness.before_frags, witness.after_frags,
         witness.locations, witness.vertices, witness.capacity;
         label_map=_label_map_of(witness.extra))
+    # The forward kernel may rotate a word so a wrapped fragment starts at 1,
+    # and it leaves that rotation in the output. The inverse has to turn the
+    # same word back, or the previous witness sees a different linear order.
+    undo = get(witness.extra, "undo_rotation", nothing)
+    if undo isa AbstractDict
+        for (comp, name) in enumerate(witness.names)
+            shift = Int(get(undo, String(name), 0))
+            shift == 0 && continue
+            comp > length(result) && continue
+            result[comp] = _rot_right(result[comp], shift)
+        end
+    end
     removed = setdiff(witness.vertices, keys(old_to_new))
     witness.label_policy == "pin_k" && _pin_ok(lc, old_to_new, removed)
     preview = Dict(witness.names[i] => result[i] for i in eachindex(witness.names) if i <= length(result))
@@ -775,9 +828,15 @@ function _apply_witness(input, witness::LCMoveWitness)
     else
         new_words, new_places, _ = _install_words(lc, witness.names, result, lc.places, assigned)
     end
+    parking=get(witness.extra,"support_direction",1)==1 ?
+        get(witness.extra,"creation_parking",Dict{String,Vector{Tuple{Int,String,String}}}()) :
+        Dict{String,Vector{Tuple{Int,String,String}}}()
+    new_places = _move_transport_places(lc,new_words,new_places,old_to_new;
+        digon_create_untouched_corners=parking)
     output = _attach_roles(
         _build_output(input, lc.genus + witness.genus_delta, new_words, new_places),
         witness, drop_names)
+    output,mark_cells = _move_transport_marks(input,output,witness,old_to_new)
     out_lc = _lc_of(output)
     out_words = Dict(name => get(out_lc.words, name, Int[]) for name in witness.names)
     inverse_locations = any(isempty, mapped_after) ?
@@ -791,20 +850,49 @@ function _apply_witness(input, witness::LCMoveWitness)
         inverse_vertices = Int[]
     end
     inverse_extra = _copy_extra(witness.extra)
+    if haskey(inverse_extra,"role_transfers")
+        inverse_extra["role_transfers"]=[(from=t.to,to=t.from,role=t.role) for t in reverse(witness.extra["role_transfers"])]
+    end
+    inverse_extra["support_direction"]=-get(witness.extra,"support_direction",1)
     if haskey(inverse_extra, "label_map") && haskey(inverse_extra, "inverse_label_map")
         forward_map = inverse_extra["label_map"]
         inverse_extra["label_map"] = inverse_extra["inverse_label_map"]
         inverse_extra["inverse_label_map"] = forward_map
     end
-    # Added crossings are fresh locals above the surviving ones. _vertex_maps sorts
-    # the selected globals and would hand the inverse the wrong surviving labels.
-    # Carry the output words themselves and skip that renumbering.
-    if get(witness.extra, "global_inverse", false)
+    # A removal densely renumbers every higher survivor and forgets the deleted
+    # labels. The local inverse pattern would mint new high labels, so the words
+    # no longer match the previous witness. Carry the global fragments and the
+    # reverse numbering whenever labels were removed or survivors moved.
+    survivor_shifted = any(pair -> pair[1] != pair[2], pairs(old_to_new))
+    removed_labels = setdiff(
+        Set(abs.(reduce(vcat, values(lc.words); init=Int[]))),
+        Set(keys(old_to_new)),
+    )
+    if get(witness.extra, "global_inverse", false) || survivor_shifted || !isempty(removed_labels)
         inverse_before = mapped_after
-        inverse_after = [Int[x == 0 ? 0 : sign(x) * get(old_to_new, abs(x), abs(x)) for x in frag] for frag in mapped_before]
+        inverse_after = mapped_before
         inverse_vertices = Int[]
-        inverse_extra["label_map"] = Dict{Int,Int}()
+        inverse_extra["label_map"] = Dict(v => k for (k, v) in old_to_new)
+        inverse_extra["global_inverse"] = true
     end
+    delete!(inverse_extra, "undo_rotation")
+    undo_rotation = Dict{String,Int}()
+    for (comp, shift) in enumerate(rotations)
+        shift == 0 && continue
+        undo_rotation[String(witness.names[comp])] = shift
+    end
+    isempty(undo_rotation) || (inverse_extra["undo_rotation"] = undo_rotation)
+    if haskey(witness.extra,"annulus_after")
+        inverse_extra["annulus_recompute"]=true
+        inverse_extra["annulus_atlas"]=witness.extra["annulus_after"]
+        inverse_extra["q"]=-witness.extra["q"]
+    end
+    if haskey(witness.extra,"embedded_annulus_after")
+        inverse_extra["embedded_annulus_recompute"]=true
+        inverse_extra["embedded_annulus_atlas"]=witness.extra["embedded_annulus_after"]
+        inverse_extra["q"]=-witness.extra["q"]
+    end
+    inverse_extra["mark_before"] = _recorded_marks(input)
     inverse = LCMoveWitness(
         witness.inverse_id == "" ? witness.row_id : witness.inverse_id,
         witness.row_id,
@@ -817,21 +905,28 @@ function _apply_witness(input, witness::LCMoveWitness)
         inverse_before,
         inverse_after,
         witness.capacity,
-        _fingerprint(out_lc, _roles_of(output)),
+        _input_fingerprint(output),
         witness.label_policy,
         -witness.genus_delta,
         inverse_extra,
     )
     correspondence = Dict{String,Any}(
         "label_map" => old_to_new,
-        "removed_labels" => sort(collect(removed)),
-        "created_labels" => after_vertices,
+        "removed_labels" => sort(collect(setdiff(Set(abs.(reduce(vcat,values(lc.words);init=Int[]))),Set(keys(old_to_new))))),
+        "created_labels" => sort(collect(setdiff(Set(abs.(reduce(vcat,values(out_lc.words);init=Int[]))),Set(values(old_to_new))))),
         "rotations" => rotations,
         "place" => assigned,
+        "place_images" => Dict(n=>(old=f,new=new_places[n]) for(n,f) in lc.places if haskey(new_places,n)),
         "relation" => witness.relation,
         "row" => witness.row_id,
+        "support" => get(witness.extra,"support",nothing),
+        "support_direction" => get(witness.extra,"support_direction",1),
+        "k_identification" => get(witness.extra,"k_identification",nothing),
+        "role_transfers" => get(witness.extra,"role_transfers",Any[]),
+        "mark_cells" => mark_cells,
+        "attachment" => get(witness.extra,"attachment",nothing),
     )
-    LCMoveResult(output, inverse, correspondence)
+    _restore_recorded_marks(LCMoveResult(output, inverse, correspondence), witness)
 end
 
 function _expand_gaps(input, row, selections)
@@ -891,9 +986,16 @@ end
 function _expand_affine(input, row, selections)
     _require_selection(row, selections)
     q = Int(selections["q"])
-    acted = String[string(x) for x in selections["acted_components"]]
+    acted = unique(String[string(x) for x in selections["acted_components"]])
+    if q!=0 && input isa HeegaardCode && any(_is_k(input.lc,n) && haskey(input.roles,n) for n in acted)
+        return _move_prepare_affine(input,row,selections,acted)
+    end
+    q != 0 && _move_require_separated(input, acted)
     support = selections["support"]
     lc = _lc_of(input)
+    if support isa AbstractDict
+        return [_move_embedded_affine(input,row,support,acted,q)]
+    end
     core = support isa AbstractString ? String(support) : throw(LCMoveError(
         :missing_selection,
         "support must be a component name or an oriented edge list; edge-list extraction is the next concrete case",
@@ -902,113 +1004,7 @@ function _expand_affine(input, row, selections)
     haskey(lc.words, core) || throw(LCMoveError(:missing_selection, "support component is missing", Dict("support" => core)))
     q == 0 && return [_witness_from(input, row, _component_names(lc), Tuple{Int,Int}[], Int[], Vector{Vector{Int}}(), Vector{Vector{Int}}(), Int[];
         extra=Dict{String,Any}("identity" => true))]
-    # F_q shears the acted curve along the support. Each other support crossing is copied
-    # onto that crossing's partner, |q| times. The partner is the opposite passage, not the
-    # support itself: a visit on the support does not split a face. Every visit uses the same
-    # bank. q>0 uses the right bank and q<0 the left. A forward reading of that bank is placed
-    # before the visit; a backward reading is placed after it. Splitting the visits across
-    # both banks is not this twist, and the rotation system then has the wrong Euler
-    # characteristic for this genus.
-    names = _component_names(lc)
-    index = Dict(name => i for (i, name) in enumerate(names))
-    words = lc.words
-    next_local = 1
-    local_of = Dict{Int,Int}()
-    function local_label(global_label)
-        haskey(local_of, global_label) && return local_of[global_label]
-        local_of[global_label] = next_local
-        next_local += 1
-        local_of[global_label]
-    end
-    before_frags = Vector{Vector{Int}}()
-    after_frags = Vector{Vector{Int}}()
-    locations = Tuple{Int,Int}[]
-    # Partner inserts are emitted after every visit is known. An after-gap stack
-    # is reversed so the first visit stays next to the support crossing; the kernel
-    # writes equal gaps from the left.
-    visits = NamedTuple{(:ops, :before, :after, :pos, :curve), Tuple{Vector{Tuple{String,Int,Int,Bool}}, Vector{Int}, Vector{Int}, Int, String}}[]
-    core_word = words[core]
-    # Existing visits take the low local ids. Fresh ids then sit strictly above
-    # before.vertex_count, which is the range _vertex_maps treats as new labels.
-    for curve in acted
-        haskey(words, curve) || throw(LCMoveError(:missing_selection, "acted component is missing", Dict("component" => curve)))
-        for entry in words[curve]
-            _owner_of(words, abs(entry), entry > 0 ? "-" : "+") == core || continue
-            local_label(abs(entry))
-        end
-    end
-    for curve in acted
-        haskey(words, curve) || throw(LCMoveError(:missing_selection, "acted component is missing", Dict("component" => curve)))
-        word = words[curve]
-        for (pos, entry) in enumerate(word)
-            partner = _owner_of(words, abs(entry), entry > 0 ? "-" : "+")
-            partner == core || continue
-            core_pos = findfirst(x -> abs(x) == abs(entry), core_word)
-            core_pos === nothing && throw(LCMoveError(:expansion, "core visit missing", Dict("label" => abs(entry))))
-            rest = Int[]
-            for offset in 1:(length(core_word) - 1)
-                rest_entry = core_word[mod1(core_pos + offset, length(core_word))]
-                other = _owner_of(words, abs(rest_entry), rest_entry > 0 ? "-" : "+")
-                other === nothing && throw(LCMoveError(
-                    :expansion, "support visit has no partner", Dict("visit" => rest_entry)))
-                other == curve && continue
-                push!(rest, rest_entry)
-            end
-            direction = sign(q) * (entry > 0 ? 1 : -1)
-            side = q > 0 ? "right" : "left"
-            insert_word = Int[]
-            for _ in 1:abs(q)
-                append!(insert_word, direction > 0 ? rest : reverse(-rest))
-            end
-            inserted_signed = Int[]
-            ops = Tuple{String,Int,Int,Bool}[]
-            for inserted in insert_word
-                core_letter = direction > 0 ? inserted : -inserted
-                partner_name = _owner_of(words, abs(core_letter), core_letter > 0 ? "-" : "+")
-                partner_name === nothing && throw(LCMoveError(
-                    :expansion, "support visit has no partner", Dict("visit" => core_letter)))
-                ppos = findfirst(x -> abs(x) == abs(core_letter), words[partner_name])
-                ppos === nothing && throw(LCMoveError(
-                    :expansion, "partner visit missing", Dict("visit" => core_letter, "partner" => partner_name)))
-                fresh = next_local
-                next_local += 1
-                acted_signed = sign(inserted) * fresh
-                push!(inserted_signed, acted_signed)
-                gap = _parallel_after(core_letter > 0, side) ? ppos + 1 : ppos
-                push!(ops, (partner_name, gap, acted_signed, gap != ppos))
-            end
-            visit = [sign(entry) * local_label(abs(entry))]
-            # Forward along the bank, the parallel is read before the visit.
-            # Backward, it is read after the visit. Both readings stay on `side`.
-            after = direction > 0 ? vcat(inserted_signed, visit) : vcat(visit, inserted_signed)
-            push!(visits, (ops=ops, before=visit, after=after, pos=pos, curve=curve))
-        end
-    end
-    for after_bank in (false, true)
-        seq = after_bank ? reverse(visits) : visits
-        for rec in seq
-            chosen = Tuple{String,Int,Int}[(op[1], op[2], op[3]) for op in rec.ops if op[4] == after_bank]
-            isempty(chosen) && continue
-            _emit_gap_inserts!(locations, before_frags, after_frags, index, chosen)
-        end
-    end
-    for rec in visits
-        push!(locations, (index[rec.curve], rec.pos))
-        push!(before_frags, rec.before)
-        push!(after_frags, rec.after)
-    end
-    isempty(locations) && throw(LCMoveError(
-        :expansion, "acted components do not meet the support", Dict("support" => core, "acted" => acted)))
-    vertices = zeros(Int, next_local - 1)
-    for (global_label, local_label) in local_of
-        vertices[local_label] = global_label
-    end
-    # Fresh locals are not in vertices; _vertex_maps assigns them only if they exceed before.vertex_count.
-    # Here before fragments use only existing locals, so before.vertex_count is the max existing local,
-    # and fresh locals in after fragments are assigned by _vertex_maps if they are > that count.
-    capacity = collect(1:length(before_frags))
-    [_witness_from(input, row, names, locations, vertices[1:_vmax(before_frags)], before_frags, after_frags, capacity;
-        extra=Dict{String,Any}("q" => q, "support" => core, "acted" => acted, "global_inverse" => true))]
+    [_move_affine_witness(input,row,_move_thin_annulus(lc,core),acted,q)]
 end
 
 function _shift_label(label, genus)
@@ -1021,10 +1017,13 @@ end
 # cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.3 — empty band is a left parallel of a_j; reconstructed
 function _expand_glue(input, row, selections)
     _require_selection(row, selections)
-    input isa HeegaardLayer || throw(LCMoveError(:layer, "handle slide requires an HC", Dict("row" => row["id"])))
+    input isa HeegaardCode || throw(LCMoveError(:layer, "handle slide requires an HC", Dict("row" => row["id"])))
     curves = selections["curves"]
     length(curves) == 2 || throw(LCMoveError(:missing_selection, "curves must be the pair (a_i, a_j)", Dict()))
     a_i, a_j = String(curves[1]), String(curves[2])
+    if _is_k(input.lc,a_i) && haskey(input.roles,a_i)
+        return _move_prepare_slide(input,row,selections)
+    end
     a_i == a_j && throw(LCMoveError(:applicability, "a slide needs two distinct curves", Dict()))
     role_i = get(input.roles, a_i, nothing)
     role_j = get(input.roles, a_j, nothing)
@@ -1032,91 +1031,12 @@ function _expand_glue(input, row, selections)
         :applicability, "handle slide requires two curves of the same family",
         Dict("a_i" => a_i, "a_j" => a_j, "roles" => Dict(a_i => role_i, a_j => role_j))))
     band = selections["band"]
-    for step in band
-        crossed = String(step["component"])
-        get(input.roles, crossed, nothing) == role_i && throw(LCMoveError(
-            :applicability, "band meets another curve of the same family", Dict("component" => crossed)))
-    end
-    lc = input.lc
-    names = _component_names(lc)
-    index = Dict(name => i for (i, name) in enumerate(names))
-    words = lc.words
-    next_local = 1
-    local_of = Dict{Int,Int}()
-    function use_local(global_label)
-        haskey(local_of, global_label) && return local_of[global_label]
-        local_of[global_label] = next_local
-        next_local += 1
-        local_of[global_label]
-    end
-    before_frags = Vector{Vector{Int}}()
-    after_frags = Vector{Vector{Int}}()
-    locations = Tuple{Int,Int}[]
-    # a_i is replaced by its own visits followed by a parallel copy of a_j and the band crossings.
-    before_i = [sign(entry) * use_local(abs(entry)) for entry in words[a_i]]
-    after_i = copy(before_i)
-    function add_fresh(partner, gap, sign_on_new)
-        fresh = next_local
-        next_local += 1
-        push!(locations, (index[partner], gap))
-        push!(before_frags, Int[])
-        push!(after_frags, [-sign_on_new * fresh])
-        fresh
-    end
-    # Same passage signs as a_j, on its left. The opposite signs sit off the surface:
-    # the rotation system then has the wrong Euler characteristic for this genus.
-    ops = Tuple{String,Int,Int}[]
-    for entry in words[a_j]
-        partner = _owner_of(words, abs(entry), entry > 0 ? "-" : "+")
-        partner === nothing && throw(LCMoveError(:expansion, "a_j visit has no partner", Dict("visit" => entry)))
-        ppos = findfirst(x -> abs(x) == abs(entry), words[partner])
-        ppos === nothing && throw(LCMoveError(
-            :expansion, "partner visit missing", Dict("visit" => entry, "partner" => partner)))
-        sign_on_new = sign(entry)
-        gap = _parallel_after(entry > 0, "left") ? ppos + 1 : ppos
-        fresh = next_local
-        next_local += 1
-        signed = sign_on_new * fresh
-        push!(after_i, signed)
-        push!(ops, (partner, gap, signed))
-    end
-    _emit_gap_inserts!(locations, before_frags, after_frags, index, ops)
-    for step in band
-        crossed = String(step["component"])
-        gap = Int(step["at"]) + 1
-        approach = String(get(step, "approach", "right"))
-        sign_on_new = approach == "right" ? 1 : -1
-        fresh = add_fresh(crossed, gap, sign_on_new)
-        push!(after_i, sign_on_new * fresh)
-    end
-    push!(locations, (index[a_i], 1))
-    push!(before_frags, before_i)
-    push!(after_frags, after_i)
-    vertices = zeros(Int, max(1, next_local - 1))
-    for (global_label, local_label) in local_of
-        vertices[local_label] = global_label
-    end
-    used = _vmax(before_frags)
-    capacity = collect(1:length(before_frags))
-    [_witness_from(input, row, names, locations, vertices[1:used], before_frags, after_frags, capacity;
-        extra=Dict{String,Any}("a_i" => a_i, "a_j" => a_j, "global_inverse" => true))]
+    band isa AbstractDict && haskey(band,"route") && (band=band["route"])
+    bands = band isa AbstractDict ? [band] :
+        band isa AbstractVector && isempty(band) ? _move_face_bands(input.lc,a_i,a_j) :
+        throw(LCMoveError(:path_order_required,"band needs start/finish darts and ordered crossing points",Dict()))
+    return [_move_pants_expand(input,row,[a_i,a_j],b) for b in bands]
 end
-
-# cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.4 — ladder_end crossing tokens; reconstructed
-function _ladder_letter(token, env)
-    text = String(token)
-    sig = 1
-    if startswith(text, "-")
-        sig = -1
-        text = text[2:end]
-    elseif startswith(text, "+")
-        text = text[2:end]
-    end
-    haskey(env, text) || throw(LCMoveError(:expansion, "unknown ladder token", Dict("token" => text)))
-    sig * env[text]
-end
-
-_ladder_word(tokens, env) = Int[_ladder_letter(token, env) for token in tokens]
 
 function _expand_k_inclusion(input, row, selections)
     _require_selection(row, selections)
@@ -1126,104 +1046,12 @@ function _expand_k_inclusion(input, row, selections)
         "逆安定化は、順方向の witness が残す一穴トーラスの支持でだけ適用する",
         Dict("genus_delta" => delta, "row" => row["id"]),
     ))
-    input isa HeegaardLayer || throw(LCMoveError(:layer, "stabilization requires an HC", Dict()))
-    String(selections["k_identification"]) == "ladder_end" || throw(LCMoveError(
-        :missing_selection, "only the ladder_end identification is in the row data",
-        Dict("k_identification" => selections["k_identification"])))
-    pattern = get(get(row, "expansion", Dict()), "pattern", nothing)
-    pattern isa AbstractDict || throw(LCMoveError(
-        :expansion, "ladder_end pattern is not in the row", Dict("row" => row["id"])))
-    lc = input.lc
-    g = lc.genus
-    g >= 1 || throw(LCMoveError(:applicability, "ladder_end stabilization starts at genus >= 1", Dict("genus" => g)))
-    disk = String(selections["disk"])
-    active = Dict(k => copy(v) for (k, v) in lc.words if !isempty(v))
-    faces, _ = _lc_faces(active)
-    any(face -> face.id == disk, faces) || throw(LCMoveError(
-        :missing_selection, "disk is not a face of this diagram", Dict("disk" => disk)))
-    lname = "l$g"
-    mname = "m$g"
-    haskey(lc.words, lname) && haskey(lc.words, mname) || throw(LCMoveError(
-        :expansion, "ladder end is missing l_g or m_g", Dict("genus" => g)))
-    pos = findfirst(==(-g), lc.words[lname])
-    pos === nothing && throw(LCMoveError(:expansion, "lm visit not found on l_g", Dict("component" => lname)))
-    limit = _k_limit(g)
-    non_k = [entry for entry in lc.words[mname] if abs(entry) > limit]
-    length(non_k) == 1 || throw(LCMoveError(
-        :expansion, "ladder_end needs one non-K visit on m_g",
-        Dict("component" => mname, "visits" => non_k)))
-    entry = only(non_k)
-    partner = _owner_of(lc.words, abs(entry), entry > 0 ? "-" : "+")
-    (partner === nothing || partner == lname) && throw(LCMoveError(
-        :expansion, "m_g visit has no ladder partner", Dict("visit" => entry)))
-    ref = _lc_k_constants(g + 1)
-    old_k = Int[sign(e) * _shift_label(abs(e), g) for e in lc.words[lname] if abs(e) <= limit]
-    fresh_k = [letter for letter in ref[lname] if !(abs(letter) in Set(abs.(old_k)))]
-    length(fresh_k) == 1 || throw(LCMoveError(
-        :expansion, "new l_g K letter is not unique", Dict("letters" => fresh_k)))
-    new_signed = only(fresh_k)
-    labels = unique(abs(e) for word in values(lc.words) for e in word)
-    forward = Dict{Int,Int}()
-    backward = Dict{Int,Int}()
-    shifted_max = 0
-    for label in labels
-        image = _shift_label(label, g)
-        forward[label] = image
-        backward[image] = label
-        shifted_max = max(shifted_max, image)
+    input isa HeegaardCode || throw(LCMoveError(:layer, "stabilization requires an HC", Dict()))
+    String(selections["k_identification"])=="ladder_end" || throw(LCMoveError(:missing_selection,"K identification is not in the catalogue",Dict()))
+    if get(row["expansion"],"support_policy",nothing)=="free_attachment_disk"
+        return _move_prepare_stabilization(input,row,selections)
     end
-    nxt = max(shifted_max, _k_limit(g + 1)) + 1
-    env = Dict("A" => nxt, "B" => nxt + 1, "C" => nxt + 2, "D" => nxt + 3, "E" => nxt + 4)
-    l_new = "l$(g + 1)"
-    m_new = "m$(g + 1)"
-    n_name = "n$g"
-    aname = "alpha$(g + 1)"
-    bname = "beta$(g + 1)"
-    for name in (l_new, m_new, n_name, aname, bname)
-        haskey(lc.words, name) && throw(LCMoveError(
-            :component_name, "stabilization name is already used", Dict("name" => name)))
-    end
-    nref = ref[n_name]
-    length(nref) == 2 || throw(LCMoveError(
-        :expansion, "n_g constant is not a pair", Dict("word" => nref)))
-    created_words = Dict(
-        l_new => vcat(ref[l_new], _ladder_word(pattern["l_suffix"], env)),
-        m_new => vcat(ref[m_new], _ladder_word(pattern["m_suffix"], env)),
-        n_name => vcat(nref[1:1], _ladder_word(pattern["n_between"], env), nref[2:2]),
-        aname => _ladder_word(pattern["alpha0"], env),
-        bname => _ladder_word(pattern["beta0"], env),
-    )
-    touch = only(_ladder_word([pattern["old_touch"]], env))
-    ppos = findfirst(x -> abs(x) == abs(entry), lc.words[partner])
-    ppos === nothing && throw(LCMoveError(
-        :expansion, "partner visit missing", Dict("visit" => entry, "partner" => partner)))
-    # cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.4 — n meets the partner on the right bank of the m_g visit; reconstructed
-    gap = _parallel_after(entry > 0, "right") ? ppos + 1 : ppos
-    names = vcat(_component_names(lc), [l_new, m_new, n_name, aname, bname])
-    index = Dict(name => i for (i, name) in enumerate(names))
-    before_frags = Vector{Vector{Int}}()
-    after_frags = Vector{Vector{Int}}()
-    locations = Tuple{Int,Int}[]
-    function push_frag(name, start, pre, post)
-        push!(locations, (index[name], start))
-        push!(before_frags, pre)
-        push!(after_frags, post)
-    end
-    push_frag(lname, pos, Int[-g], Int[-g, new_signed])
-    push_frag(partner, gap, Int[], Int[touch])
-    for name in (l_new, m_new, n_name, aname, bname)
-        push_frag(name, 1, Int[], created_words[name])
-    end
-    extra = Dict{String,Any}(
-        "label_map" => forward,
-        "inverse_label_map" => backward,
-        "created_components" => [l_new, m_new, n_name, aname, bname],
-        "new_roles" => Dict{String,Symbol}(aname => :alpha, bname => :beta),
-        "disk" => disk,
-        "acted" => [lname, partner],
-    )
-    [_witness_from(input, row, names, locations, Int[], before_frags, after_frags,
-        collect(1:length(before_frags)); extra=extra)]
+    [_move_surface_inclusion(input,row,String(selections["disk"]))]
 end
 
 function _kind_ok(lc, kind, name)
@@ -1257,15 +1085,15 @@ function _expand_face_edges(input, row, selections)
     k_kind = String(get(bindings, "K", "any"))
     witnesses = LCMoveWitness[]
     for face in faces
-        # A place-only circle makes this region punctured; its side and the
-        # path around it are not encoded by two edge occurrences alone.
-        face.id in values(lc.places) && continue
+        # Creation uses interior edge ports and a narrow embedded band disjoint
+        # from old vertices. Actual placed circles can first be parked near an
+        # untouched old corner; their nesting and oriented sides are preserved.
         edges = _move_left_boundary(active, occ, face)
         for push_edge in edges, cross_edge in edges
             push_edge.component == cross_edge.component && continue
             _kind_ok(lc, c_kind, push_edge.component) || continue
             _kind_ok(lc, k_kind, cross_edge.component) || continue
-            if input isa HeegaardLayer
+            if input isa HeegaardCode
                 a = get(input.roles, push_edge.component, nothing)
                 b = get(input.roles, cross_edge.component, nothing)
                 a !== nothing && a == b && continue
@@ -1281,7 +1109,9 @@ function _expand_face_edges(input, row, selections)
                 "face" => face.id,
                 "push" => push_edge.component,
                 "cross" => cross_edge.component,
+                "creation_parking" => Dict(face.id=>copy(face.corners)),
                 "support" => Dict("kind" => "disk_band", "face" => face.id,
+                    "port_u"=>1//2,"closed_band_avoids_old_vertices"=>true,
                     "start" => collect(push_edge.corner), "finish" => collect(cross_edge.corner)),
             )
             push!(witnesses, _witness_from(
@@ -1294,93 +1124,35 @@ function _expand_face_edges(input, row, selections)
 end
 
 function _parallel_after(c_sign_positive, side)
-    seq = [("-", "out"), ("+", "out"), ("-", "in"), ("+", "in")]
-    c_sign = c_sign_positive ? "+" : "-"
-    i = findfirst(==( (c_sign, "out") ), seq)
-    step = side == "left" ? 1 : -1
-    seq[mod1(i + step, 4)][2] == "out"
+    # s*sigma=+1 is before, s*sigma=-1 is after.
+    side in ("left","right") || throw(LCMoveError(:support,"side must be left or right",Dict("side"=>side)))
+    (side == "left") != c_sign_positive
 end
 
 function _expand_parallel(input, row, selections)
+    input isa HeegaardCode && throw(LCMoveError(:parallel_role_required,
+        "parallel copy is an LC construction; a new HC component needs an explicit role and support transport",
+        Dict("row"=>row["id"])))
     lc = _lc_of(input)
+    isempty(lc.places) || throw(LCMoveError(:missing_place_transport,
+        "parallel collar needs the image of every place-only curve",Dict("places"=>copy(lc.places))))
     curve = get(selections, "curve", nothing)
     side = get(selections, "side", nothing)
     names0 = _component_names(lc)
     curves = curve === nothing ? [n for n in names0 if !isempty(get(lc.words, n, Int[]))] : [String(curve)]
     sides = side === nothing ? ["left", "right"] : [String(side)]
-    max_label = maximum(vcat([0], [abs(x) for w in values(lc.words) for x in w]))
     witnesses = LCMoveWitness[]
     for c in curves, s in sides
-        word = get(lc.words, c, Int[])
+        word = get(lc.words,c,Int[])
         isempty(word) && continue
-        s in ("left", "right") || throw(LCMoveError(:missing_selection, "side must be left or right", Dict("side" => s)))
-        copy_name = c * (s == "left" ? "_l" : "_r")
-        haskey(lc.words, copy_name) && throw(LCMoveError(:component_name, "parallel copy name is already used", Dict("name" => copy_name)))
-        partners = Dict{String,Vector{Int}}()
-        new_local = max_label
-        copy_word = Int[]
-        for entry in word
-            new_local += 1
-            sign = entry > 0 ? 1 : -1
-            push!(copy_word, sign * new_local)
-            placed = false
-            for (name, partner) in lc.words
-                name == c && continue
-                for (i, y) in enumerate(partner)
-                    abs(y) == abs(entry) || continue
-                    w = get!(partners, name, copy(partner))
-                    insert_at = _parallel_after(entry > 0, s) ? i + 1 : i
-                    # later inserts on the same word shift; record and apply from the right below
-                    placed = true
-                end
-            end
-            placed || throw(LCMoveError(:expansion, "crossing has no partner", Dict("label" => abs(entry), "curve" => c)))
-        end
-        # rebuild partner inserts from the right so indices stay valid
-        jobs = Dict{String,Vector{Tuple{Int,Int,Bool}}}()
-        new_local = max_label
-        for entry in word
-            new_local += 1
-            sign = entry > 0 ? 1 : -1
-            partner_entry = -sign * new_local
-            for (name, partner) in lc.words
-                name == c && continue
-                for (i, y) in enumerate(partner)
-                    abs(y) == abs(entry) || continue
-                    push!(get!(jobs, name, Tuple{Int,Int,Bool}[]), (i, partner_entry, _parallel_after(entry > 0, s)))
-                end
-            end
-        end
-        after_of = Dict{String,Vector{Int}}()
-        for (name, items) in jobs
-            w = copy(lc.words[name])
-            for (i, signed_new, after) in sort(items; by=first, rev=true)
-                insert!(w, after ? i + 1 : i, signed_new)
-            end
-            after_of[name] = w
-        end
-        names = vcat(names0, [copy_name])
-        before = Vector{Vector{Int}}()
-        after = Vector{Vector{Int}}()
-        locations = Tuple{Int,Int}[]
-        for (i, name) in enumerate(names0)
-            old = get(lc.words, name, Int[])
-            push!(before, copy(old))
-            push!(after, get(after_of, name, copy(old)))
-            push!(locations, (i, 1))
-        end
-        push!(before, Int[])
-        push!(after, copy_word)
-        push!(locations, (length(names), 1))
-        extra = Dict{String,Any}(
-            "range" => "every nonempty curve, both sides",
-            "curve" => c,
-            "side" => s,
-            "created_components" => [copy_name],
-        )
-        push!(witnesses, _witness_from(
-            input, row, names, locations, collect(1:max_label), before, after,
-            collect(1:length(names)); extra=extra))
+        length(unique(abs.(word)))==length(word) || throw(LCMoveError(:support,"parallel core has a self crossing",Dict("curve"=>c)))
+        s in ("left","right") || throw(LCMoveError(:missing_selection,"side must be left or right",Dict()))
+        target=c*(s=="left" ? "_l" : "_r")
+        haskey(lc.words,target) && throw(LCMoveError(:component_name,"parallel copy name is already used",Dict("name"=>target)))
+        run=(kind=:curve,component=c,edge=length(word),side=s=="left" ? 1 : -1,direction=1,survives=false)
+        w=_move_compile_boundary(input,row,target,[run],Dict("kind"=>"collar","curve"=>c,"side"=>s))
+        w.extra["curve"]=c;w.extra["side"]=s;w.extra["range"]="every nonempty simple curve, both sides"
+        push!(witnesses,w)
     end
     witnesses
 end
@@ -1398,39 +1170,51 @@ function _expand(input, row, selections)
         return _expand_face_edges(input, row, selections)
     elseif op == "parallel"
         return _expand_parallel(input, row, selections)
+    elseif op == "role_parallel"
+        haskey(selections, "curve") || return _enumerate_role_parallel(input, row, selections)
+        return _move_separate_role(input,row,selections)
+    elseif op == "mark_edit"
+        (haskey(selections, "name") && haskey(selections, "target")) || return _enumerate_mark_edit(input, row, selections)
+        return [_move_mark_edit(input,row,selections)]
     elseif op == "affine"
-        haskey(selections, "q") || return LCMoveWitness[]
+        _affine_selection_complete(selections) || return _enumerate_affine(input, row, selections)
         return _expand_affine(input, row, selections)
     elseif op == "glue"
-        haskey(selections, "curves") || return LCMoveWitness[]
+        haskey(selections, "curves") || return _enumerate_glue(input, row, selections)
         return _expand_glue(input, row, selections)
     elseif op == "k_inclusion"
-        haskey(selections, "disk") || haskey(selections, "support") || return LCMoveWitness[]
+        (haskey(selections, "disk") || haskey(selections, "support")) || return _enumerate_k_inclusion(input, row, selections)
         return _expand_k_inclusion(input, row, selections)
     end
     throw(LCMoveError(:expansion, "unknown expansion op", Dict("op" => op, "row" => row["id"])))
 end
 
-function movable(input::Union{LickorishConfiguration,HeegaardLayer}, row::AbstractDict; kwargs...)
-    _refuse_marks(input, row)
-    if String(row["layer"]) == "HC" && !(input isa HeegaardLayer)
+function movable(input::Union{LickorishCode,HeegaardCode}, row::AbstractDict; kwargs...)
+    input isa HeegaardCode ? validate_hc_input(input) : validate_lc_input(input)
+    _move_validate_input(_lc_of(input))
+    _refuse_marks(input, row;policy=get(kwargs,:mark_transport,nothing))
+    if String(row["layer"]) == "HC" && !(input isa HeegaardCode)
         throw(LCMoveError(:layer, "HC の行には役割を持つ HC が要る", Dict("row" => row["id"])))
     end
     selections = _selection_dict(; kwargs...)
-    _expand(input, row, selections)
+    ws=_expand(input, row, selections)
+    for w in ws
+        haskey(selections,"mark_transport") && (w.extra["mark_transport"]=selections["mark_transport"])
+    end
+    ws
 end
 
-function movable(input::Union{LickorishConfiguration,HeegaardLayer}, row_id::AbstractString; kwargs...)
+function movable(input::Union{LickorishCode,HeegaardCode}, row_id::AbstractString; kwargs...)
     movable(input, heegaard_move_row(row_id); kwargs...)
 end
 
-function move(input::Union{LickorishConfiguration,HeegaardLayer}, witness::LCMoveWitness)
+function move(input::Union{LickorishCode,HeegaardCode}, witness::LCMoveWitness)
     row = heegaard_move_row(witness.row_id)
-    _refuse_marks(input, row)
-    _apply_witness(input, witness)
+    _refuse_marks(input, row;policy=get(witness.extra,"mark_transport",nothing))
+    _move_checked_apply(input, witness)
 end
 
-function lc_text(lc::LickorishConfiguration)
+function lc_text(lc::LickorishCode)
     lines = String["genus: $(lc.genus)"]
     for name in _component_names(lc)
         haskey(lc.words, name) || continue
@@ -1444,7 +1228,7 @@ function lc_text(lc::LickorishConfiguration)
 end
 
 # cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/heegaard-code.md §5.1 — encoding はテキストの選択であり、役割も語も変えない
-function hc_text(hc::HeegaardLayer; lc_filename::AbstractString, encoding::Symbol=:auto)
+function hc_text(hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto)
     validate_hc_input(hc)
     encoding in (:auto, :standard, :explicit) || throw(ArgumentError("unknown HC encoding: $encoding"))
     (isempty(lc_filename) || occursin(r"[\r\n#]", lc_filename) || isabspath(lc_filename)) &&
@@ -1474,14 +1258,14 @@ function hc_text(hc::HeegaardLayer; lc_filename::AbstractString, encoding::Symbo
     join(lines, "\n") * "\n"
 end
 
-function write_lc(path::AbstractString, lc::LickorishConfiguration)
+function write_lc(path::AbstractString, lc::LickorishCode)
     open(path, "w") do io
         write(io, lc_text(lc))
     end
     path
 end
 
-function write_hc(path::AbstractString, hc::HeegaardLayer; lc_filename::AbstractString, encoding::Symbol=:auto)
+function write_hc(path::AbstractString, hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto)
     text = hc_text(hc; lc_filename=lc_filename, encoding=encoding)
     open(path, "w") do io
         write(io, text)

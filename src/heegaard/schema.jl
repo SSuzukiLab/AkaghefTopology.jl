@@ -43,7 +43,7 @@ function heegaard_code(alpha::AbstractVector, beta::AbstractVector,
     a = [_curve_from_spec(spec, :alpha, i) for (i, spec) in enumerate(alpha)]
     b = [_curve_from_spec(spec, :beta, i) for (i, spec) in enumerate(beta)]
     p = [_intersection_from_spec(spec, i) for (i, spec) in enumerate(intersections)]
-    HeegaardCode(a, b, p, _copy_meta(metadata))
+    CombinatorialHeegaardCode(a, b, p, _copy_meta(metadata))
 end
 
 function heegaard_code(; alpha=Vector{Any}(), beta=Vector{Any}(), intersections=Vector{Any}(), metadata=nothing)
@@ -53,19 +53,19 @@ end
 function _code_of(object)
     object isa HeegaardDiagram && return object.code
     object isa DecoratedHeegaardCode && return object
-    object isa HeegaardCode && return object
-    throw(ArgumentError("expected HeegaardCode, DecoratedHeegaardCode, or HeegaardDiagram"))
+    object isa CombinatorialHeegaardCode && return object
+    throw(ArgumentError("expected CombinatorialHeegaardCode, DecoratedHeegaardCode, or HeegaardDiagram"))
 end
 
 function _undecorated(object)
     object isa HeegaardDiagram && return object.code.code
     object isa DecoratedHeegaardCode && return object.code
-    object isa HeegaardCode && return object
+    object isa CombinatorialHeegaardCode && return object
     throw(ArgumentError("expected Heegaard code"))
 end
 
 """Attach a complete boundary-cycle partition to a code."""
-function decorate(code::HeegaardCode, regions; metadata=nothing, cellular::Bool=false)
+function decorate(code::CombinatorialHeegaardCode, regions; metadata=nothing, cellular::Bool=false)
     if regions === nothing
         cellular || throw(ArgumentError("region decoration is required; pass cellular=true explicitly"))
         regions = [[i] for i in eachindex(boundary_cycles(code))]
@@ -75,7 +75,7 @@ function decorate(code::HeegaardCode, regions; metadata=nothing, cellular::Bool=
         _copy_meta(metadata === nothing ? code.metadata : metadata))
 end
 
-function decorate(code::HeegaardCode; regions=nothing, metadata=nothing, cellular::Bool=false)
+function decorate(code::CombinatorialHeegaardCode; regions=nothing, metadata=nothing, cellular::Bool=false)
     decorate(code, regions; metadata=metadata, cellular=cellular)
 end
 
@@ -103,7 +103,7 @@ function _intersection_json(point::Intersection)
     result
 end
 
-function _json_dict(object::HeegaardCode)
+function _json_dict(object::CombinatorialHeegaardCode)
     Dict{String,Any}(
         "schema" => HGD_SCHEMA,
         "curves" => Dict{String,Any}(
@@ -164,7 +164,7 @@ not a claim that both families form complete Heegaard cut systems. Invalid
 edits leave an existing destination untouched. Legacy core behavior is retained.
 """
 function save_heegaard(path::AbstractString, object)
-    object isa Union{HeegaardCode,DecoratedHeegaardCode,HeegaardDiagram} ||
+    object isa Union{CombinatorialHeegaardCode,DecoratedHeegaardCode,HeegaardDiagram} ||
         throw(ArgumentError("save_heegaard expects a Heegaard core object"))
     data = _json_dict(object)
     # canonicalization.jl::_canonical_json preserves array/word order and opaque

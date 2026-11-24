@@ -100,7 +100,82 @@ function virtual_link_to_odata(link)
     ))
 end
 
-function spine_to_odata(spine::FlowSpine)
+# cf: [[K08#^k08-sec-0073]] §3 — beta isotopy; source-cell annulus cut is reconstructed.
+# cf: lib/topology.jl/src/heegaard/lc_moves_support.jl::_move_left_boundary — convert ribbon/right banks to the existing left-face digon table.
+function _koda_annulus_regularize(spine::FlowSpine)
+    fail(reason, detail=Dict{String,Any}()) = koda_not_computed(:spine_to_odata,reason,detail)
+    spine.source isa PuncturedHeegaardDiagram || fail(:regularization_source_required)
+    regs=get(spine.complex.checks,"source_surface_regions",nothing)
+    regs===nothing && fail(:regularization_surface_cells_required)
+    annuli=[r for r in regs if r["genus"]==0 && r["boundary_count"]==2 && r["chi"]==0]
+    length(annuli)==1 || fail(:regularization_requires_one_annulus)
+    ann=only(annuli)
+    all(r===ann || (r["genus"]==0 && r["boundary_count"]==1 && r["chi"]==1) for r in regs) ||
+        fail(:regularization_other_surface_sector)
+    ph=spine.source; h=ph.diagram; graph=ribbon_graph(h); old=_undecorated(h)
+    length(old.intersections)-length(graph.edges)+sum(r["chi"] for r in regs)==2-2*spine.genus ||
+        fail(:regularization_surface_euler_mismatch)
+    banks=ann["boundary_darts"];length(banks)==2 || fail(:regularization_annulus_banks)
+    removed=Set(graph.darts[d].edge for d in ph.joining_disk.boundary_darts)
+    pairs=Tuple{Int,Int}[]
+    for side in 1:2, p in banks[side], c in banks[3-side]
+        pe=graph.edges[graph.darts[p].edge]; ce=graph.edges[graph.darts[c].edge]
+        pe.family==:beta && ce.family==:alpha || continue
+        pe.id in removed && continue
+        ce.id in removed && continue
+        push!(pairs,(p,c))
+    end
+    isempty(pairs) && fail(:regularization_no_relative_finger)
+    # One topology-selected route; never choose another pair after a failed check.
+    pd,cd=first(sort!(pairs)); pe=graph.edges[graph.darts[pd].edge];ce=graph.edges[graph.darts[cd].edge]
+    cp,kp=_derived_digon(!isodd(pd),!isodd(cd))
+    n=maximum(x.id for x in old.intersections)
+    function refine(curve)
+        edge=curve.family==:beta ? pe : ce; pat=curve.family==:beta ? cp : kp
+        word=copy(curve.visits)
+        if curve.family==edge.family && curve.id==edge.curve_id
+            pos=only(i for i in eachindex(word) if word[i]==edge.from && word[mod1(i+1,length(word))]==edge.to)
+            word=vcat(word[1:pos],n .+ abs.(pat),word[pos+1:end])
+        end
+        Curve(curve.family,curve.id,word;label=curve.label)
+    end
+    signs=Dict(abs(x)=>sign(x) for x in kp)
+    xs=vcat(old.intersections,[Intersection(n+i,ce.curve_id,pe.curve_id,signs[i]) for i in 1:2])
+    nh=certify_heegaard(decorate(heegaard_code(refine.(old.alpha),refine.(old.beta),xs);cellular=true))
+    surface_genus(nh)==spine.genus || fail(:regularization_changed_surface_genus,
+        Dict("before"=>spine.genus,"after"=>surface_genus(nh)))
+    ng=ribbon_graph(nh);cycles=boundary_cycles(ng)
+    length(cycles)==length(regs)+1 || fail(:regularization_cell_count_mismatch)
+    key(g,d)=begin x=g.darts[d];e=g.edges[x.edge];(e.family,e.curve_id,x.origin,x.target,isodd(d)) end
+    jkeys=Set(key(graph,d) for d in ph.joining_disk.boundary_darts)
+    hits=[i for (i,c) in enumerate(cycles) if length(c)==length(jkeys) && Set(key(ng,d) for d in c)==jkeys]
+    length(hits)==1 || fail(:regularization_changed_joining_boundary)
+    jd=joining_disk(nh,only(hits));qph=make_punctured_combinatorial(nh,jd)
+    # Deleting precisely the generated crossings recovers every oriented curve.
+    for (before,after) in zip(vcat(old.alpha,old.beta),vcat(_undecorated(nh).alpha,_undecorated(nh).beta))
+        filter(x->x<=n,after.visits)==before.visits || fail(:regularization_inverse_word_mismatch)
+    end
+    result=_koda_combinatorial_spine_from_punctured(qph;genus=spine.genus)
+    G=to_ograph(result.value);v=odata_to_virtual_link(G)
+    closed,conditions=parentmodule(@__MODULE__).is_closed(v)
+    closed || fail(:regularization_not_closed,Dict("conditions"=>conditions))
+    G.metadata["regularization"]=Dict{String,Any}(
+        "kind"=>"annulus_beta_finger","surface_region"=>ann["id"],
+        "opposite_banks"=>banks,"push_dart"=>pd,"cross_dart"=>cd,
+        "new_crossings"=>[n+1,n+2],"new_crossing_signs"=>[signs[1],signs[2]],
+        "source_diagram_hash"=>_labelled_hash(h),
+        "joining_boundary_before"=>[collect(key(graph,d)) for d in ph.joining_disk.boundary_darts],
+        "joining_boundary_after"=>[collect(key(ng,d)) for d in jd.boundary_darts],
+        "joining_boundary_unchanged"=>true,"inverse_delete_crossings"=>[n+1,n+2],
+        "surface_genus_before"=>spine.genus,"surface_genus_after"=>surface_genus(nh),
+        "surface_disk_regions_after"=>length(cycles),"closed_conditions"=>collect(conditions))
+    G
+end
+
+function spine_to_odata(spine::FlowSpine; regularize::Bool=false)
+    if regularize && (get(spine.complex.checks, "vertex_free", false) || _non_disk_sector(spine) !== nothing)
+        return _koda_annulus_regularize(spine)
+    end
     if get(spine.complex.checks, "vertex_free", false) || isempty(spine.vertex_signs)
         koda_not_computed(:spine_to_odata, :vertex_free_odata_not_encoded, Dict{String, Any}(
             "spec" => "heegaard-koda-conversion.md §7.0 / §13.3",

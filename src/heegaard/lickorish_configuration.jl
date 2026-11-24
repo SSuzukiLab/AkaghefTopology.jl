@@ -4,7 +4,7 @@
 
 const LC_META = (:place, :disk, :point, :weight)
 
-struct LickorishConfiguration
+struct LickorishCode
     genus::Int
     words::Dict{String, Vector{Int}}
     places::Dict{String, String}
@@ -72,16 +72,16 @@ function _lc_parse_text(text::AbstractString)
         words[name] = parse.(Int, split(strip(rest)))
     end
     genus === nothing && throw(KodaInputError(:read_lc, "missing genus line", Dict()))
-    LickorishConfiguration(genus, words, places, disks, points, weights, nothing)
+    LickorishCode(genus, words, places, disks, points, weights, nothing)
 end
 
 function read_lc(path::AbstractString)
     text = read(path, String)
     lc = _lc_parse_text(text)
-    LickorishConfiguration(lc.genus, lc.words, lc.places, lc.disks, lc.points, lc.weights, abspath(path))
+    LickorishCode(lc.genus, lc.words, lc.places, lc.disks, lc.points, lc.weights, abspath(path))
 end
 
-function validate_lc_input(lc::LickorishConfiguration)
+function validate_lc_input(lc::LickorishCode)
     g = lc.genus
     g < 0 && throw(KodaInputError(:validate_lc, "genus must be nonnegative", Dict("genus" => g)))
     if g > 0
@@ -108,8 +108,8 @@ function validate_lc_input(lc::LickorishConfiguration)
     true
 end
 
-struct HeegaardLayer
-    lc::LickorishConfiguration
+struct HeegaardCode
+    lc::LickorishCode
     roles::Dict{String, Symbol}
     disks::Dict{String, Vector{String}}
     points::Dict{String, String}
@@ -118,13 +118,13 @@ struct HeegaardLayer
 end
 
 # cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/heegaard-code.md §2.3–§2.4 — `standard` は各 m_i への α 束縛であり、順序付き α 支持が [m1,…,mg] のときだけ standard
-function hc_component_names(lc::LickorishConfiguration)
+function hc_component_names(lc::LickorishCode)
     reference = lc.genus > 0 ? _lc_k_names(lc.genus) : String[]
     vcat(reference, sort([name for name in keys(lc.words) if !(name in reference)]))
 end
 
 """Bind `standard` onto the reference meridians. The LC words are not copied or rewritten."""
-function resolve_hc(lc::LickorishConfiguration, roles::AbstractDict;
+function resolve_hc(lc::LickorishCode, roles::AbstractDict;
                     standard::Bool=false, disks=Dict{String,Vector{String}}(),
                     points=Dict{String,String}(), weights=Dict{String,Int}(), hc_path=nothing)
     r = Dict{String,Symbol}(String(k) => Symbol(v) for (k, v) in roles)
@@ -152,7 +152,7 @@ function resolve_hc(lc::LickorishConfiguration, roles::AbstractDict;
         role in (:alpha, :beta) || throw(KodaInputError(:resolve_hc,
             "invalid role", Dict{String,Any}("curve" => name, "role" => String(role))))
     end
-    hc = HeegaardLayer(lc, r,
+    hc = HeegaardCode(lc, r,
         deepcopy(Dict{String,Vector{String}}(disks)),
         copy(Dict{String,String}(points)),
         copy(Dict{String,Int}(weights)),
@@ -161,10 +161,10 @@ function resolve_hc(lc::LickorishConfiguration, roles::AbstractDict;
     hc
 end
 
-hc_curve_names(hc::HeegaardLayer, family::Symbol) =
+hc_curve_names(hc::HeegaardCode, family::Symbol) =
     String[n for n in hc_component_names(hc.lc) if get(hc.roles, n, :none) == family]
 
-function is_standard(hc::HeegaardLayer)
+function is_standard(hc::HeegaardCode)
     validate_hc_input(hc)
     hc_curve_names(hc, :alpha) == String["m$i" for i in 1:hc.lc.genus]
 end
@@ -239,7 +239,7 @@ end
 """Read an `.hc` file as one resolved HC.
 
 `standard` assigns α to the existing meridians `m1,…,mg`. The value is a
-`HeegaardLayer`, the same struct `Topology` exports as `HeegaardDiagram`.
+`HeegaardCode`, the same struct `Topology` exports as `HeegaardDiagram`.
 No second curve and no stored standard flag are created.
 """
 function read_hc(path::AbstractString)
@@ -257,7 +257,7 @@ function read_hc(path::AbstractString)
         points=parsed.points, weights=parsed.weights, hc_path=absolute)
 end
 
-function validate_hc_input(hc::HeegaardLayer)
+function validate_hc_input(hc::HeegaardCode)
     validate_lc_input(hc.lc)
     g = hc.lc.genus
     for (name, _) in hc.lc.words

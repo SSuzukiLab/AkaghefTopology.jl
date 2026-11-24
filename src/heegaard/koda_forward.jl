@@ -24,6 +24,21 @@ function heegaard_to_spine(inp::CombinatorialPuncturedInput)
   _koda_combinatorial_spine_core(α, β, inp.crossings, joining, dγ, inp, inp.genus)
 end
 
+"""Use the original LC side owners to locate the same disk on the ribbon carrier."""
+function _koda_original_punctured(forgot::ForgottenHeegaard, region::CombinatorialRegion; choices=Dict{String,Any}())
+  h = forgot.diagram
+  source = _koda_original_complement(forgot, h, region)
+  ci = only(i for (i, cycle) in enumerate(source.cycles)
+            if all(source.owner[d] == region.id for d in cycle))
+  ri = only(i for (i, block) in enumerate(h.code.regions.boundary_cycle_blocks) if block == [ci])
+  jd = joining_disk(h, ri)
+  ph = make_punctured_combinatorial(h, jd)
+  merge!(choices, Dict("joining_region" => region.id))
+  KodaConversionResult(ph, choices, Dict{String,Any}(
+      "joining_region" => region.id, "ribbon_joining_region" => ri,
+      "joining_region_faces" => copy(region.face_roots)), :constructed)
+end
+
 function heegaard_to_spine(forgot::ForgottenHeegaard; joining_region=nothing)
   sel = joining_region
   if sel === nothing
@@ -38,7 +53,8 @@ function heegaard_to_spine(forgot::ForgottenHeegaard; joining_region=nothing)
     Dict("region" => region.id, "spec" => "heegaard-koda-conversion.md §5.2"),
   ))
   result = if forgot.diagram !== nothing
-    heegaard_to_spine(as_punctured_heegaard(forgot, sel).value)
+    _koda_combinatorial_spine_from_punctured(_koda_original_punctured(forgot, region).value;
+                                           genus=forgot.genus)
   else
     _koda_combinatorial_spine_from_forgotten_region(forgot, region)
   end
@@ -97,12 +113,17 @@ function _koda_nondisk_odata(spine::FlowSpine)
         "genus" => get(witness, "genus", nothing),
         "boundary_count" => get(witness, "boundary_count", nothing),
         "euler" => euler,
+        "complex_euler" => euler,
+        "sector_chi" => get(witness, "chi", nothing),
+        "vertex_count" => length(topo["vertices"]),
+        "edge_count" => length(topo["edges"]),
+        "sector_chi_sum" => sum(s["chi"] for s in sectors),
     )
 end
 
-function _koda_virtual_image(spine::FlowSpine; stage::Symbol=:hc_to_odata)
+function _koda_virtual_image(spine::FlowSpine; stage::Symbol=:hc_to_odata, regularize::Bool=false)
     odata = try
-        spine_to_odata(spine)
+        spine_to_odata(spine; regularize=regularize)
     catch err
         err isa KodaNotComputed && koda_not_computed(stage, err.reason, err.detail)
         rethrow()
@@ -114,13 +135,14 @@ end
 
 cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §2.2 — the value is that VirtualLink; its Gauss code is the smoothed o-graph
 """
-function hc_to_odata(H::HeegaardDiagram; joining_disk=nothing, choices=Dict{String, Any}())
+function hc_to_odata(H::HeegaardDiagram; joining_disk=nothing, choices=Dict{String, Any}(), regularize::Bool=false)
     disk = _selected_joining_disk(H, joining_disk)
     ph = make_punctured_combinatorial(H, disk)
     spine = heegaard_to_spine(ph)
     nondisk = _koda_nondisk_odata(spine.value)
-    nondisk !== nothing && koda_not_computed(:hc_to_odata, :non_disk_sector, nondisk)
-    link, odata = _koda_virtual_image(spine.value; stage=:hc_to_odata)
+    nondisk !== nothing && (!regularize || nondisk["complex_euler"] != 1) &&
+        koda_not_computed(:hc_to_odata, :non_disk_sector, nondisk)
+    link, odata = _koda_virtual_image(spine.value; stage=:hc_to_odata, regularize=regularize)
     corr = merge(copy(spine.correspondence), Dict{String, Any}(
         "odata" => odata,
         "image" => "VirtualLink",
@@ -136,7 +158,7 @@ function hc_to_odata(H::HeegaardDiagram; joining_disk=nothing, choices=Dict{Stri
     )
 end
 
-function _hc_disk_selection(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing, disk_id=nothing)
+function _hc_disk_selection(hc::HeegaardCode; joining_disk=nothing, disk_name=nothing, disk_id=nothing)
   joining_disk !== nothing && return joining_disk
   disk_name !== nothing && return disk_name
   disk_id !== nothing && return disk_id
@@ -151,14 +173,45 @@ function _hc_disk_selection(hc::HeegaardLayer; joining_disk=nothing, disk_name=n
   nothing
 end
 
-function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing, disk_id=nothing, choices=Dict{String, Any}())
+"""cf: docs/specs/heegaard-koda-conversion.md §4.2 — preserve the stored LC face support.
+
+Resolve a disk name only when its complete support is one forgotten region.
+Integer IDs and numeric strings retain the existing region-selection precedence.
+"""
+function _resolve_hc_named_disk(hc::HeegaardCode, forgot::ForgottenHeegaard, selection)
+  selection isa Integer && return selection
+  key = string(selection)
+  any(r -> string(r.id) == key, forgot.regions) && return selection
+  haskey(hc.disks, key) || return selection
+  wanted = Set(string.(hc.disks[key]))
+  known = Set{String}()
+  for r in forgot.regions
+    union!(known, string.(r.face_roots))
+  end
+  missing = sort!(collect(setdiff(wanted, known)))
+  isempty(missing) || throw(KodaInputError(
+    :hc_to_odata, "named HC disk contains unknown LC faces",
+    Dict("disk" => key, "missing_faces" => missing),
+  ))
+  ids = [r.id for r in forgot.regions if Set(string.(r.face_roots)) == wanted]
+  length(ids) == 1 && return only(ids)
+  msg = isempty(ids) ? "named HC disk is not exactly one forgotten region" :
+    "named HC disk is ambiguous after forgetting reference"
+  throw(KodaInputError(:hc_to_odata, msg,
+    Dict("disk" => key, "faces" => sort!(collect(wanted)), "regions" => ids)))
+end
+
+function hc_to_odata(hc::HeegaardCode; joining_disk=nothing, disk_name=nothing, disk_id=nothing, choices=Dict{String, Any}(), regularize::Bool=false)
   validate_hc_input(hc)
   realized = realize_hc(hc)
   forgot = forget_reference(realized)
   sel = _hc_disk_selection(hc; joining_disk=joining_disk, disk_name=disk_name, disk_id=disk_id)
   if sel === nothing
+    # cf: docs/specs/heegaard-koda-conversion.md §5.2 — minimum region_id; empty stays unselected.
     cands = enumerate_joining_disk_candidates(forgot)
-    length(cands) == 1 && (sel = cands[1]["region_id"])
+    if !isempty(cands)
+      sel = minimum(c["region_id"] for c in cands)
+    end
   end
   if sel === nothing
     throw(KodaInputError(
@@ -167,8 +220,13 @@ function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing,
       Dict("candidates" => enumerate_joining_disk_candidates(forgot)),
     ))
   end
-  merge!(choices, Dict("joining_disk_selection" => sel))
+  requested_sel = sel
+  sel = _resolve_hc_named_disk(hc, forgot, sel)
   region = _resolve_joining_region(forgot, sel)
+  merge!(choices, Dict(
+    "joining_disk_selection" => requested_sel,
+    "joining_disk_region" => region.id,
+  ))
   if region !== nothing && !region.joining_disk
     reason = joining_disk_failure(region, merge(forgot.alpha_words, forgot.beta_words), hc.roles)
     throw(KodaInputError(
@@ -185,10 +243,10 @@ function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing,
   spine_path = "unset"
   diagram_path_error = nothing
   spine = if forgot.diagram !== nothing
-    punctured = as_punctured_heegaard(forgot, sel; choices=choices)
+    punctured = _koda_original_punctured(forgot, region; choices=choices)
     punctured_corr = punctured.correspondence
     spine_path = "ribbon"
-    heegaard_to_spine(punctured.value)
+    _koda_combinatorial_spine_from_punctured(punctured.value; genus=forgot.genus)
   else
     region === nothing && throw(KodaInputError(:hc_to_odata, "joining region missing", Dict("selection" => sel)))
     spine_path = "ports"
@@ -197,10 +255,10 @@ function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing,
   end
   region !== nothing && _koda_attach_sectors!(spine.value, forgot, region)
   nondisk = _koda_nondisk_odata(spine.value)
-  if nondisk !== nothing
+  if nondisk !== nothing && (!regularize || nondisk["complex_euler"] != 1)
     koda_not_computed(:hc_to_odata, :non_disk_sector, nondisk)
   end
-  if get(spine.correspondence, "vertex_free", false)
+  if get(spine.correspondence, "vertex_free", false) && !regularize
     koda_not_computed(:hc_to_odata, :vertex_free_odata_not_encoded, Dict{String, Any}(
       "spec" => "heegaard-koda-conversion.md §7.0 / §13.3",
       "kind" => "not_computed",
@@ -223,7 +281,7 @@ function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing,
     "diagram_path_error" => diagram_path_error,
     "cγ_agreement" => cγ_agreement,
   ))
-  link, odata = _koda_virtual_image(spine.value; stage=:hc_to_odata)
+  link, odata = _koda_virtual_image(spine.value; stage=:hc_to_odata, regularize=regularize)
   corr = merge(
     forgot.correspondence,
     punctured_corr,
@@ -236,6 +294,10 @@ function hc_to_odata(hc::HeegaardLayer; joining_disk=nothing, disk_name=nothing,
       "source_object" => forgot.diagram === nothing ? "ForgottenHeegaard" : "HeegaardDiagram",
     ),
   )
+  if haskey(odata.metadata, "regularization")
+    corr["regularization"] = odata.metadata["regularization"]
+    choices["regularization"] = "annulus_beta_finger"
+  end
   KodaConversionResult(link, choices, corr, :constructed)
 end
 

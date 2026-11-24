@@ -12,7 +12,7 @@ function _add_issue!(issues, level, code, message, path="")
     push!(issues, ValidationIssue(level, code, message, path))
 end
 
-function _occurrences(code::HeegaardCode)
+function _occurrences(code::CombinatorialHeegaardCode)
     alpha = Dict{Int,Vector{Tuple{Int,Int}}}()
     beta = Dict{Int,Vector{Tuple{Int,Int}}}()
     for curve in code.alpha
@@ -28,7 +28,7 @@ function _occurrences(code::HeegaardCode)
     alpha, beta
 end
 
-function _syntax_issues(code::HeegaardCode)
+function _syntax_issues(code::CombinatorialHeegaardCode)
     issues = ValidationIssue[]
     for family in (:alpha, :beta)
         curves = family == :alpha ? code.alpha : code.beta
@@ -58,7 +58,7 @@ function _syntax_issues(code::HeegaardCode)
     issues
 end
 
-function _incidence_issues(code::HeegaardCode)
+function _incidence_issues(code::CombinatorialHeegaardCode)
     issues = ValidationIssue[]
     alpha, beta = _occurrences(code)
     point_map = _intersection_map(code)

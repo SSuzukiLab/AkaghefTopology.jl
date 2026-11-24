@@ -2,11 +2,11 @@
 
 _lexmin(values) = first(sort(collect(values); by=repr))
 
-function _intersection_map(code::HeegaardCode)
+function _intersection_map(code::CombinatorialHeegaardCode)
     Dict(point.id => point for point in code.intersections)
 end
 
-function _curve_vector(code::HeegaardCode)
+function _curve_vector(code::CombinatorialHeegaardCode)
     vcat(code.alpha, code.beta)
 end
 

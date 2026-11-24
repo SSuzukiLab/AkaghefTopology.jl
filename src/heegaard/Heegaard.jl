@@ -1,7 +1,7 @@
-"""Heegaard diagrams in `Topology.jl`.
+"""HeegaardCodes: the HC layer of Heegaard diagrams in `Topology.jl` (docs/specs/module-structure.md).
 
 `Topology.HeegaardDiagram` is the resolved HC, the same struct as
-`HeegaardLayer`. `Topology` exports that type beside `VirtualLink`. An
+`HeegaardCode`. `Topology` exports that type beside `VirtualLink`. An
 o-graph is one presentation held by `VirtualLink`. `to_odata` and
 `hc_to_odata` map into that o-data; the image is not the diagram.
 
@@ -9,7 +9,7 @@ The cellulated certificate is `CellularHeegaardDiagram`. This module still
 binds that struct to the name `HeegaardDiagram` for existing methods,
 including `lescop_theta.jl`, and does not export that binding.
 """
-module Heegaard
+module HeegaardCodes
 
 using SHA
 using JSON3
@@ -30,21 +30,68 @@ include("conversion_spine.jl")
 include("koda_complex.jl")
 include("reference_surface.jl")
 include("koda_conversion.jl")
+include("bordered_lickorish_code.jl")
+export BorderedLickorishCode, BorderedLCError, BorderedLCDiagnosis, BorderedCut,
+       BLCFace, BLCPair, BLCPairHit,
+       read_bordered_lc, bordered_lc_text, validate_bordered_lc, diagnose_bordered_lc,
+       cut_bordered_lc, glue_bordered_lc, bordered_lc_faces,
+       vertex_bordered_pair, digon_bordered_pair, swap_bordered_pair, apply_bordered_pair,
+       digon_bordered_family, slide_bordered_family, apply_bordered_family,
+       apply_slide_bordered, apply_slide_inverse, reverse_slide_band,
+       apply_reversed_slide, apply_geometric_slide_inverse
 include("hc_validate.jl")
 # cf: docs/specs/heegaard-moves.md §3 — catalog rows applied by one move method
 include("lc_moves.jl")
+include("lc_isotopy_key.jl")
+export lc_isotopy_key, LCIsotopyKey
+# Joining-disk preparation calls movable/move. It stays out of lc_moves*.jl.
+include("koda_joining_prepare.jl")
 include("lc_draw.jl")
-# cf: lib/topology.jl/src/heegaard/hc_compare.jl — α–β intersection, Smith factors, H₁, and compare_hc on HeegaardLayer
+# cf: docs/specs/heegaard-plot.md — planar Julia entry on resolved HC
+include("hc_plot.jl")
+include("solid3d.jl")
+export draw_heegaard_3d
+export plot
+# cf: lib/topology.jl/src/heegaard/hc_compare.jl — α–β intersection, Smith factors, H₁, and compare_hc on HeegaardCode
 include("hc_compare.jl")
+include("hc_invariants_linking.jl")
+export HCLinkingForm, HCLinkingInputError, hc_linking_form, linking_pairing, Z_MOO
+# cf: lib/topology.jl/docs/specs/module-structure.md §3.1 — HC search records on MoveGraphStoreDB
+include("hc_search_db.jl")
+export hc_search_state, put_hc_search_state!, load_hc_search_state,
+       begin_hc_search_run!, finish_hc_search_run!, hc_search_run,
+       hc_search_candidates, expand_hc_search_state!,
+       hc_search_neighbors, query_hc_search_paths,
+       migrate_hc_search_store!, hc_search_explore,
+       hc_search_same_homology, hc_search_same_linking
+include("hc_triangulation.jl")
+include("hc_connected_sum.jl")
+include("hc_destabilization.jl")
+export hc_connected_sum, hc_destabilize
+include("hc_invariants_tv.jl")
+export Z_TuraevViro, hc_regina_runner, ReginaTVError
+include("hc_invariants_tv_skeleton.jl")
+export Z_TuraevViro_skeleton
+# Lane-owned entry files (2026-11-14); each lane adds its own exports inside its file.
+include("hc_standard_check.jl")
+include("hc_invariants_extra.jl")
+export HCClosedTriangulation, HCTriangulationError, SnapPyUnavailable, SnapPyExecutionError,
+       hc_triangulation, hc_triangulation_data, hc_snappy, hc_snappy_runner,
+       hc_snappy_compare, hc_snappy_catalog
 
-export lickorish_reference, LickorishConfiguration, HeegaardLayer, read_lc, read_hc,
+# Old type names, kept as aliases for existing scripts (docs/specs/module-structure.md §2).
+const LickorishConfiguration = LickorishCode
+const HeegaardLayer = HeegaardCode
+export LickorishConfiguration, HeegaardLayer
+
+export lickorish_reference, LickorishCode, HeegaardCode, read_lc, read_hc,
        resolve_hc, is_standard,
        validate_diagram, movable, move, draw_heegaard,
        hc_intersection, hc_first_homology, compare_hc, hc_to_odata,
        odata_to_spine, spine_to_heegaard_koda, odata_to_hc,
        compare_odata_words, KodaInputError, KodaSpecificationPending
 
-export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode,
+export Curve, Intersection, CombinatorialHeegaardCode, RegionPartition, DecoratedHeegaardCode,
        CellularHeegaardDiagram, JoiningDisk, PuncturedHeegaardDiagram, SpineEdge, SpineRegion,
        BranchedSpineComplex, FlowSpine, OData, ValidationIssue, ValidationReport,
        ValidationError, MoveCertificate, ConversionCertificate, CutSurface, Puncture,
@@ -64,6 +111,11 @@ export Curve, Intersection, HeegaardCode, RegionPartition, DecoratedHeegaardCode
        save_conversion
 
 include("lescop_theta.jl")
-export lescop_intersection_terms, lescop_theta
+export lescop_intersection_terms, lescop_theta, lescop_p1_difference,
+       lescop_epsilon, lescop_spinc_label
+
+include("hc_lescop.jl")
+export hc_to_cellular, hc_lescop_theta, hc_lescop_p1_difference,
+       hc_lescop_epsilon, hc_lescop_spinc_label
 
 end

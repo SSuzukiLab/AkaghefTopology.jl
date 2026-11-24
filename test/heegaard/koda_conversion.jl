@@ -29,7 +29,7 @@ end
     isfile(lc_path) || @test_skip "fixture missing"
     lc = H.read_lc(lc_path)
     roles = Dict("alpha1" => :alpha, "alpha2" => :alpha, "beta1" => :beta, "beta2" => :beta)
-    hc = H.HeegaardLayer(lc, roles, Dict(), Dict(), Dict(), nothing)
+    hc = H.HeegaardCode(lc, roles, Dict(), Dict(), Dict(), nothing)
     err = nothing
     try
         H.hc_to_odata(hc)
@@ -336,7 +336,7 @@ end
     path = joinpath(ROOT, "threads", "PJ260922", "data", "261107-lickorish-data", "group-12", "case-01.hc")
     hc = H.read_hc(path)
     forgot = H.forget_reference(H.realize_hc(hc))
-    region = only(r for r in forgot.regions if r.joining_disk)
+    region = only(r for r in forgot.regions if r.id == 3)
     err = try
         H.hc_to_odata(hc; joining_disk=region.id)
     catch e
@@ -407,22 +407,20 @@ end
 end
 
 @testset "group-15 bigons convert when the joining disk is selected" begin
-    # F5 and F6 are both joining disks. The HC names neither, so the bare call
-    # has nothing to puncture. Each selected bigon is its own disk and the same
-    # one-vertex o-graph.
+    # F5 and F6 are both joining disks. The HC names neither. The bare call
+    # takes the minimum region_id. Each explicit bigon remains its own disk
+    # and the same one-vertex o-graph.
     path = joinpath(ROOT, "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc")
     hc = H.read_hc(path)
     forgot = H.forget_reference(H.realize_hc(hc))
-    bare = try
-        H.hc_to_odata(hc)
-        nothing
-    catch e
-        e
-    end
-    @test bare isa H.KodaInputError
-    if bare isa H.KodaInputError
-        @test length(bare.detail["candidates"]) == 2
-    end
+    cands = H.enumerate_joining_disk_candidates(forgot)
+    @test length(cands) == 2
+    chosen = minimum(c["region_id"] for c in cands)
+    bare = H.hc_to_odata(hc)
+    @test bare.value isa Topology.VirtualLink
+    @test bare.choices["joining_disk_region"] == chosen
+    @test bare.value.gauss == [[1, -1]]
+    @test bare.value.orientation == [1]
     ribbons = Int[]
     for id in (2, 3)
         mapped = H.hc_to_odata(hc; joining_disk=id)

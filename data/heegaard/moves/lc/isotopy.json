@@ -64,7 +64,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -129,7 +129,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -195,7 +195,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -260,7 +260,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -326,7 +326,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -391,7 +391,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -457,7 +457,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -522,7 +522,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -619,7 +619,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -716,7 +716,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -813,7 +813,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -910,7 +910,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1007,7 +1007,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1104,7 +1104,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1201,7 +1201,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1298,7 +1298,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1395,7 +1395,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1492,7 +1492,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1589,7 +1589,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1686,7 +1686,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1783,7 +1783,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1880,7 +1880,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -1977,7 +1977,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2074,7 +2074,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2171,7 +2171,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2268,7 +2268,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2365,7 +2365,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2462,7 +2462,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2559,7 +2559,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2656,7 +2656,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2753,7 +2753,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2850,7 +2850,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -2947,7 +2947,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3044,7 +3044,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3141,7 +3141,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3238,7 +3238,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3335,7 +3335,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3432,7 +3432,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3529,7 +3529,7 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md \u00a76"
     },
     {
@@ -3626,30 +3626,30 @@
       },
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6"
     },
     {
       "id": "lc.isotopy.digon.create.ab",
       "schema_version": 1,
       "layer": "LC",
-      "relation": "isotopy",
+      "relation": "curve_isotopy",
       "status": "executable",
       "source": {"fragments": [{"role": "C", "word": []}, {"role": "K", "word": []}], "capacity": [1, 2]},
       "target": {"fragments": [{"role": "C", "word": []}, {"role": "K", "word": []}], "capacity": [1, 2]},
-      "bindings": {"C": "any", "K": "any"},
+      "bindings": {"C": "input", "K": "any"},
       "inverse_id": "lc.isotopy.digon.remove.00",
       "expansion": {"op": "face_edges", "range": "one face, two distinct boundary edges"},
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6.1"
     },
     {
       "id": "lc.isotopy.parallel",
       "schema_version": 1,
       "layer": "LC",
-      "relation": "isotopy",
+      "relation": "parallel_copy",
       "status": "executable",
       "source": {"fragments": [{"role": "C", "word": []}], "capacity": [1]},
       "target": {"fragments": [{"role": "C", "word": []}], "capacity": [1]},
@@ -3658,7 +3658,7 @@
       "expansion": {"op": "parallel", "range": "every nonempty curve, both sides"},
       "label_policy": "pin_k",
       "genus_delta": 0,
-      "transport": "refuse_if_marks",
+      "transport": "automatic_reassignment",
       "evidence": "lib/topology.jl/docs/specs/heegaard-moves.md §6"
     }
   ]

@@ -137,7 +137,7 @@ function koda_table_decode(words::Vector{Vector{Int}}, sigma::Dict{Int, Int}; ta
     function collect_regions(grouping, closed::Bool)
         out = Dict{String, Any}[]
         for (key, inds) in sort(collect(grouping); by=first)
-            vertices = Set(v for i in inds for (v, _) in faces[i]["vertices"])
+            vertices = Set(vertex for i in inds for vertex in faces[i]["vertices"])
             es = Set(e for i in inds for e in faces[i]["edges"])
             chi = length(vertices) - length(es) + length(inds)
             item = Dict(
@@ -451,24 +451,37 @@ function koda_heegaard_from_hc(hc::Dict{String, Any})
 end
 
 function _koda_select_joining_region(h::HeegaardDiagram, hc::Dict{String, Any})
-    hints = Int[]
-    for block in hc["joining"]
-        for x in get(block, "boundary_face_orbits", [])
-            push!(hints, Int(x))
+    hints = unique(Int[x for b in hc["joining"]
+                       for x in get(b, "boundary_face_orbits", Int[])])
+    isempty(hints) && throw(KodaImplementationError(
+        :spine_to_heegaard_koda, "missing joining face hint", Dict()))
+    _, face_index, _ = _koda_ribbon(hc["alpha"], hc["beta"], hc["epsilon"])
+    labels = sort(collect(keys(hc["epsilon"])); by=_koda_key_order)
+    graph = ribbon_graph(h)
+    blocks = _surface_partition(h).boundary_cycle_blocks
+    owner = _ribbon_region_owners(graph, blocks)
+    selected = Set{Int}()
+    for hint in hints
+        mapped = Set{Int}()
+        for d in graph.darts
+            family = graph.edges[d.edge].family == :alpha ? 'a' : 'b'
+            # boundary_face_orbits is 0-based and names a _koda_ribbon orbit of ρ ∘ τ
+            # (D5, 2026-11-16). The ribbon boundary walk is ρ^{-1} ∘ τ, so the
+            # dart of that orbit is the target port.
+            key = (labels[d.target], family, isodd(d.id) ? -1 : 1)
+            face_index[key] == hint + 1 && push!(mapped, owner[d.id])
         end
+        length(mapped) == 1 || throw(KodaImplementationError(
+            :spine_to_heegaard_koda, "joining face has no unique region",
+            Dict("hint" => hint, "regions" => collect(mapped))))
+        push!(selected, only(mapped))
     end
-    cands = _ribbon_joining_indices(h)
-    scored = Tuple{Int, Int}[]
-    for r in cands
-        joining_disk(h, r)
-        score = count(h0 -> (h0 + 1) == r, hints)
-        push!(scored, (score, r))
-    end
-    isempty(scored) && throw(KodaImplementationError(:spine_to_heegaard_koda, "no joining disk candidate", Dict("hints" => hints)))
-    sort!(scored; rev=true)
-    best = scored[1][1]
-    tied = [r for (s, r) in scored if s == best]
-    return best > 0 ? only(tied) : minimum(tied)
+    length(selected) == 1 || throw(KodaImplementationError(
+        :spine_to_heegaard_koda, "joining hints select multiple regions",
+        Dict("hints" => hints, "regions" => collect(selected))))
+    region = only(selected)
+    joining_disk(h, region)
+    return region
 end
 
 function koda_forward_gauss_from_hc(hc::Dict{String, Any}, sigma::Dict{Int, Int})

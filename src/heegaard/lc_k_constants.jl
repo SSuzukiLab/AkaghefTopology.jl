@@ -31,7 +31,7 @@ function _lc_k_constants(g::Integer)
     words
 end
 
-function _lc_validate_k_constants!(lc::LickorishConfiguration)
+function _lc_validate_k_constants!(lc::LickorishCode)
     g = lc.genus
     g < 1 && return true
     ref = _lc_k_constants(g)

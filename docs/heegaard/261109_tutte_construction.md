@@ -1,11 +1,11 @@
 # LC の Tutte 分岐の構成
 
-2026-11-09 の所有者指示の実装記録。LC 仕様 §6.3 の弦で描けない面だけが対象。
+2026-11-09 のあかげふの指示の実装記録。LC 仕様 §6.3 の弦で描けない面だけが対象。
 弦、K の点、穴、貼り合わせ、放射写像の式、力学の諸元は変えない。
 
 ## 弦分岐の出典
 
-`lc_faces.py` の `seg_int` と `chord_check` は、所有者がレビューした
+`lc_faces.py` の `seg_int` と `chord_check` は、あかげふがレビューした
 研究作業領域の `.research-scratch/PJ260922/261109-lickorish-drawing-mock/mock/mock3.py`
 の同名関数から移した既存の算術を保つ。このターンでは弦の計算を変更しない。
 
@@ -32,7 +32,7 @@
 
 ## 単射性の根拠と適用範囲
 
-所有者が指定した原典は Michael S. Floater and Kai Hormann,
+あかげふが指定した原典は Michael S. Floater and Kai Hormann,
 “Surface Parameterization: a Tutorial and Survey”, Theorem 7
 ([著者公開版](https://www.inf.usi.ch/hormann/papers/Floater.2005.SPA.pdf), §6.2, p.10)、
 および同論文の [19], Michael S. Floater,

@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heegaard 曲面</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fcfbf7; color: #222; font-family: "Yu Gothic UI", "Hiragino Sans", sans-serif; }
+  #view { position: fixed; inset: 0; }
+  #ui { position: fixed; left: 12px; top: 48px; width: 290px; background: rgba(255,255,255,.92); border: 1px solid #d8d4c8; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
+  #ui {box-sizing:border-box; max-width:calc(100vw - 24px); max-height:calc(100vh - 60px); overflow:auto;}
+  #panelToggle {position:fixed;left:12px;top:12px;padding:6px 10px;border:1px solid #d8d4c8;border-radius:6px;background:white;color:#222;cursor:pointer;}
+  #ui[hidden] {display:none;}
+  #ui output {margin-left:6px; color:#555;}
+  #ui label { display: block; margin-top: 8px; }
+  #ui select, #ui input[type=range] { width: 100%; box-sizing: border-box; }
+  #ui .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  #ui button { padding: 4px 12px; }
+  #ui .val { float: right; color: #666; font-variant-numeric: tabular-nums; }
+  #legend { margin-top: 10px; color: #555; font-size: 12px; }
+  .sw { display: inline-block; width: 18px; height: 4px; vertical-align: middle; margin-right: 4px; }
+.label {position:absolute;top:0;left:0;pointer-events:none;color:#221d18;font:12px/16px sans-serif;
+  background:rgba(255,255,255,.86);border-radius:3px;padding:0 2px;}
+</style>
+</head>
+<body>
+<template id="source">__SOLID_CHART__</template>
+<div id="view"></div>
+<button id="panelToggle" aria-controls="ui" aria-expanded="false">表示設定</button>
+<section id="ui" aria-label="表示設定" hidden>
+  <label>折り <span class="val" id="foldv"></span>
+    <input id="fold" type="range" min="0" max="1" step="0.005" value="1">
+  </label>
+  <label>膨らみ <span class="val" id="ampv"></span>
+    <input id="amp" type="range" min="0" max="1.6" step="0.01" value="1">
+  </label>
+  <label id="wrow">縁の幅 <span class="val" id="wv"></span>
+    <input id="w" type="range" min="0.2" max="1.5" step="0.01" value="0.9">
+  </label>
+  <div class="row">
+    <button id="home">図 4.1 の視点</button>
+    <button id="play">再生</button>
+    <label style="margin:0"><input id="glass" type="checkbox" checked> 半透明</label>
+  </div>
+  <label><input id="labels" type="checkbox"> 交点ラベル</label>
+  <label>ラベルの対象 <select id="labelCurve"><option value="">全曲線</option></select></label>
+  <output id="labelCount"></output>
+  <div id="legend"></div>
+</section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// cf: heegaard-solid-view.md §2 and the fold/inflate prototype (2026-11-14).
+const chart=document.getElementById("source").content.querySelector("svg");
+const dimensions=(node,key)=>Number(node.getAttribute(key));
+const paths=Array.from(chart.querySelectorAll("polyline"),p=>({
+  name:p.dataset.name, kind:p.dataset.kind, label:Number(p.dataset.label), closed:p.dataset.closed==="true",
+  copy:p.dataset.copy==="true", rim:p.dataset.rim==="true",
+  points:p.getAttribute("points").split(" ").map(q=>q.split(",").map(Number))
+}));
+const DATA={width:dimensions(chart,"width"),height:dimensions(chart,"height"),
+  square:chart.dataset.square==="true",crossing_labels:chart.dataset.labels==="true",paths,
+  kinds:Object.fromEntries(paths.map(p=>[p.name,p.kind])),
+  holes:Array.from(chart.querySelectorAll("circle"),c=>({x:dimensions(c,"cx"),y:dimensions(c,"cy"),r:dimensions(c,"r")}))};
+function resample(pts, closed, step) {
+  const src = closed ? pts.concat([pts[0]]) : pts;
+  const out = [];
+  for (let i = 0; i + 1 < src.length; i++) {
+    const [ax, ay] = src[i], [bx, by] = src[i + 1];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step));
+    for (let k = 0; k < n; k++) out.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]);
+  }
+  out.push(src[src.length - 1]);
+  return out;
+}
+
+// ---- 領域 D：折り線を下辺とする角丸の長方形から、穴の円板を除いたもの ----
+function buildModel(data) {
+  const ymid = data.height / 2;
+  const holes = data.holes.filter(c => c.y < ymid).map(c => ({x:c.x,v:ymid-c.y,r:c.r}));
+  const curves = data.paths.map(path => {
+    const pts = resample(path.points,path.closed,2.5);
+    const samples = [];
+    for (let i=0;i<pts.length;i++) {
+      const [x,y] = pts[i];
+      if (i && (y-ymid)*(pts[i-1][1]-ymid)<0) {
+        const [px,py]=pts[i-1];
+        samples.push({x:px+(x-px)*(ymid-py)/(y-py),v:0,s:1});
+      }
+      samples.push({x,v:Math.abs(ymid-y),s:y<=ymid?1:-1});
+    }
+    if (path.rim) {
+      const p=samples[0];
+      const rim=holes.reduce((best,h)=>Math.hypot(p.x-h.x,p.v-h.v)<Math.hypot(p.x-best.x,p.v-best.v)?h:best);
+      for (const q of samples) {
+        const dx=q.x-rim.x,dv=q.v-rim.v,k=rim.r/Math.hypot(dx,dv);
+        q.x=rim.x+k*dx; q.v=rim.v+k*dv;
+      }
+    }
+    return {...path,pts:samples};
+  });
+  if (data.square) return refineLift({square:true,holes,curves,W:data.width,V:ymid,
+    xc:data.width/2,vc:ymid/2,rmin:ymid/3,bx0:0});
+  let x0 = Infinity, x1 = -Infinity, vmax = 0;
+  const grow = (x, v, r) => { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); vmax = Math.max(vmax, v + r); };
+  holes.forEach(h => grow(h.x, h.v, h.r));
+  curves.forEach(c => c.pts.forEach(p => grow(p.x, p.v, 0)));
+  const M = { holes, curves };
+  // 余白はごく小さく取る。折り線を横切る点が端に近い側だけ、折り線側の角を丸める分を広げる
+  const m = 6;
+  M.V = vmax + m;
+  let xf0 = Infinity, xf1 = -Infinity;
+  curves.forEach(c => c.pts.forEach(p => { if (p.v < 3) { xf0 = Math.min(xf0, p.x); xf1 = Math.max(xf1, p.x); } }));
+  const want = 0.3 * Math.min((x1 - x0) / 2, M.V / 2);
+  M.bx0 = Math.min(x0 - m, xf0 - want - m); M.bx1 = Math.max(x1 + m, xf1 + want + m); M.W = M.bx1 - M.bx0;
+  const base = Math.min(M.W / 2, M.V / 2);
+  const fits = upper => {
+    for (const c of curves) for (const p of c.pts) {
+      if ((p.v > M.V / 2) !== upper) continue;
+      const onFold = p.x >= M.bx0 + M.rb && p.x <= M.bx1 - M.rb;
+      if (!(onFold && !upper) && -sdBox(M, p.x, p.v) < 3) return false;
+    }
+    for (const h of holes) for (let a = 0; a < 64; a++) {
+      const t = 2 * Math.PI * a / 64, x = h.x + (h.r + 3) * Math.cos(t), v = h.v + (h.r + 3) * Math.sin(t);
+      if ((v > M.V / 2) === upper && -sdBox(M, x, v) < 0) return false;
+    }
+    return true;
+  };
+  M.rc = 0; M.rb = 0;
+  for (let k = 0.98; k > 0; k -= 0.02) { M.rb = k * base; if (fits(false)) break; M.rb = 0; }
+  for (let k = 0.98; k > 0; k -= 0.02) { M.rc = k * base; if (fits(true)) break; M.rc = 0; }
+  M.xc = (M.bx0 + M.bx1) / 2; M.vc = M.V / 2;
+  M.rmin = Math.min(...holes.map(h => h.r));
+  return refineLift(M);
+}
+
+// Refine in the chart, then lift with exactly the same map as the surface.
+// Near a rounded rim equal chart steps have very unequal 3-D arclengths.
+function refineLift(M){
+  function lifted(p){
+    const q=[];
+    place(M,q,0,p.x,p.v,height(M,p.x,p.v,0.9),p.s,Math.PI);
+    return q;
+  }
+  function append(out,a,b,A,B,depth){
+    const m={x:(a.x+b.x)/2,v:(a.v+b.v)/2,s:a.v===0?b.s:a.s};
+    const C=lifted(m);
+    const u=C.map((x,i)=>x-A[i]),v=B.map((x,i)=>x-C[i]);
+    const lengths=Math.hypot(...u)*Math.hypot(...v);
+    if(depth<8 && lengths>1e-11 &&
+       u.reduce((total,x,i)=>total+x*v[i],0)<Math.cos(Math.PI/60)*lengths){
+      append(out,a,m,A,C,depth+1);
+      append(out,m,b,C,B,depth+1);
+    }else out.push(b);
+  }
+  for(const curve of M.curves){
+    if(curve.rim) continue;
+    const pts=curve.pts,out=[pts[0]];
+    let A=lifted(pts[0]);
+    for(let i=1;i<pts.length;i++){
+      const B=lifted(pts[i]);
+      append(out,pts[i-1],pts[i],A,B,0);
+      A=B;
+    }
+    curve.pts=out;
+  }
+  return M;
+}
+function sdBox(M, x, v) {
+  const r = v > M.V / 2 ? M.rc : M.rb;
+  const qx = Math.abs(x - (M.bx0 + M.bx1) / 2) - M.W / 2 + r, qy = Math.abs(v - M.V / 2) - M.V / 2 + r;
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+}
+// D の内側で正、境界で 0 になる距離
+function dist(M, x, v) {
+  let d = -sdBox(M, x, v);
+  for (const h of M.holes) d = Math.min(d, Math.hypot(x - h.x, v - h.v) - h.r);
+  return d;
+}
+// D の外の点を、最も近い境界の点へ寄せる
+function snap(M, x, v) {
+  for (const h of M.holes) {
+    const dx = x - h.x, dv = v - h.v, l = Math.hypot(dx, dv);
+    if (l < h.r) return l < 1e-9 ? [h.x + h.r, h.v] : [h.x + dx * h.r / l, h.v + dv * h.r / l];
+  }
+  if (v < 0) v = 0;
+  for (let it = 0; it < 3; it++) {
+    const e = 0.5, s = sdBox(M, x, v);
+    if (s <= 0) break;
+    const gx = (sdBox(M, x + e, v) - sdBox(M, x - e, v)) / (2 * e);
+    const gv = (sdBox(M, x, v + e) - sdBox(M, x, v - e)) / (2 * e);
+    x -= s * gx; v -= s * gv;
+  }
+  return [x, v];
+}
+
+function height(M,x,v,width) {
+  const d=M.square?Math.min(v,M.V-v):dist(M,x,v);
+  if(d<1e-8) return 0;
+  const w=width*M.rmin, t=Math.min(d,w);
+  return Math.sqrt(t*(2*w-t));
+}
+function place(M,out,o,x,v,h,side,th) {
+  const c=Math.cos(th),s=Math.sin(th);
+  const y=side>0?v:-v*c-h*s;
+  out[o+2]=side>0?h:-v*s+h*c;
+  if(M.square && th>1e-8) {
+    const f=th/Math.PI, a=2*th*(x/M.W-.5);
+    const radius=M.W/(2*Math.PI*f)+M.V;
+    out[o]=(radius-y)*Math.sin(a);
+    out[o+1]=2*radius*Math.sin(a/2)**2+y*Math.cos(a)-M.vc-f*(M.W/(2*Math.PI)+M.V);
+  } else {
+    out[o]=x-M.xc; out[o+1]=y-M.vc;
+  }
+}
+const view = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xfcfbf7);
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1,1,1,-1,0.1,20000);
+// Fig. 4.1, PDF p.88: fit the projected opening ellipses, keeping their
+// line of centres horizontal. The two fits give elevations of 49 and 51 degrees.
+const bookFront=new THREE.Vector3(0.59,-0.25,0.766).normalize();
+const bookUp=new THREE.Vector3().crossVectors(bookFront,new THREE.Vector3(1,0,0)).normalize();
+const bookRight=new THREE.Vector3().crossVectors(bookUp,bookFront);
+camera.up.copy(bookUp);
+scene.add(camera);
+scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+const sun = new THREE.DirectionalLight(0xffffff, 0.55);
+sun.position.set(-0.4, 0.6, 1);
+camera.add(sun);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+let group = null, S = null;
+
+const el = id => document.getElementById(id);
+
+el("labels").checked=DATA.crossing_labels;
+const names=Object.keys(DATA.kinds).sort();
+for (const name of names) el("labelCurve").add(new Option(name,name));
+let labelsDirty=true;
+const invalidateLabels=()=>{labelsDirty=true;};
+controls.addEventListener("change",invalidateLabels);
+el("panelToggle").onclick=()=>{
+  const panel=el("ui"),button=el("panelToggle");
+  panel.hidden=!panel.hidden;
+  button.setAttribute("aria-expanded",String(!panel.hidden));
+  button.textContent=panel.hidden?"表示設定":"設定を隠す";
+  invalidateLabels();
+};
+el("labels").addEventListener("change",invalidateLabels);
+el("labelCurve").addEventListener("change",invalidateLabels);
+const colors={};
+for (const kind of ["reference","alpha","beta","curve"]) {
+  const family=names.filter(n=>DATA.kinds[n]===kind);
+  family.forEach((n,i)=>{
+    const hue={reference:35,alpha:350,beta:215,curve:25+i*137}[kind];
+    colors[n]=kind==="reference"?"#544f47":new THREE.Color().setHSL(((hue+((kind==="curve")?0:i*7))%360)/360,.72,.32+(i%3)*.06).getStyle();
+    const key=document.createElement("span");
+    key.style.color=colors[n]; key.textContent=(kind==="alpha"?"α ":kind==="beta"?"β ":"")+n+"　";
+    el("legend").append(key);
+  });
+}
+function buildScene() {
+  if (group) scene.remove(group);
+  group = new THREE.Group(); scene.add(group);
+  const M = buildModel(DATA);
+  // 面の網：格子点のうち、D に掛かるマスの頂点だけを使う
+  const mx = 200, dx = M.W / mx, my = Math.ceil(M.V / dx), s = mx + 1;
+  const ins = new Uint8Array(s * (my + 1));
+  for (let j = 0; j <= my; j++) for (let i = 0; i <= mx; i++) ins[j * s + i] = M.square || dist(M, M.bx0 + i * dx, j * M.V / my) > 0 ? 1 : 0;
+  const vid = new Int32Array(ins.length).fill(-1), X = [], V = [], idx = [];
+  const vert = k => {
+    if (vid[k] >= 0) return vid[k];
+    let x = M.bx0 + (k % s) * dx, v = Math.floor(k / s) * M.V / my;
+    if (!ins[k]) [x, v] = snap(M, x, v);
+    vid[k] = X.length; X.push(x); V.push(v);
+    return vid[k];
+  };
+  for (let j = 0; j < my; j++) for (let i = 0; i < mx; i++) {
+    const k = j * s + i;
+    if (!(ins[k] || ins[k + 1] || ins[k + s] || ins[k + s + 1])) continue;
+    const a = vert(k), b = vert(k + 1), c = vert(k + s + 1), d = vert(k + s);
+    idx.push(a, b, c, a, c, d);
+  }
+  const sheet = color => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(X.length * 3), 3));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide, roughness: 0.85, metalness: 0 }));
+    group.add(m); return m;
+  };
+  const top = sheet(0xf1ecdd), bottom = sheet(0xdfe6ee);
+  const lines=M.curves.map(c=>({...c,color:colors[c.name],r:DATA.kinds[c.name]==="reference"?1.25:2}));
+  const labels=new Map();
+  for(const line of lines) {
+    if(line.copy || !line.label) continue;
+    const id=Math.abs(line.label);
+    if(!labels.has(id)){
+      const tag=document.createElement("span");
+      tag.className="label"; tag.textContent="V"+id; view.append(tag);
+      labels.set(id,{line,tag,curves:new Set()});
+    }
+    labels.get(id).curves.add(line.name);
+  }
+  for (const L of lines) {
+    const n = L.pts.length, K = 6, g = new THREE.BufferGeometry(), ix = [];
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * K * 3), 3));
+    for (let i = 0; i + 1 < n; i++) for (let k = 0; k < K; k++) {
+      const a = i * K + k, b = i * K + (k + 1) % K;
+      ix.push(a, b, b + K, a, b + K, a + K);
+    }
+    g.setIndex(ix);
+    L.mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: L.color, roughness: 0.6 }));
+    L.P = new Float32Array(n * 3);
+    group.add(L.mesh);
+  }
+  S = { M, X, V, H: new Float32Array(X.length), top, bottom, lines, labels };
+  computeHeights();
+  homeView();
+}
+
+function computeHeights() {
+  const { M, X, V, H, lines } = S, w = +el("w").value;
+  for (let i = 0; i < X.length; i++) H[i] = height(M, X[i], V[i], w);
+  for (const L of lines) { L.H = L.pts.map(p => height(M, p.x, p.v, w)); }
+
+  update();
+}
+
+function update() {
+  invalidateLabels();
+  const { X, V, H, top, bottom, lines } = S;
+  const th = Math.PI * +el("fold").value, amp = +el("amp").value;
+  el("foldv").textContent = Math.round(180 * +el("fold").value) + "°";
+  el("ampv").textContent = amp.toFixed(2);
+  el("wv").textContent = (+el("w").value).toFixed(2) + " × 穴の半径";
+  for (const [mesh, side] of [[top, 1], [bottom, -1]]) {
+    const p = mesh.geometry.attributes.position;
+    for (let i = 0; i < X.length; i++) place(S.M,p.array, 3 * i, X[i], V[i], H[i] * amp, side, th);
+    p.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere();
+    mesh.material.transparent = el("glass").checked; mesh.material.opacity = el("glass").checked ? 0.55 : 1;
+    mesh.material.depthWrite = !el("glass").checked;
+  }
+  const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3();
+  for (const L of lines) {
+    const n = L.pts.length, P = L.P, K = 6, pos = L.mesh.geometry.attributes.position.array;
+    L.mesh.visible = !L.copy || th < Math.PI;
+    for (let i = 0; i < n; i++) { const q = L.pts[i]; place(S.M,P, 3 * i, q.x, q.v, L.H[i] * amp, q.s, th); }
+    N.set(0, 0, 1);
+    for (let i = 0; i < n; i++) {
+      const i0 = Math.max(i - 1, 0), i1 = Math.min(i + 1, n - 1);
+      a.fromArray(P, 3 * i0); b.fromArray(P, 3 * i1);
+      T.subVectors(b, a); if (T.lengthSq() < 1e-12) T.set(1, 0, 0); T.normalize();
+      N.addScaledVector(T, -N.dot(T));
+      if (N.lengthSq() < 1e-8) { N.set(0, 1, 0).addScaledVector(T, -T.y); }
+      N.normalize(); B.crossVectors(T, N);
+      for (let k = 0; k < K; k++) {
+        const t = 2 * Math.PI * k / K, c = Math.cos(t) * L.r, s = Math.sin(t) * L.r, o = 3 * (i * K + k);
+        pos[o] = P[3 * i] + N.x * c + B.x * s; pos[o + 1] = P[3 * i + 1] + N.y * c + B.y * s; pos[o + 2] = P[3 * i + 2] + N.z * c + B.z * s;
+      }
+    }
+    L.mesh.geometry.attributes.position.needsUpdate = true;
+    L.mesh.geometry.computeVertexNormals(); L.mesh.geometry.computeBoundingSphere();
+  }
+}
+
+el("w").oninput = computeHeights;
+el("fold").oninput = update; el("amp").oninput = update; el("glass").onchange = update;
+el("play").onclick = () => {
+  const t0 = performance.now();
+  (function step() {
+    const t = (performance.now() - t0) / 1000;
+    el("fold").value = Math.min(1, Math.max(0, (t - 0.6) / 2.2));
+    el("amp").value = Math.min(1, Math.max(0, (t - 3.0) / 2.2));
+    update();
+    if (t < 5.4) requestAnimationFrame(step);
+  })();
+};
+let homeSpan=null;
+function fitViewport(){
+  if(!homeSpan) return;
+  const aspect=view.clientWidth/view.clientHeight;
+  const half=0.55*Math.max(homeSpan.y,homeSpan.x/aspect);
+  camera.left=-half*aspect; camera.right=half*aspect;
+  camera.bottom=-half; camera.top=half; camera.updateProjectionMatrix();
+  invalidateLabels();
+}
+function homeView(){
+  group.traverse(object=>{if(object.geometry) object.geometry.computeBoundingBox();});
+  const bounds=new THREE.Box3().setFromObject(group);
+  const size=bounds.getSize(new THREE.Vector3());
+  const span=axis=>Math.abs(axis.x)*size.x+Math.abs(axis.y)*size.y+Math.abs(axis.z)*size.z;
+  homeSpan={x:span(bookRight),y:span(bookUp)};
+  bounds.getCenter(controls.target);
+  camera.position.copy(controls.target).addScaledVector(bookFront,2*size.length());
+  camera.far=4*size.length(); camera.zoom=1;
+  fitViewport(); controls.update();
+}
+el("home").onclick=homeView;
+function resize(){
+  renderer.setSize(view.clientWidth,view.clientHeight);
+  fitViewport();
+}
+window.addEventListener("resize",resize);
+resize(); buildScene();
+
+function placeLabels(){
+  const occupied=[el("panelToggle").getBoundingClientRect()], candidates=[];
+  if(!el("ui").hidden) occupied.push(el("ui").getBoundingClientRect());
+  const filter=el("labelCurve").value;
+  const width=view.clientWidth,height=view.clientHeight;
+  for(const label of S.labels.values()){
+    label.tag.hidden=true;
+    if(!el("labels").checked || (filter && !label.curves.has(filter))) continue;
+    const p=new THREE.Vector3().fromArray(label.line.P).project(camera);
+    if(Math.abs(p.x)>1 || Math.abs(p.y)>1 || Math.abs(p.z)>1) continue;
+    candidates.push({label,x:(p.x+1)*width/2,y:(1-p.y)*height/2,z:p.z});
+  }
+  // Prefer the nearest crossing when two labels compete for screen space.
+  candidates.sort((a,b)=>a.z-b.z);
+  let shown=0;
+  for(const {label,x,y} of candidates){
+    const tag=label.tag;
+    tag.hidden=false;
+    const w=tag.offsetWidth,h=tag.offsetHeight;
+    const left=x+4, top=y-h-2, right=left+w, bottom=top+h;
+    if(left<0 || top<0 || right>width || bottom>height ||
+       occupied.some(r=>left<r.right+2 && right>r.left-2 && top<r.bottom+2 && bottom>r.top-2)){
+      tag.hidden=true; continue;
+    }
+    tag.style.transform="translate("+left+"px,"+top+"px)";
+    occupied.push({left,top,right,bottom}); shown++;
+  }
+  el("labelCount").textContent=el("labels").checked?shown+" / "+candidates.length+" 点を表示":"";
+}
+function frame(){
+  controls.update();renderer.render(scene,camera);
+  if(labelsDirty){placeLabels();labelsDirty=false;}
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

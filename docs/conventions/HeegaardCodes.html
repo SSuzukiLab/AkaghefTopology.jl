@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>HeegaardCodes の規約</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">body { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; font-family: "Segoe UI", Meiryo, sans-serif; line-height: 1.75; color: #1d1d1f; background: #fff; }
+h1 { font-size: 24px; } h2 { font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 36px; } h3 { font-size: 17px; margin-top: 28px; }
+table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; vertical-align: top; } th { background: #f7f6f2; }
+img { max-width: 100%; background: #fff; border: 1px solid #eee; } figure { margin: 16px 0; } figcaption { font-size: 13px; color: #666; }
+code { background: #f3f2ee; padding: 1px 4px; border-radius: 3px; } a { color: #2c5aa0; }
+</style>
+</head>
+<body>
+<!-- XQQQ1500000 -->
+
+<h1 id="heegaardcodes-の規約">HeegaardCodes の規約</h1>
+<p>対象はモジュール <code>HeegaardCodes</code>（型
+<code>HeegaardCode</code>、公開別名
+<code>HeegaardDiagram</code>）である。このモジュールは
+<code>LickorishCodes</code> の上のレイヤーであり（<a href="../specs/module-structure.md#1-構成">モジュール構成
+§1</a>）、曲面・K・平面図の規約は <a href="LickorishCodes.md">LickorishCodes の規約</a> に従う。</p>
+<p>このページは、このモジュールの規約の一覧である。各項目の定義は、リンク先の仕様の節にある。</p>
+<table>
+<thead>
+<tr>
+<th>規約</th>
+<th>定義の場所</th>
+<th>状態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>名称（LC、HC、Heegaard diagram）とレイヤーの区別</td>
+<td><a href="../specs/heegaard-terminology.md">用語と記号</a>、<a href="../specs/heegaard-code.md#1-結論とレイヤー構造">HC 仕様
+§1</a></td>
+<td>あかげふの決定 2026-11-09</td>
+</tr>
+<tr>
+<td>役割を行で明示し、K 以外の成分すべてに役割を指定する</td>
+<td><a href="../specs/heegaard-code.md#21-役割を行で明示する">HC 仕様
+§2.1</a></td>
+<td>あかげふの確定 2026-11-09</td>
+</tr>
+<tr>
+<td><code>point</code> と <code>weight</code> を HC に置く</td>
+<td><a href="../specs/heegaard-code.md#3-hc-に置く追加情報">HC 仕様
+§3</a></td>
+<td>あかげふの確定 2026-11-09</td>
+</tr>
+<tr>
+<td>曲面の向きは ∂Hα。Hα の外向き法線を先に置くと右手系になる</td>
+<td><a href="../specs/heegaard-koda-conversion.md#61-b-の構成と向き">Koda
+変換仕様 §6.1</a></td>
+<td>仕様</td>
+</tr>
+<tr>
+<td>K08 Fig.2 の局所規約。β が over、α が under（候補 A）</td>
+<td><a href="../specs/heegaard-koda-conversion.md#73-向きの規約と局所符号">Koda
+変換仕様 §7.3</a></td>
+<td>採用規約は確定</td>
+</tr>
+<tr>
+<td>細分領域番号は LC §3.1 の番号をそのまま使う</td>
+<td><a href="../specs/heegaard-koda-conversion.md#31-有限な回転系">Koda
+変換仕様 §3.1</a></td>
+<td>あかげふの決定 2026-11-16</td>
+</tr>
+</tbody>
+</table>
+<!-- XQQQ1000000 -->
+</body>
+</html>

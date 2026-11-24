@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "evidence": "threads/PJ260922/ACTIVE.md — Owner decisions 2026-11-12; separate mark edits",
+  "rows": [
+    {"id":"hc.mark.point.move","schema_version":1,"layer":"HC","relation":"mark_edit","status":"implemented",
+     "source":{"fragments":[]},"target":{"fragments":[]},"bindings":{},"applicability":[],
+     "inverse_id":"hc.mark.point.move","expansion":{"op":"mark_edit","field":"points"},"label_policy":"pin_k","genus_delta":0,
+     "transport":"explicit_patch","requires":["name","target"]},
+    {"id":"hc.mark.disk.move","schema_version":1,"layer":"HC","relation":"mark_edit","status":"implemented",
+     "source":{"fragments":[]},"target":{"fragments":[]},"bindings":{},"applicability":[],
+     "inverse_id":"hc.mark.disk.move","expansion":{"op":"mark_edit","field":"disks"},"label_policy":"pin_k","genus_delta":0,
+     "transport":"explicit_patch","requires":["name","target"]},
+    {"id":"hc.mark.weight.move","schema_version":1,"layer":"HC","relation":"mark_edit","status":"implemented",
+     "source":{"fragments":[]},"target":{"fragments":[]},"bindings":{},"applicability":[],
+     "inverse_id":"hc.mark.weight.move","expansion":{"op":"mark_edit","field":"weights"},"label_policy":"pin_k","genus_delta":0,
+     "transport":"explicit_patch","requires":["name","target"]}
+  ]
+}

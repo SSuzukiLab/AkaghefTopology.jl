@@ -58,7 +58,7 @@ struct Intersection
     end
 end
 
-struct HeegaardCode
+struct CombinatorialHeegaardCode
     alpha::Vector{Curve}
     beta::Vector{Curve}
     intersections::Vector{Intersection}
@@ -73,7 +73,7 @@ struct RegionPartition
 end
 
 struct DecoratedHeegaardCode
-    code::HeegaardCode
+    code::CombinatorialHeegaardCode
     regions::RegionPartition
     metadata::Dict{String,Any}
 end
@@ -103,7 +103,7 @@ function Base.showerror(io::IO, err::ValidationError)
     end
 end
 
-# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — セル分割で認証した図式は公開 HC ではない。公開名は Topology で HeegaardLayer に束縛する
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — セル分割で認証した図式は公開 HC ではない。公開名は Topology で HeegaardCode に束縛する
 struct CellularHeegaardDiagram
     code::DecoratedHeegaardCode
     validation::ValidationReport
@@ -284,4 +284,4 @@ end
 
 StructTypes.StructType(::Type{Curve}) = StructTypes.Struct()
 StructTypes.StructType(::Type{Intersection}) = StructTypes.Struct()
-StructTypes.StructType(::Type{HeegaardCode}) = StructTypes.Struct()
+StructTypes.StructType(::Type{CombinatorialHeegaardCode}) = StructTypes.Struct()

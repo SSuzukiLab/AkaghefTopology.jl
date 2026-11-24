@@ -105,7 +105,7 @@ function _hc_witness_rank(witness::HCCanonicalWitness)
 end
 
 function _hc_build_form(
-    hc::HeegaardLayer,
+    hc::HeegaardCode,
     k_order, alpha_order, beta_order, other_order,
     k_words, alpha_words, beta_words, other_emitted,
     alpha_empty, beta_empty, other_empty,
@@ -178,7 +178,7 @@ function _hc_remember!(best_form, best_witnesses, form, witness)
     push!(best_witnesses, witness)
 end
 
-function _hc_canonicalize(hc::HeegaardLayer)
+function _hc_canonicalize(hc::HeegaardCode)
     words = hc.lc.words
     isempty(words) || _hc_owners(words)
     alphas, betas, others = _hc_curve_lists(hc)
@@ -250,19 +250,34 @@ function _hc_canonicalize(hc::HeegaardLayer)
             best_code[] = emitted
         end
     end
-    function emit_group(index, perm_i, perm, map, nid, code, order, starts)
-        if perm_i > length(perm)
-            rec(index + 1, map, nid, code, order, starts)
-            return
-        end
-        name = perm[perm_i]
+    # α と β は、出した語の列が正規形の比較順そのものである。
+    # 今の位置で語がすでに大きい曲線を先に置く並べ方は、辞書式最小にはならない。
+    word_ordered = falses(length(groups))
+    for (i, members) in enumerate(groups)
+        length(members) > 1 || continue
+        role = get(hc.roles, members[1], nothing)
+        (role == :alpha || role == :beta) || continue
+        word_ordered[i] = all(name -> get(hc.roles, name, nothing) == role, members)
+    end
+    function future_of(index, remaining, name)
+        annotated && return all_labels
         later = String[]
-        perm_i < length(perm) && append!(later, perm[perm_i+1:end])
+        for other in remaining
+            other == name && continue
+            push!(later, other)
+        end
         for group in groups[index+1:end]
             append!(later, group)
         end
-        future = annotated ? all_labels : _hc_future_labels(later, words)
-        for (emitted, local_map, nn, start) in _hc_min_rotations(words[name], map, nid, future)
+        _hc_future_labels(later, words)
+    end
+    function take(index, remaining, name, rots, map, nid, code, order, starts)
+        next_remaining = String[]
+        for other in remaining
+            other == name && continue
+            push!(next_remaining, other)
+        end
+        for (emitted, local_map, nn, start) in rots
             note!()
             new_code = vcat(code, [emitted])
             if length(new_code) <= n_fixed && best_code[] !== nothing && worse_prefix(new_code, best_code[])
@@ -270,10 +285,40 @@ function _hc_canonicalize(hc::HeegaardLayer)
             end
             new_starts = copy(starts)
             new_starts[name] = start
-            emit_group(
-                index, perm_i + 1, perm, local_map, nn,
-                new_code, vcat(order, [name]), new_starts,
-            )
+            descend(index, next_remaining, local_map, nn, new_code, vcat(order, [name]), new_starts)
+        end
+    end
+    function descend(index, remaining, map, nid, code, order, starts)
+        if isempty(remaining)
+            rec(index + 1, map, nid, code, order, starts)
+            return
+        end
+        if word_ordered[index]
+            best_word = nothing
+            selected = Any[]
+            for name in remaining
+                rots = _hc_min_rotations(words[name], map, nid, future_of(index, remaining, name))
+                word = rots[1][1]
+                if best_word === nothing || word < best_word
+                    best_word = word
+                    empty!(selected)
+                    push!(selected, (name, rots))
+                elseif word == best_word
+                    push!(selected, (name, rots))
+                end
+            end
+            if best_code[] !== nothing && length(code) + 1 <= n_fixed &&
+                    worse_prefix(vcat(code, [best_word]), best_code[])
+                return
+            end
+            for (name, rots) in selected
+                take(index, remaining, name, rots, map, nid, code, order, starts)
+            end
+        else
+            for name in remaining
+                rots = _hc_min_rotations(words[name], map, nid, future_of(index, remaining, name))
+                take(index, remaining, name, rots, map, nid, code, order, starts)
+            end
         end
     end
     function rec(index, map, nid, code, order, starts)
@@ -281,11 +326,7 @@ function _hc_canonicalize(hc::HeegaardLayer)
             finish(order, code, map, starts)
             return
         end
-        members = groups[index]
-        perms = length(members) == 1 ? [members] : _hc_permutations(members)
-        for perm in perms
-            emit_group(index, 1, perm, map, nid, code, order, starts)
-        end
+        descend(index, groups[index], map, nid, code, order, starts)
     end
     rec(1, Dict{Int,Int}(), 1, Vector{Vector{Int}}(), String[], Dict{String,Int}())
     best_form[] === nothing && throw(KodaImplementationError(
@@ -298,12 +339,12 @@ end
 同一性の正規形を返す。許すのは交点ラベルの付け替え、各語の巡回、role の中での成分名の付け替えだけである。
 
 曲線の向きの取り替えと鏡像は正規化しない。K の成分名は基準曲線の名前として固定する。
-成分の順序は、K を名前順にしたあと、色細分で分かれた α、β の順である。同じ色の組は全部の並べ方を見る。
+成分の順序は、K を名前順にしたあと、色細分で分かれた α、β の順である。同じ色の組は、辞書式最小の正規形を与える並べ方を全部見る。α と β では、今の位置に出す語が残っている曲線よりすでに大きい並べ方は、最小にはならないのでその先を見ない。
 語の巡回で、出した列は同じでもラベルの写像が違うものは、後続の曲線まで含めて辞書式最小になる方を残す。
 保存された語の開始位置では選ばない。探索が予算を超えたときは HCNotComputed を投げ、
 同一かどうか分からないのに different とは返さない。
 """
-function hc_canonical(hc::HeegaardLayer)
+function hc_canonical(hc::HeegaardCode)
     form, _ = _hc_canonicalize(hc)
     form
 end
@@ -314,7 +355,7 @@ end
 label_map は元の交点ラベルから正規形のラベル、name_map は元の成分名から正規形の成分名である。
 rotation_starts は元の語の 1 始まりの位置で、そこを先頭にすると正規形の語になる。
 """
-function hc_canonical_witness(hc::HeegaardLayer)
+function hc_canonical_witness(hc::HeegaardCode)
     _, witnesses = _hc_canonicalize(hc)
     witnesses[1]
 end
@@ -339,7 +380,7 @@ end
 許した変換を施す。rotation_starts は元の語の 1 始まりの位置で、
 そこへ回し、label_map と name_map を施すと、相手の保存された語になる。
 """
-function hc_apply_correspondence(hc::HeegaardLayer, corr::HCIdentityCorrespondence)
+function hc_apply_correspondence(hc::HeegaardCode, corr::HCIdentityCorrespondence)
     words = Dict{String,Vector{Int}}()
     for (name, word) in hc.lc.words
         sname = String(name)
@@ -372,14 +413,14 @@ function hc_apply_correspondence(hc::HeegaardLayer, corr::HCIdentityCorresponden
             :hc_apply_correspondence, "missing place curve", Dict("curve" => sname)))
         places[corr.name_map[sname]] = transport(ref)
     end
-    lc = LickorishConfiguration(
+    lc = LickorishCode(
         hc.lc.genus, words, places,
         _hc_transport_disk(hc.lc.disks, transport),
         _hc_transport_point(hc.lc.points, transport),
         _hc_transport_weight(hc.lc.weights, transport),
         nothing,
     )
-    HeegaardLayer(
+    HeegaardCode(
         lc, roles,
         _hc_transport_disk(hc.disks, transport),
         _hc_transport_point(hc.points, transport),
@@ -388,7 +429,7 @@ function hc_apply_correspondence(hc::HeegaardLayer, corr::HCIdentityCorresponden
     )
 end
 
-function _hc_compose_witness(a::HeegaardLayer, left::HCCanonicalWitness, right::HCCanonicalWitness)
+function _hc_compose_witness(a::HeegaardCode, left::HCCanonicalWitness, right::HCCanonicalWitness)
     inv_label = Dict{Int,Int}()
     for (old, canonical) in right.label_map
         haskey(inv_label, canonical) && throw(KodaImplementationError(
@@ -428,7 +469,7 @@ function _hc_compose_witness(a::HeegaardLayer, left::HCCanonicalWitness, right::
     HCIdentityCorrespondence(label_map, name_map, starts)
 end
 
-function _hc_stored_words(hc::HeegaardLayer)
+function _hc_stored_words(hc::HeegaardCode)
     Dict{String,Vector{Int}}(String(name) => copy(word) for (name, word) in hc.lc.words)
 end
 
@@ -440,7 +481,7 @@ rotation_starts は a の語の 1 始まりの位置で、そこへ回して 2 �
 正規形が一致しても、取り出した対応が a を b の保存された語へ移さないときは
 HCNotComputed(:correspondence_inconsistent) を投げる。
 """
-function hc_identity_correspondence(a::HeegaardLayer, b::HeegaardLayer)
+function hc_identity_correspondence(a::HeegaardCode, b::HeegaardCode)
     form_a, witnesses_a = _hc_canonicalize(a)
     form_b, witnesses_b = _hc_canonicalize(b)
     form_a == form_b || throw(HCNotComputed(

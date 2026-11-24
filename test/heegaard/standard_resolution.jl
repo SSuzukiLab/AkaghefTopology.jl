@@ -15,8 +15,8 @@ const H = Topology.Heegaard
         b = H.read_hc(joinpath(dir, "explicit.hc"))
         @test a isa Topology.HeegaardDiagram
         @test b isa Topology.HeegaardDiagram
-        @test typeof(a) === typeof(b) === H.HeegaardLayer
-        @test Topology.HeegaardDiagram === H.HeegaardLayer
+        @test typeof(a) === typeof(b) === H.HeegaardCode
+        @test Topology.HeegaardDiagram === H.HeegaardCode
         @test !(:standard in fieldnames(typeof(a)))
         @test a.roles == b.roles == Dict("m1" => :alpha, "b" => :beta)
         @test a.lc.words == b.lc.words

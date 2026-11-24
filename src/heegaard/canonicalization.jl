@@ -122,7 +122,7 @@ function _region_signatures(object, intersection_map, curve_maps)
     signatures
 end
 
-function _candidate(code::HeegaardCode, alpha_order, alpha_visits, beta_order, beta_visits,
+function _candidate(code::CombinatorialHeegaardCode, alpha_order, alpha_visits, beta_order, beta_visits,
                     decorated::Bool, original_partition=nothing, ribbon_data=nothing)
     alpha_map = Dict(code.alpha[old].id => new for (new, old) in enumerate(alpha_order))
     beta_map = Dict(code.beta[old].id => new for (new, old) in enumerate(beta_order))
@@ -218,7 +218,7 @@ function canonicalize_representation(object)
     alpha = [Curve(:alpha, i, visits) for (i, visits) in enumerate(best.alpha)]
     beta = [Curve(:beta, i, visits) for (i, visits) in enumerate(best.beta)]
     points = [Intersection(point[1], point[2], point[3], point[4]) for point in best.intersections]
-    canonical_code = HeegaardCode(alpha, beta, points, deepcopy(code.metadata))
+    canonical_code = CombinatorialHeegaardCode(alpha, beta, points, deepcopy(code.metadata))
     decorated || return canonical_code
 
     graph = ribbon_graph(canonical_code)

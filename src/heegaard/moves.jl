@@ -10,7 +10,7 @@ function _invariant_snapshot(object)
     )
 end
 
-function _resolve_curve(code::HeegaardCode, selector)
+function _resolve_curve(code::CombinatorialHeegaardCode, selector)
     family = _spec_field(selector, :family, nothing)
     id = _spec_field(selector, :id, selector)
     if selector isa Tuple && length(selector) == 2
@@ -30,8 +30,8 @@ function _resolve_curve(code::HeegaardCode, selector)
     family, index
 end
 
-function _replace_curves(code::HeegaardCode, alpha, beta, points)
-    HeegaardCode(copy(alpha), copy(beta), copy(points), deepcopy(code.metadata))
+function _replace_curves(code::CombinatorialHeegaardCode, alpha, beta, points)
+    CombinatorialHeegaardCode(copy(alpha), copy(beta), copy(points), deepcopy(code.metadata))
 end
 
 function _new_partition(object, new_code; region=1, append_cycles=true)

@@ -1,20 +1,20 @@
 <!-- XQQQ1500000 -->
 # Heegaard の用語と記号
 
-Status: 名称と表記の正本。2026-11-09 の所有者決定に基づく。LC と HC の区別は確定。HC の行文法は所有者確定。point・weight の HC 所属は所有者確定<br>
+Status: 名称と表記の正本。2026-11-09 のあかげふの決定に基づく。LC と HC の区別は確定。HC の行文法はあかげふが確定。point・weight の HC 所属はあかげふが確定<br>
 Scope: Lickorish Code、HeegaardCode、曲面上の曲線配置、Heegaard diagram、切断・描画、Koda 変換<br>
 Audience: 仕様策定、実装、文書、試験、図の表示<br>
 Owner context: 東京科学大学 情報理工学院 数理・計算科学系 鈴木咲衣研究室
 
 ## 1. 目的と正本
 
-土台のデータを **Lickorish Code（LC）**、Heegaard の層のデータを **HeegaardCode（HC）** と呼ぶ。数学の対象は **Heegaard diagram** と呼び、略さない。この三つの名称と区別は所有者確定である。
+土台のデータを **Lickorish Code（LC）**、Heegaard のレイヤーのデータを **HeegaardCode（HC）** と呼ぶ。数学の対象は **Heegaard diagram** と呼び、略さない。この三つの名称と区別はあかげふが確定である。
 
 ライブラリの公開型 `HeegaardDiagram` は `VirtualLink` と同格である。o-data は `VirtualLink` の表示である。Koda 変換は、`HeegaardDiagram` からその o-data への射である。公開境界は [HeegaardDiagram の公開境界](heegaard-diagram.md) が定める。
 
 語と配置は [LC 仕様](lickorish-code.md)、役割と追加行は [HC 仕様](heegaard-code.md)、相互変換は [Koda 変換仕様](heegaard-koda-conversion.md) が定める。o-graph 側の用語は、研究リポジトリ基準の `lib/topology.jl/docs/specs/ograph-terminology.md` に従う。
 
-## 2. LC と HC の層構造
+## 2. LC と HC のレイヤー構造
 
 | 名称 | 記号・表記 | 定義 |
 |---|---|---|
@@ -27,7 +27,7 @@ Owner context: 東京科学大学 情報理工学院 数理・計算科学系 �
 | 曲面 | S、Σ_g | 曲線を載せる向き付き閉連結曲面。g は種数 |
 | 曲線配置 | C | 曲線の向きと交点の巡回順を含む、S 上の実際の配置 |
 
-LC は α・β の役割を持たない。単なるトーラス上の曲線も LC である。語と `place` は LC、役割と `disk` は HC に属する。`point` と `weight` は、現在の上の層という配置を保つ HC 所属を [HC 仕様 §3](heegaard-code.md#3-hc-に置く追加情報) に記す。この所属は所有者が確定した。
+LC は α・β の役割を持たない。単なるトーラス上の曲線も LC である。語と `place` は LC、役割と `disk` は HC に属する。`point` と `weight` は、現在の上のレイヤーという配置を保つ HC 所属を [HC 仕様 §3](heegaard-code.md#3-hc-に置く追加情報) に記す。この所属はあかげふが確定した。
 
 HC の確定した形式は、LC を参照する一行と、役割を明示する `role` 行、追加行からなる。LC の成分名は文字列であり、LC の読込と描画は名前から α・β を推測しない。
 
@@ -41,7 +41,7 @@ g=0 の S は球面、g=1 はトーラス、g≥2 は種数 g の閉曲面であ
 | 基準曲線 | l_i、m_i、n_i | K を構成する向き付き曲線 |
 | 曲線 | curve | 配置の一つの向き付き閉曲線 |
 | 成分 | component | 語の形式で曲線一本に対応する項目 |
-| 役割 | role | 曲線を α、β などとして用いる上の層の指定 |
+| 役割 | role | 曲線を α、β などとして用いる上のレイヤーの指定 |
 | α 曲線、β 曲線 | α_i、β_j | Heegaard diagramの各族に属する曲線 |
 | 空語の曲線 | empty word | 交点を持たず、`place` が位置を指定する曲線 |
 | 弧 | arc | 曲線を交点や切断境界で分けた連結な部分 |
@@ -107,7 +107,7 @@ Heegaard diagramの定義、joining 条件、閉多様体を得る条件、完�
 | 配置 | placement | LC の面ごとの語から決定的に計算した曲線の位置 |
 | 描画座標 | coordinates | 配置を図として表示するための導出データ |
 | 仕上げ | finishing | 交点構造と貼付け対応を保つ、角の丸め・穴の円化・力学的平滑化 |
-| 破綻 | 破綻 | 図から読み取れる対象が入力と異なる、数学的に間違った図。所有者の定義 |
+| 破綻 | 破綻 | 図から読み取れる対象が入力と異なる、数学的に間違った図。あかげふの定義 |
 
 見づらさは描画の品質の問題として扱う。破綻は、図が表す数学的対象と入力の相違で判定する。
 
@@ -144,7 +144,7 @@ sector は spine の領域である。Heegaard 側の面・補領域との対応
 | 名称 | 定義 |
 |---|---|
 | LC の操作 | 曲線配置の before と after、および局所データと対応を返す操作 |
-| HC の操作 | LC の操作と、役割・disk などの上の層の輸送を返す操作 |
+| HC の操作 | LC の操作と、役割・disk などの上のレイヤーの輸送を返す操作 |
 | 曲線の同位 | 指定された固定曲面と参照枠の下での同位。比較が固定するものを明記する |
 | 曲面同相による対応 | 向きを保つ曲面同相が曲線・交点・印を保存する対応 |
 | 多様体の同値 | 構成した三次元多様体の向きを保つ同相による同値 |
@@ -184,7 +184,7 @@ sector は spine の領域である。Heegaard 側の面・補領域との対応
 | 使用する表記 | 使用場面 |
 |---|---|
 | Lickorish Code、LC | 土台のデータ |
-| HeegaardCode、HC | Heegaard の層のデータ |
+| HeegaardCode、HC | Heegaard のレイヤーのデータ |
 | Lickorish 基準曲線網 K | 基準曲線の網 |
 | Heegaard diagram | 数学的な図式 |
 | `HeegaardDiagram` | `VirtualLink` と同格の公開型 |
@@ -196,5 +196,5 @@ sector は spine の領域である。Heegaard 側の面・補領域との対応
 | 切断境界 | 切断した曲面の位相 |
 | joining disk | D の名称 |
 
-プログラムの名称変更は、この用語とデータ仕様に合わせる。`lickorish_reference` は維持する。LC と HC の名称と層の区別は確定している。HC の形式は所有者が確定した。point・weight の HC 所属も所有者が確定した。
+プログラムの名称変更は、この用語とデータ仕様に合わせる。`lickorish_reference` は維持する。LC と HC の名称とレイヤーの区別は確定している。HC の形式はあかげふが確定した。point・weight の HC 所属もあかげふが確定した。
 <!-- XQQQ1000000 -->

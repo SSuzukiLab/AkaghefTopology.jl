@@ -1,8 +1,8 @@
 """
     lickorish_reference(g)
 
-Named oriented disk decomposition for Fig. 12.3 (Ahara--Sakasai, p. 244).
-Direct source: managed Work AnonND60, anchor anonnd60-sec-0740, linked OCR
+Named oriented disk decomposition.
+cf:[[AS13#^anonnd60-sec-0740]] Fig. 12.3, printed p.244 / PDF p.251 — linked OCR
 crop references/derived/n8n-jobs/01d1e1652c07435ea1f51e46a2933bfc/assets/p0251-0001.jpeg.
 The crop was visually inspected; the mathematical transcription is agent-owned.
 The curves l/m/n are REFERENCE curves, never the input alpha/beta families.
@@ -56,9 +56,9 @@ function lickorish_reference(g::Integer)
         for c in sort(collect(keys(cycles)))]
     Dict("genus"=>g,"curves"=>curves,
         "crossings"=>[Dict("id"=>v,"at"=>["V_$v","z"],"curves"=>collect(pairs[v]),"sign"=>signs[v]) for v in sort(collect(keys(pairs)))],
-        "metadata"=>Dict("source"=>"AnonND60, Fig. 12.3, printed p.244 / PDF p.251",
+        "metadata"=>Dict("source"=>"AS13, Fig. 12.3, printed p.244 / PDF p.251",
             "source_work_id"=>"w-a3c2a004-c587-4cfd-ae05-b73a924d15d7",
-            "source_figure"=>Dict("cite_key"=>"AnonND60","anchor"=>"anonnd60-sec-0740",
+            "source_figure"=>Dict("cite_key"=>"AS13","anchor"=>"anonnd60-sec-0740",
                 "title"=>"パズルゲームで楽しむ写像類群入門",
                 "figure"=>"12.3","printed_page"=>244,"pdf_page"=>251,
                 "asset"=>"references/derived/n8n-jobs/01d1e1652c07435ea1f51e46a2933bfc/assets/p0251-0001.jpeg",

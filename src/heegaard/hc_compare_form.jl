@@ -171,7 +171,7 @@ function _hc_weight_pairs(dict, transport_ref)
     pairs
 end
 
-function _hc_annotation(hc::HeegaardLayer, name_map, face_map, label_map)
+function _hc_annotation(hc::HeegaardCode, name_map, face_map, label_map)
     transport_ref = ref -> _hc_transport_ref(ref, name_map, face_map, label_map)
     places = Pair{String,String}[]
     for name in sort!(collect(String.(keys(hc.lc.places))))
@@ -185,7 +185,7 @@ function _hc_annotation(hc::HeegaardLayer, name_map, face_map, label_map)
     _hc_weight_pairs(hc.lc.weights, transport_ref), _hc_weight_pairs(hc.weights, transport_ref)
 end
 
-function _hc_has_annotations(hc::HeegaardLayer)
+function _hc_has_annotations(hc::HeegaardCode)
     !isempty(hc.lc.places) || !isempty(hc.lc.disks) || !isempty(hc.disks) ||
         !isempty(hc.lc.points) || !isempty(hc.points) ||
         !isempty(hc.lc.weights) || !isempty(hc.weights)

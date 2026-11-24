@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "id": "hc.role-support.separate",
+      "schema_version": 1,
+      "layer": "HC",
+      "relation": "attaching_curve_isotopy",
+      "status": "implemented_scoped",
+      "source": {
+        "fragments": [],
+        "orientation": [],
+        "capacity": []
+      },
+      "target": {
+        "fragments": [],
+        "orientation": [],
+        "capacity": []
+      },
+      "bindings": {},
+      "applicability": [],
+      "inverse_id": "hc.role-support.separate",
+      "expansion": {
+        "op": "role_parallel"
+      },
+      "label_policy": "pin_k",
+      "genus_delta": 0,
+      "transport": "automatic_reassignment",
+      "requires": [
+        "curve"
+      ],
+      "implementation_scope": "any nonempty simple K reference carrying alpha or beta; both oriented parallel sides; inverse removes the copy and restores its role",
+      "implementation_gap": "placed empty circles require a geometric collar chart",
+      "evidence": ".research-scratch/PJ260922/astra-lanes/hc-moves/answer-3-full.md section 1; small-case checks in turn3-pro-probes"
+    }
+  ]
+}

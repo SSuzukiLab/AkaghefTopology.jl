@@ -92,11 +92,12 @@ function _crossing_records(words::AbstractDict, roles::Dict{String, Symbol}, occ
         sign = 1
         ai, bi = 0, 0
         if ra == :alpha && rb == :beta
-            sign = 1
+            # cf: docs/specs/heegaard-koda-conversion.md §7.3.1: ε is det(tα,tβ).
+            sign = -1
             ai = _curve_index(words, roles, :alpha, ap; order=order)
             bi = _curve_index(words, roles, :beta, an; order=order)
         elseif ra == :beta && rb == :alpha
-            sign = -1
+            sign = 1
             ai = _curve_index(words, roles, :alpha, an; order=order)
             bi = _curve_index(words, roles, :beta, ap; order=order)
         else
@@ -135,96 +136,191 @@ function _lc_face_across(words, occ, corner_face::Dict{LCCorner, String}, c::LCC
     get(corner_face, (other, s3, w3), nothing)
 end
 
-"""Ordered boundary ports on ∂J: one entry per maximal α/β arc (§5.2)."""
-function _region_boundary_ports(
-    words::AbstractDict,
-    roles::Dict{String, Symbol},
-    face_ids::Set{String},
-    faces::Vector{LCFace},
-    corner_face::Dict{LCCorner, String},
-    occ,
-    k_names::Set{String};
-    order=nothing,
-)
-    face_set = face_ids
-    edges = Tuple{LCCorner, LCCorner, String}[]
-    for f in faces
-        f.id in face_set || continue
-        n = length(f.corners)
-        for i in 1:n
-            c1 = f.corners[i]
-            c2 = f.corners[mod1(i + 1, n)]
-            across = _lc_face_across(words, occ, corner_face, c1)
-            across === nothing && continue
-            across in face_set && continue
-            comp, = _corner_component(words, c1)
-            comp === nothing && continue
-            comp in k_names && continue
-            fam = _curve_family(comp, roles)
-            fam in (:alpha, :beta) || continue
-            push!(edges, (c1, c2, comp))
+"""Normalized face-polygon quotient and maximal alpha/beta boundary arcs.
+cf: lib/topology.jl/src/heegaard/lc_combinatorial.jl::_lc_faces; docs/specs/heegaard-koda-conversion.md §5.2 — glue only forgotten-reference sides [reconstructed]
+"""
+function _region_cell_data(words, roles, face_ids, realization, k_names; order=nothing)
+    fail(msg, data=Dict{String,Any}()) =
+        throw(KodaImplementationError(:forget_reference, msg, data))
+    fset = Set(string(x) for x in face_ids)
+    kset = Set(string(x) for x in k_names)
+    faces = [f for f in realization.faces if f.id in fset]
+    length(faces) == length(fset) ||
+        fail("unknown LC face in region", Dict("faces" => collect(fset)))
+    isempty(faces) && fail("empty LC face union")
+
+    occ = realization.occurrence
+    darts = LCCorner[]
+    foreach(f -> append!(darts, f.corners), faces)
+    length(unique(darts)) == length(darts) || fail("duplicate face dart")
+    node = Dict{LCCorner,Int}(c => i for (i,c) in enumerate(darts))
+
+    tau(c) = _lc_tau(words, occ, c)
+    function nxt(c)
+        t = tau(c)
+        s,w = _lc_rot_next(t[2], t[3])
+        (t[1], s, w)
+    end
+    dkey(c) = (c[1], c[2] == "-" ? 0 : 1, c[3] == "out" ? 0 : 1)
+
+    comp = Dict{LCCorner,String}()
+    for c in darts
+        name, = _corner_component(words, c)
+        name === nothing && fail("face dart has no component", Dict("corner" => c))
+        comp[c] = string(name)
+    end
+
+    parent = collect(eachindex(darts))
+    function root(i)
+        while parent[i] != i
+            parent[i] = parent[parent[i]]
+            i = parent[i]
         end
+        i
     end
-    isempty(edges) && return RegionPort[]
-    forward = Dict{LCCorner, Tuple{LCCorner, String}}()
-    for (c1, c2, comp) in edges
-        !haskey(forward, c1) && (forward[c1] = (c2, comp))
+    function unite(i,j)
+        i,j = root(i),root(j)
+        i == j || (parent[j] = i)
     end
-    ordered = Tuple{String, Int, Int, Int}[]
-    if !isempty(forward)
-        start = sort(collect(keys(forward)))[1]
-        c = start
-        for _ in 1:length(forward)
-            haskey(forward, c) || break
-            c2, comp = forward[c]
-            step = c[3] == "out" ? 1 : -1
-            push!(ordered, (comp, c[1], c2[1], step))
-            c = c2
-            c == start && break
-        end
-    end
-    if length(ordered) != length(forward)
-        ordered = Tuple{String, Int, Int, Int}[
-            (comp, c1[1], c2[1], c1[3] == "out" ? 1 : -1) for (c1, c2, comp) in edges
-        ]
-    end
-    darts = ordered
-    # merge consecutive darts on the same curve into arcs
-    ports = RegionPort[]
-    for (comp, a, b, step) in darts
-        fam = _curve_family(comp, roles)
-        if !isempty(ports) && ports[end].curve == comp
-            # Later corners on the same boundary arc are arrival corners. Their
-            # way field is the encoding of the arrival, not a second measurement
-            # of the arc. The arc direction is the first corner's word step.
-            ports[end] = RegionPort(ports[end].curve, ports[end].family, ports[end].curve_id, ports[end].from_label, b, ports[end].word_step)
+
+    # Quotient the disjoint selected face polygons only across forgotten-K sides.
+    internal = Set{LCCorner}()
+    paired = Set{LCCorner}()
+    boundary = LCCorner[]
+    E = 0
+    for c in darts
+        t = tau(c)
+        if comp[c] in kset
+            haskey(node,t) || fail("forgotten-K face union is not closed under tau",
+                Dict("curve"=>comp[c], "corner"=>c, "mate"=>t))
+            push!(internal,c)
+            if !(c in paired)
+                push!(paired,c); push!(paired,t); E += 1
+                unite(node[c], node[nxt(t)])
+                unite(node[nxt(c)], node[t])
+            end
         else
-            cid = _curve_index(words, roles, fam, comp; order=order)
-            push!(ports, RegionPort(string(comp), fam, cid, a, b, step))
+            E += 1
+            push!(boundary,c)
         end
     end
-    # rotate so boundary cycle starts deterministically
-    if length(ports) > 1
-        start = argmin(i -> (ports[i].family == :alpha ? 0 : 1, ports[i].curve), eachindex(ports))
-        ports = circshift(ports, 1 - start)
+    V = length(Set(root(i) for i in eachindex(parent)))
+    F = length(faces)
+    chi = V - E + F
+
+    # After a boundary side, rotate past every glued K side at that vertex.
+    function bnext(c)
+        d = nxt(c)
+        for _ in 0:length(darts)
+            !(d in internal) && return d
+            d = nxt(tau(d))
+        end
+        fail("boundary walk is trapped at a K vertex", Dict("corner" => c))
     end
-    ports
+
+    cycles = Vector{Vector{LCCorner}}()
+    if !isempty(boundary)
+        bset = Set(boundary)
+        succ = Dict(c => bnext(c) for c in boundary)
+        all(d -> d in bset, values(succ)) || fail("bad boundary successor")
+        length(Set(values(succ))) == length(boundary) ||
+            fail("normalized boundary is not a 1-manifold")
+        seen = Set{LCCorner}()
+        for start in sort(boundary; by=dkey)
+            start in seen && continue
+            cyc = LCCorner[]
+            local_seen = Set{LCCorner}()
+            c = start
+            while !(c in local_seen)
+                c in seen && fail("boundary cycles merge", Dict("corner" => c))
+                push!(local_seen,c); push!(cyc,c)
+                c = succ[c]
+            end
+            c == start || fail("boundary closes at the wrong dart")
+            union!(seen,local_seen)
+            push!(cycles,cyc)
+        end
+    end
+
+    b = length(cycles)
+    twog = 2 - b - chi
+    twog >= 0 && iseven(twog) ||
+        fail("region is not a connected orientable surface",
+             Dict("chi"=>chi, "boundary_components"=>b, "V"=>V, "E"=>E, "F"=>F))
+    genus = twog ÷ 2
+
+    frank(f) = f == :alpha ? 0 : f == :beta ? 1 : 2
+    function mk_run(c)
+        name = comp[c]
+        fam = _curve_family(name,roles)
+        fam in (:alpha,:beta) ||
+            fail("non-alpha/beta boundary edge", Dict("curve"=>name, "corner"=>c))
+        t = tau(c)
+        (curve=name, family=fam, from=c[1], to=t[1],
+         step=(c[3] == "out" ? 1 : -1), first=c, last=c)
+    end
+    function follows(a,z)
+        t = tau(a.last)
+        a.curve == z.curve && a.step == z.step &&
+            z.first == (t[1],t[2],a.last[3])
+    end
+    merge_run(a,z) = (curve=a.curve, family=a.family, from=a.from, to=z.to,
+                 step=a.step, first=a.first, last=z.last)
+
+    # Compress only after topology is fixed; compression never enters V-E+F.
+    grouped = Tuple{NTuple{9,Int},Vector{RegionPort}}[]
+    for cyc in cycles
+        runs = NamedTuple[]
+        for c in cyc
+            r = mk_run(c)
+            if !isempty(runs) && follows(runs[end],r)
+                runs[end] = merge_run(runs[end],r)
+            else
+                push!(runs,r)
+            end
+        end
+        if length(runs) > 1 && follows(runs[end],runs[1])
+            runs[1] = merge_run(runs[end],runs[1])
+            pop!(runs)
+        end
+
+        entries = Tuple{RegionPort,LCCorner}[]
+        # A whole retained circle stays as one closed port. It is rejected by
+        # joining_disk_failure rather than lost from the boundary certificate.
+        for r in runs
+            cid = _curve_index(words,roles,r.family,r.curve; order=order)
+            p = RegionPort(r.curve,r.family,cid,r.from,r.to,r.step)
+            push!(entries,(p,r.first))
+        end
+
+        if isempty(entries)
+            q = dkey(cyc[1])
+            push!(grouped,((1,2,0,0,0,0,q[1],q[2],q[3]),RegionPort[]))
+            continue
+        end
+        i0 = argmin(i -> begin
+            p,c = entries[i]; q = dkey(c)
+            (frank(p.family),p.curve_id,p.from_label,p.to_label,
+             p.word_step,q[1],q[2],q[3])
+        end, eachindex(entries))
+        entries = circshift(entries,1-i0)
+        ps = RegionPort[x[1] for x in entries]
+        p,c = entries[1]; q = dkey(c)
+        key = (0,frank(p.family),p.curve_id,p.from_label,p.to_label,
+               p.word_step,q[1],q[2],q[3])
+        # cf: heegaard-koda-conversion.md §§3.1, 7.3.1. The LC face walk
+        # keeps the face on the right; positive boundary ports keep it on the left.
+        boundary = [RegionPort(p.curve,p.family,p.curve_id,p.to_label,p.from_label,-p.word_step)
+                    for p in Iterators.reverse(ps)]
+        push!(grouped,(key,boundary))
+    end
+
+    sort!(grouped; by=x -> x[1])
+    ports = RegionPort[]
+    foreach(x -> append!(ports,x[2]), grouped)
+    (chi,genus,b,ports)
 end
 
-function _region_topology(face_count::Int, ports::Vector{RegionPort})
-    isempty(ports) && return (0, 0, 0)
-    verts = Set{Int}()
-    for p in ports
-        push!(verts, p.from_label, p.to_label)
-    end
-    v = length(verts)
-    e = length(ports)
-    chi = v - e + face_count
-    b = 1
-    twog = 2 - chi - b
-    g = twog >= 0 && iseven(twog) ? twog ÷ 2 : max(0, twog ÷ 2)
-    chi, g, b
-end
 
 function _contiguous_on_cycle(indices::Vector{Int}, n::Int)
     isempty(indices) && return false
@@ -271,8 +367,18 @@ A contact that is the whole closed curve is not an arc. Endpoints must be α∩�
 cf: docs/specs/heegaard-koda-conversion.md §5.2
 """
 function joining_disk_failure(region::CombinatorialRegion, words::AbstractDict, roles::Dict{String, Symbol})
-    region.chi == 1 && region.genus == 0 && region.boundary_components == 1 || return :not_disk
     bd = region.boundary_ports
+    # Diagnose whole-curve contact before topology, including annular regions.
+    for p in bd
+        haskey(words,p.curve) || return :arc_not_on_word
+        word = Int[abs(x) for x in words[p.curve]]
+        isempty(word) && continue
+        steps = _arc_step_count(word,p.from_label,p.to_label,p.word_step)
+        steps < 0 && return :arc_not_on_word
+        steps >= length(word) && return :whole_curve
+    end
+    isempty(_ab_crossing_labels(words,roles)) && return :no_ab_corner
+    region.chi == 1 && region.genus == 0 && region.boundary_components == 1 || return :not_disk
     length(bd) >= 2 || return :short_boundary
     αnames = sort([n for (n, _) in words if _curve_family(n, roles) == :alpha])
     βnames = sort([n for (n, _) in words if _curve_family(n, roles) == :beta])
@@ -304,7 +410,7 @@ function _spec_joining_disk(
     joining_disk_failure(region, words, roles) === nothing
 end
 
-function _merge_faces_forget(realization::LCRealization, k_names::Vector{String})
+function _merge_faces_forget(realization::LCRealization, k_names::Vector{String}; include_single_visit::Bool=true)
     words = _lc_nonempty_words(realization.lc.words)
     isempty(words) && return realization.faces, Dict{String, String}()
     parent = Dict(f.id => f.id for f in realization.faces)
@@ -313,7 +419,8 @@ function _merge_faces_forget(realization::LCRealization, k_names::Vector{String}
     for c in k_names
         haskey(words, c) || continue
         word = words[c]
-        length(word) < 2 && continue
+        isempty(word) && continue
+        !include_single_visit && length(word) == 1 && continue
         n = length(word)
         for i in 1:n
             c_out = (abs(word[i]), _lc_sign_char(word[i]), "out")
@@ -334,7 +441,7 @@ end
 
 # Computed region blocks for a non-cellular complement. Not used: certify_heegaard
 # rejects them with closed_heegaard/not_closed (validation.jl). See the round-6 report.
-function _cycle_region_blocks(forgot::ForgottenHeegaard, code::HeegaardCode)
+function _cycle_region_blocks(forgot::ForgottenHeegaard, code::CombinatorialHeegaardCode)
     graph = ribbon_graph(code)
     cycles = boundary_cycles(graph)
     nreg = length(forgot.regions)
@@ -522,7 +629,7 @@ end
 
 function forget_reference(realized::KodaConversionResult)
     doc = realized.value
-    lc = doc["lc"]::LickorishConfiguration
+    lc = doc["lc"]::LickorishCode
     realization = doc["realization"]::LCRealization
     roles = get(doc, "roles_applied", Dict{String, Symbol}())
     isempty(roles) && (roles = get(realized.correspondence, "roles_applied", Dict{String, Symbol}()))
@@ -532,22 +639,16 @@ function forget_reference(realized::KodaConversionResult)
     order = _koda_component_order(words, g)
     occ = realization.occurrence
     groups = _merge_faces_forget(realization, k_names)
+    # Preserve established region labels under newly included one-visit gluings.
+    # IDs are provenance labels, not array positions; a merged region inherits
+    # the minimum pre-merge ID and labels can consequently have gaps.
+    legacy = _merge_faces_forget(realization, k_names; include_single_visit=false)
+    face_label = Dict(fid => i for (i, (_, fs)) in enumerate(sort(collect(legacy))) for fid in fs)
     regions = CombinatorialRegion[]
-    rid = 0
     words_active = _lc_nonempty_words(words)
     for (root, face_ids) in sort(collect(groups))
-        rid += 1
-        ports = _region_boundary_ports(
-            words_active,
-            roles,
-            Set(face_ids),
-            realization.faces,
-            realization.corner_face,
-            realization.occurrence,
-            Set(k_names);
-            order=order,
-        )
-        chi, h, b = _region_topology(length(face_ids), ports)
+        rid = minimum(face_label[fid] for fid in face_ids)
+        chi, h, b, ports = _region_cell_data(words_active, roles, Set(face_ids), realization, Set(k_names); order=order)
         region = CombinatorialRegion(rid, face_ids, chi, h, b, ports, false)
         region = CombinatorialRegion(
             rid,

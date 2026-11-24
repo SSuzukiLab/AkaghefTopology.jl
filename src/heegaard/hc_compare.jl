@@ -4,7 +4,7 @@
 # cf: lib/topology.jl/src/heegaard/groups.jl — smith_normal_form, abelianization_matrix, first_homology(::GroupPresentation); α generates, β is the relator
 # cf: lib/topology.jl/docs/specs/lickorish-code.md §3.1 — face numbers come from the rotation system, not from stored label integers
 
-"""計算と比較。入口の引数は HeegaardLayer だけである。"""
+"""計算と比較。入口の引数は HeegaardCode だけである。"""
 
 struct HCClosedDiagramExcluded <: Exception
     condition::Symbol
@@ -145,13 +145,12 @@ function _hc_owners(words::AbstractDict)
     owners
 end
 
-function _hc_curve_lists(hc::HeegaardLayer)
+function _hc_curve_lists(hc::HeegaardCode)
     genus = hc.lc.genus
     kn = _hc_k_set(genus)
     alphas = String[]
     betas = String[]
     for (name, role) in hc.roles
-        String(name) in kn && continue
         haskey(hc.lc.words, name) || throw(KodaInputError(
             :hc_compare, "role names a missing component", Dict("curve" => String(name))))
         if role == :alpha
@@ -186,7 +185,7 @@ end
 これは曲面上の枠 (β, α) が正のとき +1 になる hc_matrix.py の規約であり、接ベクトルの順 (Tα, Tβ) そのものではない。
 K どうし、同族どうしの交点は足さない。種数が曲線本数と違っても行列は返す。これは多様体のホモロジーではない。
 """
-function hc_intersection(hc::HeegaardLayer)
+function hc_intersection(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
     owners = _hc_owners(hc.lc.words)
     ai = _hc_index(alphas)
@@ -208,7 +207,7 @@ end
 抽出は groups.jl の first_homology と同じ式で、対角化そのものは smith_normal_form を使う。
 行列とその転置の不変因子は一致する。
 """
-function hc_invariant_factors(hc::HeegaardLayer)
+function hc_invariant_factors(hc::HeegaardCode)
     matrix = hc_intersection(hc).matrix
     smith = smith_normal_form(matrix)
     diagonal = [abs(smith[i, i]) for i in 1:min(size(smith)...)]
@@ -236,7 +235,7 @@ end
 交点のない β は空語の関係式、交点のない α は関係式に現れない生成元、種数 0 で曲線が無いときは自明群である。
 語の始点は保存された語の先頭であり、巡回で取り替えた表示とはタプルとして違う。群としては共役で同値である。
 """
-function hc_presentation(hc::HeegaardLayer)
+function hc_presentation(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
     owners = isempty(hc.lc.words) ? Dict{Int,Tuple{String,String}}() : _hc_owners(hc.lc.words)
     ai = _hc_index(alphas)
@@ -249,7 +248,7 @@ function hc_presentation(hc::HeegaardLayer)
         "generator_order" => "sorted_component_name",
         "relator_order" => "sorted_component_name",
         "sign_convention" => _HC_SIGN,
-        "beta_ids" => "positions in relator_names, not HeegaardCode curve ids",
+        "beta_ids" => "positions in relator_names, not CombinatorialHeegaardCode curve ids",
     )
     presentation = GroupPresentation(alphas, relators, collect(1:length(betas)), meta)
     HCPresentationResult(presentation, :alpha, :beta, alphas, betas)
@@ -262,7 +261,7 @@ HCClosedDiagramExcluded(:alpha_beta_count_ne_genus) を投げる。
 返す群は、α を生成元、β を関係式とした表示の可換化である。完全切断系であることはここでは調べない。
 本数が種数と一致することだけを、閉じた 3 次元多様体の図式として H₁ を返す条件にする。
 """
-function hc_first_homology(hc::HeegaardLayer)
+function hc_first_homology(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
     genus = hc.lc.genus
     if length(alphas) != genus || length(betas) != genus
@@ -388,7 +387,7 @@ function hc_hom_count(presented::HCPresentationResult, group::Symbol)
     end
 end
 
-hc_hom_count(hc::HeegaardLayer, group::Symbol) = hc_hom_count(hc_presentation(hc), group)
+hc_hom_count(hc::HeegaardCode, group::Symbol) = hc_hom_count(hc_presentation(hc), group)
 
 function _hc_permutations(items::Vector{String})
     n = length(items)
@@ -436,12 +435,12 @@ include(joinpath(@__DIR__, "hc_compare_form.jl"))
 include(joinpath(@__DIR__, "hc_compare_canonical.jl"))
 
 
-hc_identical(a::HeegaardLayer, b::HeegaardLayer) = hc_canonical(a) == hc_canonical(b)
+hc_identical(a::HeegaardCode, b::HeegaardCode) = hc_canonical(a) == hc_canonical(b)
 
-function _hc_replace_words(hc::HeegaardLayer, words::Dict{String,Vector{Int}})
+function _hc_replace_words(hc::HeegaardCode, words::Dict{String,Vector{Int}})
     lc = hc.lc
-    new_lc = LickorishConfiguration(lc.genus, words, copy(lc.places), copy(lc.disks), copy(lc.points), copy(lc.weights), nothing)
-    HeegaardLayer(new_lc, copy(hc.roles), copy(hc.disks), copy(hc.points), copy(hc.weights), nothing)
+    new_lc = LickorishCode(lc.genus, words, copy(lc.places), copy(lc.disks), copy(lc.points), copy(lc.weights), nothing)
+    HeegaardCode(new_lc, copy(hc.roles), copy(hc.disks), copy(hc.points), copy(hc.weights), nothing)
 end
 
 """
@@ -450,7 +449,7 @@ end
 両側を反転するのは、passage sign の + 一つと − 一つを保つためである。片方だけ反転すると語が LC の形を離れる。
 向きを取り替えた曲線どうしの交点は、それぞれの曲線で一度だけ反転する。
 """
-function hc_reverse_orientation(hc::HeegaardLayer, curves)
+function hc_reverse_orientation(hc::HeegaardCode, curves)
     names = Set(String.(curves))
     for name in names
         haskey(hc.lc.words, name) || throw(KodaInputError(
@@ -473,13 +472,104 @@ function hc_reverse_orientation(hc::HeegaardLayer, curves)
     _hc_replace_words(hc, words)
 end
 
-"""鏡像。全部の passage sign を反転し、語の順序は逆にしない。曲面の向きを反転した枠の取り替えである。"""
-function hc_mirror(hc::HeegaardLayer)
-    words = Dict{String,Vector{Int}}(String(name) => Int[-x for x in word] for (name, word) in hc.lc.words)
-    _hc_replace_words(hc, words)
+function _hc_face_cycle_key(corners)
+    n = length(corners)
+    n == 0 && return NTuple{0,Int}()
+    labels = [Int(corner[1]) for corner in corners]
+    best = nothing
+    for base in (labels, reverse(labels))
+        for shift in 0:(n - 1)
+            cyc = ntuple(j -> base[mod1(shift + j, n)], n)
+            if best === nothing || cyc < best
+                best = cyc
+            end
+        end
+    end
+    best
 end
 
-function _hc_orientation_related(a::HeegaardLayer, b::HeegaardLayer)
+function _hc_unique_face_keys(words)
+    faces, = _lc_faces(words)
+    groups = Dict{Any,Vector{String}}()
+    keys = Dict{String,Any}()
+    for face in faces
+        key = _hc_face_cycle_key(face.corners)
+        push!(get!(groups, key, String[]), face.id)
+        keys[face.id] = key
+    end
+    unique = Dict{String,Any}()
+    ambiguous = Set{String}()
+    for face in faces
+        if length(groups[keys[face.id]]) == 1
+            unique[face.id] = keys[face.id]
+        else
+            push!(ambiguous, face.id)
+        end
+    end
+    unique, ambiguous
+end
+
+"""Face ids transported by the sign-invariant label cycle. A cycle shared by two faces is not a key."""
+function _hc_mirror_face_map(before_words, after_words)
+    before_unique, ambiguous = _hc_unique_face_keys(before_words)
+    after_unique, = _hc_unique_face_keys(after_words)
+    by_key = Dict(key => id for (id, key) in after_unique)
+    mapping = Dict{String,String}()
+    for (id, key) in before_unique
+        haskey(by_key, key) && (mapping[id] = by_key[key])
+    end
+    mapping, ambiguous
+end
+
+function _hc_rewrite_disks(disks, mapping, ambiguous)
+    out = Dict{String,Vector{String}}()
+    for (name, refs) in disks
+        rewritten = String[]
+        for ref in refs
+            token = String(ref)
+            haskey(mapping, token) || throw(KodaInputError(:hc_mirror,
+                "mirrored disk face has no unique sign-invariant",
+                Dict{String,Any}("disk" => String(name), "face" => token, "ambiguous" => token in ambiguous)))
+            push!(rewritten, mapping[token])
+        end
+        out[String(name)] = rewritten
+    end
+    out
+end
+
+function _hc_rewrite_face_token(value, mapping, ambiguous)
+    token = String(value)
+    haskey(mapping, token) && return mapping[token]
+    token in ambiguous && throw(KodaInputError(:hc_mirror,
+        "mirrored disk face has no unique sign-invariant",
+        Dict{String,Any}("face" => token, "ambiguous" => true)))
+    token
+end
+
+function _hc_rewrite_face_dict(items, mapping, ambiguous)
+    Dict{String,String}(String(name) => _hc_rewrite_face_token(value, mapping, ambiguous) for (name, value) in items)
+end
+
+"""鏡像。全部の passage sign を反転し、語の順序は逆にしない。曲面の向きを反転した枠の取り替えである。
+
+円板と、面の id そのものである point・place は、交点ラベルの巡回列（回転と逆順を同一視した最小のもの）で運ぶ。その列を二つ以上の面が共有するときは、当たった印を推測で付け替えない。
+"""
+function hc_mirror(hc::HeegaardCode)
+    words = Dict{String,Vector{Int}}(String(name) => Int[-x for x in word] for (name, word) in hc.lc.words)
+    mapping, ambiguous = _hc_mirror_face_map(hc.lc.words, words)
+    lc = hc.lc
+    new_lc = LickorishCode(lc.genus, words,
+        _hc_rewrite_face_dict(lc.places, mapping, ambiguous),
+        _hc_rewrite_disks(lc.disks, mapping, ambiguous),
+        _hc_rewrite_face_dict(lc.points, mapping, ambiguous),
+        copy(lc.weights), nothing)
+    HeegaardCode(new_lc, copy(hc.roles),
+        _hc_rewrite_disks(hc.disks, mapping, ambiguous),
+        _hc_rewrite_face_dict(hc.points, mapping, ambiguous),
+        copy(hc.weights), nothing)
+end
+
+function _hc_orientation_related(a::HeegaardCode, b::HeegaardCode)
     names = sort!(collect(String.(keys(a.lc.words))))
     length(names) > 12 && return :undetermined
     n = length(names)
@@ -491,7 +581,7 @@ function _hc_orientation_related(a::HeegaardLayer, b::HeegaardLayer)
 end
 
 """同一性、向きの取り替え、鏡像を別々に判定する。向きの探索は曲線が 12 本を超えると :undetermined である。"""
-function hc_named_relations(a::HeegaardLayer, b::HeegaardLayer)
+function hc_named_relations(a::HeegaardCode, b::HeegaardCode)
     HCNamedRelations(hc_identical(a, b), _hc_orientation_related(a, b), hc_identical(hc_mirror(a), b) ? :yes : :no)
 end
 
@@ -506,7 +596,7 @@ end
 
 _hc_move_levels(::Nothing) = Symbol[]
 
-function _hc_invariant_snapshot(hc::HeegaardLayer)
+function _hc_invariant_snapshot(hc::HeegaardCode)
     presented = hc_presentation(hc)
     hom = Dict{Symbol,BigInt}()
     hom_error = Dict{Symbol,Symbol}()
@@ -589,7 +679,7 @@ end
 同一性が決まらないときは HCNotComputed を投げ、:different にはしない。
 表す多様体は、不変量が一致しても :equal にしない。:equal は同一性か、与えられた move の列だけを根拠にする。
 """
-function compare_hc(a::HeegaardLayer, b::HeegaardLayer; move_result::Union{Nothing,HCMoveSearchResult}=nothing)
+function compare_hc(a::HeegaardCode, b::HeegaardCode; move_result::Union{Nothing,HCMoveSearchResult}=nothing)
     identical = hc_identical(a, b)
     if identical
         evidence = Dict{String,Any}("basis" => "canonical_form")

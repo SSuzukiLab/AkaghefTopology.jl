@@ -13,8 +13,10 @@ include("koda_interpreter.jl")
 include("koda_spine_codec.jl")
 include("koda_forward.jl")
 include("koda_reverse.jl")
+include("koda_cmr3.jl")
+include("koda_combing.jl")
 
-export LickorishConfiguration, HeegaardLayer, ForgottenHeegaard, CombinatorialPuncturedInput,
+export LickorishCode, HeegaardCode, ForgottenHeegaard, CombinatorialPuncturedInput,
        read_lc, read_hc, validate_lc_input, validate_hc_input,
        realize_lc, realize_hc, forget_reference,
        enumerate_joining_disk_candidates, as_punctured_heegaard, heegaard_to_spine,
@@ -24,4 +26,8 @@ export LickorishConfiguration, HeegaardLayer, ForgottenHeegaard, CombinatorialPu
        compare_odata_words, koda_table_decode, koda_hc_from_boundary, koda_forward_gauss_from_hc,
        spine_topology, spine_pi1_presentation, joining_disk_failure,
        KodaConversionResult, KodaInputError, KodaSpecificationPending, KodaImplementationError, KodaDomainExcluded, KodaNotComputed,
-       load_koda_local_tables, koda_vertex_sign_from_frame
+       load_koda_local_tables, koda_vertex_sign_from_frame,
+       CMR3State, ModularWitness, CMR3Reading, CellularBasis, CellularMapWitness,
+       cmr3_combed, classify_euler_class, classify_mod2_solution, modular_witness_check,
+       cellular_map_commutes, cellular_cochain_natural, gauss_vertex_of,
+       CombingFraming, combing_framing_from_cmr3

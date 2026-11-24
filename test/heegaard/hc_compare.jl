@@ -21,10 +21,10 @@ function layer(genus, words, roles;
         disks=Dict{String,Vector{String}}(),
         points=Dict{String,String}(),
         weights=Dict{String,Int}())
-    lc = Heegaard.LickorishConfiguration(
+    lc = Heegaard.LickorishCode(
         genus, words, places,
         Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing)
-    Heegaard.HeegaardLayer(lc, roles, disks, points, weights, nothing)
+    Heegaard.HeegaardCode(lc, roles, disks, points, weights, nothing)
 end
 
 function copied_words(h)
@@ -242,12 +242,12 @@ ts = @testset "hc_compare" begin
         @test contradicted.move_equivalence.status == :different
     end
 
-    @testset "old HeegaardCode is not an entry type" begin
-        @test !hasmethod(Heegaard.compare_hc, (Heegaard.HeegaardCode, Heegaard.HeegaardCode))
-        @test !hasmethod(Heegaard.hc_intersection, (Heegaard.HeegaardCode,))
-        @test !hasmethod(Heegaard.hc_first_homology, (Heegaard.HeegaardCode,))
-        @test !hasmethod(Heegaard.hc_presentation, (Heegaard.HeegaardCode,))
-        @test hasmethod(Heegaard.compare_hc, (Heegaard.HeegaardLayer, Heegaard.HeegaardLayer))
+    @testset "old CombinatorialHeegaardCode is not an entry type" begin
+        @test !hasmethod(Heegaard.compare_hc, (Heegaard.CombinatorialHeegaardCode, Heegaard.CombinatorialHeegaardCode))
+        @test !hasmethod(Heegaard.hc_intersection, (Heegaard.CombinatorialHeegaardCode,))
+        @test !hasmethod(Heegaard.hc_first_homology, (Heegaard.CombinatorialHeegaardCode,))
+        @test !hasmethod(Heegaard.hc_presentation, (Heegaard.CombinatorialHeegaardCode,))
+        @test hasmethod(Heegaard.compare_hc, (Heegaard.HeegaardCode, Heegaard.HeegaardCode))
     end
 
     @testset "a stored file is identical to its own rotation and relabeling" begin
@@ -368,14 +368,14 @@ ts = @testset "hc_compare" begin
             face_map = Heegaard._hc_face_map(h.lc.words, label_map)
             transport = ref -> Heegaard._hc_transport_ref(ref, name_map, face_map, label_map)
             places = Dict{String,String}(name_map[String(name)] => transport(ref) for (name, ref) in h.lc.places)
-            lc = Heegaard.LickorishConfiguration(
+            lc = Heegaard.LickorishCode(
                 h.lc.genus, new_words, places,
                 transport_disk(h.lc.disks, transport),
                 transport_point(h.lc.points, transport),
                 transport_weight(h.lc.weights, transport),
                 nothing,
             )
-            Heegaard.HeegaardLayer(
+            Heegaard.HeegaardCode(
                 lc, new_roles,
                 transport_disk(h.disks, transport),
                 transport_point(h.points, transport),

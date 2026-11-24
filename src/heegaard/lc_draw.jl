@@ -1,28 +1,17 @@
-"""Draw the cut surface of a Lickorish configuration or resolved HC.
+"""Write the SVG produced by the Julia `plot` entry.
 
-cf: lib/topology.jl/scripts/heegaard/lc_diagram_draw.py draw_diagram — `.lc` テキストを渡し、配置器の SVG を書く
+cf: docs/specs/heegaard-plot.md — explicit HC roles, one placement/smoothing implementation
 """
-function draw_heegaard(lc::LickorishConfiguration, svg_path::AbstractString;
+function draw_heegaard(lc::LickorishCode, svg_path::AbstractString;
         roles::AbstractDict{<:AbstractString,<:Any}=Dict{String,Symbol}(),
-        png::Bool=false)
-    svg_path = abspath(svg_path)
-    mkpath(dirname(svg_path))
-    script = normpath(joinpath(@__DIR__, "..", "..", "scripts", "heegaard", "lc_diagram_draw.py"))
-    isfile(script) || throw(ArgumentError("placement entry is missing: $script"))
-    mktempdir() do dir
-        lc_path = joinpath(dir, "diagram.lc")
-        write_lc(lc_path, lc)
-        roles_path = joinpath(dir, "roles.json")
-        open(roles_path, "w") do io
-            write(io, JSON3.write(Dict(string(key) => string(value) for (key, value) in pairs(roles))))
-        end
-        command = `python $script $lc_path $svg_path --roles $roles_path`
-        png && (command = `$command --png`)
-        run(command)
-    end
-    svg_path
+        png::Bool=false, kwargs...)
+    draw_heegaard(resolve_hc(lc,roles),svg_path;png,kwargs...)
 end
 
-function draw_heegaard(hc::HeegaardLayer, svg_path::AbstractString; png::Bool=false)
-    draw_heegaard(hc.lc, svg_path; roles=hc.roles, png=png)
+function draw_heegaard(hc::HeegaardCode, svg_path::AbstractString; png::Bool=false, kwargs...)
+    png && throw(ArgumentError("the Julia drawing entry outputs SVG; PNG conversion is external"))
+    result=plot(hc;kwargs...)
+    result.success || throw(ArgumentError("drawing did not make a verified nonzero smoothing step"))
+    path=abspath(svg_path);mkpath(dirname(path));write(path,result.svg)
+    path
 end

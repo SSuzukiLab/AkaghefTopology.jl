@@ -28,7 +28,7 @@ old `codex/heegaard-*` branches or the archived worktrees.
 
 Kept: the old core type `HeegaardDiagram` with its schema, validation, moves and
 `cut_surface.jl`, because the Koda forward conversion and Lescop still use it.
-`lickorish_reference(g)` keeps only the K transcription of Ahara–Sakasai
+`lickorish_reference(g)` keeps only the K transcription of [[AS13]]
 Fig. 12.3; the marked surface it used to build is gone, and its genus is now
 checked by V − E + F = 2 − 2g. Its crossings and curve words for g = 1..6 are
 identical to `3d25011`.

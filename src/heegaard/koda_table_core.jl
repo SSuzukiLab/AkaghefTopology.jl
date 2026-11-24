@@ -182,24 +182,19 @@ end
 
 """§7.3.1 cγ on ∂J contact arcs (candidate A: dγ=cγ).
 
-Labels do not determine the step when the word has at most two visits: both
-cyclic neighbors then carry the same label, and the old label test returned
-+1. The step is the word position recorded on the port (`word_step`). When
-the label test is unambiguous it must agree with that step.
+Contact arcs can span several LC segments after forgetting K. Even for longer
+words, the same endpoints may bound the other, shorter cyclic arc. Direction is
+the directed arc's recorded `word_step`, rather than a guess from its endpoints.
 """
 function _koda_d_gamma_from_ports(ports::Vector{RegionPort}, alpha_words::Dict, beta_words::Dict)
     dγ = Dict{Tuple{Symbol, Int}, Int}()
     for p in ports
         word = p.family == :alpha ? alpha_words[p.curve] : beta_words[p.curve]
         c = p.word_step
-        label_c = _koda_lc_arc_direction(word, p.from_label, p.to_label)
-        if label_c !== nothing && label_c != c
-            throw(KodaImplementationError(
-                :heegaard_to_spine,
-                "port word_step disagrees with unambiguous label step",
-                Dict("curve" => p.curve, "word_step" => c, "label_step" => label_c),
-            ))
-        end
+        c in (-1, 1) || throw(KodaInputError(:heegaard_to_spine,
+            "port word_step must be +1 or -1", Dict("curve" => p.curve, "word_step" => c)))
+        all(l -> any(x -> abs(x) == l, word), (p.from_label, p.to_label)) ||
+            throw(KodaInputError(:heegaard_to_spine, "port endpoint is absent from curve word", Dict("curve" => p.curve)))
         key = (p.family, p.curve_id)
         if haskey(dγ, key) && dγ[key] != c
             throw(KodaImplementationError(:heegaard_to_spine, "incoherent cγ on curve", Dict("key" => key)))
@@ -354,7 +349,8 @@ function _koda_epsilon_from_diagram(H::HeegaardDiagram, D::JoiningDisk)
     ε
 end
 
-function _koda_combinatorial_spine_from_punctured(ph::PuncturedHeegaardDiagram)
+function _koda_combinatorial_spine_from_punctured(ph::PuncturedHeegaardDiagram;
+                                                genus::Int=surface_genus(ph.diagram))
     H, D = ph.diagram, ph.joining_disk
     validate_joining_disk(H, D)
     α, β = _koda_heegaard_word_cycles(H)
@@ -370,7 +366,7 @@ function _koda_combinatorial_spine_from_punctured(ph::PuncturedHeegaardDiagram)
         for p in code.intersections
     ]
     sigma = _koda_sigma_from_crossings(crossings, labels, dγ)
-    spine = _koda_flow_spine_from_words(words, sigma, ph; genus=surface_genus(H))
+    spine = _koda_flow_spine_from_words(words, sigma, ph; genus=genus)
     _koda_fill_intermediate!(spine, αs, βs, Set(joining), true_v, nothing, nothing)
     corr = Dict{String, Any}(
         "true_vertices" => sort(collect(true_v)),
@@ -647,34 +643,35 @@ end
 function _koda_region_cell_chi(forgot::ForgottenHeegaard, region::CombinatorialRegion)
     real = forgot.realization
     real === nothing && return region.chi
-    face_by = Dict(f.id => f for f in real.faces)
+    # cf: docs/specs/heegaard-koda-conversion.md §4.1 — delete K edges and K-K vertices from the original cells.
     ids = Set(region.face_roots)
-    verts = Set{Int}()
-    directed = Tuple{LCCorner, LCCorner}[]
-    for fid in ids
-        f = face_by[fid]
-        n = length(f.corners)
-        for i in 1:n
-            c1 = f.corners[i]
-            c2 = f.corners[mod1(i + 1, n)]
-            push!(verts, c1[1])
-            push!(directed, (c1, c2))
+    knames = Set(String.(forgot.correspondence["forgotten_reference"]))
+    words = _lc_nonempty_words(real.lc.words)
+    nedges = 0
+    for name in knames
+        haskey(words, name) || continue
+        w = words[name]
+        for i in eachindex(w)
+            x, y = w[i], w[mod1(i + 1, length(w))]
+            a = real.corner_face[(abs(x), _lc_sign_char(x), "out")] in ids
+            b = real.corner_face[(abs(y), _lc_sign_char(y), "in")] in ids
+            a == b || throw(KodaImplementationError(:spine_topology,
+                "original region is not closed across a forgotten K edge",
+                Dict("region" => region.id, "curve" => name, "position" => i)))
+            a && (nedges += 1)
         end
     end
-    paired = Set{Int}()
-    internal = 0
-    for (i, (c1, c2)) in enumerate(directed)
-        i in paired && continue
-        j = findfirst(k -> k != i && directed[k] == (c2, c1), eachindex(directed))
-        if j !== nothing && j ∉ paired
-            internal += 1
-            push!(paired, i, j)
-        end
+    nvertices = 0
+    for (lab, occ) in real.occurrence
+        all(o -> o[1] in knames, values(occ)) || continue
+        adjacent = [real.corner_face[(lab, sg, way)] in ids
+                    for sg in ("+", "-"), way in ("in", "out")]
+        any(adjacent) || continue
+        all(adjacent) || throw(KodaImplementationError(:spine_topology,
+            "forgotten K-K vertex spans original regions", Dict("label" => lab)))
+        nvertices += 1
     end
-    boundary = length(directed) - 2 * internal
-    edges = internal + boundary
-    faces = length(ids)
-    2 - 2 * region.genus - region.boundary_components
+    length(ids) - nedges + nvertices
 end
 
 """Boundary cycles of one sector: follow each piece boundary, and cross a ∂J edge onto the partner."""
@@ -815,27 +812,97 @@ function _koda_traced_sectors(forgot::ForgottenHeegaard, region::CombinatorialRe
     sectors
 end
 
-function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, region::CombinatorialRegion)
-    diagram = forgot.diagram
-    jd = _find_ribbon_joining_disk(diagram, region)
-    jd === nothing && throw(KodaImplementationError(
-        :spine_topology, "no ribbon joining disk", Dict("region" => region.id),
-    ))
-    graph = ribbon_graph(diagram)
-    cycles = boundary_cycles(graph)
-    regs = complement_regions(diagram)
-    dart = Dict(d.id => d for d in graph.darts)
-    seam = Set(dart[d].edge for d in jd.boundary_darts)
-    J = jd.region
-    signed(d) = isodd(d) ? dart[d].edge : -dart[d].edge
-    owner = Dict{Int, Int}()
-    for (ri, reg) in enumerate(regs)
-        for ci in reg.boundary_cycles
-            for d in cycles[ci]
-                owner[d] = ri
+"""cf: docs/specs/heegaard-koda-conversion.md §4.1, §6.3 — oriented LC sides retain the original complementary surfaces.
+
+The auxiliary ribbon diagram carries the curve graph; its cellular caps do not
+specify the original surface. Check every collapsed LC segment on both sides.
+"""
+function _koda_original_complement(forgot::ForgottenHeegaard, h::HeegaardDiagram,
+                                   selected::CombinatorialRegion)
+    real = forgot.realization
+    real === nothing && throw(KodaImplementationError(:spine_topology,
+        "original LC realization is required", Dict()))
+    fail(msg, data=Dict{String,Any}()) =
+        throw(KodaImplementationError(:spine_topology, msg, data))
+    face_region = Dict(f => r.id for r in forgot.regions for f in r.face_roots)
+    (sum(length(r.face_roots) for r in forgot.regions) == length(real.faces) &&
+     Set(keys(face_region)) == Set(f.id for f in real.faces)) || fail("incomplete original face partition")
+    graph = ribbon_graph(h); cycles = boundary_cycles(graph)
+    labels = _source_label_ids(h)
+    owner = Dict{Int,Int}()
+    bycurve = Dict{Tuple{Symbol,Int},Vector{Int}}()
+    for e in graph.edges
+        push!(get!(bycurve, (e.family, e.curve_id), Int[]), e.id)
+    end
+    anames = get(forgot.correspondence, "alpha_order", sort(collect(keys(forgot.alpha_words))))
+    bnames = get(forgot.correspondence, "beta_order", sort(collect(keys(forgot.beta_words))))
+    specs = vcat([(:alpha, i, n, forgot.alpha_words[n]) for (i,n) in enumerate(anames)],
+                 [(:beta, i, n, forgot.beta_words[n]) for (i,n) in enumerate(bnames)])
+    for (fam, cid, name, w) in specs
+        visits = [i for i in eachindex(w) if haskey(labels, abs(w[i]))]
+        isempty(visits) && fail("curve without alpha-beta crossings requires a placement", Dict("curve" => name))
+        eids = get(bycurve, (fam,cid), Int[])
+        length(eids) == length(visits) || fail("curve-edge order mismatch", Dict("curve" => name))
+        for k in eachindex(visits)
+            p, stop = visits[k], visits[mod1(k + 1, length(visits))]
+            right, left = Set{Int}(), Set{Int}()
+            while true
+                q = mod1(p + 1, length(w))
+                push!(right, face_region[real.corner_face[(abs(w[p]), _lc_sign_char(w[p]), "out")]])
+                push!(left, face_region[real.corner_face[(abs(w[q]), _lc_sign_char(w[q]), "in")]])
+                q == stop && break
+                p = q
             end
+            length(right) == length(left) == 1 || fail("one ribbon side crosses original regions", Dict("curve" => name))
+            e = graph.edges[eids[k]]
+            (e.from == labels[abs(w[visits[k]])] && e.to == labels[abs(w[stop])]) ||
+                fail("ribbon edge is not oriented in LC word order", Dict("edge" => e.id))
+            # cf: heegaard-koda-conversion.md §§4.1, 7.3.1: the ribbon
+            # boundary keeps its region to the left of the oriented dart.
+            owner[2e.id - 1] = only(left); owner[2e.id] = only(right)
         end
     end
+    blocks = Dict(r.id => Int[] for r in forgot.regions)
+    for (ci, cyc) in enumerate(cycles)
+        rs = Set(owner[d] for d in cyc)
+        length(rs) == 1 || fail("boundary cycle has mixed LC-side owners", Dict("cycle" => ci))
+        push!(blocks[only(rs)], ci)
+    end
+    signed(d) = isodd(d) ? graph.darts[d].edge : -graph.darts[d].edge
+    regions = NamedTuple[]
+    for r in forgot.regions
+        chi = _koda_region_cell_chi(forgot, r)
+        b = length(blocks[r.id]); twice = 2 - chi - b
+        twice >= 0 && iseven(twice) || fail("inconsistent original region", Dict("region" => r.id, "chi" => chi, "boundary_count" => b))
+        push!(regions, (id=r.id, faces=r.face_roots, chi=chi, genus=twice÷2,
+                       cycles=[[signed(d) for d in cycles[ci]] for ci in blocks[r.id]]))
+    end
+    jreg = only(r for r in regions if r.id == selected.id)
+    (jreg.chi == 1 && jreg.genus == 0 && length(jreg.cycles) == 1 &&
+     Set(jreg.faces) == Set(selected.face_roots)) || fail("selected original region is not a disk", Dict("region" => selected.id))
+    (; graph, cycles, owner, regions, joining_region=selected.id)
+end
+
+function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, region::CombinatorialRegion)
+    diagram = forgot.diagram
+    source = _koda_original_complement(forgot, diagram, region)
+    if any(r -> r.genus != 0 || length(r.cycles) != 1, source.regions)
+        # Keep the original surface banks for an explicitly requested isotopy.
+        spine.complex.checks["source_surface_regions"] = [Dict{String,Any}(
+            "id"=>r.id, "genus"=>r.genus, "chi"=>r.chi,
+            "boundary_count"=>length(r.cycles),
+            "boundary_darts"=>[copy(c) for c in source.cycles if source.owner[first(c)]==r.id])
+            for r in source.regions]
+    end
+    graph = source.graph
+    cycles = source.cycles
+    regs = source.regions
+    dart = Dict(d.id => d for d in graph.darts)
+    J = source.joining_region
+    original_joining = only(r for r in regs if r.id == J)
+    seam = Set(abs(x) for boundary in original_joining.cycles for x in boundary)
+    signed(d) = isodd(d) ? dart[d].edge : -dart[d].edge
+    owner = source.owner
     function region_coeff(eid)
         for d in (2 * eid - 1, 2 * eid)
             haskey(owner, d) || continue
@@ -845,16 +912,17 @@ function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
         nothing
     end
     pieces = Dict{String, Any}[]
-    for (ri, reg) in enumerate(regs)
+    for reg in regs
+        ri = reg.id
         ri == J && continue
         words = Vector{Int}[]
-        for ci in reg.boundary_cycles
-            push!(words, [signed(d) for d in cycles[ci]])
+        for cycle in reg.cycles
+            push!(words, copy(cycle))
         end
         push!(pieces, Dict(
             "kind" => "region",
             "id" => ri,
-            "chi" => 2 - 2 * reg.genus - length(reg.boundary_cycles),
+            "chi" => reg.chi,
             "cycles" => words,
             "label" => "region:$ri",
         ))
@@ -918,7 +986,7 @@ function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
     for i in eachindex(pieces)
         push!(get!(groups, find(i), Int[]), i)
     end
-    function trace(ids)
+    function trace(ids, orientation)
         sub = pieces[ids]
         index_of = Dict(ids[i] => i for i in eachindex(ids))
         function after_reverse(signed_seam, skip)
@@ -956,10 +1024,10 @@ function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
                 end
             end
         end
-        used = Set{Tuple{Int, Int, Int, Int}}()
+        used = Set{Tuple{Int, Int, Int}}()
         words = Vector{Int}[]
         for start in starts
-            start in used && continue
+            (start[1], start[2], start[3]) in used && continue
             word = Int[]
             pos = start
             guard = 0
@@ -972,22 +1040,52 @@ function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
                     pos = nxt
                     continue
                 end
-                pos in used && break
-                push!(used, pos)
+                key = (pos[1], pos[2], pos[3])
+                key in used && break
+                push!(used, key)
                 push!(word, letter)
                 nxt = step(pos)
                 nxt == start && break
                 pos = nxt
             end
-            isempty(word) || push!(words, word)
+            if !isempty(word)
+                orientation[ids[start[1]]] == -1 && (word = [-x for x in reverse(word)])
+                push!(words, word)
+            end
         end
         words
     end
     sectors = Dict{String, Any}[]
     raw_genus = Tuple{Int, Any}[]
     for (k, ids) in enumerate(values(groups))
-        boundaries = trace(ids)
         seams_here = [eid for (eid, pair) in seam_of if find(pair[1]) == find(ids[1])]
+        # Propagate one surface orientation across the glued seams. Boundary
+        # parametrizations are then induced from this common orientation.
+        orientation = Dict(first(ids) => 1)
+        coefficient(pi, eid) = only(sign(x) for cyc in pieces[pi]["cycles"] for x in cyc if abs(x) == eid)
+        while length(orientation) < length(ids)
+            before = length(orientation)
+            for eid in seams_here
+                a, b = seam_of[eid]
+                factor = -coefficient(a, eid) * coefficient(b, eid)
+                if haskey(orientation, a)
+                    expected = factor * orientation[a]
+                    haskey(orientation, b) && orientation[b] != expected &&
+                        throw(KodaImplementationError(:spine_topology, "inconsistent sector orientation", Dict("edge" => eid)))
+                    orientation[b] = expected
+                elseif haskey(orientation, b)
+                    orientation[a] = factor * orientation[b]
+                end
+            end
+            length(orientation) > before || throw(KodaImplementationError(
+                :spine_topology, "sector pieces are not seam-connected", Dict("pieces" => ids)))
+        end
+        for eid in seams_here
+            a, b = seam_of[eid]
+            orientation[b] == -coefficient(a, eid) * coefficient(b, eid) * orientation[a] ||
+                throw(KodaImplementationError(:spine_topology, "inconsistent sector orientation", Dict("edge" => eid)))
+        end
+        boundaries = trace(ids, orientation)
         chi = sum(pieces[i]["chi"] for i in ids) - length(seams_here)
         b = length(boundaries)
         twice = 2 - chi - b
@@ -1005,6 +1103,7 @@ function _koda_ribbon_complex!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
             "boundary_count" => b,
             "chi" => chi,
             "boundaries" => boundaries,
+            "boundary_orientation_signs" => fill(1, b),
             "sources" => Dict("regions" => sources_r, "disks" => sources_d),
         ))
     end
@@ -1251,50 +1350,118 @@ function spine_topology(spine::FlowSpine)
     )
 end
 
-"""π₁ from the §6.3 complex, one procedure whether or not there are true vertices.
+"""π₁ from the §6.3 complex via a relative cellulation of each sector.
 
-Generators are the singular edges, plus 2g handle generators for each sector.
-A spanning-tree edge is set to 1. Each sector contributes one relation: the product
-of its handle commutators and its boundary words.
+An oriented genus-g sector with b boundaries contributes 2g handles and b-1
+boundary connectors. The spanning forest includes these connectors; each sector
+then contributes one surface relator. Boundary walks must have a coherent
+induced orientation, or supply `boundary_orientation_signs` explicitly.
 """
 function spine_pi1_presentation(spine::FlowSpine)
     topo = spine_topology(spine)
-    edges = topo["edges"]
-    sectors = topo["sectors"]
-    nedge = length(edges)
-    id_to_gen = Dict(e["id"] => i for (i, e) in enumerate(edges))
-    gens = ["e$(e["id"])" for e in edges]
-    relators = Vector{Vector{Tuple{Int, Int}}}()
-    parent = Dict(v["id"] => v["id"] for v in topo["vertices"])
-    function find(x)
-        parent[x] == x ? x : (parent[x] = find(parent[x]))
+    edges, sectors = topo["edges"], topo["sectors"]
+    fail(msg, data=Dict{String,Any}()) =
+        throw(KodaImplementationError(:spine_pi1_presentation, msg, data))
+    edge_by_id = Dict{Int,Any}()
+    verts = Set{Int}(Int(v["id"]) for v in topo["vertices"])
+    gens, froms, tos = String[], Int[], Int[]
+    function addcell!(name, u, v)
+        push!(gens, name); push!(froms, u); push!(tos, v); push!(verts, u, v)
+        length(gens)
     end
+    id_to_gen = Dict{Int,Int}()
     for e in edges
-        e["from"] == e["to"] && continue
-        if find(e["from"]) != find(e["to"])
-            parent[find(e["to"])] = find(e["from"])
-            push!(relators, [(id_to_gen[e["id"]], 1)])
-        end
+        id = Int(e["id"])
+        haskey(edge_by_id, id) && fail("duplicate singular-edge id", Dict("edge" => id))
+        edge_by_id[id] = e
+        u, v = Int(e["from"]), Int(e["to"])
+        id_to_gen[id] = addcell!("e$id", u, v)
     end
-    hcount = nedge
+    function directed_ends(x::Int)
+        x == 0 && fail("zero is not an oriented edge")
+        e = get(edge_by_id, abs(x), nothing)
+        e === nothing && fail("unknown singular edge", Dict("edge" => abs(x)))
+        u, v = Int(e["from"]), Int(e["to"])
+        x > 0 ? (u, v) : (v, u)
+    end
+    function boundary_start(w::Vector{Int}, sid, j)
+        isempty(w) && fail("empty sector boundary", Dict("sector" => sid, "boundary" => j))
+        start, cur = directed_ends(w[1])
+        for x in w[2:end]
+            u, v = directed_ends(x)
+            u == cur || fail("boundary is not continuous",
+                             Dict("sector" => sid, "boundary" => j))
+            cur = v
+        end
+        cur == start || fail("sector boundary is not closed",
+                             Dict("sector" => sid, "boundary" => j))
+        start
+    end
+    plans = NamedTuple[]
     for sec in sectors
-        g = get(sec, "genus", 0)
-        rel = Tuple{Int, Int}[]
-        if g isa Integer
-            for _ in 1:g
-            hcount += 2
-            push!(gens, "a$(sec["id"])_$(div(hcount - nedge + 1, 2))", "b$(sec["id"])_$(div(hcount - nedge + 1, 2))")
-            a, b = hcount - 1, hcount
-            append!(rel, [(a, 1), (b, 1), (a, -1), (b, -1)])
-            end
+        sid = sec["id"]
+        g = get(sec, "genus", nothing)
+        g isa Integer && g >= 0 ||
+            fail("sector genus must be a nonnegative integer", Dict("sector" => sid))
+        raw = get(sec, "boundaries", Any[]); b = length(raw)
+        b > 0 || fail("boundaryless sector is unsupported", Dict("sector" => sid))
+        get(sec, "boundary_count", b) == b ||
+            fail("boundary_count mismatch", Dict("sector" => sid))
+        get(sec, "chi", 2 - 2g - b) == 2 - 2g - b ||
+            fail("sector chi mismatch", Dict("sector" => sid))
+        signs = collect(get(sec, "boundary_orientation_signs", fill(1, b)))
+        length(signs) == b ||
+            fail("orientation-sign count mismatch", Dict("sector" => sid))
+        words = Vector{Int}[]
+        for j in 1:b
+            s = Int(signs[j])
+            s in (-1, 1) || fail("boundary orientation sign must be ±1",
+                                 Dict("sector" => sid, "boundary" => j))
+            w = Int.(raw[j])
+            push!(words, s == 1 ? w : [-x for x in reverse(w)])
         end
-        for word in get(sec, "boundaries", [])
-            append!(rel, [(id_to_gen[abs(x)], sign(x)) for x in word])
+        bases = [boundary_start(words[j], sid, j) for j in 1:b]
+        conns = [addcell!("t$(sid)_$(j)", bases[1], bases[j]) for j in 2:b]
+        handles = Tuple{Int,Int}[]
+        for i in 1:Int(g)
+            a = addcell!("a$(sid)_$(i)", bases[1], bases[1])
+            z = addcell!("b$(sid)_$(i)", bases[1], bases[1])
+            push!(handles, (a, z))
         end
-        isempty(rel) || push!(relators, rel)
+        push!(plans, (words=words, conns=conns, handles=handles))
     end
-    GroupPresentation(gens, relators, Int[], Dict{String, Any}(
+    parent = Dict(v => v for v in verts)
+    find(v) = parent[v] == v ? v : (parent[v] = find(parent[v]))
+    relators = Vector{Vector{Tuple{Int,Int}}}()
+    for i in eachindex(gens)
+        froms[i] == tos[i] && continue
+        a, b = find(froms[i]), find(tos[i])
+        a == b && continue
+        parent[b] = a
+        push!(relators, [(i, 1)])
+    end
+    length(Set(find(v) for v in verts)) <= 1 ||
+        fail("full 1-skeleton is disconnected")
+    function letters!(rel, w)
+        for x in w
+            push!(rel, (id_to_gen[abs(x)], x > 0 ? 1 : -1))
+        end
+    end
+    for p in plans
+        rel = Tuple{Int,Int}[]
+        for (a, b) in p.handles
+            append!(rel, ((a, 1), (b, 1), (a, -1), (b, -1)))
+        end
+        letters!(rel, p.words[1])
+        for j in 2:length(p.words)
+            t = p.conns[j - 1]
+            push!(rel, (t, 1)); letters!(rel, p.words[j]); push!(rel, (t, -1))
+        end
+        push!(relators, rel)
+    end
+    GroupPresentation(gens, relators, Int[], Dict{String,Any}(
         "source" => "spine_complex",
         "spec" => "heegaard-koda-conversion.md §6.3",
+        "sector_cw" => "relative_oriented_surface",
     ))
 end

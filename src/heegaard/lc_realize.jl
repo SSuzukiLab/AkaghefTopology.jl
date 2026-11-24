@@ -1,11 +1,11 @@
 # Source: docs/specs/heegaard-koda-conversion.md §3.1–3.4.
 """LC/HC realization from words via combinatorial rotation system only."""
 
-function _lc_has_place_only_words(lc::LickorishConfiguration)
+function _lc_has_place_only_words(lc::LickorishCode)
     any(isempty(w) for w in values(lc.words)) && !isempty(lc.places)
 end
 
-function realize_lc(lc::LickorishConfiguration)
+function realize_lc(lc::LickorishCode)
     validate_lc_input(lc)
     g = lc.genus
     !isempty(lc.places) && _lc_has_place_only_words(lc) &&
@@ -26,7 +26,7 @@ function realize_lc(lc::LickorishConfiguration)
     )
 end
 
-function realize_hc(hc::HeegaardLayer)
+function realize_hc(hc::HeegaardCode)
     validate_hc_input(hc)
     base = realize_lc(hc.lc)
     merge!(
