@@ -40,7 +40,7 @@ end
 | Manifold / role | Retrieval | Real vertices |
 |---|---|---:|
 | `L(2,1)` | `vl_example(:lens_2_1)` | 2 |
-| `L(3,1)`, MST2 Example 23 | `vl_example(:lens_3_1_mst2_example23)` | 2 |
+| `L(3,1)` (unoriented name), MST2 Example 23 | `vl_example(:lens_3_1_mst2_example23)` | 2 |
 | `L(3,2)` | `vl_example(:lens_3_2)` | 3 |
 | Additional lens parameters | `lens_space_link(p,q)` | `p` |
 | Poincaré sphere | `vl_example(:poincare)` | 5 |
@@ -86,6 +86,8 @@ v = vl_example(name)
 The registry includes distinctions such as the two-vertex MST2 Example 23
 presentation of `L(3,1)`, which is not interchangeable with the generic
 three-vertex lens-space-family presentation for a source-faithful experiment.
+Lens-space names in this registry are unoriented; orientation relations between
+the presentations are in [the lens-space naming conventions](../conventions/LensSpaceNames.md) (draft).
 
 ### Parameterized unweighted or combed lens space
 

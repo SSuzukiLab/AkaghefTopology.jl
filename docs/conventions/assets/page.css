@@ -1,0 +1,5 @@
+body { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; font-family: "Segoe UI", Meiryo, sans-serif; line-height: 1.75; color: #1d1d1f; background: #fff; }
+h1 { font-size: 24px; } h2 { font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 36px; } h3 { font-size: 17px; margin-top: 28px; }
+table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; vertical-align: top; } th { background: #f7f6f2; }
+img { max-width: 100%; background: #fff; border: 1px solid #eee; } figure { margin: 16px 0; } figcaption { font-size: 13px; color: #666; }
+code { background: #f3f2ee; padding: 1px 4px; border-radius: 3px; } a { color: #2c5aa0; }

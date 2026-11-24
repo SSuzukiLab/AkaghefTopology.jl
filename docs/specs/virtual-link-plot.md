@@ -41,6 +41,7 @@ plot_svg(
     bending_numbers=nothing,
     edge_labels=:weight,
     replay_positions=nothing,
+    edge_colours=nothing,
 ) -> String
 ```
 
@@ -53,7 +54,8 @@ The return value MUST be the absolute path of the written SVG.
 | `v` | Source `VirtualLink`; MUST satisfy the data invariants in §4. |
 | `path` | Destination filename. Its parent directory MUST already exist and be writable. The implementation does not create it. |
 | `bending_numbers` | Optional debugging/layout override. If supplied, it MUST contain one integer per edge of the PD code returned by `pd_code` for this plot operation. It is ignored by the replay branch. |
-| `edge_labels` | Callers MUST use one of `:none`, `:weight`, `:id`, or `:all`; semantics are in §9.6. |
+| `edge_labels` | Callers MUST use one of `:none`, `:weight`, `:id`, `:all`, or `:colour`; semantics are in §9.6. |
+| `edge_colours` | Required when `edge_labels` is `:colour`. Indexed by arc id. Each entry is an integer read in Z₃. |
 | `replay_positions` | Optional sequence containing one polyline per real arc in stable `real_edge_table` order. When supplied, it bypasses planarisation, PD construction, both MILPs, and routing. |
 
 ### 3.2 Branch selection
@@ -548,15 +550,18 @@ Every real arc MUST have one arrow.
 
 ### 9.6 Edge labels
 
-| `edge_labels` | Arc ID | Weight |
-|---|---:|---:|
-| `:none` | no | no |
-| `:weight` | no | yes, when `v.is_weighted` and finite |
-| `:id` | yes | no |
-| `:all` | yes | yes, when `v.is_weighted` and finite |
+| `edge_labels` | Arc ID | Weight | Colour |
+|---|---:|---:|---:|
+| `:none` | no | no | no |
+| `:weight` | no | yes, when `v.is_weighted` and finite | no |
+| `:id` | yes | no | no |
+| `:all` | yes | yes, when `v.is_weighted` and finite | no |
+| `:colour` | no | no | yes, from `edge_colours` |
 
 Arc IDs MUST be rendered as `E<n>`. Integer-valued real weights MUST render
-without a decimal tail. Labels MUST be placed beside the arc, to the left of
+without a decimal tail. A colour is an integer read in Z₃ and MUST render as
+`-1`, `0`, or `1`. It is not an edge weight. `edge_colours` is indexed by arc
+id. Labels MUST be placed beside the arc, to the left of
 travel, and then separated by the label-overlap relaxation.
 
 The current implementation does not reject an unknown `edge_labels` value; that

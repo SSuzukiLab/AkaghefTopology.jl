@@ -93,14 +93,17 @@ end
 
 """A text element that stays readable where it crosses a strand.
 
-`paint-order="stroke"` draws the halo first and the glyph over it, so labels do
-not have to be nudged away from every line to remain legible.
+The halo is an earlier element, painted before the glyph. A renderer that
+ignores `paint-order` still shows the glyph on top of that halo.
 """
 function _label(x,y,text; anchor="middle", size=LINK_STYLE.font)
-    "<text class=\"label\" x=\"$(_num(x))\" y=\"$(_num(y))\" text-anchor=\"$anchor\" " *
-    "dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"$(_num(size))\" " *
-    "fill=\"#12161d\" stroke=\"#faf9f7\" stroke-width=\"$(_num(size*0.28))\" " *
-    "paint-order=\"stroke\" stroke-linejoin=\"round\">$(_esc(text))</text>"
+    attrs = "class=\"label\" x=\"$(_num(x))\" y=\"$(_num(y))\" text-anchor=\"$anchor\" " *
+        "dominant-baseline=\"middle\" font-family=\"sans-serif\" font-size=\"$(_num(size))\""
+    escaped = _esc(text)
+    halo = "<text $attrs fill=\"#faf9f7\" stroke=\"#faf9f7\" " *
+        "stroke-width=\"$(_num(size*0.28))\" stroke-linejoin=\"round\">$escaped</text>"
+    glyph = "<text $attrs fill=\"#12161d\">$escaped</text>"
+    halo * glyph
 end
 
 """Point and unit tangent at the arc-length midpoint of a polyline.
@@ -508,9 +511,14 @@ in pre-projection units, the `0.3 * scale` corner radius, and the arrow placed
 at the midpoint *index* rather than the arc-length midpoint -- are recorded in
 `PLOT_PIPELINE.md` section 3.
 """
+function _fmt_z3_label(value)
+    reduced = mod(Int(value), 3)
+    string(reduced == 2 ? -1 : reduced)
+end
+
 function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
                   edge_labels=:weight,replay_positions=nothing,
-                  planarization=:matlab)
+                  planarization=:matlab, edge_colours=nothing)
     body=String[]
     cut=_has_cut_component(v)
     pure_cut=cut && all(isempty(filter(!=(0),component)) for component in v.gauss)
@@ -617,11 +625,19 @@ function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
         push!(body,"<path class=\"arrow\" data-arc=\"$(arc.id)\" d=\"$arrow_data\" fill=\"none\" stroke=\"#1b3bd0\" ",
                    "stroke-width=\"$(_num(S.arrow))\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>")
 
-        if v.is_weighted || edge_labels in (:id,:all)
+        if edge_labels == :colour && edge_colours === nothing
+            throw(ArgumentError("edge_labels=:colour requires edge_colours indexed by arc id"))
+        end
+        if v.is_weighted || edge_labels in (:id,:all,:colour)
             parts=String[]
             edge_labels in (:id,:all) && push!(parts,"E$(arc.id)")
             v.is_weighted && edge_labels in (:weight,:all) && !isnan(arc.weight) &&
                 push!(parts,_fmt_weight(arc.weight))
+            if edge_labels == :colour
+                arc.id <= length(edge_colours) || throw(ArgumentError(
+                    "edge_colours has no entry for arc $(arc.id)"))
+                push!(parts, _fmt_z3_label(edge_colours[arc.id]))
+            end
             label=join(parts,", ")
             # Sit the label beside the arc rather than on it: offset along the
             # normal of the local tangent, consistently to the left of travel.

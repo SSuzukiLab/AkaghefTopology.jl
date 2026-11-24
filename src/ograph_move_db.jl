@@ -7,7 +7,15 @@ profiles, finite campaign bounds, and ordered relation certificates.
 
 using JSON
 using SHA
-using .MoveGraphStore
+# The store is a child of the caller when a script includes it first, and a
+# sibling once this file is included from VirtualLinks.
+if isdefined(@__MODULE__, :MoveGraphStore) &&
+        getfield(@__MODULE__, :MoveGraphStore) isa Module &&
+        parentmodule(getfield(@__MODULE__, :MoveGraphStore)) === @__MODULE__
+    @eval using .MoveGraphStore
+else
+    @eval using ..MoveGraphStore
+end
 
 const OGRAPH_STORE_SCHEMA_VERSION = 2
 const OGRAPH_IDENTITY_DOMAIN = "area3/closed-normal-ograph/presentation-v1"

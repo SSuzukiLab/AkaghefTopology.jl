@@ -128,6 +128,22 @@ _ograph_move_invalid(reason::Symbol; error=nothing) =
     OGraphMoveVerification(false, reason, nothing,
                            error === nothing ? nothing : sprint(showerror, error))
 
+"""Class gate for one side of a move.
+
+N1 is [BP97, §1.4]: a closed normal o-graph has at least one vertex.
+`outside` is returned when `n1` is false. `failed` is returned when C1–C3
+fail. The empty presentation has `n1 == false` and MST-contract
+`criteria == (true, true, true)`, so this function does not read
+`all(criteria)` on that input. MATLAB `isClosed` rejects the same input
+because the disk-table height is not `NV+1`; Julia `is_closed` records
+`(false, (true, true, false))`.
+"""
+function _ograph_move_class(witness::ClosednessWitness, outside::Symbol, failed::Symbol)
+    witness.n1 || return outside
+    all(witness.criteria) || return failed
+    :ok
+end
+
 function _ograph_raw_serialization(state::OGraphState)
     "OGraphRaw;schema=$(OGRAPH_PRESENTATION_SCHEMA);" *
         "convention-bytes=$(ncodeunits(state.convention_id)):$(state.convention_id);" *
@@ -1211,7 +1227,8 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     source_closedness = try closedness_witness(source_state) catch err
         return _ograph_move_invalid(:source_closedness_failed; error=err)
     end
-    all(source_closedness.criteria) || return _ograph_move_invalid(:source_not_closed)
+    source_class = _ograph_move_class(source_closedness, :source_outside_n1, :source_not_closed)
+    source_class == :ok || return _ograph_move_invalid(source_class)
 
     before = something(frozen.before)
     after = something(frozen.after)
@@ -1255,7 +1272,8 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     target_closedness = try closedness_witness(target_state) catch err
         return _ograph_move_invalid(:target_closedness_failed; error=err)
     end
-    all(target_closedness.criteria) || return _ograph_move_invalid(:target_not_closed)
+    target_class = _ograph_move_class(target_closedness, :target_outside_n1, :target_not_closed)
+    target_class == :ok || return _ograph_move_invalid(target_class)
 
     raw_expected = try _coerce_expected_state(expected_raw_target) catch err
         return _ograph_move_invalid(:invalid_expected_raw_target; error=err)

@@ -15,7 +15,7 @@ function _kuperberg_rand!(rng::_KuperbergRNG)
     rng.state
 end
 
-function _hc_role_curves(hc::Heegaard.HeegaardLayer, role::Symbol)
+function _hc_role_curves(hc::Heegaard.HeegaardCode, role::Symbol)
     [name for (name, family) in hc.roles if family == role]
 end
 
@@ -55,7 +55,7 @@ The current 10 algebras do not distinguish a global flip of this choice.
 This predicate is the code's choice, not a value check: true when the `+`
 owner is α and the `−` owner is β.
 """
-function _ab_crossing_passage_positive(hc::Heegaard.HeegaardLayer, label::Int)
+function _ab_crossing_passage_positive(hc::Heegaard.HeegaardCode, label::Int)
     owners = _lc_label_owners(hc.lc.words)
     sides = owners[label]
     get(hc.roles, sides[:+], :none) == :alpha && get(hc.roles, sides[:-], :none) == :beta
@@ -66,7 +66,7 @@ function _filter_ab_word(word::Vector{Int}, owners, roles)
 end
 
 """α then β components, α∩β crossings only, orientation = §3 passage sign."""
-function _heegaard_kuperberg_link(hc::Heegaard.HeegaardLayer)
+function _heegaard_kuperberg_link(hc::Heegaard.HeegaardCode)
     owners = _lc_label_owners(hc.lc.words)
     alphas = sort(_hc_role_curves(hc, :alpha))
     betas = sort(_hc_role_curves(hc, :beta))
@@ -101,7 +101,7 @@ function _require_involutory_kuperberg_algebra(algebra::FiniteHopfAlgebra)
 end
 
 """π₁ presentation ⟨α generators | β relators⟩ walking each β word in cyclic order."""
-function heegaard_pi1_presentation(hc::Heegaard.HeegaardLayer)
+function heegaard_pi1_presentation(hc::Heegaard.HeegaardCode)
     owners = _lc_label_owners(hc.lc.words)
     alphas = sort(_hc_role_curves(hc, :alpha))
     betas = sort(_hc_role_curves(hc, :beta))
@@ -132,7 +132,7 @@ function heegaard_pi1_presentation(hc::Heegaard.HeegaardLayer)
     )
 end
 
-function _require_heegaard_cutting_domain(hc::Heegaard.HeegaardLayer)
+function _require_heegaard_cutting_domain(hc::Heegaard.HeegaardCode)
     Heegaard.validate_hc_input(hc)
     g = hc.lc.genus
     alphas = _hc_role_curves(hc, :alpha)
@@ -162,7 +162,7 @@ end
 _kuperberg_genus_normalization(algebra::FiniteHopfAlgebra, genus::Int) =
     _kuperberg_genus_normalization(_kuperberg_right_integral_pairing(algebra), genus)
 
-_kuperberg_genus_normalization(algebra::FiniteHopfAlgebra, hc::Heegaard.HeegaardLayer) =
+_kuperberg_genus_normalization(algebra::FiniteHopfAlgebra, hc::Heegaard.HeegaardCode) =
     _kuperberg_genus_normalization(algebra, hc.lc.genus)
 
 
@@ -306,7 +306,7 @@ function _kuperberg_factors_from_words(alpha_words::Vector{Vector{Int}},
     factors
 end
 
-function _heegaard_kuperberg_factors(hc::Heegaard.HeegaardLayer, algebra::FiniteHopfAlgebra)
+function _heegaard_kuperberg_factors(hc::Heegaard.HeegaardCode, algebra::FiniteHopfAlgebra)
     link = _heegaard_kuperberg_link(hc)
     gauss, orientation = real_gauss_code(link)
     alpha_count = length(_hc_role_curves(hc, :alpha))
@@ -465,14 +465,14 @@ end
 
 """Closed combinatorial tensor network for an involutory Hopf algebra on HC input."""
 struct KuperbergTensorExpression
-    hc::Heegaard.HeegaardLayer
+    hc::Heegaard.HeegaardCode
     link::VirtualLink
     factors::Vector{SparseFactor}
     normalization::ComplexF64
     dimension::Int
 end
 
-function invariant_expression(hc::Heegaard.HeegaardLayer, algebra::FiniteHopfAlgebra)
+function invariant_expression(hc::Heegaard.HeegaardCode, algebra::FiniteHopfAlgebra)
     _require_involutory_kuperberg_algebra(algebra)
     _require_heegaard_cutting_domain(hc)
     link = _heegaard_kuperberg_link(hc)
@@ -520,7 +520,7 @@ function _kuperberg_value(alpha_words, beta_words, sign_of, algebra, genus::Int)
         _kuperberg_genus_normalization(algebra, genus)
 end
 
-function Z_Kuperberg(hc::Heegaard.HeegaardLayer, algebra::FiniteHopfAlgebra;
+function Z_Kuperberg(hc::Heegaard.HeegaardCode, algebra::FiniteHopfAlgebra;
                      strategy=:auto, kwargs...)
     isempty(kwargs) || throw(ArgumentError("Z_Kuperberg does not accept extra keywords"))
     evaluate_invariant(simplify_invariant(invariant_expression(hc, algebra); strategy=strategy))
@@ -539,7 +539,7 @@ Z_Kuperberg(punctured::Heegaard.PuncturedHeegaardDiagram, algebra::FiniteHopfAlg
     Z_Kuperberg(punctured.diagram, algebra; kwargs...)
 
 """Labels this entrance treats as negative α∩β crossings. Specs do not decide this choice."""
-function kuperberg_hc_negative_labels(hc::Heegaard.HeegaardLayer)
+function kuperberg_hc_negative_labels(hc::Heegaard.HeegaardCode)
     owners = _lc_label_owners(hc.lc.words)
     Set(label for label in keys(owners)
         if _is_alpha_beta_label(owners, label, hc.roles) &&

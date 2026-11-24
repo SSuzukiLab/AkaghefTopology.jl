@@ -5,6 +5,7 @@ using JuMP
 using GLPK
 using Graphs
 import AkaghefAlgebra
+import AbstractAlgebra
 
 export URDiagram, VirtualLink, HeegaardDiagram, lens_space_rgauss, lens_space_link,
        framed_lens_space_input, framed_lens_space_link, framed_lens_space_series,
@@ -42,6 +43,21 @@ export OGraphState, ClosednessWitness, ClosedNormalOGraph,
        canonicalize_ograph, ograph_canonical_serialization,
        ograph_canonical_hash, ograph_state, closedness_witness,
        certify_closed_ograph, ograph_graph_a,
+       OGRAPH_COLOUR_CONVENTION_ID, OGRAPH_FACE_CYCLE_STATUS,
+       ColouredOGraph, DiscGerm, EdgeColour, OGraphColourCheck,
+       NormalEdgeOrientation, ClosedNormalColouring,
+       fig25_tau, fig25_leg_direction, fig25_leg_pairing,
+       fig25_gauged_colour, fig25_frame_reversal,
+       edge_gluing_from_colour, colour_from_gluing, edge_disc_germs,
+       validate_coloured_ograph, canonical_coloured_ograph,
+       coloured_ograph_serialization, coloured_ograph_hash,
+       prop321_colour, normal_coloured_ograph, validate_normal_colouring,
+       normal_orientations, prop321_orientations, coloured_gc_display,
+       FaceCycle, ColouredPolyhedron, ColourHomology, DualFacePairing,
+       SpineBoundaryComponent, SpineBoundary, DiscPartitionComparison,
+       face_cycles, cellular_homology, dual_face_pairings, dual_edge_orbits,
+       sorted_germ_partition, disk_table_corners, compare_disc_partition,
+       thickening_boundary,
        OGRAPH_MOVE_WITNESS_SCHEMA, OGRAPH_MOVE_VERIFIER_VERSION,
        OGraphOutsideOccurrence, OGraphCanonicalizationWitness,
        OGraphMethodBLaneStep, OGraphPSGapBoundary, OGraphPSMethodBWitness,
@@ -142,57 +158,59 @@ export ClassicalGaussEnumerationResult, CLASSICAL_GAUSS_ENUMERATION_VERSION,
        KnotGaussCanonicalStreamStats, KNOT_N6_ALL_STATE_ENUMERATION_VERSION,
        stream_canonical_knot_gauss, enumerate_canonical_knot_gauss
 
-include("symbolic.jl")
-include("laurent.jl")
-include("ur_diagram.jl")
-include("virtual_link.jl")
-include("framed_lens_space.jl")
-include("circuit_b.jl")
-include("integer_weight_solver.jl")
-include("ograph_state.jl")
-include("weight_validation.jl")
-include("spin_weights.jl")
-include("layer8_planarization.jl")
-include("virtual_planarization.jl")
-include("orthogonal_layout.jl")
-include("layout_invariants.jl")
-include("helpers.jl")
-include("moves.jl")
-include("ograph_move_verifier.jl")
-include("ograph_tetrahedra.jl")
-include("weighted_ps.jl")
-include("weighted_move_verifier.jl")
-include("spin_cp.jl")
-include("hopf_invariant.jl")
-include("taft_invariant.jl")
-include("ur_mst.jl")
-include("tensor_network.jl")
-include("hopf_properties.jl")
-include("finite_algebra.jl")
-include("svg_plot.jl")
-include("ograph_gauss_diagram.jl")
-include("knot_gauss.jl")
-include("reidemeister.jl")
-include("classical_gauss_realizability.jl")
-include("knot_classical_invariants.jl")
-include("classical_gauss_enumeration.jl")
-include("knot_n6_classification.jl")
-include("knot_n6_targeted_bridge.jl")
-include("knot_n6_targeted_barrier8.jl")
-include("knot_n6_all_state_enumeration.jl")
+include("Algebra.jl")
+include("MoveAPI.jl")
+include("Invariants.jl")
 include("move_graph_store.jl")
 using .MoveGraphStore
-include("ograph_move_db.jl")
-include("ograph_search_db.jl")
-include("ograph_path_constraints.jl")
-include("ograph_path_lifting.jl")
+include("URDiagrams.jl")
+include("KnotGauss.jl")
+include("VirtualLinks.jl")
+
+# Bind each presentation name on Topology, then re-export what that module
+# exports. Heegaard, included below, reads VirtualLink and the move helpers
+# through parentmodule, so this runs first. The same object is not imported twice.
+let modules = (:Algebra, :MoveAPI, :Invariants, :URDiagrams, :KnotGauss, :VirtualLinks)
+    skip(name::Symbol) = begin
+        name === :eval && return true
+        name === :include && return true
+        Base.isidentifier(name) || return true
+        text = String(name)
+        isempty(text) || text[1] == '#'
+    end
+    for modname in modules
+        child = getfield(@__MODULE__, modname)
+        seen = Set{Symbol}()
+        for name in names(child; all=true)
+            push!(seen, name)
+        end
+        for name in names(child)
+            push!(seen, name)
+        end
+        for name in seen
+            skip(name) && continue
+            isdefined(child, name) || continue
+            if isdefined(@__MODULE__, name)
+                getfield(@__MODULE__, name) === getfield(child, name) ||
+                    error("Topology name clash: $(modname).$(name)")
+            else
+                @eval import .$modname: $name
+            end
+        end
+        for name in names(child)
+            skip(name) && continue
+            isdefined(@__MODULE__, name) || continue
+            @eval export $name
+        end
+    end
+end
+
+include("svg_plot.jl")
+
 export ograph_move_weight_relation, solve_ograph_path_weights,
        record_ograph_path_constraint_trial!, query_ograph_path_constraint_trials,
        ograph_path_endpoint_permutations,
        lift_ograph_search_path!
-include("ograph_invariants.jl")
-include("knot_move_db.jl")
-include("knot_n5_classification.jl")
 
 # Fixture-friendly package overload.  The source-level production builder is
 # zero-argument and reconstructs max_n=6; this overload keeps the transient
@@ -208,14 +226,16 @@ function build_knot_n6_targeted_barrier8(
         progress=progress)
 end
 
-export Heegaard
+export HeegaardCodes, Heegaard
 include("heegaard/Heegaard.jl")
-# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — 公開 HeegaardDiagram は解決済み HC（struct HeegaardLayer）と同じ型。standard は α の支持を既存の m に束縛する入力略記であり、別型ではない
+# Old module name, kept as an alias (docs/specs/module-structure.md §2).
+const Heegaard = HeegaardCodes
+# cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/docs/DESIGN.md §判断 — 公開 HeegaardDiagram は解決済み HC（struct HeegaardCode）と同じ型。standard は α の支持を既存の m に束縛する入力略記であり、別型ではない
 # cf: lib/topology.jl/src/heegaard/hc_compare.jl::compare_hc — same word, same homology, and move-equivalence
 # cf: lib/topology.jl/docs/specs/heegaard-diagram.md — one resolved diagram; these names are the existing operations
-using .Heegaard: HeegaardLayer, draw_heegaard, compare_hc, validate_diagram,
+using .HeegaardCodes: HeegaardCode, draw_heegaard, compare_hc, validate_diagram,
     hc_intersection, hc_first_homology, hc_to_odata, is_standard
-const HeegaardDiagram = HeegaardLayer
+const HeegaardDiagram = HeegaardCode
 move(diagram::HeegaardDiagram, witness::Heegaard.LCMoveWitness) =
     Heegaard.move(diagram, witness)
 movable(diagram::HeegaardDiagram, row::AbstractDict; kwargs...) =
@@ -226,5 +246,49 @@ export draw_heegaard, compare_hc, validate_diagram, is_standard,
     hc_intersection, hc_first_homology, hc_to_odata
 include("kuperberg_invariant.jl")
 export Z_Kuperberg, KuperbergTensorExpression
+
+# Manifold operations. Generics: Invariants.mirror, Invariants.connected_sum.
+# MST25 Proposition A.1 sends Γ× to (M^op, -v^op). mst_sign_change is that
+# checked operation. mirror_manifold! does the same array action and does not
+# check that the input is a closed normal o-graph.
+mirror(x::HeegaardCodes.HeegaardCode) = HeegaardCodes.hc_mirror(x)
+mirror(x::VirtualLink) = mst_sign_change(x)
+connected_sum(x::HeegaardCodes.HeegaardCode, y::HeegaardCodes.HeegaardCode; kwargs...) =
+    HeegaardCodes.hc_connected_sum(x, y; kwargs...)
+connected_sum(x::VirtualLink, y=(1, 2); transport_weights::Bool=true) =
+    connected_sum!(deepcopy(x), y; transport_weights)
+
+# Search database. The presentation type is the argument after the store
+# (docs/specs/module-structure.md §3.1). The o-graph calls without that type
+# stay in VirtualLinks. ograph_h1 takes an OGraphPi1Presentation, and no
+# VirtualLink linking form exists, so those two have no method here.
+load_search_state(store::MoveGraphStoreDB, ::Type{HeegaardCode}, state_id::AbstractString) =
+    HeegaardCodes.load_hc_search_state(store, state_id)
+load_search_state(store::MoveGraphStoreDB, ::Type{VirtualLink}, state_id::AbstractString) =
+    load_ograph_search_state(store, state_id)
+begin_search_run!(store::MoveGraphStoreDB, ::Type{HeegaardCode}, script_path::AbstractString; kwargs...) =
+    HeegaardCodes.begin_hc_search_run!(store, script_path; kwargs...)
+begin_search_run!(store::MoveGraphStoreDB, ::Type{VirtualLink}, script_path::AbstractString; kwargs...) =
+    begin_ograph_search_run!(store, script_path; kwargs...)
+finish_search_run!(store::MoveGraphStoreDB, ::Type{HeegaardCode}, run_id::AbstractString; kwargs...) =
+    HeegaardCodes.finish_hc_search_run!(store, run_id; kwargs...)
+finish_search_run!(store::MoveGraphStoreDB, ::Type{VirtualLink}, run_id::AbstractString; kwargs...) =
+    finish_ograph_search_run!(store, run_id; kwargs...)
+search_neighbors(store::MoveGraphStoreDB, ::Type{HeegaardCode}, state_id::AbstractString; kwargs...) =
+    HeegaardCodes.hc_search_neighbors(store, state_id; kwargs...)
+search_neighbors(store::MoveGraphStoreDB, ::Type{VirtualLink}, state_id::AbstractString; kwargs...) =
+    ograph_search_neighbors(store, state_id; kwargs...)
+query_search_paths(store::MoveGraphStoreDB, ::Type{HeegaardCode}, source_state_id::AbstractString; kwargs...) =
+    HeegaardCodes.query_hc_search_paths(store, source_state_id; kwargs...)
+query_search_paths(store::MoveGraphStoreDB, ::Type{VirtualLink}, source_state_id::AbstractString; kwargs...) =
+    query_ograph_search_paths(store, source_state_id; kwargs...)
+put_search_state!(store::MoveGraphStoreDB, hc::HeegaardCode; kwargs...) =
+    HeegaardCodes.put_hc_search_state!(store, hc; kwargs...)
+search_state(hc::HeegaardCode; kwargs...) =
+    HeegaardCodes.hc_search_state(hc; kwargs...)
+expand_search_state!(store::MoveGraphStoreDB, run_id::AbstractString, hc::HeegaardCode; kwargs...) =
+    HeegaardCodes.expand_hc_search_state!(store, run_id, hc; kwargs...)
+first_homology(x::HeegaardCode) = HeegaardCodes.hc_first_homology(x)
+linking_form(x::HeegaardCode; kwargs...) = HeegaardCodes.hc_linking_form(x; kwargs...)
 
 end

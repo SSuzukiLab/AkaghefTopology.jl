@@ -1,6 +1,14 @@
 """Area-2 adapter between signed Gauss diagrams and the verified move store."""
 
-using .MoveGraphStore
+# The store is a child of the caller when a script includes it first, and a
+# sibling once this file is included from KnotGauss.
+if isdefined(@__MODULE__, :MoveGraphStore) &&
+        getfield(@__MODULE__, :MoveGraphStore) isa Module &&
+        parentmodule(getfield(@__MODULE__, :MoveGraphStore)) === @__MODULE__
+    @eval using .MoveGraphStore
+else
+    @eval using ..MoveGraphStore
+end
 
 const KNOT_MOVE_ADAPTER_VERSION = 1
 

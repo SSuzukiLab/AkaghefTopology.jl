@@ -44,6 +44,7 @@ function disk_tetrahedra(v::VirtualLink)
     # Validate directions, not only unordered edge incidence. Each generator
     # of the disk equivalence relation preserves the local ascending direction;
     # therefore its transitive closure supplies a consistent global direction.
+    face_gluings = NamedTuple[]
     for edge in real_edge_table(v)
         tail,head=edge.crossing
         s,t=vertex_signs[abs(tail)],vertex_signs[abs(head)]
@@ -55,6 +56,13 @@ function disk_tetrahedra(v::VirtualLink)
         (-s)*(-1)^source_rho[source_face+1] == -(-t)*(-1)^target_rho[target_face+1] ||
             throw(ArgumentError("paired tetrahedral faces have incompatible orientations"))
         source_inverse=[only(i-1 for i in 1:4 if source_rho[i]==a) for a in 0:3]
+        # cf: docs/specs/heegaard-snappy.md — expose the checked simplicial map.
+        permutation = ntuple(i -> target_rho[sigma[source_inverse[i]+1]+1], 4)
+        push!(face_gluings, (tet=abs(tail)-1,
+            omitted=source_rho[source_face+1], to_tet=abs(head)-1,
+            to_omitted=target_rho[target_face+1], permutation=permutation,
+            ograph_edge=edge.id, ograph_strand=edge.strand,
+            source_crossing=tail, target_crossing=head))
         for (a,b) in zip(_cp_recipe_germs(s)[source_face+1],
                          _cp_recipe_germs(t)[target_face+1])
             mapped=Tuple(target_rho[sigma[source_inverse[x+1]+1]+1]
@@ -71,5 +79,5 @@ function disk_tetrahedra(v::VirtualLink)
                 for i in 1:n]
     (;tetrahedra,disk_count=length(disk.ID),node_to_disk,
       closedness=certified.witness,ordered_edges,edge_orientations_verified=true,
-      face_orientations_verified=true)
+      face_orientations_verified=true,face_gluings)
 end

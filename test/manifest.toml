@@ -1,0 +1,785 @@
+# Test manifest: every test file, the module it checks, and its tier.
+#
+# Tiers (see test/TESTING.md):
+#   unit         small fixed examples of one module; run on every change to that module
+#   integration  chains across modules on small examples; run before judging or committing
+#   acceptance   corpus sweeps, random walks, census, campaigns; run once a day
+#   manual       not run by any automatic tier (one-off campaigns, superseded files)
+#
+# A suite is one shared Julia module: its prelude is included once, then its selected
+# files in the order listed here. Files of one suite may rely on the prelude only.
+# Tiers marked "provisional" were assigned by name before any timing was measured;
+# the first daily acceptance run records timings and they are reclassified from it.
+
+[suites.top]
+prelude = "prelude_top.jl"
+
+[suites.heegaard]
+prelude = "heegaard/prelude.jl"
+
+# ---- heegaard ---------------------------------------------------------------
+[[test]]
+file = "heegaard/solid3d.jl"
+suite = "heegaard"
+modules = ["heegaard.plot"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/core.jl"
+suite = "heegaard"
+modules = ["heegaard.code", "heegaard.surface", "heegaard.homology"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/joining_disk.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/koda_conversion.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "integration"
+
+[[test]]
+file = "heegaard/koda_cmr3.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/koda_joining_prepare.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "integration"
+note = "measured 206 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "heegaard/koda_complex.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/canonical_hash_cache.jl"
+suite = "heegaard"
+modules = ["heegaard.code"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/lescop_theta.jl"
+suite = "heegaard"
+modules = ["heegaard.invariants"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "heegaard/standard_resolution.jl"
+suite = "heegaard"
+modules = ["heegaard.standard"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/hc_plot.jl"
+suite = "heegaard"
+modules = ["heegaard.plot"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "heegaard/hc_triangulation.jl"
+suite = "heegaard"
+modules = ["heegaard.triangulation"]
+tier = "integration"
+
+[[test]]
+file = "heegaard/hc_invariants_linking.jl"
+suite = "heegaard"
+modules = ["heegaard.invariants"]
+tier = "unit"
+
+[[test]]
+file = "heegaard/hc_invariants_tv.jl"
+suite = "heegaard"
+modules = ["heegaard.invariants"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "heegaard/hc_invariants_extra.jl"
+suite = "heegaard"
+modules = ["heegaard.invariants"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "heegaard/bordered_lickorish_code.jl"
+suite = "heegaard"
+modules = ["heegaard.bordered"]
+tier = "integration"
+provisional = true
+note = "hand-checked cases; 2026-11-17 lane timing: argument families up to the hand slides 48.7 s, pair application 47.5 s, whole process 125.8 s; corpus sweeps moved to bordered_lickorish_code_corpus.jl"
+
+[[test]]
+file = "heegaard/bordered_lickorish_code_corpus.jl"
+suite = "heegaard"
+modules = ["heegaard.bordered"]
+tier = "acceptance"
+requires = ["heegaard/bordered_lickorish_code.jl"]
+note = "digon-create and pants-slide sweeps over census 00-19, split out 2026-11-18"
+
+[[test]]
+file = "heegaard/hc_compare.jl"
+suite = "heegaard"
+cwd = "repo"
+modules = ["heegaard.compare"]
+tier = "integration"
+note = "measured 94 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "heegaard/lc_isotopy_key.jl"
+suite = "heegaard"
+modules = ["heegaard.moves"]
+tier = "unit"
+provisional = true
+note = "was not run by any runner before 2026-11-17"
+
+[[test]]
+file = "heegaard/lc_moves.jl"
+suite = "heegaard"
+modules = ["heegaard.moves"]
+tier = "integration"
+provisional = true
+note = "was not run by any runner before 2026-11-17; still includes lc_moves_inverse_walk.jl until the walk include is moved"
+
+[[test]]
+file = "heegaard/lc_moves_inverse_walk.jl"
+suite = "heegaard"
+modules = ["heegaard.moves"]
+tier = "acceptance"
+note = "random inverse walks: genus 1 about 60 min, genus 2 about 35 min (2026-11-17)"
+
+[[test]]
+file = "heegaard/hc_search.jl"
+suite = "heegaard"
+modules = ["heegaard.search"]
+tier = "integration"
+provisional = true
+note = "was not run by any runner before 2026-11-17"
+
+[[test]]
+file = "heegaard/hc_standard_check.jl"
+suite = "heegaard"
+modules = ["heegaard.standard"]
+tier = "integration"
+provisional = true
+note = "was not run by any runner before 2026-11-17"
+
+# ---- top: Live Script ports ---------------------------------------------------
+[[test]]
+file = "../examples/VLExample.jl"
+suite = "top"
+modules = ["examples", "virtual_link"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C240610URD.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C240623URD.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/URDforKnotCmpl.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/dev_URDiagram.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/OgraphPlotSuite.jl"
+suite = "top"
+modules = ["examples", "plot"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C251030WeylAlgTraceFormula.jl"
+suite = "top"
+modules = ["examples", "algebra"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C260319MSTinv_unknot.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/InvariantWorkflows.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C251020ReplayFixture.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "topology_core.jl"
+suite = "top"
+modules = ["urdiagram", "virtual_link", "plot", "helpers", "examples"]
+tier = "integration"
+requires = ["../examples/VLExample.jl", "../examples/C240610URD.jl", "../examples/C240623URD.jl", "../examples/URDforKnotCmpl.jl", "../examples/dev_URDiagram.jl", "../examples/OgraphPlotSuite.jl", "../examples/C251030WeylAlgTraceFormula.jl", "../examples/C260319MSTinv_unknot.jl", "../examples/InvariantWorkflows.jl", "../examples/C250406TensorNetwork.jl", "../examples/C250825Dsl2.jl", "../examples/C260225M_Oinv.jl", "../examples/C250405Sweedler.jl", "../examples/C250823MSTinv_extalg.jl", "../examples/C250818MSTinv_uqsl2.jl", "../examples/C260125MSTinv_uqsl2.jl", "../examples/C260220LensSpaces.jl", "../examples/C251020KnotDsl2bfromUR.jl", "../examples/C250811MSTinvUR.jl"]
+note = "inline tests formerly in test/runtests.jl; they call the run_* functions of the Live Script ports, so they need those files and are integration. Split the pure URDiagram/VirtualLink core cases into a unit file."
+
+[[test]]
+file = "vl_observation_examples.jl"
+suite = "top"
+modules = ["virtual_link"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "../examples/C250406TensorNetwork.jl"
+suite = "top"
+modules = ["examples", "tensor"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C250825Dsl2.jl"
+suite = "top"
+modules = ["examples", "algebra"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C260225M_Oinv.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C250405Sweedler.jl"
+suite = "top"
+modules = ["examples", "algebra"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C250823MSTinv_extalg.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C250818MSTinv_uqsl2.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C260125MSTinv_uqsl2.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C260220LensSpaces.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C251020KnotDsl2bfromUR.jl"
+suite = "top"
+modules = ["examples", "urdiagram"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "../examples/C250811MSTinvUR.jl"
+suite = "top"
+modules = ["examples", "mst"]
+tier = "integration"
+provisional = true
+
+# ---- top: library modules ---------------------------------------------------------
+[[test]]
+file = "group_algebra.jl"
+suite = "top"
+modules = ["algebra"]
+tier = "unit"
+
+[[test]]
+file = "hopf_properties.jl"
+suite = "top"
+modules = ["algebra"]
+tier = "unit"
+
+[[test]]
+file = "kuperberg_invariant.jl"
+suite = "top"
+modules = ["mst", "kuperberg"]
+tier = "integration"
+note = "measured 757 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "taft_exact_route.jl"
+suite = "top"
+modules = ["algebra", "mst"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "mst_interface.jl"
+suite = "top"
+modules = ["mst"]
+tier = "integration"
+note = "measured 167 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "ur_mst.jl"
+suite = "top"
+modules = ["mst", "urdiagram"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "tensor_validation.jl"
+suite = "top"
+modules = ["tensor"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "tensor_coefficients.jl"
+suite = "top"
+modules = ["tensor"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "virtual_planarization.jl"
+suite = "top"
+modules = ["virtual_link"]
+tier = "unit"
+
+[[test]]
+file = "cut_core.jl"
+suite = "top"
+modules = ["cut"]
+tier = "unit"
+
+[[test]]
+file = "virtual_link_symmetries.jl"
+suite = "top"
+modules = ["virtual_link"]
+tier = "integration"
+note = "measured 76 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "circuit_b.jl"
+suite = "top"
+modules = ["cut"]
+tier = "unit"
+
+[[test]]
+file = "cut_closed_boundaries.jl"
+suite = "top"
+modules = ["cut"]
+tier = "unit"
+
+[[test]]
+file = "cut_weights.jl"
+suite = "top"
+modules = ["cut", "weights"]
+tier = "unit"
+
+[[test]]
+file = "connected_sum.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "cut_plot.jl"
+suite = "top"
+modules = ["cut", "plot"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "cut_moves.jl"
+suite = "top"
+modules = ["cut", "moves"]
+tier = "integration"
+note = "measured 86 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "reduced_cp.jl"
+suite = "top"
+modules = ["moves"]
+tier = "unit"
+
+[[test]]
+file = "cut_method_b.jl"
+suite = "top"
+modules = ["cut"]
+tier = "unit"
+
+[[test]]
+file = "multi_cut_moves.jl"
+suite = "top"
+modules = ["cut", "moves"]
+tier = "unit"
+
+[[test]]
+file = "multi_cut_method_b.jl"
+suite = "top"
+modules = ["cut"]
+tier = "unit"
+
+[[test]]
+file = "multi_cut_evidence.jl"
+suite = "top"
+modules = ["cut"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "arrow_placement.jl"
+suite = "top"
+modules = ["plot"]
+tier = "unit"
+
+[[test]]
+file = "poincare_layout.jl"
+suite = "top"
+modules = ["plot"]
+tier = "unit"
+provisional = true
+
+[[test]]
+file = "lens_space_vg2g.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "weight_moves.jl"
+suite = "top"
+modules = ["weights", "moves"]
+tier = "unit"
+
+[[test]]
+file = "integer_weight_solver.jl"
+suite = "top"
+modules = ["weights"]
+tier = "unit"
+
+[[test]]
+file = "spin_weights.jl"
+suite = "top"
+modules = ["spin", "weights"]
+tier = "unit"
+
+[[test]]
+file = "cut_spin_weights.jl"
+suite = "top"
+modules = ["spin", "cut"]
+tier = "unit"
+
+[[test]]
+file = "spin_evidence_boundaries.jl"
+suite = "top"
+modules = ["spin"]
+tier = "unit"
+
+[[test]]
+file = "spin_cp.jl"
+suite = "top"
+modules = ["spin", "moves"]
+tier = "unit"
+
+[[test]]
+file = "cut_spin_cp.jl"
+suite = "top"
+modules = ["spin", "cut"]
+tier = "unit"
+
+[[test]]
+file = "weighted_transport.jl"
+suite = "top"
+modules = ["weights"]
+tier = "unit"
+
+[[test]]
+file = "weighted_mp_rules.jl"
+suite = "top"
+modules = ["weights", "moves"]
+tier = "unit"
+
+[[test]]
+file = "weighted_ps.jl"
+suite = "top"
+modules = ["weights", "moves"]
+tier = "unit"
+
+[[test]]
+file = "weighted_move_verifier.jl"
+suite = "top"
+modules = ["weights", "moves"]
+tier = "integration"
+note = "measured 540 s in the unit run of 2026-11-17 (first-call compilation included); over the 60 s unit budget"
+
+[[test]]
+file = "ograph_state.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ograph_colours.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "lens_space_orientation.jl"
+suite = "top"
+modules = ["ograph", "virtual_link", "heegaard.triangulation"]
+tier = "unit"
+note = "consequences of docs/conventions/LensSpaceNames.md (draft); 103 assertions, 34 s on 2026-11-22 after using Topology"
+
+[[test]]
+file = "bing_house.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "integration"
+note = "61 s in the lead's rerun of 2026-11-22 after using Topology; over the 60 s unit budget"
+
+[[test]]
+file = "ograph_move_verifier.jl"
+suite = "top"
+modules = ["ograph", "moves"]
+tier = "unit"
+
+[[test]]
+file = "ograph_tetrahedra.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ps_closed_validation.jl"
+suite = "top"
+modules = ["ograph", "moves"]
+tier = "unit"
+
+[[test]]
+file = "ograph_move_extensions.jl"
+suite = "top"
+modules = ["ograph", "moves"]
+tier = "unit"
+
+[[test]]
+file = "ograph_move_db.jl"
+suite = "top"
+modules = ["ograph", "db"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "ograph_search_db.jl"
+suite = "top"
+modules = ["ograph", "db"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "ograph_path_constraints.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ograph_invariants.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "knot_move_db_integration.jl"
+suite = "top"
+modules = ["knot", "db"]
+tier = "integration"
+provisional = true
+
+[[test]]
+file = "knot_n5_classification_db.jl"
+suite = "top"
+modules = ["knot", "db"]
+tier = "acceptance"
+provisional = true
+
+[[test]]
+file = "knot_n6_package_integration.jl"
+suite = "top"
+modules = ["knot", "db"]
+tier = "acceptance"
+provisional = true
+
+# ---- files no runner included before 2026-11-17 ------------------------------------
+[[test]]
+file = "classical_gauss_enumeration.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "classical_gauss_realizability.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_classical_invariants.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_gauss.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n5_classification.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_all_state_enumeration.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_campaign.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_classical_classification_db.jl"
+suite = "top"
+modules = ["knot", "db"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_classification.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_full_classification_db.jl"
+suite = "top"
+modules = ["knot", "db"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_targeted_barrier8.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knot_n6_targeted_bridge.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "knotinfo_n6_invariants.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "movable_oracle.jl"
+suite = "top"
+modules = ["moves"]
+tier = "manual"
+
+[[test]]
+file = "move_graph_store.jl"
+suite = "top"
+modules = ["db"]
+tier = "manual"
+
+[[test]]
+file = "reidemeister.jl"
+suite = "top"
+modules = ["knot"]
+tier = "manual"
+
+[[test]]
+file = "group_mst.jl"
+suite = "top"
+modules = ["algebra", "mst"]
+tier = "manual"
+
+[[test]]
+file = "heegaard/hc_families.jl"
+suite = "heegaard"
+modules = ["heegaard.validate"]
+tier = "unit"
+provisional = true
+note = "added by a lane on 2026-11-17 without a manifest entry; --check caught it"
+
+[[test]]
+file = "heegaard/hc_drawing.jl"
+suite = "heegaard"
+modules = ["heegaard.drawing"]
+tier = "unit"
+provisional = true
+note = "added by a lane on 2026-11-18 without an entry; tier assigned by name"
+
+[[test]]
+file = "casson_walker.jl"
+suite = "top"
+modules = ["invariants.casson_walker"]
+tier = "unit"

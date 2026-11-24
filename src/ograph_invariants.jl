@@ -10,7 +10,15 @@ currently unwritable enrichment layer.
 using AbstractAlgebra
 using JSON
 using SHA
-using .MoveGraphStore
+# The store is a child of the caller when a script includes it first, and a
+# sibling once this file is included from VirtualLinks.
+if isdefined(@__MODULE__, :MoveGraphStore) &&
+        getfield(@__MODULE__, :MoveGraphStore) isa Module &&
+        parentmodule(getfield(@__MODULE__, :MoveGraphStore)) === @__MODULE__
+    @eval using .MoveGraphStore
+else
+    @eval using ..MoveGraphStore
+end
 
 const OGRAPH_PI1_PRESENTATION_SCHEMA = "akaghef.ograph-pi1-presentation/1"
 const OGRAPH_PI1_ALGORITHM = "koda-edge-presentation"
