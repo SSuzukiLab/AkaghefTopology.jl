@@ -807,3 +807,10 @@ file = "casson_walker.jl"
 suite = "top"
 modules = ["invariants.casson_walker"]
 tier = "unit"
+
+[[test]]
+file = "ograph_vertex_convention.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "integration"
+note = "Definition 6 of docs/conventions/OGraphVertex.md on 18 lib diagrams (63 vertices). About 58 s after using Topology on 2026-11-24, too close to the 60 s unit budget, so integration. Sets named tautological restate the vertex table; the d_alpha d_beta product from the joining disk is the independent part."
