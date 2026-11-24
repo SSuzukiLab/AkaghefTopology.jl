@@ -1,5 +1,6 @@
 #!/bin/sh
 # Run test/run.jl or --exec <script.jl> [args...] on the persistent server.
+# Put --batch first to keep a long request off the interactive queue.
 
 T=$(CDPATH= cd "$(dirname "$0")" && pwd -P) || exit 1
 P=$(dirname "$T")
@@ -26,6 +27,12 @@ if [ "$1" = "--serve-internal" ]; then
   exit "$code"
 fi
 
+queue=interactive
+if [ "${1:-}" = "--batch" ]; then
+  queue=batch
+  shift
+fi
+
 if [ "$1" = "--exec" ]; then
   if [ "$#" -lt 2 ] || [ ! -f "$2" ]; then
     echo 'Usage: client.sh --exec <existing script.jl> [args...]' >&2
@@ -37,7 +44,7 @@ if [ "$1" = "--exec" ]; then
   set -- --exec "$script" "$@"
 fi
 cwd=$(native_pwd) || exit 1
-Q=${TOPOLOGY_TEST_QUEUE:-$T/.queue}
+Q=${TOPOLOGY_TEST_QUEUE:-$T/.queue/$queue}
 mkdir -p "$Q" || exit 1
 Q=$(CDPATH= cd "$Q" && pwd -P) || exit 1
 lock=$Q/server.lock
@@ -49,9 +56,18 @@ esac
 deadline=$(expr "$(date +%s)" + "$wait") || exit 2
 
 wait_for_change() {
-  if [ "$(date +%s)" -ge "$deadline" ]; then
+  now=$(date +%s)
+  if [ "$now" -ge "$deadline" ]; then
     echo "client: timed out after ${wait}s; $1" >&2
     exit 124
+  fi
+  if [ "$1" != "${last_stage:-}" ]; then
+    last_stage=$1
+    stage_started=$now
+    stage_reported=
+  elif [ -z "$stage_reported" ] && [ "$((now - stage_started))" -ge 5 ]; then
+    echo "client: $last_stage" >&2
+    stage_reported=1
   fi
   sleep 1
 }
@@ -99,7 +115,13 @@ request() {
       echo "client: Julia stopped before reporting a result; see $run/server.out" >&2
       exit 1
     fi
-    wait_for_change "request may still run; see $tmp.log"
+    if [ -f "$tmp.req" ]; then
+      wait_for_change "request queued in $Q; a submitted request may still run after the client times out"
+    elif [ -f "$tmp.log" ]; then
+      wait_for_change "running request; see $tmp.log"
+    else
+      wait_for_change "request accepted; waiting for the source update check and execution setup"
+    fi
   done
   code=$(cat "$tmp.exit") || exit 1
   cat "$tmp.log" || exit 1

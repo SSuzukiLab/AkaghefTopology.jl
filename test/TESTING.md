@@ -34,6 +34,7 @@ from the repository root in a POSIX shell (Git Bash on Windows):
 ```sh
 sh lib/topology.jl/test/client.sh heegaard.koda              # same arguments as run.jl
 sh lib/topology.jl/test/client.sh --exec .research-scratch/my-experiment.jl 'argument with spaces'
+sh lib/topology.jl/test/client.sh --batch --exec .research-scratch/long-computation.jl
 ```
 
 With `--exec`, the script runs in a fresh Julia module from the caller's working
@@ -45,13 +46,21 @@ or require a different project or startup flags. Use local, trusted queues only.
 The first request starts the background server and waits for it. If Revise
 rejects a source edit before dispatch, the client retries once on a fresh
 server. `TOPOLOGY_TEST_WAIT` bounds total client wait time (seconds, default
-3600). A timed-out request may still run. Each server generation has its own
-`server.out` under the queue (`test/.queue` by default).
+3600). A timed-out request may still run. For a slow request the client reports
+whether it is waiting for startup, queue service, execution setup or a result.
+Each server generation has its own `server.out` under its queue.
 Set `TOPOLOGY_JULIA` to the Julia executable path if `julia` on `PATH` is
 unavailable in the launching shell.
 
-Share the default queue for short requests. Use `TOPOLOGY_TEST_QUEUE` with a
-dedicated directory when a lane needs independent execution, for example
+Use the default interactive queue (`test/.queue/interactive`) for short requests.
+For a computation expected to take several minutes or longer, pass `--batch`
+before the test or experiment arguments. The batch queue (`test/.queue/batch`)
+has its own persistent server, so a long request can run while the interactive
+server handles short requests. Servers start on first use. A server from the
+previous layout at `test/.queue` can finish its existing requests in place.
+
+`TOPOLOGY_TEST_QUEUE` overrides either queue path when a lane needs independent
+execution, for example
 `TOPOLOGY_TEST_QUEUE=.research-scratch/my-lane/julia-queue sh lib/topology.jl/test/client.sh --exec .research-scratch/my-experiment.jl`.
 Each queue starts its own Julia process. If the shell supervising a server is
 forcibly stopped, verify the server is gone using the generation's `server.pid`
