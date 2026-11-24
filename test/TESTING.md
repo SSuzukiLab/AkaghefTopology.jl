@@ -27,19 +27,35 @@ julia --project=. test/run.jl --list --tier unit             # what a selection 
 julia --project=. test/run.jl --check                        # every test file is in the manifest
 ```
 
-For repeated checks, go through the persistent test server instead of starting
-Julia each time. It keeps `Topology` loaded under Revise, so a request pays neither
-the package load (about 180 s after an edit) nor the first-call compilation of code
-it already ran. Requests are served one at a time.
+Use the persistent runner for repeated tests and experiments. It keeps `Topology`
+loaded under Revise and serves one request at a time per queue. Run these commands
+from the repository root in a POSIX shell (Git Bash on Windows):
 
 ```sh
 sh lib/topology.jl/test/client.sh heegaard.koda              # same arguments as run.jl
+sh lib/topology.jl/test/client.sh --exec .research-scratch/my-experiment.jl 'argument with spaces'
 ```
 
-If no server is alive, `client.sh` starts `test/serve.jl` in the background and runs
-that request directly. If Revise cannot apply an edit (a changed struct, for
-example), the server exits and the request is run directly; the next request
-starts a fresh server.
+With `--exec`, the script runs in a fresh Julia module from the caller's working
+directory. `ARGS`, `PROGRAM_FILE` and relative `include` work as in a standalone
+script. The client returns the script's output and an error status if it throws.
+Use standalone Julia for scripts that call `exit`, change process-wide settings,
+or require a different project or startup flags. Use local, trusted queues only.
+
+The first request starts the background server and waits for it. If Revise
+rejects a source edit before dispatch, the client retries once on a fresh
+server. `TOPOLOGY_TEST_WAIT` bounds total client wait time (seconds, default
+3600). A timed-out request may still run. Each server generation has its own
+`server.out` under the queue (`test/.queue` by default).
+Set `TOPOLOGY_JULIA` to the Julia executable path if `julia` on `PATH` is
+unavailable in the launching shell.
+
+Share the default queue for short requests. Use `TOPOLOGY_TEST_QUEUE` with a
+dedicated directory when a lane needs independent execution, for example
+`TOPOLOGY_TEST_QUEUE=.research-scratch/my-lane/julia-queue sh lib/topology.jl/test/client.sh --exec .research-scratch/my-experiment.jl`.
+Each queue starts its own Julia process. If the shell supervising a server is
+forcibly stopped, verify the server is gone using the generation's `server.pid`
+before removing the stale `server.lock` directory or switching queues.
 
 The acceptance tier runs every day at 03:00 as the Windows scheduled task
 "Topology acceptance (daily)" (`test/acceptance.ps1`, started late if the machine

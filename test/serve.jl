@@ -1,21 +1,23 @@
-# Persistent test server. Loads Revise and Topology once, then runs test/run.jl
-# requests from a queue directory, so a request pays neither the package load
-# (about 180 s after a source edit) nor the first-call compilation of code it
-# already ran. Clients use test/client.sh; policy in test/TESTING.md.
+# Persistent Topology runner. Loads Revise and Topology once, then handles tests
+# and script requests from test/client.sh. See test/TESTING.md for usage.
 #
-#   julia --project=. test/serve.jl        # from lib/topology.jl; client.sh starts it
-#
-# Protocol (files in the queue directory, default test/.queue):
-#   <id>.req   one line of run.jl arguments, written by the client
+# Protocol (files in the queue directory owned by this server):
+#   <id>.req   caller cwd followed by arguments, each terminated by NUL
 #   <id>.log   the run's output
 #   <id>.exit  the exit code: 0 pass, 1 fail, 3 Revise could not apply the edit
 #   server.alive  touched every few seconds while the server waits
 # When Revise cannot apply an edit (for example a changed struct), the server
-# answers 3 and exits; the client then runs the request directly and the next
-# client starts a fresh server.
+# answers 3 before dispatching the request and exits.
 
+const QUEUE = get(ENV, "TOPOLOGY_TEST_QUEUE", joinpath(@__DIR__, ".queue"))
+mkpath(QUEUE)
+const ALIVE = joinpath(QUEUE, "server.alive")
+write(joinpath(QUEUE, "server.pid"), string(getpid()))
+
+println("SERVE loading Revise and Topology"); flush(stdout)
 using Revise
 using Topology
+println("SERVE preparing Revise baseline"); flush(stdout)
 includet(joinpath(@__DIR__, "run.jl"))
 
 # Revise reads a package's source lazily from the precompile cache on the first edit.
@@ -29,11 +31,28 @@ let pkgdata = Revise.pkgdatas[Base.PkgId(Topology)], t = time()
     println("SERVE parsed $(length(Revise.srcfiles(pkgdata))) Topology files in $(round(time() - t; digits=1)) s"); flush(stdout)
 end
 
-const QUEUE = get(ENV, "TOPOLOGY_TEST_QUEUE", joinpath(@__DIR__, ".queue"))
-mkpath(QUEUE)
-const ALIVE = joinpath(QUEUE, "server.alive")
-write(joinpath(QUEUE, "server.pid"), string(getpid()))
 println("SERVE ready queue=$(QUEUE) pid=$(getpid())"); flush(stdout)
+touch(joinpath(QUEUE, "server.ready"))
+
+function run_script(cwd, path, args)
+    script = normpath(joinpath(cwd, path))
+    mod = Module(gensym(:TopologyExperiment))
+    Core.eval(mod, :(const ARGS = $args))
+    Core.eval(mod, :(const PROGRAM_FILE = $script))
+    Core.eval(mod, :(include(p::AbstractString) = Base.include($mod, p)))
+    Core.eval(mod, :(include(f::Function, p::AbstractString) = Base.include(f, $mod, p)))
+    Core.eval(mod, :(eval(x) = Core.eval($mod, x)))
+    cd(cwd) do
+        Base.include(mod, script)
+    end
+    return 0
+end
+
+function reply(id, code)
+    path = joinpath(QUEUE, id * ".exit")
+    write(path * ".tmp", string(code))
+    mv(path * ".tmp", path)
+end
 
 function serve()
     last_beat = 0.0
@@ -47,36 +66,49 @@ function serve()
         end
         req = joinpath(QUEUE, first(reqs))
         id = first(splitext(basename(req)))
-        args = String.(split(strip(read(req, String))))
+        payload = read(req, String)
+        # Legacy, manually started servers accepted space-separated test arguments.
+        cwd, args = if endswith(payload, '\0')
+            fields = String.(split(payload, '\0'; keepempty=true))
+            (fields[1], fields[2:end-1])
+        else
+            (pwd(), String.(split(strip(payload))))
+        end
         rm(req; force=true)
         log = joinpath(QUEUE, id * ".log")
         code = 1
+        @debug "Checking for source edits" request=id
         revised = try
             Revise.revise(throw=true); true
         catch err
             open(log, "w") do io
-                println(io, "REVISE_FAILED: the server cannot apply the current edit; run directly.")
-                showerror(io, err)
+                println(io, "REVISE_FAILED: the server will exit before running the request.")
+                showerror(io, err); println(io)
             end
             false
         end
         if !revised
-            write(joinpath(QUEUE, id * ".exit"), "3")
+            reply(id, 3)
             rm(ALIVE; force=true)
             exit(3)
         end
+        @debug "Running request" request=id
         open(log, "w") do io
             redirect_stdout(io) do
                 redirect_stderr(io) do
                     code = try
-                        Base.invokelatest(main, args)
+                        if !isempty(args) && first(args) == "--exec"
+                            Base.invokelatest(run_script, cwd, args[2], args[3:end])
+                        else
+                            Base.invokelatest(main, args)
+                        end
                     catch err
-                        showerror(stdout, err, catch_backtrace()); 1
+                        showerror(stdout, err, catch_backtrace()); println(); 1
                     end
                 end
             end
         end
-        write(joinpath(QUEUE, id * ".exit"), string(code))
+        reply(id, code)
     end
 end
 
