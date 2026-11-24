@@ -814,3 +814,10 @@ suite = "heegaard"
 modules = ["heegaard.koda"]
 tier = "integration"
 note = "Definition 6 of docs/conventions/OGraphVertex.md on 18 lib diagrams (63 vertices). About 58 s after using Topology on 2026-11-24, too close to the 60 s unit budget, so integration. Sets named tautological restate the vertex table; the d_alpha d_beta product from the joining disk is the independent part."
+
+[[test]]
+file = "ograph_abalone_theta.jl"
+suite = "heegaard"
+modules = ["heegaard.koda"]
+tier = "unit"
+note = "Fully positive abalone flow box theta_G = +2, x |-> i x and the mirror -2 (docs/conventions/OGraphVertex.md, item 2 of the checks). Coordinates of the adjudicated model; does not build the spine from lib data. About 9 s on 2026-11-24."

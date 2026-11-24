@@ -53,4 +53,4 @@
 検査は lib のテストに置く。
 
 1. [`test/ograph_vertex_convention.jl`](../../test/ograph_vertex_convention.jl)（integration 階）は、lib の 18 図（63 頂点）で、Koda の構成の座標から定義 6 の $\det(t_{\mathrm o},t_{\mathrm u},X)$ を計算し、o-data の頂点符号と一致することを確かめる。一致は二つの部分からなる。入力の符号が頂点の局所模型を選ぶので、$d_\alpha=d_\beta=+1$ での一致は表の書き換えであり、テスト名に `tautological` と書いた。独立な部分は、joining disk の境界から取った $d_\alpha d_\beta$ がすべての頂点で $+1$ であることで、このとき $\det=(\text{入力の符号})\,d_\alpha d_\beta$ が入力の符号に等しい。
-2. 全正の abalone の流れの箱の $\theta_G=+2$ の検査は、まだ作っていない。
+2. [`test/ograph_abalone_theta.jl`](../../test/ograph_abalone_theta.jl)（unit 階）は、全正の abalone の流れの箱が箱であること（軌道がスパインに当たり、joining disk の branching に対する横断の符号が一定）と、二つの正則値の前像の絡み $k=+1$ から $\theta_G=-2+4k=+2$ を確かめる。較正は $x\mapsto ix$ の $k=0$（$\theta_G=-2$）、鏡像は $-2$。場は判定役が確かめた座標の模型で、lib の図のデータから spine を組み立ててはいない。
