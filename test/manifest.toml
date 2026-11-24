@@ -575,6 +575,30 @@ modules = ["ograph"]
 tier = "unit"
 
 [[test]]
+file = "ograph_colour_moves.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ograph_colour_boundary.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ograph_colour_branching.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
+file = "ograph_colour_invariants.jl"
+suite = "top"
+modules = ["ograph"]
+tier = "unit"
+
+[[test]]
 file = "lens_space_orientation.jl"
 suite = "top"
 modules = ["ograph", "virtual_link", "heegaard.triangulation"]
