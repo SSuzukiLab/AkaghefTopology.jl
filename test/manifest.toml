@@ -578,7 +578,8 @@ tier = "unit"
 file = "ograph_colour_moves.jl"
 suite = "top"
 modules = ["ograph"]
-tier = "unit"
+tier = "integration"
+note = "594 s measured 2026-11-25 (the normal MP agreement testset after Prop. 3.2.1 recolouring takes about 9 min); over the 60 s unit limit"
 
 [[test]]
 file = "ograph_colour_boundary.jl"
