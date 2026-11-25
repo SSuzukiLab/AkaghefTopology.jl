@@ -1,0 +1,166 @@
+# Registry of domain objects, Julia types and source-file fallbacks; definitions stay in their
+# owning pages (docs/specs/api-contracts.md §3).
+
+[algebra]
+name = "Algebra and tensor expressions"
+types = ["SymExpr", "SparseFactor", "FiniteHopfAlgebra", "FiniteAlgebra", "AlgebraElement", "TaftAlgebra", "Cyclotomic", "RootSpec", "KuperbergTensorExpression"]
+specs = ["docs/specs/module-structure.md", "docs/specs/algebra.md", "docs/specs/hopf-invariants.md"]
+conventions = ["docs/conventions/Algebra.md"]
+sources = ["src/symbolic.jl", "src/finite_algebra.jl", "src/tensor_network.jl", "src/hopf_properties.jl", "src/local_hopf_adapter.jl"]
+
+[laurent-polynomial]
+name = "Laurent polynomials and rational functions"
+types = ["LaurentPolynomial", "LaurentRational"]
+specs = ["docs/specs/module-structure.md", "docs/specs/laurent-polynomials.md"]
+conventions = []
+sources = ["src/laurent.jl"]
+
+[ur-diagram]
+name = "U(R) diagram"
+types = ["URDiagram", "URAlgebra", "URMSTExpression"]
+specs = ["docs/specs/module-structure.md", "docs/specs/ur-diagrams.md"]
+conventions = ["docs/conventions/URDiagrams.md"]
+sources = ["src/ur_diagram.jl", "src/ur_mst.jl", "src/ur_mst_link.jl"]
+
+[o-graph]
+name = "o-graphs and virtual links"
+types = [
+  "VirtualLink", "RealEdge", "OGraphState", "ClosednessWitness", "ClosedNormalOGraph",
+  "VirtualLinks.MSTCrossingFreeCircuit", "C2Graph", "OGraphPi1Presentation", "OGraphH1Result",
+  "MoveCandidate", "MovePattern", "SmallObject", "WeightedMoveEvidence", "WeightedMoveVerification",
+  "OGraphOutsideOccurrence", "OGraphCanonicalizationWitness", "OGraphMethodBLaneStep",
+  "OGraphPSGapBoundary", "OGraphPSMethodBWitness", "OGraphMoveWitness", "OGraphMoveVerification",
+  "OGraphProvenance", "OGraphRelationProfile",
+]
+specs = [
+  "docs/specs/ograph-terminology.md", "docs/specs/ograph-c2.md",
+  "docs/specs/virtual-link-data-model.md", "docs/specs/virtual-link-moves.md",
+  "docs/specs/ograph-move-verifier.md", "docs/specs/ograph-colour-invariants.md",
+  "docs/specs/ograph-relation-db.md", "docs/specs/ograph-search-db.md",
+  "docs/specs/ograph-connected-sum.md", "docs/specs/ograph-symmetries.md",
+  "docs/specs/virtual-link-examples.md", "docs/specs/spin-weights.md",
+  "docs/specs/hopf-invariants.md",
+]
+conventions = ["docs/conventions/OGraphVertex.md", "docs/conventions/LensSpaceNames.md"]
+sources = [
+  "src/virtual_link.jl", "src/virtual_link_symmetries.jl", "src/ograph_state.jl",
+  "src/ograph_invariants.jl", "src/ograph_move_db.jl", "src/ograph_move_verifier.jl",
+  "src/ograph_search_db.jl", "src/ograph_path_constraints.jl", "src/ograph_path_lifting.jl",
+  # helpers.jl also contains scalar curve helpers; its catalogue owner is
+  # virtual-link-moves.md §20. File fallback cannot split these untyped helpers.
+  "src/helpers.jl", "src/moves.jl", "src/weighted_move_verifier.jl", "src/weighted_ps.jl",
+  "src/integer_weight_solver.jl", "src/weight_validation.jl", "src/spin_weights.jl",
+  "src/spin_cp.jl", "src/circuit_b.jl", "src/group_mst.jl", "src/hopf_invariant.jl",
+  "src/hopf_link.jl", "src/taft_invariant.jl", "src/kuperberg_invariant.jl", "src/ograph_gauss_diagram.jl",
+]
+
+[coloured-o-graph]
+name = "Coloured o-graphs and their polyhedra"
+types = ["ColouredOGraph", "DiscGerm", "EdgeColour", "OGraphColourCheck", "NormalEdgeOrientation", "ClosedNormalColouring", "FaceCycle", "ColouredPolyhedron", "ColourHomology", "DualFacePairing", "SpineBoundaryComponent", "SpineBoundary", "DiscPartitionComparison"]
+specs = ["docs/specs/ograph-colours.md", "docs/specs/ograph-colour-branching.md", "docs/specs/ograph-colour-boundary.md", "docs/specs/ograph-colour-invariants.md", "docs/specs/ograph-tetrahedra.md", "docs/specs/ograph-colour-moves.md", "docs/specs/bing-house.md"]
+conventions = ["docs/conventions/OGraphColours.md", "docs/conventions/OGraphVertex.md"]
+sources = [
+  "src/ograph_colours.jl", "src/ograph_colour_normal.jl", "src/ograph_colour_branching.jl",
+  "src/ograph_face_cycles.jl", "src/ograph_colour_boundary.jl", "src/ograph_colour_invariants.jl",
+  "src/ograph_tetrahedra.jl", "src/ograph_colour_moves.jl",
+]
+
+[drawing]
+name = "Diagram drawings and layouts"
+types = ["EdgeLayout", "LinkLayout", "LayoutDiagnostic", "HeegaardCodes.HeegaardDrawing", "HeegaardCodes.DrawingElement", "HeegaardCodes.DrawingPrimitive"]
+specs = ["docs/specs/drawing-objects.md", "docs/specs/virtual-link-plot.md", "docs/specs/heegaard-plot.md", "docs/specs/heegaard-solid-view.md", "docs/specs/solid3d.md", "docs/specs/curves.md"]
+conventions = ["docs/conventions/HeegaardCodes.md", "docs/conventions/LickorishCodes.md"]
+sources = ["src/orthogonal_layout.jl", "src/layout_invariants.jl", "src/virtual_planarization.jl", "src/layer8_planarization.jl", "src/svg_plot.jl"]
+
+[knot]
+name = "Knot Gauss diagrams, polynomials and classifications"
+types = ["KnotGaussDiagram", "KnotGaussEnumeration", "ReidemeisterCandidate", "ClassicalGaussCertificate", "ClassicalGaussImmersion", "ExactKnotLaurentPolynomial", "KnotPD", "KnotN5Edge", "KnotN5KnownRepresentative", "KnotN5ComponentInvariant", "KnotN5Classification", "ClassicalGaussEnumerationResult", "KnotN6Classification", "KnotN6TargetedBridgeResult", "KnotN6TargetedBarrier8Result", "KnotGaussCanonicalStreamStats"]
+specs = ["docs/specs/module-structure.md", "docs/specs/knot-gauss.md", "docs/specs/knot-classical-invariants.md", "docs/specs/knot-classification.md"]
+conventions = []
+sources = [
+  "src/knot_gauss.jl", "src/reidemeister.jl", "src/classical_gauss_realizability.jl",
+  "src/classical_gauss_enumeration.jl", "src/knot_classical_invariants.jl", "src/knot_move_db.jl",
+  "src/knot_n5_classification.jl", "src/knot_n6_classification.jl",
+  "src/knot_n6_all_state_enumeration.jl", "src/knot_n6_targeted_bridge.jl", "src/knot_n6_targeted_barrier8.jl",
+]
+
+[move-graph]
+name = "Move graph storage"
+types = ["CanonicalState", "MoveType", "MoveGraphStoreDB", "Store", "ClassificationRun"]
+specs = ["docs/specs/ograph-search-db.md", "docs/specs/ograph-relation-db.md", "docs/specs/module-structure.md", "docs/specs/move-graph-store.md"]
+conventions = []
+sources = ["src/move_graph_store.jl", "src/domain_taxonomy.jl"]
+
+[heegaard-code]
+name = "Heegaard codes, diagrams and invariants"
+types = [
+  "HeegaardDiagram", "HeegaardCodes.HeegaardCode", "HeegaardCodes.HeegaardLayer",
+  "HeegaardCodes.Curve", "HeegaardCodes.Intersection", "HeegaardCodes.CombinatorialHeegaardCode",
+  "HeegaardCodes.RegionPartition", "HeegaardCodes.DecoratedHeegaardCode", "HeegaardCodes.CellularHeegaardDiagram",
+  "HeegaardCodes.JoiningDisk", "HeegaardCodes.PuncturedHeegaardDiagram", "HeegaardCodes.ValidationIssue",
+  "HeegaardCodes.ValidationReport", "HeegaardCodes.ValidationError", "HeegaardCodes.MoveCertificate",
+  "HeegaardCodes.CutSurface", "HeegaardCodes.Puncture", "HeegaardCodes.Port", "HeegaardCodes.RibbonGraph",
+  "HeegaardCodes.GroupPresentation", "HeegaardCodes.ForgottenHeegaard", "HeegaardCodes.CombinatorialPuncturedInput",
+  "HeegaardCodes.HCClosedDiagramExcluded", "HeegaardCodes.HCNotComputed", "HeegaardCodes.HCIntersection",
+  "HeegaardCodes.HCInvariantFactors", "HeegaardCodes.HCPresentationResult", "HeegaardCodes.HCFirstHomology",
+  "HeegaardCodes.HCCanonical", "HeegaardCodes.HCCanonicalWitness", "HeegaardCodes.HCIdentityCorrespondence",
+  "HeegaardCodes.HCMoveStep", "HeegaardCodes.HCMoveSearchResult", "HeegaardCodes.HCVerdict",
+  "HeegaardCodes.HCComparison", "HeegaardCodes.HCNamedRelations", "HeegaardCodes.HCLinkingForm",
+  "HeegaardCodes.HCLinkingInputError", "HeegaardCodes.HCClosedTriangulation", "HeegaardCodes.HCTriangulationError",
+  "HeegaardCodes.SnapPyUnavailable", "HeegaardCodes.SnapPyExecutionError", "HeegaardCodes.ReginaTVError",
+  "HeegaardCodes.HCStandardFailure", "HeegaardCodes.HCStandardCheck", "HeegaardCodes.HCAlexanderPolynomial",
+  "HeegaardCodes.HCReidemeisterTorsion", "HeegaardCodes.HCTorsionError", "HeegaardCodes.HCGroupRingFraction",
+  "HeegaardCodes.HCMultivariableAlexander",
+]
+specs = ["docs/specs/heegaard-code.md", "docs/specs/heegaard-diagram.md", "docs/specs/heegaard-terminology.md", "docs/specs/heegaard-moves.md", "docs/specs/heegaard-snappy.md", "docs/specs/heegaard-lickorish-data.md", "docs/specs/heegaard-solid-view.md", "docs/specs/solid3d.md", "docs/specs/hopf-invariants.md"]
+conventions = ["docs/conventions/HeegaardCodes.md", "docs/conventions/LensSpaceNames.md"]
+sources = [
+  "src/heegaard/types.jl", "src/heegaard/schema.jl", "src/heegaard/validation.jl",
+  "src/heegaard/ribbon.jl", "src/heegaard/surface.jl", "src/heegaard/groups.jl",
+  "src/heegaard/cut_surface.jl", "src/heegaard/canonicalization.jl", "src/heegaard/hc_search_db.jl",
+  "src/heegaard/hc_triangulation.jl", "src/heegaard/hc_triangulation_reverse.jl",
+  "src/heegaard/hc_triangulation_surface.jl", "src/heegaard/hc_triangulation_search.jl",
+  "src/heegaard/hc_triangulation_lc_cut.jl", "src/heegaard/hc_triangulation_standard.jl",
+  "src/heegaard/hc_destabilization.jl",
+]
+
+[lickorish-code]
+name = "Lickorish codes"
+types = ["HeegaardCodes.LickorishCode", "HeegaardCodes.LickorishConfiguration", "HeegaardCodes.LCIsotopyKey", "HeegaardCodes.LCMoveError", "HeegaardCodes.LCMoveWitness", "HeegaardCodes.LCMoveResult"]
+specs = ["docs/specs/lickorish-code.md", "docs/specs/heegaard-lickorish-data.md", "docs/specs/heegaard-moves.md", "docs/specs/heegaard-solid-view.md", "docs/specs/solid3d.md"]
+conventions = ["docs/conventions/LickorishCodes.md"]
+# The shared LC/HC reader file follows the LC base-object specification.
+# A documented HeegaardCode return still takes precedence for read_hc.
+sources = ["src/heegaard/lickorish_configuration.jl", "src/heegaard/reference_surface.jl", "src/heegaard/lc_moves.jl"]
+
+[bordered-lickorish-code]
+name = "Bordered Lickorish codes"
+types = ["HeegaardCodes.BorderedLickorishCode", "HeegaardCodes.BorderedLCError", "HeegaardCodes.BorderedLCDiagnosis", "HeegaardCodes.BorderedCut", "HeegaardCodes.BLCFace", "HeegaardCodes.BLCPair", "HeegaardCodes.BLCPairHit"]
+specs = ["docs/specs/bordered-lickorish-code.md"]
+conventions = ["docs/conventions/LickorishCodes.md"]
+sources = ["src/heegaard/bordered_lickorish_code.jl"]
+
+[branched-spine]
+name = "Branched spines, conversions and combings"
+types = ["HeegaardCodes.SpineEdge", "HeegaardCodes.SpineRegion", "HeegaardCodes.BranchedSpineComplex", "HeegaardCodes.FlowSpine", "HeegaardCodes.OData", "HeegaardCodes.ConversionCertificate", "HeegaardCodes.KodaConversionResult", "HeegaardCodes.KodaInputError", "HeegaardCodes.KodaSpecificationPending", "HeegaardCodes.KodaImplementationError", "HeegaardCodes.KodaDomainExcluded", "HeegaardCodes.KodaNotComputed", "HeegaardCodes.CMR3State", "HeegaardCodes.ModularWitness", "HeegaardCodes.CMR3Reading", "HeegaardCodes.CellularBasis", "HeegaardCodes.CellularMapWitness", "HeegaardCodes.CombingFraming"]
+specs = ["docs/specs/heegaard-koda-conversion.md", "docs/specs/ograph-terminology.md"]
+conventions = ["docs/conventions/HeegaardCodes.md", "docs/conventions/OGraphVertex.md"]
+sources = [
+  "src/heegaard/conversion_spine.jl", "src/heegaard/koda_cmr3.jl",
+  "src/heegaard/koda_interpreter.jl", "src/heegaard/koda_local_data.jl",
+  "src/heegaard/koda_spine_codec.jl", "src/heegaard/koda_forget.jl",
+]
+
+[casson-walker]
+name = "Casson–Walker invariant"
+types = []
+specs = ["docs/specs/casson-walker.md"]
+conventions = ["docs/conventions/CassonWalker.md"]
+sources = ["src/casson_walker.jl"]
+
+[lens-space]
+name = "Lens-space names and presentations"
+types = []
+specs = ["docs/specs/virtual-link-examples.md"]
+conventions = ["docs/conventions/LensSpaceNames.md"]
+sources = ["src/framed_lens_space.jl"]

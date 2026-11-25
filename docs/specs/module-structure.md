@@ -35,6 +35,22 @@ Topology                 パッケージ。再エクスポートだけを持つ
 | `LickorishCodes` | `LickorishCode` | 曲面と K と曲線の語、実現、描画、LC の移動 |
 | `HeegaardCodes` | `HeegaardCode`（公開別名 `HeegaardDiagram`） | 役割・円板・点、検査、変換、不変量、HC の移動 |
 
+### 1.1 Root exports
+
+bug: `Topology` exports `neighbors` at [src/Topology.jl:104](../../src/Topology.jl#L104),
+but the root module cannot resolve the binding: its imported module `Graphs`
+and its submodule `MoveGraphStore` export different functions named `neighbors`
+(`using Graphs` at [line 6](../../src/Topology.jl#L6), `using .MoveGraphStore` at
+[line 165](../../src/Topology.jl#L165); the store export is at
+[src/move_graph_store.jl:17](../../src/move_graph_store.jl#L17)). After
+`using Topology`, the observed contract-example error is
+``UndefVarError: `neighbors` not defined in `Main.APIExample` ``, with Julia's hint
+that two or more modules export different bindings, resulting in ambiguity,
+and that a binding also exists in `Graphs`. The generated index records
+`Topology.neighbors: exported binding is undefined.` The root export needs an
+explicit choice of binding; the store query is accessible as
+`Topology.MoveGraphStore.neighbors`.
+
 ## 2. 名前の規則
 
 1. モジュール名は、それが持つ主な型の複数形にする。Julia では、同じ親からモジュールと同名の型を両方見せると衝突するためである（`DataFrames` が `DataFrame` を持つのと同じ形）。
@@ -50,8 +66,8 @@ Topology                 パッケージ。再エクスポートだけを持つ
 
 | 名前 | 契約 |
 |---|---|
-| `movable(x)` | `x` に今かけられる移動の witness をすべて返す。表示ごとに有限である |
-| `movable(x, kind; 選択...)` | 種類 `kind` に絞った witness を返す。選択を省いた引数は全候補を意味する |
+| `movable(x)` | 現在の一引数メソッドは LC/HC の既定の有限候補集合を返す。逆安定化はこの集合に含めない。[契約](../api/heegaard-code/Topology.MoveAPI.movable.md)を参照 |
+| `movable(x, kind; 選択...)` | 候補の範囲と省略時の意味は表示別の[契約](../api/heegaard-code/Topology.MoveAPI.movable.md)による。KnotGauss の空の選択はその種類の全局所候補。VirtualLink は局所頂点の選択を必要とし、省略は全頂点部分集合の列挙ではない。HC の行指定はその行の候補に限る |
 | `move(x, witness)` | witness を適用した新しい値を返す。`x` は変えない |
 | `move!(x, ...)` | 破壊的な版。可変な表示（`VirtualLink`）だけが持つ |
 | `search_state(x)` | 探索 DB の状態の鍵。同じ表示の値は同じ鍵になる |
@@ -59,7 +75,7 @@ Topology                 パッケージ。再エクスポートだけを持つ
 | `begin_search_run!`、`finish_search_run!` | 探索ランの記録 |
 | `expand_search_state!(store, x; kinds)` | `movable` の全候補を適用し、遷移として保存する |
 | `search_neighbors`、`query_search_paths` | 保存した遷移の読み出し |
-| `verify_search_store` | 保存した全遷移を再生して確かめる |
+| `verify_search_store` | 現在の o-graph 版はスキーマ版・外部キーを検査し、保存行を数える。遷移の再生は行わない。[契約](../api/move-graph/verify_search_store.md)を参照 |
 
 既存の `ograph_search_*` は `VirtualLink` のメソッドの実装として残す。
 

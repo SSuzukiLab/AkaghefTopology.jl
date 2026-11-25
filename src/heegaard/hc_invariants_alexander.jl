@@ -1,21 +1,46 @@
 # cf: Nicolaescu, Notes on the Reidemeister Torsion, January 2002, Theorem 2.37, printed p. 69 — for b₁ = 1, T^aug ∼ Δ/(t−1)^2. The minor identity is Massuyeau, arXiv:1003.2517, Lemma 5.3, with τ_0 = +1. No registered Work key.
 import AbstractAlgebra
 
-"""Alexander polynomial of a closed HC with b₁ = 1, from the Heegaard Fox matrix.
+"""
+    HCAlexanderPolynomial(betti, coefficients) -> HCAlexanderPolynomial
 
-`coefficients` lists the terms of degrees 0 through deg, lowest degree shifted to 0,
-with positive leading coefficient. For the value Δ₀ produced by the formula below,
-this representative ρ satisfies Δ₀(t) = ± t^k ρ(t). Against another normalization Δ_*,
+Store a first Betti number and a univariate Alexander-polynomial coefficient record.
 
-    ρ(t) = ± t^k Δ_*(t^ε),   ε ∈ {±1}.
+# Arguments
+`betti::Int` and `coefficients::Vector{Int}`, or convertible values.
+Conversion errors propagate. The constructor does not check the Betti
+number, normalization or whether these coefficients arise from an HC.
 
-The formula, for a column i and a row j whose factors are nonzero, is
+# Returns
+An `HCAlexanderPolynomial` retaining the supplied Betti number and
+coefficient vector, in the format consumed by `hc_alexander_polynomial`.
 
-    Δ₀(t) = (−1)^{i+j+g+1} det(minor_{j,i}) (t − 1)^2 / ((φ(α_i) − 1)(φ(β_j^♯) − 1)).
+# Guarantees
+1. Fields preserve supplied values after conversion. A typed coefficient
+   vector is shared and not modified. [proved/agent: by construction]
+2. Construction stores the claimed polynomial data without performing an
+   invariant computation. [proved/agent: by construction]
 
-φ is the projection of H₁ onto its free summand, sent to ⟨t⟩ so that the first nonzero
-exponent among the α curves is positive. b₁ = 0 raises `HCTorsionError(:finite_homology)`.
-b₁ > 1 raises `HCTorsionError(:multivariable)`.
+# Conventions
+Alexander coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+Arbitrary coefficients need not be a manifold's Alexander polynomial.
+The producer's general manifold identification remains subject to the
+source-alignment limits of the linked specification; this constructor does
+not establish it.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> a = HCAlexanderPolynomial(1, [1,-1,1]); (a.betti, Tuple(a.coefficients))
+(1, (1, -1, 1))
+```
+
+See also [`hc_alexander_polynomial`](@ref).
+
+Role: construct
 """
 struct HCAlexanderPolynomial
     betti::Int
@@ -70,6 +95,52 @@ end
 
 """
     hc_alexander_polynomial(hc::HeegaardCode) -> HCAlexanderPolynomial
+
+Return the univariate Alexander-polynomial record computed from a closed HC presentation.
+
+# Arguments
+`hc` must have one alpha and one beta curve per handle and first Betti
+number one. These are checked with `HCTorsionError` conditions `:not_closed`,
+`:finite_homology` or `:multivariable`. Complete cut systems for the intended
+3-manifold are the caller's responsibility under
+[the Heegaard conditions](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+Invalid dual data, a non-Laurent quotient or disagreeing minors raise
+`HCTorsionError` naming the failed condition; arithmetic errors propagate.
+
+# Returns
+`HCAlexanderPolynomial` with `betti=1` and an integer `coefficients` vector.
+
+# Guarantees
+1. The record has first Betti number one and a coefficient vector agreed
+   by all defined Fox-minor comparisons. [proved/agent: by construction]
+2. For the saved S¹×S² fixture, the polynomial is equivalent to 1.
+   [verified-computationally: test/heegaard/hc_invariants_extra.jl, Alexander polynomial of S1xS2]
+3. The input is not modified. [proved/agent: by construction]
+
+# Conventions
+Alexander coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+The general identification with the represented manifold's Alexander
+polynomial remains subject to the source-alignment limits in
+[the Alexander specification](../specs/heegaard-code.md#alexander-laurent-coordinates). This entry does not handle
+first Betti number zero or greater than one; finite checks do not establish
+the general identification.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#alexander-laurent-coordinates — Alexander coordinates, normalization and geometric-identification boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261114-usecases", "g1-S1xS2", "diagram.hc"); a = H.hc_alexander_polynomial(H.read_hc(path));
+
+julia> (a.betti, Tuple(a.coefficients))
+(1, (1,))
+```
+
+Role: invariant
 """
 function hc_alexander_polynomial(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)

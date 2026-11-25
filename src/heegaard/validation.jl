@@ -110,7 +110,37 @@ function _validate_code(object)
     object
 end
 
-"""Return a structured validation report without modifying `object`."""
+"""
+    validate(object; level=:full) -> ValidationReport
+
+Report the requested consistency and surface checks of a legacy Heegaard record.
+
+# Arguments
+`object` is a legacy combinatorial code, decorated code or cellular diagram. `level` is `:syntax`, `:incidence`, `:ribbon`, `:decoration`, `:surface`, `:closed_heegaard` or `:full`; unknown levels raise `ArgumentError`. Checks use [legacy records](../specs/heegaard-terminology.md#legacy-cellular-records) and [the compression domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体). Unsupported objects and malformed field values can throw.
+
+# Returns
+A `ValidationReport` containing the requested level, overall `valid` flag, issue records and per-stage check flags. Failed prerequisites can produce blocked-stage issues.
+
+# Guarantees
+1. `valid` means no issue was recorded among the requested checks; full validation includes decoration, reconstructed surface and spherical compression-boundary checks. [proved/agent: by construction]
+2. The object is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+A partial-level success does not imply full validity. Even a full success is not a general manifold-equivalence proof, a joining-disk certificate or a Koda-conversion guarantee.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1 — surface and compression conditions.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]); (H.validate(c;level=:syntax).valid, H.validate(c).valid)
+(true, false)
+```
+
+Role: condition
+"""
 function validate(object; level=:full)
     requested = _validation_level(level)
     source = _validate_code(object)
@@ -193,7 +223,48 @@ function validate(object; level=:full)
     ValidationReport(level, isempty(issues), issues, checks)
 end
 
-"""Certify a decorated code as an immutable `HeegaardDiagram`."""
+"""
+    certify_heegaard(object) -> CellularHeegaardDiagram
+
+Wrap a decorated legacy diagram with its successful full validation report.
+
+# Arguments
+`object` must be a `DecoratedHeegaardCode`; other values raise `ArgumentError`
+requiring explicit decoration. Full validation checks the applicable
+[legacy surface and Heegaard conditions](../specs/heegaard-terminology.md#legacy-cellular-records).
+A failing report raises `ValidationError` carrying its issues; malformed
+low-level inputs may propagate their validation errors.
+
+# Returns
+A `CellularHeegaardDiagram` retaining the supplied decorated code and the
+successful `ValidationReport`.
+
+# Guarantees
+1. At return time the input passed `validate(object; level=:full)`.
+   [proved/agent: by construction]
+2. The input is not modified and is retained by reference.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Shared nested containers remain mutable; later edits can invalidate the
+stored report. Certification does not identify the represented 3-manifold
+or validate a later Koda conversion.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §legacy-cellular-records and lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1 — legacy validation and the Heegaard domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]); H.certify_heegaard(d) isa H.CellularHeegaardDiagram
+true
+```
+
+See also [`validate`](@ref), [`joining_disk`](@ref).
+
+Role: convert
+"""
 function certify_heegaard(object)
     object isa DecoratedHeegaardCode || throw(ArgumentError("certify_heegaard requires DecoratedHeegaardCode; decorate explicitly"))
     report = validate(object; level=:full)
@@ -201,9 +272,132 @@ function certify_heegaard(object)
     HeegaardDiagram(object, report, Val(:certified))
 end
 
+"""
+    is_valid(object) -> Bool
+
+Test full validity of a legacy decorated Heegaard record, including closedness.
+
+# Arguments
+`object` is a legacy combinatorial, decorated or certified Heegaard record
+of [the cellular domain](../specs/heegaard-terminology.md#legacy-cellular-records).
+Unsupported object types raise `ArgumentError` in `validate`. Recorded
+validation failures return `false`; full validation requires explicit region
+decoration, so an undecorated code returns `false`.
+
+# Returns
+The `valid` flag of `validate(object; level=:full)`.
+
+# Guarantees
+1. `true` means the implemented syntax, incidence, ribbon, decoration,
+   surface and compression-boundary checks all passed on this record.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not provide an independent embedding certificate or require a
+minimal complete cutting system. Use `compression_boundary_report` for its
+separate completeness flags; closed compression boundaries alone do not imply
+those flags.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1; lib/topology.jl/docs/specs/heegaard-terminology.md, legacy cellular records — closedness and the supported decorated surface domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> H = Topology.HeegaardCodes; d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> H.is_valid(d)
+true
+```
+
+See also [`validate`](@ref), [`is_closed_heegaard`](@ref), [`compression_boundary_report`](@ref).
+
+Role: condition
+"""
 is_valid(object) = validate(object; level=:full).valid
+
+"""
+    is_closed_heegaard(object) -> Bool
+
+Test full legacy Heegaard validity with spherical compression boundaries.
+
+# Arguments
+`object` is a legacy record accepted by `validate`, in the
+[cellular domain](../specs/heegaard-terminology.md#legacy-cellular-records).
+Unsupported types raise `ArgumentError`. Failure of any full-validation
+check, including missing region decoration, returns `false`.
+
+# Returns
+`Bool`, equal to `is_valid(object)` for this legacy API.
+
+# Guarantees
+1. `true` means full validation found no failure, including the test of
+   spherical alpha and beta compression boundaries.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is the legacy full-validity predicate, not a test on arbitrary LC-bound
+HC data. It does not identify a closed 3-manifold, certify minimal cut systems
+or replace the separate completeness checks needed by Koda conversion.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1 — closed compression bodies and the separate complete-system domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> H = Topology.HeegaardCodes; d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> H.is_closed_heegaard(d)
+true
+```
+
+See also [`validate`](@ref), [`is_valid`](@ref), [`compression_boundary_report`](@ref).
+
+Role: condition
+"""
 is_closed_heegaard(object) = validate(object; level=:full).valid
 
+"""
+    repair_suggestions(report::ValidationReport) -> Vector{String}
+
+Return advisory repair messages for recognized legacy validation issues.
+
+# Arguments
+`report` is a validation report. No independent verification of its issue
+codes or validity flag is performed; the caller supplies a meaningful report.
+
+# Returns
+A vector of distinct messages, in first-occurrence order, for recognized
+decoration, incidence and boundary-partition problems.
+
+# Guarantees
+1. Each returned message addresses an issue code present in the supplied
+   report; unsupported issue codes contribute no message.
+   [proved/agent: by construction]
+2. The report and the diagram it describes are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Suggestions are not repairs or a certificate that a repair exists. An empty
+result does not imply a valid diagram.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> r = H.ValidationReport(:full, false, H.ValidationIssue[], Dict{Symbol,Bool}()); isempty(H.repair_suggestions(r))
+true
+```
+
+See also [`validate`](@ref).
+
+Role: access
+"""
 function repair_suggestions(report::ValidationReport)
     suggestions = String[]
     for issue in report.issues

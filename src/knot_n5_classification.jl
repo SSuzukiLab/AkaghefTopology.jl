@@ -37,12 +37,56 @@ const KNOT_N5_KNOWN_NAMES = ("0_1", "3_1", "4_1", "5_1", "5_2")
 const KNOT_N5_STRICT_KNOT_TYPES =
     ("0_1", "3_1^+", "3_1^-", "4_1", "5_1^+", "5_1^-", "5_2^+", "5_2^-")
 
-"""A single retained edge witness in the in-memory bounded graph.
+"""
+    KnotN5Edge(source, target, move_type, candidate) -> KnotN5Edge
 
-`source` and `target` are canonical-state indices, with `candidate` oriented
-from `source` to `target`.  R1/R2 edges are deletion witnesses; R3 witnesses
-are self-inverse.  Only one witness is retained for a pair of states, while
-every candidate encountered during construction is independently verified.
+Store a directed Reidemeister witness between indexed states of a bounded graph.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN5Edge` with fields `source`, `target`, `move_type`, `candidate`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram(Int[], Int[]);
+
+julia> c = first(movable(d, "R1"; param=:insert));
+
+julia> e = KnotN5Edge(1, 2, :R1, c);
+
+julia> verify_reidemeister_transition(d, apply_reidemeister(d, e.candidate), e.candidate)
+true
+
+```
+
+Role: convert
 """
 struct KnotN5Edge
     source::Int
@@ -51,7 +95,53 @@ struct KnotN5Edge
     candidate::ReidemeisterCandidate
 end
 
-"""Known KnotInfo seed and its mirrored strict-orientation counterpart."""
+"""
+    KnotN5KnownRepresentative(name, label, mirror, diagram, state_index, component, alexander, jones) -> KnotN5KnownRepresentative
+
+Store a named knot-diagram representative and its location in a finite move graph.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN5KnownRepresentative` with fields `name`, `label`, `mirror`, `diagram`, `state_index`, `component`, `alexander`, `jones`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n5_classification(0);
+
+julia> first(r.known_representatives).label
+"0_1"
+
+```
+
+Role: convert
+"""
 struct KnotN5KnownRepresentative
     name::String
     label::String
@@ -63,7 +153,55 @@ struct KnotN5KnownRepresentative
     jones::ExactKnotLaurentPolynomial
 end
 
-"""Invariant values stored only for one representative of each component."""
+"""
+    KnotN5ComponentInvariant(component, representative, alexander, jones) -> KnotN5ComponentInvariant
+
+Associate two polynomial records with a representative of a finite move component.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN5ComponentInvariant` with fields `component`, `representative`, `alexander`, `jones`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> p = alexander_polynomial(pd_to_gauss(Int[]));
+
+julia> r = KnotN5ComponentInvariant(1, 1, p, p);
+
+julia> knot_polynomial_string(r.alexander)
+"1"
+
+```
+
+Role: convert
+"""
 struct KnotN5ComponentInvariant
     component::Int
     representative::Int
@@ -71,11 +209,52 @@ struct KnotN5ComponentInvariant
     jones::ExactKnotLaurentPolynomial
 end
 
-"""Result of a bounded N<=5 classification run.
+"""
+    KnotN5Classification(max_n, barrier, state_counts, expected_state_counts, canonical_knot_type_counts, raw_rooted_classical_counts, raw_rooted_total, raw_rooted_classical_total, raw_rooted_classical_unresolved_count, states, state_index, edges, adjacency, components, component_roots, component_invariants, known_representatives, unresolved_components, direct_transition_count, duplicate_edge_transition_count, nonclassical_target_count, path_replay_count, path_replay_failures, edge_invariant_checks, edge_invariant_failures, fingerprint, elapsed_seconds) -> KnotN5Classification
 
-The state/edge vectors are a transient in-memory certificate used by tests and
-path replay.  No constructor in this file serializes them, Carter face data,
-paths, or per-state invariants to a database.
+Store a bounded signed-Gauss move graph and its classification diagnostics.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN5Classification` with fields `max_n`, `barrier`, `state_counts`, `expected_state_counts`, `canonical_knot_type_counts`, `raw_rooted_classical_counts`, `raw_rooted_total`, `raw_rooted_classical_total`, `raw_rooted_classical_unresolved_count`, `states`, `state_index`, `edges`, `adjacency`, `components`, `component_roots`, `component_invariants`, `known_representatives`, `unresolved_components`, `direct_transition_count`, `duplicate_edge_transition_count`, `nonclassical_target_count`, `path_replay_count`, `path_replay_failures`, `edge_invariant_checks`, `edge_invariant_failures`, `fingerprint`, `elapsed_seconds`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n5_classification(0);
+
+julia> Tuple(r.state_counts)
+(1,)
+
+```
+
+Role: convert
 """
 struct KnotN5Classification
     max_n::Int
@@ -569,11 +748,53 @@ function _n5_fingerprint(states::Vector{KnotGaussDiagram},
     bytes2hex(SHA.sha256(Vector{UInt8}(codeunits(payload))))
 end
 
-"""Build the bounded classical signed-Gauss classification in memory.
+"""
+    build_knot_n5_classification(max_n::Integer=5; barrier::Integer=max_n, snapshot_path=_n5_default_snapshot()) -> KnotN5Classification
 
-`max_n` limits the enumerated state set.  The default full run uses
-`max_n=barrier=5`; smaller values are useful for focused tests and preserve
-the same finite-graph semantics.
+Construct the finite move graph of signed Gauss diagrams accepted by the Carter genus-zero test.
+
+# Arguments
+`max_n` and `barrier` must satisfy Q7 ([conditions](../specs/knot-classification.md#numbered-conditions)); the range is checked and `ArgumentError` names the violated bound. Integer conversion errors can propagate.
+`snapshot_path` must satisfy Q9 on that page. It defaults to the repository's
+`threads/PJ260830/data/knotinfo-n6.json`. Missing files, invalid JSON and PD
+conversion failures propagate; missing names or columns raise `ArgumentError`.
+Consistency, witness, polynomial or replay failures raise `ErrorException`
+with the failed audit identified. Snapshot name identification is the caller's
+responsibility; without it a connected label is only a snapshot label.
+
+# Returns
+A `KnotN5Classification` with the fields described individually in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+
+# Guarantees
+1. States form the canonical population through `max_n` retained by the Carter test; edges are replay-verified transitions between those states and components describe connectivity in that finite graph. [proved/agent: by construction]
+2. Resolved labels are attached through known representatives in the same component. Components with no such representative remain unresolved. [proved/agent: by construction]
+3. Successful return reports no failures in the path replay and edge-polynomial checks. [proved/agent: by construction]
+4. Inputs and the snapshot file are not modified. The result is in memory; no database is written. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+A larger `barrier` alone does not enumerate states above `max_n`. Distinct
+bounded components need not be distinct knot types; no unrestricted isotopy
+decision follows. Classicality, polynomial and seed-name source identifications
+retain the specification's evidence boundaries. The finite graph does not
+retain complete paths or certify the external snapshot's naming convention.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Bounded graph and Classification record — finite population and connectivity meanings.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n5_classification(0);
+
+julia> Tuple(r.state_counts)
+(1,)
+```
+
+Role: construct
 """
 function build_knot_n5_classification(max_n::Integer=5;
                                       barrier::Integer=max_n,
@@ -628,10 +849,111 @@ function build_knot_n5_classification(max_n::Integer=5;
         invariant_failures, fingerprint, elapsed)
 end
 
+"""
+    classify_knot_n5(max_n::Integer=5; barrier::Integer=max_n, snapshot_path=_n5_default_snapshot()) -> KnotN5Classification
+
+Return a bounded classification of classical signed Gauss representations by verified diagram moves.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/knot-classification.md).
+
+`max_n` and `barrier` must convert to `Int` and satisfy `0 <= max_n <= barrier <= 5`;
+otherwise `ArgumentError` reports the violated range. `snapshot_path` is a
+readable local KnotInfo JSON snapshot accepted by
+[`build_knot_n5_classification`](@ref). Snapshot parsing, missing data and
+internal consistency failures propagate. Unsupported argument forms fail
+by dispatch in that entry point.
+
+# Returns
+`KnotN5Classification` with canonical `states`, their index, verified `edges`,
+adjacency and component data; known representatives and component invariants;
+raw and canonical counts; unresolved components; replay and invariant-audit
+outcomes; a graph fingerprint and elapsed time.
+
+# Guarantees
+1. The returned graph concerns the classical signed representations with
+   at most `max_n` crossings. Edges are retained local Reidemeister moves;
+   components give finite move-connectivity evidence among those states. [proved/agent: by construction]
+2. The result has the same semantics as `build_knot_n5_classification`.
+   Known type labels come from connected snapshot representatives; other
+   components remain unresolved. [proved/agent: by construction]
+3. Successful return has no reported path-replay or edge-invariant failures. [proved/agent: by construction]
+4. Arguments and the input snapshot are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Setting `barrier > max_n` does not add states above `max_n`. Distinct finite
+components are not thereby proved to be distinct knot types. The result
+does not retain full paths, certify the snapshot's naming conventions or
+establish an unbounded equivalence decision.
+
+# Sources
+cf: lib/topology.jl/src/reidemeister.jl verify_reidemeister_transition — independent local checks on retained graph edges.
+cf: lib/topology.jl/src/classical_gauss_realizability.jl classical_gauss_certificate — classical-realizability predicate used to restrict the diagram state set.
+
+# Examples
+```jldoctest
+julia> r = classify_knot_n5(0);
+
+julia> Tuple(r.state_counts)
+(1,)
+```
+
+See also [`build_knot_n5_classification`](@ref), [`knot_n5_summary`](@ref).
+
+Role: construct
+"""
 classify_knot_n5(args...; kwargs...) =
     build_knot_n5_classification(args...; kwargs...)
 
-"""Return a compact machine-readable summary without path/Carter payloads."""
+"""
+    knot_n5_summary(result::KnotN5Classification) -> Dict{String,Any}
+
+Return a compact dictionary summary of a finite knot-move result.
+
+# Arguments
+`result` satisfies Q6 ([conditions](../specs/knot-classification.md#numbered-conditions))
+for the intended interpretation. This is the caller's responsibility; the
+summary does not replay or validate a run. Inconsistent manually constructed
+records can produce inconsistent counts rather than a validation error.
+
+# Returns
+A new `Dict{String,Any}` with keys
+`version`, `max_n`, `barrier`, `state_counts`, `canonical_knot_type_counts`, `raw_rooted_total`, `raw_rooted_classical_total`, `raw_rooted_classical_counts`, `raw_rooted_classical_unresolved_count`, `total_states`, `edge_count`, `direct_transition_count`, `duplicate_edge_transition_count`, `component_count`, `known_representative_count`, `known_component_count`, `known_reachable_state_count`, `unresolved_component_count`, `unresolved_components`, `path_replay_count`, `path_replay_failures`, `edge_invariant_checks`, `edge_invariant_failures`, `fingerprint_sha256`, `elapsed_seconds`.
+Same-named result fields have their meanings in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+`version` identifies the summary's implementation schema;
+`fingerprint_sha256` is the stored `fingerprint`. Where present,
+`total_states`, `edge_count`, `component_count`, `known_representative_count`,
+`known_component_count` and `unresolved_component_count` count the corresponding
+collections. Unresolved state count counts states in listed unresolved
+components; known-reachable state count is its complement in the population.
+Component-keyed output dictionaries use decimal string keys.
+
+# Guarantees
+1. The summary reports the supplied finite result's data and derived collection counts; it performs no new mathematical classification. [proved/agent: by construction]
+2. The input is unchanged. Returned vectors and dictionaries are copied, including the nested label lists and closure groups when present. [proved/agent: by construction]
+
+# Not guaranteed
+The dictionary is not a self-contained replay certificate and contains no
+full path or Carter surface data. It does not strengthen the source result's
+classicality, knot-type or completeness evidence. No cross-version schema
+compatibility is promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Result field meanings — finite-run summary interpretation.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n5_classification(0);
+
+julia> knot_n5_summary(r)["total_states"]
+1
+
+```
+
+Role: convert
+"""
 function knot_n5_summary(result::KnotN5Classification)
     known_components = sort!(unique(rep.component for rep in result.known_representatives))
     unresolved_state_count = sum(count(==(component_id), result.components)

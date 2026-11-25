@@ -258,6 +258,11 @@ Weeks の全交点を 3 連にした人工例（二角形 36 個）で 1 個が�
 三角関数で生成した Float64 座標に、円周上という前提を自動的に付与しない。
 角度を状態として持つ入口と、その座標の上下界を扱う接続は別途必要である。
 
+<a id="single-crossing-drawing-failure"></a>
+## 単一交点 fixture の drawing 変換
+
+bug: [hc_plot テスト](../../test/heegaard/hc_plot.jl) の single-crossing fixture（種数 1、`l1=[-1,-2]`, `m1=[1,3]`, `c1=[-4,-3]`, `c2=[4,2]`、役割 `c1=alpha`, `c2=beta`）は、`plot(resolve_hc(single, roles))` の `success` と二角形がないことを要求する。同じ解決済み HC に `drawing` を呼ぶと、[現実装](../../src/heegaard/hc_drawing.jl) は `ArgumentError: open run c1#0 has a drawn edge against its direction` を投げる。`plot` の成功は `drawing` の成功を保証しない。[verified-computationally: lane lib-api-heegaard の direct driver、上記の一入力]
+
 ## テストと統合
 
 `src/heegaard/Heegaard.jl` が `hc_plot.jl` を読み、`test/heegaard/runtests.jl` が

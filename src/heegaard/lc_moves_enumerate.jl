@@ -310,6 +310,47 @@ function _affine_selection_complete(selections)
     haskey(selections, "q") && haskey(selections, "support") && haskey(selections, "acted_components")
 end
 
+"""
+    movable(input::Union{LickorishCode,HeegaardCode}) -> Vector{LCMoveWitness}
+
+Collect the default finite pool of supported LC or HC move witnesses.
+
+# Arguments
+`input` must satisfy the LC/HC checks and
+[move applicability requirements](../specs/heegaard-moves.md).
+Catalog-loading and non-`LCMoveError` failures propagate. Row-level
+`LCMoveError` failures are omitted from this aggregate pool; query a named
+row to obtain its diagnostic and supply explicit choices.
+
+# Returns
+A vector of `LCMoveWitness` records from the default catalog enumeration.
+HC-only rows are omitted for an LC. The pool deliberately excludes
+`hc.stabilization.inverse`; query that row explicitly when required.
+
+# Guarantees
+1. Each returned record belongs to a successful named-row query in the
+   implemented default selection range. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This pool is not complete for geometric moves, destabilizations or arbitrary
+twist powers. Empty output can reflect unsupported rows or suppressed
+row-level diagnostics. It does not prove rigidity or manifold equivalence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta); standard=true);
+
+julia> count(w -> w.row_id == "lc.twist.annulus", H.movable(h))
+4
+```
+
+See also [`Topology.HeegaardCodes.move`](@ref), [`heegaard_move_ids`](@ref).
+
+Role: access
+"""
 function movable(input::Union{LickorishCode,HeegaardCode})
     out = LCMoveWitness[]
     for id in heegaard_move_ids()

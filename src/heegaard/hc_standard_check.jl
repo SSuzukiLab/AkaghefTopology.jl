@@ -2,10 +2,41 @@
 # cf: lib/topology.jl/docs/specs/lickorish-code.md §3 — a component word is a cyclic sequence of signed passages
 # cf: lib/topology.jl/docs/specs/heegaard-moves.md §6.1 — K-edge bigon removal, K-vertex passage, input-crossing slide
 
-"""One α that this check does not bind to a meridian.
+"""
+    HCStandardFailure(curve, reason, detail) -> HCStandardFailure
 
-`homology_class` is a proof that the curve is not isotopic to that meridian.
-`undecided` means the isotopy search stopped without that proof.
+Store a diagnostic for an alpha curve that was not bound to a reference meridian.
+
+# Arguments
+`curve::String`, `reason::Symbol` and `detail::Dict{String,Any}`, or
+convertible values. Conversion errors propagate. The constructor does not
+validate the reason or its supporting data.
+
+# Returns
+An `HCStandardFailure` retaining the curve name, reason and diagnostic data.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. A typed detail
+   dictionary is retained without mutation. [proved/agent: by construction]
+2. The record can describe a failed or unfinished test of
+   [standard binding](../specs/heegaard-code.md); it performs no isotopy test.
+   [proved/agent: by construction]
+
+# Not guaranteed
+A hand-built failure record does not prove nonisotopy. A bounded search's
+undecided result is not a negative mathematical classification.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> f = HCStandardFailure("a", :undecided, Dict{String,Any}()); (f.curve, f.reason)
+("a", :undecided)
+```
+
+See also [`hc_standard_check`](@ref).
+
+Role: construct
 """
 struct HCStandardFailure
     curve::String
@@ -13,11 +44,43 @@ struct HCStandardFailure
     detail::Dict{String,Any}
 end
 
-"""`standard` judgment.
+"""
+    HCStandardCheck(standard, diagram, correspondence, failures, witness) -> HCStandardCheck
 
-A true result binds α to `m1,…,mg`. `witness` lists the isotopy row ids that
-took a different word to that meridian. An empty witness means no isotopy row
-was applied. Reversing an α is not a row id.
+Store a standard-binding judgment, optional resulting HC and diagnostic correspondence.
+
+# Arguments
+`standard::Bool`, `diagram::Union{Nothing,HeegaardCode}`,
+`correspondence::Vector{Pair{String,String}}`,
+`failures::Vector{HCStandardFailure}` and `witness::Vector{String}`, or
+convertible values. Conversion errors propagate. The constructor does not
+check that these fields agree or replay any witness.
+
+# Returns
+An `HCStandardCheck` with the supplied judgment, diagram, curve-to-meridian
+correspondence, failure records and move-row sequence.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; typed objects and
+   containers are retained without mutation. [proved/agent: by construction]
+2. The record carries a judgment about [standard HC binding](../specs/heegaard-code.md)
+   and does not itself bind or move curves. [proved/agent: by construction]
+
+# Not guaranteed
+A supplied true flag is not a certificate. The witness does not necessarily
+list every orientation adjustment made by its producer.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> r = HCStandardCheck(false, nothing, Pair{String,String}[], HCStandardFailure[], String[]); (r.standard, r.diagram)
+(false, nothing)
+```
+
+See also [`hc_standard_check`](@ref), [`is_standard`](@ref).
+
+Role: convert
 """
 struct HCStandardCheck
     standard::Bool
@@ -399,14 +462,48 @@ function _hc_search_isotopy(hc::HeegaardCode, alphas)
     _hc_undecided(alphas, seen, "exhausted")
 end
 
-"""Judge whether each α can be written as a meridian of K.
+"""
+    hc_standard_check(hc::HeegaardCode) -> HCStandardCheck
 
-The same cyclic signed word is `standard`. A homology class other than
-±[m_i] is `homology_class`. A class equal to −[m_i] and to no +[m_j] is
-reversed with `hc_reverse_orientation` before the same judgment: the signed
-word, or the three-move search. A class equal to +[m_i] is searched without
-reversing. Passing the state limit, or finishing that search without the
-meridian word, is `undecided`.
+Test whether an HC can be presented with its alpha system on the fixed meridians.
+
+# Arguments
+`hc` must have valid roles, passages and annotation supports in the
+[HC reference-surface domain](../specs/heegaard-code.md).
+Input and move errors propagate. Unsupported decorations, homology
+obstructions and exhausted bounded search are returned as named failures;
+an undecided result is not a proof of nonstandardness.
+
+# Returns
+`HCStandardCheck` with `standard`, optional resulting `diagram`, alpha-to-reference
+`correspondence`, `failures` and a string-valued move `witness`.
+
+# Guarantees
+1. A successful result has passed the implemented signed-meridian-word
+   test and carries its correspondence. [proved/agent: by construction]
+2. For an already reference-bound input the same HC may be returned.
+   [verified-computationally: test/heegaard/hc_standard_check.jl, same signed word is standard]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The bounded search is not a complete isotopy algorithm. Standard-reference
+acceptance and its witness conventions need an owning specification entry;
+this record does not independently certify a manifold homeomorphism.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md — reference-bound HC data and conversion-domain distinctions.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1,Dict("l1"=>[-1],"m1"=>[1,2],"b"=>[-2]),Dict(),Dict(),Dict(),Dict(),nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta)); r = H.hc_standard_check(hc);
+
+julia> (r.standard, r.diagram === hc, isempty(r.failures))
+(true, true, true)
+```
+
+Role: condition
 """
 function hc_standard_check(hc::HeegaardCode)
     checked = _hc_same_word(hc)

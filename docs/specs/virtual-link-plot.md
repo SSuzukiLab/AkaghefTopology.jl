@@ -296,6 +296,15 @@ scaffold, and its closure arc is split in two at half its arclength before drawi
 
 ## 6. Layout-stage contracts
 
+The following conditions name the input domains of the current helpers.
+
+| Condition | Input domain and enforcement |
+|---|---|
+| L1 | A closed real-Gauss presentation has no cut marker, each real crossing has one visit of each sign, and its orientation is ±1. Caller responsibility for the MATLAB route; the Layer8 route checks no cut markers, label bounds, total visit count and two occurrences per crossing, but does not fully check signs/orientation. |
+| L2 | A valid closed planar PD code with supported connected embedding; region construction and routing must succeed. PD shape/embedding correctness is not comprehensively checked on entry. |
+| L3 | Explicit signed bend counts follow sorted unique edge IDs of the generated PD code and admit the segment-length model. Length is checked; model feasibility is required at solving. |
+| L4 | A supplied `LinkLayout` has coherent endpoint indices, nonempty polylines and finite coordinates. Diagnostics are geometric predicates, not a structural validator of arbitrary records. |
+
 ### 6.1 Virtual planarisation
 
 ```julia
@@ -339,6 +348,32 @@ so the five parity cases remain executable without launching MATLAB.
 A second invocation currently occurs in `_real_arc_layouts`. Both invocations
 MUST return identical results for the same input. Duplicate execution is an
 implementation debt, not a semantic feature.
+
+#### Layer8 route and its evidence boundary
+
+`planarize_virtual_gauss_layer8` is the alternate route selected by
+`orthogonal_layout(...; planarization=:layer8)`. It uses the translated
+Layer8/Braid 31.3 fringe/peer construction in
+[layer8_planarization.jl](../../src/layer8_planarization.jl), with L1 input.
+The public result comes from the peer traversal, which renumbers crossings
+and can change component cyclic origins; the MATLAB route's preserved label
+prefix and appended orientation convention do not describe this result.
+Virtual peer crossings have orientation zero. Debug mode reports the selected
+initial crossing, virtual events and output data; it does not run the MATLAB
+route's checkpoint validator.
+
+With empty orientation, this route returns copied integer-converted component
+data without validating occurrences. The MATLAB route instead rejects any
+nonempty component in that case. Neither empty shortcut asserts validity of
+arbitrary crossing-free link data.
+
+question: unverified — The intended result is a planar presentation of the
+same oriented virtual link, as suggested by the translated fringe/peer
+construction. The current source explicitly defers the diametric-event branch
+of peer type assignment, and no general input-to-output crossing/strand
+correspondence check is established here. An independent peer conversion and
+oriented Gauss comparison covering that branch would confirm the scope or
+exhibit a counterexample. No minimum-virtual-crossing theorem is claimed.
 
 ### 6.2 PD-code construction
 
@@ -670,9 +705,29 @@ is_valid_layout(layout)
 failing_rules(layout)
 ```
 
-An empty diagnostic set establishes only these geometric properties. It does
-not independently prove bend optimality; optimality follows from successful
-MILP termination or must be checked separately for externally supplied layouts.
+The implemented diagnostic has a narrower boundary than the normative
+properties: `_check_p7` examines interior polyline vertices, not arbitrary
+points in a segment's interior; `_check_p3` skips invalid crossing indices;
+and the whole checker returns an empty list when there are no edges. Unknown
+requested rule symbols are ignored. P1 uses exact axis equality; endpoint
+closeness uses the source's `1e-9` tolerance, coordinate grouping rounds to
+nine decimal places, and segment intersection additionally uses a `1e-12`
+parallel/collinearity threshold. These are existing predicates in
+[layout_invariants.jl](../../src/layout_invariants.jl), not exact geometric
+proofs. L4 is required when using them as meaningful diagnostics.
+
+bug: An empty diagnostic set alone does not establish all normative P1–P7
+properties on arbitrary layouts, or bend optimality. In particular, P7 does
+not inspect a crossing lying strictly inside a straight segment unless it is
+also an interior polyline vertex. Fixing this checker is outside this
+docstring-only change. A fully checked geometry-conforming claim needs the
+normative properties as well as the optimization result.
+
+`check_layout(v)` constructs a layout once for that call. `failing_rules(v)`
+constructs a layout separately for each rule, so its result need not describe
+one common optimizer-selected embedding. Pass a single `LinkLayout` to compare
+all predicates on the same geometry. `is_valid_layout` means that the selected
+diagnostics contain no `:error`; it does not certify arbitrary record validity.
 
 ### 11.3 No coordinate oracle
 
@@ -685,6 +740,26 @@ Conformance MUST NOT require equality with:
 
 The minimum-bend model is degenerate. Distinct optimal embeddings are allowed if
 they satisfy the normative properties.
+
+## UR structural diagnostic
+
+`plot_urd_structure_svg(d,path)` renders the
+[UR endpoint data](ur-diagrams.md#weighted-endpoint-data) after `validate_data`.
+It places signed endpoints in their stored order on a baseline and joins each
+paired edge with a quadratic arc, labelled by edge ID and current weight.
+This is a data diagnostic, not a planar embedding, reduction certificate or
+the MATLAB-compatible single-arrow `plot_svg(::URDiagram,...)` view.
+
+The diagnostic writes a 960-by-480 SVG, creates or overwrites the named file,
+and returns its absolute path. Its parent directory must already exist.
+It leaves diagram data unchanged. Weight strings of at most 48 characters
+are shown directly; longer Laurent polynomials/rationals show term counts,
+and other long symbolic weights show a character-count summary. Text escapes
+ampersands and angle brackets. These are the existing display rules in
+[svg_plot.jl](../../src/svg_plot.jl), not a serialization of the full weight.
+The signed three-edge fixture is the UR setup in
+[core tests](../../test/topology_core.jl); full rendering behavior remains
+subject to the fresh-process example run.
 
 ## 12. Unsupported and out-of-scope behavior
 

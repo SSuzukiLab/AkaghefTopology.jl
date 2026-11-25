@@ -1,17 +1,55 @@
 """
-    disk_tetrahedra(v::VirtualLink)
+    disk_tetrahedra(v::VirtualLink) -> NamedTuple
 
-Return the ordered tetrahedra dual to a nonempty, operationally certified
-closed normal o-graph. `tetrahedra[i].edges` lists disk IDs in the order
-`(01,02,03,12,13,23)`, oriented from the smaller local vertex to the larger.
-`sign` is the tetrahedron orientation, equal to minus the repository vertex
-sign under the reviewed GKS Figure 2.2 convention.
+Return the disk-labelled ordered tetrahedra dual to a certified closed normal o-graph.
 
-The six-node dictionary is shared with `disk_table`; the face-to-ordered-vertex
-map is shared with the existing CP recipe audit. Order-preserving face gluing
-preserves all these edge directions, so no inverse-edge flag is needed.
-This is combinatorial input data, not a state sum or a proof of MST equivalence.
-The zero-vertex presentation is rejected because it has no tetrahedral data.
+# Arguments
+- `v`: a nonempty unweighted closed normal presentation satisfying C1–C3
+  in [the terminology specification](../specs/ograph-terminology.md).
+  Checked: `ArgumentError` rejects open, weighted, Z2, empty or uncertifiable
+  input, nonclosed disk circuits, invalid disk-node coverage, or incompatible
+  face/edge orientations. See [`certify_closed_ograph`](@ref).
+
+# Returns
+A `NamedTuple` containing `tetrahedra` (one record per true vertex, with
+`vertex`, `vertex_sign`, `sign`, `local_nodes` and `edges`), `disk_count`,
+`node_to_disk` (the local-node to disk map), `closedness` (the replayed witness),
+`ordered_edges`, `edge_orientations_verified`, `face_orientations_verified`,
+and `face_gluings`. Each gluing records `tet`, `omitted`, `to_tet`,
+`to_omitted`, `permutation`, `ograph_edge`, `ograph_strand`, `source_crossing`
+and `target_crossing`; their coordinates are fixed by the linked face-map spec.
+
+# Guarantees
+1. The result describes the ordered dual tetrahedral data of the presentation under the closedness and duality interpretation of the linked specification. [proved/agent: by construction]
+2. Each local node belongs to exactly one returned disk, and paired local edges have equal disk IDs and compatible directions. [proved/agent: by construction]
+3. Both orientation verification flags are `true` on successful return. [proved/agent: by construction]
+4. `v` is not modified. [proved/agent: by construction]
+
+# Conventions
+Use [face maps and orientations](../specs/heegaard-snappy.md#面写像と向き)
+for tetrahedral numbering, local ordering, orientation signs and permutations.
+
+# Not guaranteed
+The operational C1–C3 witness is not a general proof of the reconstruction
+theorem. No state sum, manifold recognition, or identification with the
+separate coloured slot model is returned. Inconsistent internal recipes can
+raise `ErrorException` instead of a domain error.
+
+# Sources
+cf:docs/specs/heegaard-snappy.md — domain, dual closed triangulation, face maps and orientations.
+cf:docs/specs/ograph-move-verifier.md — reviewed ordered tetrahedral face recipe and its source comparison.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]);
+
+julia> t = disk_tetrahedra(v);
+
+julia> (only(t.tetrahedra).local_nodes, only(t.tetrahedra).sign, t.disk_count)
+((1, 5, 6, 3, 2, 4), -1, 2)
+```
+
+Role: convert
 """
 function disk_tetrahedra(v::VirtualLink)
     _require_closed_ograph_input(v, "disk_tetrahedra")

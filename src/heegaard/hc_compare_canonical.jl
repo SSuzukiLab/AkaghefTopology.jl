@@ -2,12 +2,107 @@
 # sequence can still assign different labels; later curves select the lex-min map.
 # cf: lib/topology.jl/docs/specs/lickorish-code.md §3 — a cyclic shift is not data
 
+"""
+    HCCanonicalWitness(label_map, name_map, rotation_starts) -> HCCanonicalWitness
+
+Store a correspondence from the labels and words of an HC to its canonical representation.
+
+# Arguments
+`label_map::Dict{Int,Int}`, `name_map::Dict{String,String}`,
+`rotation_starts::Dict{String,Int}`, or values convertible to those types.
+Conversion errors propagate. No source diagram is supplied or checked.
+
+# Returns
+`HCCanonicalWitness` with the supplied label correspondence, component-name
+correspondence and word-start data. Obtain computed witnesses from
+[`hc_canonical_witness`](@ref). Dictionary domains and the correspondence
+direction are specified in [comparison records](../specs/heegaard-code.md#comparison-records).
+
+# Guarantees
+1. Fields equal the supplied values after conversion; typed dictionaries
+   are retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. For a computed witness, its data describe the correspondence to
+   `hc_canonical` for the same input. The cyclic-word objects are those of
+   [the LC specification](../specs/lickorish-code.md). [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not check completeness, bijectivity or compatibility
+with words and annotations. A record alone does not prove identity, isotopy
+or manifold equivalence and does not carry its source diagram.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-13", "case-01.hc");
+
+julia> h = H.read_hc(path); w = H.hc_canonical_witness(h);
+
+julia> copied = H.HCCanonicalWitness(w.label_map, w.name_map, w.rotation_starts);
+
+julia> corr = H.HCIdentityCorrespondence(copied.label_map, copied.name_map, copied.rotation_starts);
+
+julia> H.hc_identical(h, H.hc_apply_correspondence(h, corr))
+true
+```
+
+See also [`hc_canonical_witness`](@ref), [`HCIdentityCorrespondence`](@ref).
+
+Role: construct
+"""
 struct HCCanonicalWitness
     label_map::Dict{Int,Int}
     name_map::Dict{String,String}
     rotation_starts::Dict{String,Int}
 end
 
+"""
+    HCIdentityCorrespondence(label_map, name_map, rotation_starts) -> HCIdentityCorrespondence
+
+Store label, component-name and word-start data for a correspondence between two HCs.
+
+# Arguments
+`label_map::Dict{Int,Int}`, `name_map::Dict{String,String}`,
+`rotation_starts::Dict{String,Int}`, or values convertible to those types.
+Conversion errors propagate. Neither source nor target is an argument.
+
+# Returns
+`HCIdentityCorrespondence` with the supplied three dictionaries, for use
+with [`hc_apply_correspondence`](@ref). Computed records are obtained from
+[`hc_identity_correspondence`](@ref). Dictionary domains and the correspondence
+direction are specified in [comparison records](../specs/heegaard-code.md#comparison-records).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; typed dictionaries
+   are retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. A computed correspondence describes the identity relation tested by
+   `hc_identity_correspondence` on the two inputs' stored words and
+   annotations. It acts on the cyclic-word data of
+   [the LC specification](../specs/lickorish-code.md). [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not check map domains, bijectivity, word positions,
+annotation transport or preservation of curve families. A manually
+assembled record is not a checked identity, isotopy or manifold certificate.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-13", "case-01.hc");
+
+julia> h = H.read_hc(path); c = H.hc_identity_correspondence(h, h);
+
+julia> d = H.HCIdentityCorrespondence(c.label_map, c.name_map, c.rotation_starts);
+
+julia> (H.hc_apply_correspondence(h, d).lc.words == h.lc.words, H.hc_identical(H.hc_apply_correspondence(h, d), h))
+(true, true)
+```
+
+See also [`hc_identity_correspondence`](@ref), [`hc_apply_correspondence`](@ref).
+
+Role: construct
+"""
 struct HCIdentityCorrespondence
     label_map::Dict{Int,Int}
     name_map::Dict{String,String}
@@ -336,13 +431,43 @@ function _hc_canonicalize(hc::HeegaardCode)
 end
 
 """
-同一性の正規形を返す。許すのは交点ラベルの付け替え、各語の巡回、role の中での成分名の付け替えだけである。
+    hc_canonical(hc::HeegaardCode) -> HCCanonical
 
-曲線の向きの取り替えと鏡像は正規化しない。K の成分名は基準曲線の名前として固定する。
-成分の順序は、K を名前順にしたあと、色細分で分かれた α、β の順である。同じ色の組は、辞書式最小の正規形を与える並べ方を全部見る。α と β では、今の位置に出す語が残っている曲線よりすでに大きい並べ方は、最小にはならないのでその先を見ない。
-語の巡回で、出した列は同じでもラベルの写像が違うものは、後続の曲線まで含めて辞書式最小になる方を残す。
-保存された語の開始位置では選ばない。探索が予算を超えたときは HCNotComputed を投げ、
-同一かどうか分からないのに different とは返さない。
+Return the canonical comparison record of an HC's oriented stored data.
+
+# Arguments
+`hc` must satisfy the [HC input and comparison domain](../specs/heegaard-code.md#comparison-records).
+Input and annotation errors propagate. A bounded search that cannot finish
+raises `HCNotComputed` with its reason rather than returning a difference.
+
+# Returns
+`HCCanonical` with genus, reference words, alpha and beta words, other
+components and transported annotations in the comparison format.
+
+# Guarantees
+1. The returned record uses the identity relation and ordering of the linked
+   comparison convention. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a canonical form for 3-manifolds or an isotopy decision, and does
+not identify general orientation reversals or mirrors. Search completion
+is not guaranteed on every input.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — canonical comparison records and ordering.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta, "m1"=>:alpha));
+
+julia> c = H.hc_canonical(hc); (c.genus, Tuple(p.first for p in c.k_words))
+(1, ("l1", "m1"))
+```
+
+Role: invariant
 """
 function hc_canonical(hc::HeegaardCode)
     form, _ = _hc_canonicalize(hc)
@@ -350,10 +475,44 @@ function hc_canonical(hc::HeegaardCode)
 end
 
 """
-入力から正規形への対応を返す。
+    hc_canonical_witness(hc::HeegaardCode) -> HCCanonicalWitness
 
-label_map は元の交点ラベルから正規形のラベル、name_map は元の成分名から正規形の成分名である。
-rotation_starts は元の語の 1 始まりの位置で、そこを先頭にすると正規形の語になる。
+Return a correspondence from an HC's stored data to its canonical comparison record.
+
+# Arguments
+`hc` has the domain and failure conditions of `hc_canonical` in
+[comparison records](../specs/heegaard-code.md#comparison-records).
+Invalid input and annotation errors propagate; bounded search exhaustion
+raises `HCNotComputed`.
+
+# Returns
+`HCCanonicalWitness` with `label_map`, `name_map` and `rotation_starts` in
+the linked correspondence convention.
+
+# Guarantees
+1. The witness carries the input's data to its computed canonical record
+   under the stated dictionary interpretation. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The witness need not preserve fixed K names when roles are assigned to K
+curves; it is not by itself a valid resolved-HC construction or a manifold
+homeomorphism certificate. There may be several witnessing symmetries.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — witness direction, ordering and K-name limitation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta, "m1"=>:alpha));
+
+julia> w = H.hc_canonical_witness(hc); (w.name_map["l1"], w.name_map["m1"])
+("b1", "a1")
+```
+
+Role: access
 """
 function hc_canonical_witness(hc::HeegaardCode)
     _, witnesses = _hc_canonicalize(hc)
@@ -377,8 +536,48 @@ function _hc_transport_weight(dict, transport)
 end
 
 """
-許した変換を施す。rotation_starts は元の語の 1 始まりの位置で、
-そこへ回し、label_map と name_map を施すと、相手の保存された語になる。
+    hc_apply_correspondence(hc::HeegaardCode, corr::HCIdentityCorrespondence) -> HeegaardCode
+
+Transport an HC's words, roles and annotations along a supplied identity correspondence.
+
+# Arguments
+`corr` must obey the [correspondence dictionary convention](../specs/heegaard-code.md#comparison-records).
+Missing curve or crossing mappings raise `KodaInputError` identifying the
+missing item; absent rotation keys and annotation-transport failures propagate.
+The caller supplies complete bijective, role-compatible maps; this entry does
+not independently validate a manually assembled correspondence.
+
+# Returns
+A new `HeegaardCode` with transported words, roles, places, disks, points and
+weights; both source paths are cleared.
+
+# Guarantees
+1. For a valid correspondence, the output represents the same oriented
+   cyclic-word and annotation data in the target notation.
+   [proved/agent: by construction]
+2. The input and correspondence are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Arbitrary dictionaries can collide or destroy information without a dedicated
+bijection error. A canonical witness is not automatically a valid resolved-HC
+identity map; use `hc_identity_correspondence` between stored HCs.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — dictionary direction and canonical-versus-identity distinction.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta, "m1"=>:alpha));
+
+julia> c = H.hc_identity_correspondence(hc,hc); out = H.hc_apply_correspondence(hc,c);
+
+julia> (out.lc.words == hc.lc.words, out.roles == hc.roles)
+(true, true)
+```
+
+Role: convert
 """
 function hc_apply_correspondence(hc::HeegaardCode, corr::HCIdentityCorrespondence)
     words = Dict{String,Vector{Int}}()
@@ -474,12 +673,46 @@ function _hc_stored_words(hc::HeegaardCode)
 end
 
 """
-同一な 2 つの HC の間の、許した変換を返す。同一でないときは HCNotComputed(:not_identical) を投げる。
+    hc_identity_correspondence(a::HeegaardCode, b::HeegaardCode) -> HCIdentityCorrespondence
 
-label_map は a の交点ラベルから b の交点ラベル、name_map は a の成分名から b の成分名である。
-rotation_starts は a の語の 1 始まりの位置で、そこへ回して 2 つの写像を施すと b の保存された語になる。
-正規形が一致しても、取り出した対応が a を b の保存された語へ移さないときは
-HCNotComputed(:correspondence_inconsistent) を投げる。
+Return a checked correspondence between two HCs with the same canonical comparison record.
+
+# Arguments
+The inputs have the domain of `hc_canonical` under
+[comparison records](../specs/heegaard-code.md#comparison-records).
+Different forms raise `HCNotComputed(:not_identical)`; equal forms without a
+checked transporting correspondence raise `HCNotComputed(:correspondence_inconsistent)`.
+Input and bounded-search failures propagate.
+
+# Returns
+`HCIdentityCorrespondence` from `a` to `b`, with label, name and rotation-start
+dictionaries in the linked convention.
+
+# Guarantees
+1. Applying the result to `a` gives exactly `b`'s stored curve words and
+   the same canonical comparison record as `b`.
+   [proved/agent: by construction]
+2. Neither input is modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is a correspondence of the encoded diagram data, not a general manifold
+homeomorphism or isotopy search. Exact identity of source paths or arbitrary
+metadata is not asserted.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — identity correspondences and checked transport.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> c = H.hc_identity_correspondence(hc,hc); H.hc_apply_correspondence(hc,c).lc.words == hc.lc.words
+true
+```
+
+Role: access
 """
 function hc_identity_correspondence(a::HeegaardCode, b::HeegaardCode)
     form_a, witnesses_a = _hc_canonicalize(a)

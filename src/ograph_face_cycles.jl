@@ -3,13 +3,57 @@
 
 import AbstractAlgebra
 
-"""One face cycle of the standard polyhedron.
+"""
+    FaceCycle(germs, corners, edge_letters) -> FaceCycle
 
-`germs[k]` is the sheet end where step `k` leaves an edge. `corners[k]` is the
-vertex disc germ `(vertex, slot_lo, slot_hi)` where that step arrives.
-`edge_letters[k]` is the signed index of the singular edge. A positive letter
-leaves the smaller half-edge id. That sign is a chain orientation, not a
-branching.
+Store the germ, corner and signed-edge data of a disc boundary.
+
+# Arguments
+- `germs::Vector{DiscGerm}`, `corners::Vector{NTuple{3,Int}}`, and
+  `edge_letters::Vector{Int}`, or values convertible to those types.
+  Failed conversions propagate their Julia exceptions.
+- The constructor does not check that the three sequences describe one
+  disc boundary; obtain computed cycles from [`face_cycles`](@ref).
+
+# Returns
+`FaceCycle` with `germs` the departing sheet-end labels, `corners` the
+arriving vertex-corner labels and `edge_letters` the signed singular-edge
+indices, in boundary traversal order for a cycle returned by `face_cycles`.
+The corner representation is in
+[Face cycles](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. Fields preserve the supplied values after conversion. [proved/agent: by construction]
+2. A record supplied by `face_cycles` describes one attaching boundary of
+   the selected face-cycle polyhedron, with the geometric interpretation
+   subject to that operation's [calibration](../conventions/OGraphColours.md).
+   [proved/agent: by construction]
+3. Input vectors of the declared types are retained without copying. [proved/agent: by construction]
+
+# Conventions
+Signed-edge numbering is owned by
+[the invariant specification](../specs/ograph-colour-invariants.md#closed-examples).
+
+# Not guaranteed
+Direct construction does not check equal lengths, closure, graph membership
+or a choice of branching on the disc. It does not establish a preferred
+cyclic origin or orientation for comparing records from different graphs.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> p = face_cycles(normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph);
+
+julia> copies = [FaceCycle(c.germs, c.corners, c.edge_letters) for c in p.cycles];
+
+julia> Tuple(sort([length(c.germs) for c in copies]))
+(1, 5)
+```
+
+See also [`face_cycles`](@ref).
+
+Role: convert
 """
 struct FaceCycle
     germs::Vector{DiscGerm}
@@ -17,10 +61,54 @@ struct FaceCycle
     edge_letters::Vector{Int}
 end
 
-"""Cell counts of the standard polyhedron built from a coloured o-graph.
+"""
+    ColouredPolyhedron(vertex_count, edge_count, disc_count, euler, halfedge_count, germ_count, boundary_length, cycles, calibration, status) -> ColouredPolyhedron
 
-`calibration` is `:b`, the chart derived from Proposition 3.2.1, or `:a`, the
-chart that proposition refutes. The default is `:b`.
+Store face-cycle data and cell counts for a coloured-o-graph polyhedron.
+
+# Arguments
+- The first seven arguments are `Int` counts; `cycles::Vector{FaceCycle}`,
+  `calibration::Symbol`, and `status::String` supply the remaining fields.
+  Values convertible to those field types are also accepted; conversion
+  failures propagate their Julia exceptions.
+- For computed counts use [`face_cycles`](@ref). Direct construction does not
+  check the counts, cycles, calibration or status against each other.
+
+# Returns
+`ColouredPolyhedron` with `vertex_count`, `edge_count`, `disc_count` the
+supplied cell counts, `euler` the supplied Euler characteristic,
+`halfedge_count` the half-edge count, `germ_count` the counted germs,
+`boundary_length` the total disc-boundary length, `cycles` the face-cycle
+records, `calibration` the chart selection and `status` its evidence label.
+These quantities refer to [face cycles](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. Fields preserve the supplied values after field-type conversion. [proved/agent: by construction]
+2. When supplied by `face_cycles`, the record describes the selected
+   face-cycle polyhedron. Its interpretation as the represented standard
+   spine has the [calibration dependencies](../conventions/OGraphColours.md)
+   of that operation. [proved/agent: by construction]
+3. A supplied `Vector{FaceCycle}` is retained without copying. [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not establish an Euler relation, coverage of germs,
+realizability as a spine, or the validity of the supplied status label.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> p = face_cycles(normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph);
+
+julia> q = ColouredPolyhedron(p.vertex_count, p.edge_count, p.disc_count, p.euler, p.halfedge_count, p.germ_count, p.boundary_length, p.cycles, p.calibration, p.status);
+
+julia> (q.vertex_count, q.edge_count, q.disc_count, q.euler, q.germ_count)
+(1, 2, 2, 1, 6)
+```
+
+See also [`face_cycles`](@ref).
+
+Role: convert
 """
 struct ColouredPolyhedron
     vertex_count::Int
@@ -35,11 +123,111 @@ struct ColouredPolyhedron
     status::String
 end
 
+"""
+    ColourHomology(free_rank, torsion_factors) -> ColourHomology
+
+Store the free rank and torsion invariant factors of an abelian group.
+
+# Arguments
+- `free_rank::Int` and `torsion_factors::Vector{BigInt}`, or values convertible
+  to these field types. Conversion failures propagate their Julia exceptions.
+  The constructor does not check nonnegativity or the invariant-factor conditions.
+
+# Returns
+`ColourHomology` with `free_rank` the supplied free rank and `torsion_factors`
+the supplied cyclic-summand orders. For a homology computation use
+[`cellular_homology`](@ref).
+
+# Guarantees
+1. The fields equal the supplied values after field-type conversion. [proved/agent: by construction]
+2. For data returned by `cellular_homology`, this record describes the first
+   integral homology of the selected face-cycle polyhedron, with the
+   [invariant-factor convention](../specs/ograph-colour-invariants.md#closed-examples).
+   Direct construction supplies data, not a homology computation. [proved/agent: by construction]
+3. An input `Vector{BigInt}` is retained, so later mutations are visible in the record.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Arbitrary fields need not be invariant factors of a homology group. The
+record neither identifies a manifold nor certifies a geometric realization.
+
+# Sources
+cf:[[BP97#^bp97-sec-0703]] §10.1 — homology of the spine and its associated manifold; storage of invariant factors is a repository representation.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> h = cellular_homology(g); stored = ColourHomology(h.free_rank, h.torsion_factors);
+
+julia> (stored.free_rank, Tuple(stored.torsion_factors))
+(0, ())
+```
+
+See also [`cellular_homology`](@ref).
+
+Role: construct
+"""
 struct ColourHomology
     free_rank::Int
     torsion_factors::Vector{BigInt}
 end
 
+"""
+    DualFacePairing(source_vertex, source_slot, target_vertex, target_slot, orientation_reversing) -> DualFacePairing
+
+Store the two faces and orientation flag of a dual face pair.
+
+# Arguments
+- The four face indices are `Int` and `orientation_reversing` is `Bool`,
+  or values convertible to those types. Failed conversions propagate their
+  Julia exceptions. No range or geometric check is performed.
+
+# Returns
+`DualFacePairing` with `source_vertex`, `source_slot`, `target_vertex`,
+`target_slot` the supplied face labels, and `orientation_reversing` the
+supplied reversal flag. Face labels and the flag use
+[Face cycles](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. Fields equal the supplied values after conversion. [proved/agent: by construction]
+2. For records produced by [`dual_face_pairings`](@ref), the labels specify
+   a pair of faces in the slot model of the dual ideal triangulation of the
+   selected polyhedron. Direct construction does not compute that gluing.
+   [proved/agent: by construction]
+
+# Conventions
+The face orientation and endpoint order are in
+[OGraphColours](../conventions/OGraphColours.md#四面体と-link-triangle-の向き).
+
+# Not guaranteed
+The constructor does not order endpoints, compute the reversal flag, or
+check that a face pairing exists. The record does not contain the vertex
+bijection of the face gluing and cannot by itself reconstruct it.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — ideal triangulations and orientation-reversing face identifications; slot labels are the repository representation.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> p = first(dual_face_pairings(g));
+
+julia> q = DualFacePairing(p.source_vertex, p.source_slot, p.target_vertex, p.target_slot, p.orientation_reversing);
+
+julia> q.orientation_reversing
+true
+```
+
+See also [`dual_face_pairings`](@ref).
+
+Role: construct
+"""
 struct DualFacePairing
     source_vertex::Int
     source_slot::Int
@@ -48,13 +236,58 @@ struct DualFacePairing
     orientation_reversing::Bool
 end
 
-"""One boundary component of a regular neighbourhood of the polyhedron.
+"""
+    SpineBoundaryComponent(euler, face_count, edge_count, vertex_count, orientable, closed_surface) -> SpineBoundaryComponent
 
-The complex is one connected piece of the links of the tetrahedron corners.
-Each corner contributes a triangle, and each dual face gluing pairs a side.
-`euler` is `vertices - edges + faces` of that piece. `closed_surface` means
-every side is paired. `orientable` means every face gluing in the piece
-reverses orientation.
+Store the counts and flags reported for one boundary component.
+
+# Arguments
+`euler`, `face_count`, `edge_count` and `vertex_count` are `Int` values;
+`orientable` and `closed_surface` are `Bool` values. Convertible arguments
+are also accepted; conversion failures propagate their Julia exceptions.
+The constructor performs no surface or consistency checks.
+
+# Returns
+`SpineBoundaryComponent` with `euler` the supplied Euler characteristic,
+`face_count`, `edge_count`, `vertex_count` the supplied cell counts, and
+`orientable`, `closed_surface` the supplied boundary flags. Computed records
+come from [`thickening_boundary`](@ref), whose space is described in
+[Face cycles](../specs/ograph-colours.md#face-cycles). The meanings and scope
+of the flags are owned by
+[Boundary diagnostic flags](../specs/ograph-colours.md#boundary-diagnostic-flags).
+
+# Guarantees
+1. Each field equals the supplied value after conversion. [proved/agent: by construction]
+2. For output of `thickening_boundary`, a record corresponds to one connected
+   component of its corner-link model. Interpreting it as a component of
+   the polyhedron's regular-neighbourhood boundary requires that operation's
+   geometric hypotheses. [proved/agent: by construction]
+
+# Not guaranteed
+Neither the Euler relation nor either Boolean flag is checked on direct
+construction. A supplied `orientable=true` is not a proof of orientability.
+The record contains counts and flags, not the surface gluing itself.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — dual ideal triangulations; the corner-link boundary interpretation is reconstructed.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> b = only(thickening_boundary(g).components);
+
+julia> c = SpineBoundaryComponent(b.euler, b.face_count, b.edge_count, b.vertex_count, b.orientable, b.closed_surface);
+
+julia> (c.euler, c.face_count, c.edge_count, c.vertex_count, c.orientable, c.closed_surface)
+(2, 4, 6, 4, true, true)
+```
+
+See also [`thickening_boundary`](@ref), [`SpineBoundary`](@ref).
+
+Role: construct
 """
 struct SpineBoundaryComponent
     euler::Int
@@ -65,17 +298,109 @@ struct SpineBoundaryComponent
     closed_surface::Bool
 end
 
+"""
+    SpineBoundary(components, euler_sum) -> SpineBoundary
+
+Store boundary-component records and their reported total Euler characteristic.
+
+# Arguments
+`components::Vector{SpineBoundaryComponent}` and `euler_sum::Int`, or values
+convertible to these types. Conversion failures propagate their Julia
+exceptions. The constructor does not recompute the sum or validate components.
+
+# Returns
+`SpineBoundary` with `components` the supplied component records and
+`euler_sum` the supplied total Euler characteristic.
+Component flag meanings are in
+[Boundary diagnostic flags](../specs/ograph-colours.md#boundary-diagnostic-flags).
+
+# Guarantees
+1. Fields equal the supplied values after conversion; an input vector of
+   the declared type is retained without copying. [proved/agent: by construction]
+2. For data computed by [`thickening_boundary`](@ref), this describes the
+   corner-link boundary model of the selected polyhedron. Its interpretation
+   as the boundary of a regular neighbourhood is subject to the
+   [geometric interpretation](../specs/ograph-colours.md#face-cycles).
+   [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not establish a surface, orientability, an Euler
+sum, or a closed normal spine. It does not certify a closed 3-manifold.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — dual ideal triangulations; corner links as a boundary model are reconstructed.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> b = thickening_boundary(g); stored = SpineBoundary(b.components, b.euler_sum);
+
+julia> (length(stored.components), stored.euler_sum)
+(1, 2)
+```
+
+See also [`thickening_boundary`](@ref).
+
+Role: convert
+"""
 struct SpineBoundary
     components::Vector{SpineBoundaryComponent}
     euler_sum::Int
 end
 
-"""Germ-by-germ comparison of one calibration with `disk_table`.
+"""
+    DiscPartitionComparison(equal, ours, pipeline, germ_count, unique_germs) -> DiscPartitionComparison
 
-`ours` and `pipeline` are partitions: each disc is its corners
-`(vertex, slot_lo, slot_hi)`, sorted, and the discs are sorted. Equality
-includes repeated corners. The pipeline corners come from
-`disk_table_corners`.
+Store a comparison of two disc partitions in the shared corner coordinates.
+
+# Arguments
+- `equal::Bool`, `ours::Vector{Vector{NTuple{3,Int}}}`,
+  `pipeline::Vector{Vector{NTuple{3,Int}}}`, `germ_count::Int`,
+  `unique_germs::Int`, or values convertible to those types.
+  Conversion failures propagate their Julia exceptions.
+- Obtain a computed comparison from [`compare_disc_partition`](@ref).
+  This constructor does not recompute any field.
+
+# Returns
+`DiscPartitionComparison` with `equal` the supplied comparison flag,
+`ours` the face-cycle partition, `pipeline` the disk-table partition,
+`germ_count` the supplied total corner count and `unique_germs` the supplied
+distinct-corner count for `ours`. The comparison's meaning is specified in
+[Face cycles](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. Fields preserve the supplied values after conversion. [proved/agent: by construction]
+2. For data returned by `compare_disc_partition`, the record compares disc
+   partitions of the selected face-cycle model and the normal disk-table
+   model on the same presentation; it is a finite comparison of those models.
+   [proved/agent: by construction]
+3. Input vectors of the declared types are retained without copying. [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not establish equality, sorting, counts, or that
+the two partitions refer to the same presentation. Agreement is not a proof
+of the general geometric reconstruction.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> link = vl_example("s3_abalone"); c = normal_coloured_ograph(ograph_state(link));
+
+julia> p = compare_disc_partition(link, c);
+
+julia> q = DiscPartitionComparison(p.equal, p.ours, p.pipeline, p.germ_count, p.unique_germs);
+
+julia> (q.equal, q.germ_count, q.unique_germs)
+(true, 6, 6)
+```
+
+See also [`compare_disc_partition`](@ref).
+
+Role: construct
 """
 struct DiscPartitionComparison
     equal::Bool
@@ -152,10 +477,70 @@ function _corner(owner, halfedge::Int, partner::Int)
     (vertex, lo, hi)
 end
 
-"""Partition the 6n sheet germs into face cycles.
+"""
+    face_cycles(graph::ColouredOGraph; calibration::Symbol=:b) -> ColouredPolyhedron
 
-The default calibration is B. Pass `calibration=:a` only to reproduce the
-refuted chart.
+Return the disc boundaries and cell counts of the selected coloured-o-graph polyhedron.
+
+# Arguments
+- `graph` must satisfy O0–O3 in the
+  [condition table](../specs/ograph-colours.md#condition-identifiers).
+  Failed checks throw `ArgumentError` identifying them.
+- `calibration::Symbol` must be `:b` or `:a`; otherwise `ArgumentError` names
+  those choices. Use the [adopted calibration](../conventions/OGraphColours.md)
+  for the normal-spine interpretation; `:a` is the documented comparison.
+  A reused or missing sheet end or an inconsistent corner or coverage
+  count throws `ArgumentError` identifying that failure.
+
+# Returns
+`ColouredPolyhedron`: `vertex_count`, `edge_count`, `disc_count`, `euler`
+are the cell counts and Euler characteristic; `halfedge_count`, `germ_count`
+and `boundary_length` are the half-edge, counted-germ and total boundary-length
+counts. `cycles::Vector{FaceCycle}` gives the disc boundaries; `calibration`
+records the selected symbol and `status` is `OGRAPH_FACE_CYCLE_STATUS`.
+See [Face cycles](../specs/ograph-colours.md#face-cycles) for the geometric objects.
+
+# Guarantees
+1. For `n = length(graph.vertex_halfedges)`, the result has `vertex_count == n`,
+   `edge_count == 2n`, `halfedge_count == 4n`, and
+   `germ_count == boundary_length == 6n`. [proved/agent: by construction]
+2. `disc_count == length(cycles)` and `euler == vertex_count - edge_count + disc_count`.
+   Each cycle's three sequences have equal lengths; their total length is `6n`.
+   [proved/agent: by construction]
+3. The returned corners partition the vertex germs of the selected gluing.
+   The cycles represent its attached disc boundaries. Identification with
+   the BP97 standard spine is under the reconstruction assumptions on the
+   [convention page](../conventions/OGraphColours.md).
+   [proved/agent: by construction]
+4. The input graph is unchanged. `calibration` records the requested choice;
+   `status` is a library evidence label, including when `calibration=:a`.
+   [proved/agent: by construction]
+
+# Conventions
+Use the leg calibration, corner coordinates and signed-edge convention linked
+above and in [the invariant specification](../specs/ograph-colour-invariants.md#closed-examples).
+
+# Not guaranteed
+O0–O3 do not establish closed-normal conditions, a single spherical boundary,
+or `disc_count == n + 1`. Germ coverage alone does not prove the geometric
+reconstruction. Calibration `:a` is not promised to recover the intended
+normal spine, and the status string is not an input-specific certificate.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> p = face_cycles(g);
+
+julia> (p.vertex_count, p.edge_count, p.disc_count, p.euler, p.germ_count, Tuple(sort([length(c.germs) for c in p.cycles])))
+(1, 2, 2, 1, 6, (1, 5))
+```
+
+See also [`cellular_homology`](@ref), [`compare_disc_partition`](@ref), [`thickening_boundary`](@ref).
+
+Role: convert
 """
 function face_cycles(graph::ColouredOGraph; calibration::Symbol=:b)
     _require_coloured_ograph_shape(graph)
@@ -241,10 +626,68 @@ function _spanning_tree(edges::Vector{Tuple{Int,Int}}, owner, vertex_count::Int)
     tree
 end
 
-"""Cellular H₁ of the polyhedron.
+"""
+    cellular_homology(graph::ColouredOGraph; calibration::Symbol=:b) -> ColourHomology
 
-A spanning tree of the singular graph is contracted. The chain orientation is
-the sign stored on `FaceCycle.edge_letters`.
+Return the first integral homology of the selected face-cycle polyhedron.
+
+# Arguments
+- `graph` must satisfy O0–O3 in the
+  [condition table](../specs/ograph-colours.md#condition-identifiers).
+  A failed condition throws `ArgumentError` identifying the failing checks.
+- `calibration` selects the [leg calibration](../conventions/OGraphColours.md).
+  It must be `:b` or `:a`; another symbol throws `ArgumentError` naming those
+  choices. `:b` is the default; `:a` is retained for the documented comparison.
+  An inconsistent face-cycle or disconnected-skeleton computation throws
+  `ArgumentError` naming the failed consistency check.
+
+# Returns
+`ColourHomology`: `free_rank::Int` is the free abelian rank and
+`torsion_factors::Vector{BigInt}` contains the nontrivial cyclic-summand orders,
+using the [invariant-factor convention](../specs/ograph-colour-invariants.md#closed-examples).
+
+# Guarantees
+1. `free_rank >= 0`. Every torsion factor exceeds one and divides its
+   successor; the factors and free rank specify the computed abelian group.
+   [proved/agent: by construction]
+2. This is cellular first homology with integer coefficients for the disc
+   boundaries returned by [`face_cycles`](@ref), with the signed-edge
+   convention linked above. The input graph is unchanged. [proved/agent: by construction]
+3. Under the [geometric reconstruction](../specs/ograph-colour-invariants.md#closed-examples),
+   this is also the first homology of the represented spine's thickening.
+   When that thickening has one spherical boundary component, capping it
+   with a ball leaves this first homology unchanged.
+   [proved/agent: ../specs/ograph-colour-invariants.md#closed-examples, conditional on the stated reconstruction]
+
+# Conventions
+Use the selected calibration and the signed-edge and invariant-factor
+conventions linked above.
+
+# Not guaranteed
+Identification with the BP97 spine retains the calibration dependencies on
+the convention page. The `:a` comparison is not promised to recover the
+intended normal spine. This function does not certify closedness, identify
+a manifold, compute its fundamental group, or establish the general
+raw-edge-presentation identification discussed in [`ograph_h1`](@ref).
+
+# Sources
+cf:[[BP97#^bp97-sec-0703]] §10.1 — cellular homology of a spine and its thickening, and the additional 3-cell in the closed case; invariant factors use the repository convention.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> h = cellular_homology(g);
+
+julia> (h.free_rank, Tuple(h.torsion_factors))
+(0, ())
+```
+
+See also [`face_cycles`](@ref), [`thickening_boundary`](@ref).
+
+Role: invariant
 """
 function cellular_homology(graph::ColouredOGraph; calibration::Symbol=:b)
     poly = face_cycles(graph; calibration)
@@ -369,10 +812,61 @@ function _slot_gluings(graph::ColouredOGraph, calibration::Symbol)
     gluings
 end
 
-"""Face pairings of the dual ideal triangulation.
+"""
+    dual_face_pairings(graph::ColouredOGraph; calibration::Symbol=:b) -> Vector{DualFacePairing}
 
-Local vertices of each tetrahedron are the four slots. There are `n`
-tetrahedra and `2n` pairs.
+Return the paired faces and orientation flags of the selected dual slot model.
+
+# Arguments
+- `graph` must satisfy O0–O3 in the
+  [condition table](../specs/ograph-colours.md#condition-identifiers);
+  failed conditions throw `ArgumentError` identifying the failing checks.
+- `calibration::Symbol` must be `:b` or `:a`; otherwise `ArgumentError` names
+  the choices. The [calibration](../conventions/OGraphColours.md) selects the
+  geometric interpretation. Inconsistent face coverage or slot matching
+  throws `ArgumentError` naming that consistency failure.
+
+# Returns
+`Vector{DualFacePairing}`. Each record gives `source_vertex`, `source_slot`,
+`target_vertex`, `target_slot` and `orientation_reversing` with the meanings
+in [Face cycles](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. For `n` vertices there are `2n` records; every face label occurs once,
+   all vertex labels lie in `1:n`, and all slots lie in `1:4`.
+   [proved/agent: by construction]
+2. Endpoints and reversal flags obey the
+   [face-orientation convention](../conventions/OGraphColours.md#四面体と-link-triangle-の向き).
+   Changing which end of an edge is considered first does not change its flag.
+   [proved/agent: by construction]
+3. Under the [geometric interpretation](../specs/ograph-colour-invariants.md#dual-ideal-triangulation),
+   these are face pairs of the dual ideal triangulation of the selected
+   polyhedron. The input graph is unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Successful return does not imply that every reversal flag is true. O0–O3
+alone are not a certificate of the desired oriented triangulation. The
+record omits the face's vertex bijection, and the specification establishes
+no isomorphism to the separate `disk_tetrahedra` certificate.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — ideal triangulations use orientation-reversing face identifications; the repository slot reconstruction supplies the flags.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> pairs = dual_face_pairings(g);
+
+julia> (length(pairs), all(p.orientation_reversing for p in pairs))
+(2, true)
+```
+
+See also [`dual_edge_orbits`](@ref), [`thickening_boundary`](@ref).
+
+Role: access
 """
 function dual_face_pairings(graph::ColouredOGraph; calibration::Symbol=:b)
     rows = DualFacePairing[]
@@ -390,9 +884,62 @@ function dual_face_pairings(graph::ColouredOGraph; calibration::Symbol=:b)
     rows
 end
 
-"""Orbits of the 6n vertex germs under the sheet identifications.
+"""
+    dual_edge_orbits(graph::ColouredOGraph; calibration::Symbol=:b) -> Vector{Vector{NTuple{3,Int}}}
 
-The count is the number of edges of the dual ideal triangulation.
+Return the corner-germ classes representing dual edges of the selected polyhedron.
+
+# Arguments
+- `graph` must satisfy O0–O3 in the
+  [condition table](../specs/ograph-colours.md#condition-identifiers).
+  Call [`validate_coloured_ograph`](@ref) first on untrusted data: this
+  function does not run that validator. Malformed data can throw `KeyError`,
+  `BoundsError` or `ArgumentError` instead of a condition-labelled rejection.
+- `calibration::Symbol` must be `:b` or `:a`; an unsupported symbol throws
+  `ArgumentError` naming these choices. Use the
+  [adopted calibration](../conventions/OGraphColours.md) for the normal-spine interpretation.
+
+# Returns
+A vector of classes, each a vector of corner triples in the
+[face-cycle coordinates](../specs/ograph-colours.md#face-cycles).
+Neither class order nor order within a class is part of the contract.
+
+# Guarantees
+1. For `n` vertices the classes partition all `6n` corner germs: each occurs
+   in exactly one class, without repetition. [proved/agent: by construction]
+2. The equivalence classes are those of the selected sheet identifications.
+   Under the [dual ideal triangulation interpretation](../specs/ograph-colour-invariants.md#dual-ideal-triangulation),
+   they represent its edges, one edge per class. [proved/agent: by construction]
+3. `sorted_germ_partition` of this result equals that of the corners of
+   `face_cycles(graph; calibration)` for the same valid graph and calibration.
+   The input graph is unchanged. [proved/agent: by construction]
+
+# Conventions
+Use the calibration and corner coordinates linked above.
+
+# Not guaranteed
+The result does not certify an ideal triangulation, its orientation, or its
+identification with the separate `disk_tetrahedra` certificate. The geometric
+interpretation retains the reconstruction dependencies on the convention page.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — dual ideal triangulations; edge classes from the repository slot gluings are reconstructed.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> orbits = dual_edge_orbits(g);
+
+julia> (length(orbits), sum(length, orbits))
+(2, 6)
+```
+
+See also [`dual_face_pairings`](@ref), [`face_cycles`](@ref), [`sorted_germ_partition`](@ref).
+
+Role: access
 """
 function dual_edge_orbits(graph::ColouredOGraph; calibration::Symbol=:b)
     charts = _leg_chart(graph, calibration)
@@ -435,9 +982,48 @@ function dual_edge_orbits(graph::ColouredOGraph; calibration::Symbol=:b)
     collect(values(orbits))
 end
 
-"""Discs as a sorted partition of corners `(vertex, slot_lo, slot_hi)`.
+"""
+    sorted_germ_partition(discs) -> Vector{Vector{NTuple{3,Int}}}
 
-Repeated corners stay repeated. Cyclic order inside a disc is forgotten.
+Return a sorted comparison form of a collection of disc-corner lists.
+
+# Arguments
+`discs` is an iterable of iterable, sortable corner triples convertible to
+`NTuple{3,Int}` in the [face-cycle coordinates](../specs/ograph-colours.md#face-cycles).
+Incompatible elements propagate sorting or conversion errors. No validity
+check of discs, corners or a partition is performed.
+
+# Returns
+A fresh vector of sorted corner vectors, itself sorted lexicographically.
+
+# Guarantees
+1. The result represents the same multiset of corner multisets, retaining
+   repeated corners and repeated lists. [proved/agent: by construction]
+2. It forgets the order of lists and their internal cyclic order, so equality
+   compares the corner partitions in the linked face-cycle comparison.
+   The supplied lists are unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Equality does not identify cyclic attaching maps, orientations, coloured
+o-graphs or their thickenings. Arbitrary input lists are not certified as
+the regions of a special polyhedron.
+
+# Sources
+cf:docs/specs/ograph-colours.md#face-cycles — comparison of disc-corner partitions.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); c = normal_coloured_ograph(v); p = face_cycles(c.graph);
+
+julia> sorted_germ_partition(cycle.corners for cycle in p.cycles) == sorted_germ_partition(disk_table_corners(v, c.state))
+true
+```
+
+See also [`compare_disc_partition`](@ref), [`disk_table_corners`](@ref).
+
+Role: convert
 """
 function sorted_germ_partition(discs)
     parts = Vector{NTuple{3,Int}}[sort!(collect(disc)) for disc in discs]
@@ -458,10 +1044,52 @@ const _DISK_PORT_LANES = Dict(
     :po => (10, 11, 12),
 )
 
-"""Vertex germs of each `disk_table` disc, as `(vertex, slot_lo, slot_hi)`.
+"""
+    disk_table_corners(link::VirtualLink, state::OGraphState) -> Vector{Vector{NTuple{3,Int}}}
 
-The node-to-port pairs come from `_disk_node_dictionary`. The port-to-slot
-pairs come from the Figure 3.4 and Figure 3.5 order at `state.vertex_signs`.
+Return the disk-table circuits of a normal presentation in vertex-corner coordinates.
+
+# Arguments
+- `link`, `state`: the caller supplies the same labelled closed normal
+  presentation, with `state = ograph_state(link)`. The correspondence is not
+  checked; mismatches can give incorrect corners or propagate `KeyError`,
+  `BoundsError` or `ArgumentError` from the disk and corner data.
+  Use the [normal adapter](../specs/ograph-colours.md#normal-adapter) and
+  [face-cycle comparison](../specs/ograph-colours.md#face-cycles).
+
+# Returns
+One vector of `(vertex, slot_lo, slot_hi)` corners per disk-table path, with
+path order and multiplicity retained, in the linked corner coordinates.
+
+# Guarantees
+1. Each returned vector has the length of the corresponding `disk_table(link).paths` entry. [proved/agent: by construction]
+2. Under the matching-presentation precondition, the result expresses the same disk-table circuit partition in the normal adapter's corner coordinates. [proved/agent: by construction]
+3. Neither argument is modified. [proved/agent: by construction]
+
+# Conventions
+Use the [normal adapter and slot transcription](../conventions/OGraphColours.md).
+
+# Not guaranteed
+This conversion alone neither verifies C1–C3 nor identifies the circuit
+partition with a spine; the dependencies of that identification are recorded
+in [Slot transcription](../specs/ograph-colours.md#slot-transcription).
+
+# Sources
+cf:docs/specs/ograph-colours.md#face-cycles — corner coordinates and comparison of the two circuit partitions.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone");
+
+julia> sum(length, disk_table_corners(v, ograph_state(v)))
+6
+```
+
+See also [`compare_disc_partition`](@ref).
+
+Role: convert
 """
 function disk_table_corners(link::VirtualLink, state::OGraphState)
     table = disk_table(link)
@@ -503,11 +1131,62 @@ function disk_table_corners(link::VirtualLink, state::OGraphState)
     discs
 end
 
-"""Exact partition comparison with `disk_table` on `link`.
+"""
+    compare_disc_partition(link::VirtualLink, colouring::ClosedNormalColouring; calibration::Symbol=:b) -> DiscPartitionComparison
 
-`link` is the registered presentation and `colouring.state` supplies the
-vertex signs of the Figure 3.4 and Figure 3.5 slot order. The comparison
-does not choose the calibration.
+Return a comparison record of the face-cycle and disk-table disc partitions of a normal presentation.
+
+# Arguments
+- `link` and `colouring` must describe the same labelled normal presentation;
+  obtain `colouring` with `normal_coloured_ograph(ograph_state(link))`.
+  This correspondence is a caller precondition and is not checked here.
+- `colouring.graph` must satisfy O0–O3 and `calibration` must be `:b` or `:a`,
+  as required by [`face_cycles`](@ref). Its `ArgumentError` failures propagate.
+- The disk-table and slot conversion must be defined for `link` and
+  `colouring.state`. Inconsistent manually assembled inputs can propagate
+  `KeyError`, `BoundsError` or `ArgumentError`; there is no dedicated
+  mismatched-presentation exception.
+
+# Returns
+`DiscPartitionComparison` with `ours` and `pipeline` the two sorted corner
+partitions, `equal::Bool` their equality, `germ_count::Int` the total number
+of corners in `ours`, and `unique_germs::Int` its number of distinct corners.
+See the [partition comparison](../specs/ograph-colours.md#face-cycles).
+
+# Guarantees
+1. `equal == (ours == pipeline)`. The comparison retains corner multiplicities
+   and disregards the cyclic order of corners within a disc. [proved/agent: by construction]
+2. The counts refer to `ours`, even when `equal` is false. [proved/agent: by construction]
+3. On corresponding inputs the result compares two combinatorial models
+   of the normal spine's discs under the selected calibration. It is
+   evidence about this input, with the scope specified on the linked page.
+   [proved/agent: by construction]
+
+# Conventions
+The corner coordinates and calibration are those of
+[Face cycles](../specs/ograph-colours.md#face-cycles) and
+[OGraphColours](../conventions/OGraphColours.md).
+
+# Not guaranteed
+Partition equality does not prove the general BP97 reconstruction, identify
+manifolds, or choose a calibration. No equality between the two presentations
+is inferred from the supplied `ClosedNormalColouring` type alone.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> link = vl_example("s3_abalone"); c = normal_coloured_ograph(ograph_state(link));
+
+julia> r = compare_disc_partition(link, c);
+
+julia> (r.equal, r.germ_count, r.unique_germs)
+(true, 6, 6)
+```
+
+See also [`face_cycles`](@ref), [`disk_table_corners`](@ref).
+
+Role: condition
 """
 function compare_disc_partition(link::VirtualLink, colouring::ClosedNormalColouring;
                                 calibration::Symbol=:b)
@@ -520,13 +1199,78 @@ function compare_disc_partition(link::VirtualLink, colouring::ClosedNormalColour
     DiscPartitionComparison(left == right, left, right, length(flat), length(unique(flat)))
 end
 
-"""Boundary of a regular neighbourhood of the polyhedron.
+"""
+    thickening_boundary(graph::ColouredOGraph; calibration::Symbol=:b) -> SpineBoundary
 
-One triangle per tetrahedron corner. Its three sides are the three incident
-faces, in the induced orientation of the face opposite that corner. Each face
-gluing pairs a side with the image side. The vertices of the surface are the
-cycles of that rotation system. Every side is paired, so each component is a
-closed surface.
+Return the component counts and Euler characteristics of the selected corner-link boundary model.
+
+# Arguments
+- `graph` must satisfy O0–O3 in the
+  [condition table](../specs/ograph-colours.md#condition-identifiers).
+  Failed conditions throw `ArgumentError` identifying the failing checks.
+- `calibration::Symbol` must be `:b` or `:a`; otherwise `ArgumentError` names
+  the choices. Inconsistent face or side pairings, corner membership or
+  boundary walks throw `ArgumentError` naming the failed check.
+- For the oriented regular-neighbourhood interpretation, require reversing
+  dual face pairs under the [face-orientation convention](../conventions/OGraphColours.md#四面体と-link-triangle-の向き)
+  and the geometric reconstruction assumptions linked below. Nonreversing
+  pairs are reported by the component flags, not rejected by this function.
+
+# Returns
+`SpineBoundary` with `components::Vector{SpineBoundaryComponent}` and
+`euler_sum::Int`. Each component records `euler`, `face_count`, `edge_count`,
+`vertex_count`, `orientable` and `closed_surface`; the counts refer to its
+corner-link cellulation. The flags are diagnostics for that model.
+Their exact scope is specified in
+[Boundary diagnostic flags](../specs/ograph-colours.md#boundary-diagnostic-flags).
+
+# Guarantees
+1. `euler_sum` equals the sum of the component Euler characteristics, and
+   each `euler == vertex_count - edge_count + face_count`.
+   For `n` graph vertices, the component face counts sum to `4n` and the
+   component edge counts sum to `6n`. [proved/agent: by construction]
+2. Every returned component has `closed_surface == true`. If every dual
+   face pair reverses orientation, every component has `orientable == true`.
+   [proved/agent: by construction]
+3. Under the [reconstruction interpretation](../specs/ograph-colours.md#face-cycles),
+   these components are the boundary of a regular neighbourhood of the
+   selected polyhedron. They need not form a single sphere.
+   [proved/agent: by construction]
+4. Components are sorted by `(euler, face_count, edge_count, vertex_count)`.
+   The input graph is unchanged. [proved/agent: by construction]
+
+# Conventions
+Use the selected leg calibration and the corner-link orientations on the
+convention page linked above. The separate ribbon construction is owned by
+[the boundary specification](../specs/ograph-colour-boundary.md).
+
+# Not guaranteed
+O0–O3 alone do not certify the geometric interpretation or the Euler relation
+between this boundary and the face-cycle polyhedron; the
+[documented move failures](../specs/ograph-colour-invariants.md#c-move-and-mp-move)
+exhibit that distinction. A false `orientable` flag is not a complete
+nonorientability certificate. A spherical boundary alone does not certify
+the closed-normal conditions or identify the capped 3-manifold.
+
+# Sources
+cf:[[BP97#^bp97-sec-0557]] §2.3 — the dual ideal triangulation; the corner-link boundary model is reconstructed.
+cf:[[BP97#^bp97-sec-0553]] Proposition 2.2.1 — the boundary surface associated with an o-graph; this function uses the separate slot model, not the ribbon construction of that proposition.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> b = thickening_boundary(g); c = only(b.components);
+
+julia> (b.euler_sum, c.euler, c.face_count, c.edge_count, c.vertex_count, c.orientable, c.closed_surface)
+(2, 2, 4, 6, 4, true, true)
+```
+
+See also [`dual_face_pairings`](@ref), [`face_cycles`](@ref).
+
+Role: invariant
 """
 function thickening_boundary(graph::ColouredOGraph; calibration::Symbol=:b)
     gluings = _slot_gluings(graph, calibration)
@@ -611,4 +1355,3 @@ function thickening_boundary(graph::ColouredOGraph; calibration::Symbol=:b)
         (component.euler, component.face_count, component.edge_count, component.vertex_count))
     SpineBoundary(components, sum(component.euler for component in components; init=0))
 end
-

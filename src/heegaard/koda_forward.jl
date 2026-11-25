@@ -2,11 +2,104 @@
 # conversion_spine.jl to_flow_spine / to_ograph (punctured Heegaard only).
 """Forward pipeline: LC/HC → forgotten Heegaard → punctured → spine → o-data."""
 
+"""
+    heegaard_to_spine(ph::PuncturedHeegaardDiagram) -> KodaConversionResult
+
+Construct the Koda spine record of a punctured legacy Heegaard diagram.
+
+# Arguments
+`ph` must satisfy [the punctured-diagram domain, §5](../specs/heegaard-koda-conversion.md#5-heegaard-条件と-joining-disk-の入力検査).
+Its joining disk is rechecked by `validate_joining_disk`; failures raise
+`ArgumentError` naming the invalid disk, diagram or boundary incidence.
+Inconsistent strand directions or crossing data can raise
+`KodaInputError` or `KodaImplementationError` with the conversion stage.
+The caller supplies the complete geometric hypotheses of §5; the record's
+existence alone does not certify them.
+
+# Returns
+`KodaConversionResult` with `value::FlowSpine`, `source_status == :constructed`,
+conversion choices and correspondence entries `true_vertices`, `d_gamma`
+and `vertex_free`. The spine retains its source and an unverified conversion
+certificate.
+
+# Guarantees
+1. The true-vertex correspondence consists of input intersections away
+   from the selected joining boundary. [proved/agent: by construction]
+2. The intended geometric object is the branched spine of the punctured
+   diagram's 3-manifold specified in §6.3.
+   [unverified: the general identification of the emitted finite record with the geometric Koda construction is not certified]
+3. The punctured input is not modified; it can be retained by reference in
+   the output. [proved/agent: by construction]
+
+# Not guaranteed
+Constructed status is not verified status. Disk sectors, a nonempty o-data
+encoding and a general manifold-identification certificate are not guaranteed.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§5–6.4 — punctured domain, the Koda spine and source correspondence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}()); ph = odata_to_heegaard_koda(g).value;
+
+julia> back = spine_to_odata(heegaard_to_spine(ph).value);
+
+julia> compare_odata_words(g, back)["equal_up_to_metadata"]
+true
+```
+
+See also [`spine_to_odata`](@ref), [`spine_topology`](@ref).
+
+Role: convert
+"""
 function heegaard_to_spine(ph::PuncturedHeegaardDiagram)
     _koda_combinatorial_spine_from_punctured(ph)
 end
 
-"""§6 from α/β crossing words and §5.2 joining boundary ports (no K in the diagram)."""
+"""
+    CombinatorialPuncturedInput(genus, crossings, alpha_words, beta_words, joining_boundary_ports) -> CombinatorialPuncturedInput
+
+Store punctured Heegaard crossing words and joining-boundary ports without a K marking.
+
+# Arguments
+`genus::Int`, `crossings::Vector{Dict{String,Any}}`, alpha and beta
+`Dict{String,Vector{Int}}` word maps, and a vector of `RegionPort` records,
+or convertible values. Conversion errors propagate. The caller supplies
+consistent data in [Koda conversion §§5.2–6](../specs/heegaard-koda-conversion.md);
+no embedded joining-disk or incidence validation occurs here.
+
+# Returns
+A `CombinatorialPuncturedInput` retaining the supplied genus, crossing
+records, curve words and joining-boundary ports.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed containers are
+   shared and not modified. [proved/agent: by construction]
+2. The result is an input record for the specified punctured-diagram spine
+   construction; construction of this record performs no conversion.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The record need not describe a valid punctured surface or joining disk.
+It carries no independent certificate of the associated 3-manifold.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§5.2–6 — joining-boundary data for the forward construction.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> x = CombinatorialPuncturedInput(0, Dict{String,Any}[], Dict{String,Vector{Int}}(), Dict{String,Vector{Int}}(), H.RegionPort[]); (x.genus, isempty(x.joining_boundary_ports))
+(0, true)
+```
+
+See also [`heegaard_to_spine`](@ref).
+
+Role: construct
+"""
 struct CombinatorialPuncturedInput
     genus::Int
     crossings::Vector{Dict{String, Any}}
@@ -15,6 +108,55 @@ struct CombinatorialPuncturedInput
     joining_boundary_ports::Vector{RegionPort}
 end
 
+"""
+    heegaard_to_spine(inp::CombinatorialPuncturedInput) -> KodaConversionResult
+
+Construct a Koda spine record from crossing words and a joining-boundary record.
+
+# Arguments
+`inp` supplies the crossing and boundary-port data of
+[§§5.2–6](../specs/heegaard-koda-conversion.md).
+The caller guarantees their geometric consistency and joining-disk conditions;
+this overload does not validate an embedded joining disk on a ribbon carrier.
+Empty `joining_boundary_ports` raises `KodaInputError` requesting that field.
+Missing or inconsistent curve directions and crossings raise Koda input or
+implementation errors; malformed dictionaries can also raise `KeyError`.
+
+# Returns
+`KodaConversionResult` with `value::FlowSpine`, `source_status == :constructed`,
+conversion choices and the `true_vertices`, `d_gamma`, `vertex_free`
+correspondence. The output retains its input as source data.
+
+# Guarantees
+1. The correspondence identifies the supplied crossings that remain away
+   from the joining corners. [proved/agent: by construction]
+2. Under the geometric domain of §§5–6, the intended result is the Koda
+   branched spine of the punctured diagram's 3-manifold.
+   [unverified: this overload does not certify a geometric realization of the supplied port record]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This low-level entrance does not certify a complete embedded Heegaard diagram
+or a closed normal o-graph encoding. Missing geometric input cannot be inferred
+from a successful word construction.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§5.2–6.4 — joining boundary ports and the Koda spine construction.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> inp = CombinatorialPuncturedInput(1, Dict{String,Any}[], Dict{String,Vector{Int}}(), Dict{String,Vector{Int}}(), Topology.HeegaardCodes.RegionPort[]);
+
+julia> try heegaard_to_spine(inp); false catch e; e isa KodaInputError end
+true
+```
+
+See also [`as_punctured_heegaard`](@ref), [`spine_to_odata`](@ref).
+
+Role: convert
+"""
 function heegaard_to_spine(inp::CombinatorialPuncturedInput)
   isempty(inp.joining_boundary_ports) &&
     throw(KodaInputError(:heegaard_to_spine, "joining_boundary_ports required", Dict()))
@@ -39,6 +181,60 @@ function _koda_original_punctured(forgot::ForgottenHeegaard, region::Combinatori
       "joining_region_faces" => copy(region.face_roots)), :constructed)
 end
 
+"""
+    heegaard_to_spine(forgot::ForgottenHeegaard; joining_region=nothing) -> KodaConversionResult
+
+Construct the Koda spine of a forgotten HC with a selected joining region.
+
+# Arguments
+`forgot` is a result of `forget_reference`. `joining_region` selects a region
+under [§5.2](../specs/heegaard-koda-conversion.md); when omitted it is selected
+only if exactly one joining-disk candidate exists. Otherwise `KodaInputError`
+requires a selection. A selected nonjoining region raises `KodaInputError`
+identifying §5.2. Selection, source-carrier and Koda consistency errors propagate;
+an invalid integer selection can raise `ArgumentError`.
+The caller supplies a consistent unmodified forgotten record.
+
+# Returns
+`KodaConversionResult` with a `FlowSpine`, `source_status == :constructed`, choices,
+source correspondence, and sector topology attached from the forgotten
+complement. `spine_path` records which available carrier was used.
+
+# Guarantees
+1. The selected region and remaining crossings determine the returned
+   source correspondence and sector records. [proved/agent: by construction]
+2. The intended result is the branched spine of the punctured 3-manifold
+   described by §§5–6, retaining nondisk sectors where present.
+   [unverified: general geometric realization and manifold identification of the emitted record remain uncertified]
+3. The forgotten input is not modified; the result can retain it as source
+   data. [proved/agent: by construction]
+
+# Not guaranteed
+Vertex-free spines and nondisk sectors need not admit `spine_to_odata`.
+Constructed status and finite correspondence checks do not independently
+establish the manifold identification in guarantee 2.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§5.2–6.4 — selected joining disk, singular circles and sector topology.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> root = normpath(joinpath(dirname(pathof(Topology)), "..", "..", ".."));
+
+julia> h = read_hc(joinpath(root, "threads", "PJ260922", "data", "261107-lickorish-data", "group-12", "case-01.hc"));
+
+julia> f = forget_reference(realize_hc(h));
+
+julia> spine_topology(heegaard_to_spine(f; joining_region=3).value)["vertex_free"]
+true
+```
+
+See also [`forget_reference`](@ref), [`spine_topology`](@ref), [`spine_to_odata`](@ref).
+
+Role: convert
+"""
 function heegaard_to_spine(forgot::ForgottenHeegaard; joining_region=nothing)
   sel = joining_region
   if sel === nothing
@@ -131,9 +327,52 @@ function _koda_virtual_image(spine::FlowSpine; stage::Symbol=:hc_to_odata, regul
     odata_to_virtual_link(odata), odata
 end
 
-"""Koda map from a Heegaard diagram to the VirtualLink that holds its o-graph.
+"""
+    hc_to_odata(H::CellularHeegaardDiagram; joining_disk=nothing, choices=Dict(), regularize=false) -> KodaConversionResult
 
-cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §2.2 — the value is that VirtualLink; its Gauss code is the smoothed o-graph
+Return the VirtualLink encoding of the Koda o-graph of a punctured cellular Heegaard diagram.
+
+# Arguments
+`H` and the explicit `joining_disk` satisfy
+[the punctured Koda domain](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk).
+A missing selection raises `KodaInputError`; an integer selects a checked
+region and a `JoiningDisk` must belong to the caller's diagram.
+Punctured, spine and encoding checks propagate. Unsupported non-disk sectors
+raise `KodaNotComputed`; `regularize=true` requests the supported regularization,
+not arbitrary repair. `choices` must be a compatible string-keyed dictionary.
+
+# Returns
+`KodaConversionResult` with `value::VirtualLink`, copied/extended `choices`,
+source-to-spine correspondence including `odata` and joining region, and
+`source_status=:constructed`.
+
+# Guarantees
+1. The value is the o-graph encoding of the constructed punctured Koda spine
+   in the linked conversion scope. [proved/agent: by construction]
+2. The explicit disk selection is retained in the returned choices and
+   correspondence. [proved/agent: by construction]
+3. The diagram and supplied choices are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not independently prove a general PL identification or
+transport a combing/framing. The selected disk and regularization have their
+own geometric hypotheses; unsupported sectors are not encoded as disks.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§2.2, 5–7 — punctured source and smoothed o-graph image.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]],[[1]],[H.Intersection(1,1,1,1)]); h = H.certify_heegaard(H.decorate(c,[[1]]));
+
+julia> try H.hc_to_odata(h) catch e; e isa H.KodaInputError && e.stage == :hc_to_odata end
+true
+```
+
+Role: convert
 """
 function hc_to_odata(H::HeegaardDiagram; joining_disk=nothing, choices=Dict{String, Any}(), regularize::Bool=false)
     disk = _selected_joining_disk(H, joining_disk)
@@ -201,6 +440,54 @@ function _resolve_hc_named_disk(hc::HeegaardCode, forgot::ForgottenHeegaard, sel
     Dict("disk" => key, "faces" => sort!(collect(wanted)), "regions" => ids)))
 end
 
+"""
+    hc_to_odata(hc::HeegaardCode; joining_disk=nothing, disk_name=nothing, disk_id=nothing, choices=Dict(), regularize=false) -> KodaConversionResult
+
+Return the VirtualLink encoding of the Koda spine associated with a resolved HC and joining disk.
+
+# Arguments
+`hc` satisfies the [forward Koda domain](../specs/heegaard-koda-conversion.md).
+Disk-selection keywords follow the joining-disk selection convention on that
+page. Ambiguous disk lines, unknown faces, nonregional disk support, absent
+candidates or failed joining conditions raise `KodaInputError`. Other
+realization and spine errors propagate. Unsupported sectors or vertex-free
+encoding raise `KodaNotComputed`; `regularize=true` requests only supported
+regularization. `choices` must be a mutable compatible string-keyed dictionary.
+
+# Returns
+`KodaConversionResult` with `value::VirtualLink`, updated `choices`, o-data
+and source/spine correspondences, and `source_status=:constructed`.
+
+# Guarantees
+1. Successful return contains the o-graph encoding of the constructed
+   punctured spine and records the selected joining region.
+   [proved/agent: by construction]
+2. Named disk support is matched to the whole forgotten region.
+   [proved/agent: by construction]
+3. The HC is not modified; the supplied `choices` dictionary is updated and
+   retained in the result, including on some failing paths.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Successful construction is not an independent general PL homeomorphism proof.
+Automatic disk selection does not preserve additional combing or Spinᶜ data.
+Regularization is not a general repair procedure.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§4.2, 5.2, 6–7 — disk support, selected puncture and o-graph output.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(-1,Dict(),Dict(),Dict(),Dict(),Dict(),nothing); hc = H.HeegaardCode(lc,Dict(),Dict(),Dict(),Dict(),nothing);
+
+julia> try H.hc_to_odata(hc) catch e; e isa H.KodaInputError end
+true
+```
+
+Role: convert
+"""
 function hc_to_odata(hc::HeegaardCode; joining_disk=nothing, disk_name=nothing, disk_id=nothing, choices=Dict{String, Any}(), regularize::Bool=false)
   validate_hc_input(hc)
   realized = realize_hc(hc)
@@ -301,6 +588,44 @@ function hc_to_odata(hc::HeegaardCode; joining_disk=nothing, disk_name=nothing, 
   KodaConversionResult(link, choices, corr, :constructed)
 end
 
+"""
+    hc_to_odata(lc_path::AbstractString, hc_path::AbstractString; kwargs...) -> KodaConversionResult
+
+Read an HC file and return its forward Koda o-graph conversion.
+
+# Arguments
+`hc_path` must be readable and accepted by `read_hc`; the LC named by that
+HC file must also be readable. `lc_path` is currently ignored.
+File, parse and [forward conversion](../specs/heegaard-koda-conversion.md)
+errors propagate. Keywords have the domain of `hc_to_odata(::HeegaardCode)`.
+
+# Returns
+The `KodaConversionResult` of the HC loaded from `hc_path`, whose value is
+the constructed `VirtualLink`.
+
+# Guarantees
+1. The result is the forward conversion of the HC file and its declared LC
+   dependency, independent of `lc_path`. [proved/agent: by construction]
+2. Input files are read without modification; a supplied mutable `choices`
+   keyword can be updated by the conversion. [proved/agent: by construction]
+
+# Not guaranteed
+This overload does not override or validate the HC file's LC reference
+against `lc_path`; see [the file-argument discrepancy](../specs/heegaard-koda-conversion.md#forward-file-lc-argument). The underlying conversion's geometric limits apply.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md — file-to-HC forward conversion domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> mktempdir() do dir; try H.hc_to_odata("ignored.lc",joinpath(dir,"absent.hc")) catch e; e isa SystemError end; end
+true
+```
+
+Role: convert
+"""
 function hc_to_odata(lc_path::AbstractString, hc_path::AbstractString; kwargs...)
   hc_to_odata(read_hc(hc_path); kwargs...)
 end

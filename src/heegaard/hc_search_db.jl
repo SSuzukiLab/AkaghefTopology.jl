@@ -16,6 +16,51 @@ function _hc_search_schema_path()
     normpath(joinpath(@__DIR__, "..", "..", "db", "hc_search_schema.sql"))
 end
 
+"""
+    migrate_hc_search_store!(store::MoveGraphStoreDB) -> MoveGraphStoreDB
+
+Install the HC-search tables and views in a move-graph store.
+
+# Arguments
+`store` must be an open writable store compatible with the base
+`MoveGraphStore` schema. The installed HC-search schema file must be readable.
+Database, file and schema errors propagate; an absent or unsupported
+HC-search schema version raises `ArgumentError` after the migration attempt.
+
+# Returns
+The same `store`, ready for the HC-search record operations.
+
+# Guarantees
+1. Successful return means the HC-search schema-version check passes.
+   [proved/agent: by construction]
+2. The store is modified to install the base and HC-search schema objects;
+   this operation constructs database structure, not a mathematical move
+   witness. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+This does not validate stored diagrams or prove the mathematical claims of
+search records. Base migration and HC migration are separate operations;
+failure is not a promise that the entire store remains unchanged.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:");
+
+julia> migrate_hc_search_store!(store) === store
+true
+
+julia> Topology.close_store!(store);
+```
+
+See also [`begin_hc_search_run!`](@ref), [`put_hc_search_state!`](@ref).
+
+Role: other
+"""
 function migrate_hc_search_store!(store::MoveGraphStore.MoveGraphStoreDB)
     MoveGraphStore.migrate!(store)
     MoveGraphStore._transaction(store.db) do
@@ -146,7 +191,50 @@ function _hc_form_data(form::HCCanonical)
     )
 end
 
-"""探索の鍵。`identity=:canonical` は `hc_canonical` の列、`:literal` は表記そのものである。"""
+"""
+    hc_search_state(hc::HeegaardCode; identity=:canonical) -> CanonicalState
+
+Return the move-graph state record for an HC under a selected identity mode.
+
+# Arguments
+`identity` is `:canonical`, `:literal` or the corresponding string; other
+values raise `ArgumentError`. Canonical mode requires the
+[canonical comparison domain](../specs/heegaard-code.md#comparison-records)
+and can raise `HCNotComputed`; writing and serialization errors propagate.
+
+# Returns
+`CanonicalState` with versioned identity data, the serialized HC writing
+payload, three-dimensional area, `hc-search` representation and genus complexity.
+
+# Guarantees
+1. Canonical mode keys the canonical comparison record; literal mode keys
+   the stored writing. [proved/agent: by construction]
+2. The HC is not modified and no database write occurs.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+The key is not a manifold homeomorphism invariant. Canonical identity has
+the limits of `hc_canonical`; serialization versions are part of identity.
+The [search-record specification](../specs/heegaard-code.md#hc-search-records) states the payload and identity schema.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — scope of canonical identity.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> H.hc_search_state(hc).state_id == H.hc_search_state(hc).state_id
+true
+```
+
+Role: convert
+"""
 function hc_search_state(hc::HeegaardCode; identity=:canonical)
     mode = _hc_identity(identity)
     writing = _hc_writing(hc)
@@ -171,12 +259,120 @@ function _store_hc_state!(store, state, hc, mode)
     state
 end
 
+"""
+    put_hc_search_state!(store::MoveGraphStoreDB, hc::HeegaardCode; identity=:canonical) -> CanonicalState
+
+Store an HC writing under its selected search identity.
+
+# Arguments
+`store` must be open, writable and migrated by `migrate_hc_search_store!`;
+an absent or unsupported HC-search schema raises `ArgumentError`.
+`identity` is `:canonical`, `:literal`, or the corresponding string; other
+symbol or string values raise `ArgumentError` naming the accepted modes.
+`hc` must satisfy the input obligations of `hc_search_state`; canonicalization,
+serialization and database errors propagate.
+
+# Returns
+The `CanonicalState` computed for this input, including its state ID,
+serialized identity, writing payload, schema version and genus complexity.
+
+# Guarantees
+1. Successful return stores the state and an HC-writing record under its ID.
+   Reusing an existing ID retains its previously stored HC writing.
+   [proved/agent: by construction]
+2. Canonical identity uses [HC comparison records](../specs/heegaard-code.md#comparison-records);
+   literal identity uses the stored writing representation. The identity is
+   a key for the chosen HC comparison, not a classification of 3-manifolds.
+   [proved/agent: by construction]
+3. The database is modified; `hc` is not modified.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+The returned writing need not be the representative retained for an already
+present ID. This call does not validate a move or certify manifold equivalence,
+and a failed database operation need not roll back every earlier write.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md §比較用記録 — HC identities and correspondence scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("l1" => :beta, "m1" => :alpha), Dict(), Dict(), Dict(), nothing);
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store); s = put_hc_search_state!(store, h);
+
+julia> hc_search_state(load_hc_search_state(store, s.state_id)).state_id == s.state_id
+true
+
+julia> Topology.close_store!(store);
+```
+
+See also [`hc_search_state`](@ref), [`load_hc_search_state`](@ref).
+
+Role: other
+"""
 function put_hc_search_state!(store::MoveGraphStore.MoveGraphStoreDB, hc::HeegaardCode; identity=:canonical)
     _require_hc_search_store(store)
     mode = _hc_identity(identity)
     _store_hc_state!(store, hc_search_state(hc; identity=mode), hc, mode)
 end
 
+"""
+    load_hc_search_state(store::MoveGraphStoreDB, state_id::AbstractString) -> Union{Nothing,HeegaardCode}
+
+Reconstruct an HC from the stored writing of a search state.
+
+# Arguments
+`store` must be open and migrated; absent or unsupported HC-search schemas
+raise `ArgumentError`. An unknown `state_id` is accepted. Stored JSON must
+have the supported writing schema and valid HC input: schema errors raise
+`ArgumentError`, HC validation errors propagate, and malformed fields can
+raise JSON, lookup or conversion errors.
+
+# Returns
+`nothing` when absent; otherwise a newly reconstructed `HeegaardCode` with
+the saved LC words, roles and annotations, and no source file paths.
+
+# Guarantees
+1. A present state is reconstructed from its recorded writing and passes
+   `validate_hc_input` before return. [proved/agent: by construction]
+2. The store is not modified. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+This does not reauthenticate a state ID, recompute its search identity or
+certify a manifold. If several writings share an identity, the stored writing
+is returned, not a requested representative or a canonical drawing.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("l1" => :beta, "m1" => :alpha), Dict(), Dict(), Dict(), nothing);
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store); s = put_hc_search_state!(store, h; identity=:canonical);
+
+julia> hc_search_state(load_hc_search_state(store, s.state_id); identity=:canonical).state_id == s.state_id
+true
+
+julia> Topology.close_store!(store);
+```
+
+See also [`put_hc_search_state!`](@ref), [`hc_search_state`](@ref).
+
+Role: access
+"""
 function load_hc_search_state(store::MoveGraphStore.MoveGraphStoreDB, state_id::AbstractString)
     _require_hc_search_store(store)
     row = MoveGraphStore._one(store.db, """
@@ -192,6 +388,62 @@ function _hc_script_snapshot(script_path::AbstractString)
     path, bytes2hex(sha256(read(path)))
 end
 
+"""
+    begin_hc_search_run!(store::MoveGraphStoreDB, script_path::AbstractString; label::AbstractString, scope=Dict{String,Any}()) -> String
+
+Create a running HC-search record with a snapshot of its provenance script's identity.
+
+# Arguments
+`store` must be open and migrated by `migrate_hc_search_store!`; an absent or
+unsupported HC schema throws `ArgumentError` explaining the schema problem.
+`script_path` must name an existing readable file; absence throws
+`ArgumentError` naming the path, and read errors propagate. `label` is a
+required string. `scope` must be representable by the search JSON format;
+unsupported values or integers outside `Int64` throw `ArgumentError`.
+Database errors propagate.
+
+# Returns
+The new run's identifier as a `String`, for `hc_search_run`, expansion and
+`finish_hc_search_run!`.
+
+# Guarantees
+1. On success, the database contains a run with status `"running"`, the
+   supplied label and scope, and the script's absolute path and content
+   digest at this call. [proved/agent: by construction]
+2. The store is modified; the script and scope are not modified and the
+   script is not executed. [proved/agent: by construction]
+3. The record identifies an experiment in the
+   [HC search interface](../specs/module-structure.md#31-moveapi);
+   it certifies no move, equivalence or manifold invariant.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+No search is started, no script bytes are archived, and no run is finished
+automatically. The identifier is not a reproducible mathematical state key.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store);
+
+julia> script = joinpath(pkgdir(Topology), "test", "heegaard", "hc_search.jl");
+
+julia> id = begin_hc_search_run!(store, script; label="round-trip", scope=Dict{String,Any}("identity" => "canonical"));
+
+julia> r = hc_search_run(store, id); (r.label, r.scope["identity"])
+("round-trip", "canonical")
+
+julia> Topology.close_store!(store);
+```
+
+See also [`hc_search_run`](@ref), [`finish_hc_search_run!`](@ref).
+
+Role: other
+"""
 function begin_hc_search_run!(store::MoveGraphStore.MoveGraphStoreDB, script_path::AbstractString;
                               label::AbstractString, scope=Dict{String,Any}())
     _require_hc_search_store(store)
@@ -209,6 +461,56 @@ function begin_hc_search_run!(store::MoveGraphStore.MoveGraphStoreDB, script_pat
     run_id
 end
 
+"""
+    hc_search_run(store::MoveGraphStoreDB, run_id::AbstractString) -> Union{Nothing,NamedTuple}
+
+Return the recorded status and operation counts of an HC search run.
+
+# Arguments
+`store` must be open and migrated by `migrate_hc_search_store!`.
+Schema checks raise `ArgumentError` for an absent or unsupported HC-search
+schema; database errors propagate. `run_id` is an opaque stored identifier;
+an unknown identifier is accepted.
+
+# Returns
+`nothing` if absent; otherwise a named tuple containing `run_id`,
+`script_path`, `script_sha256`, `label`, decoded `scope` and `counts`,
+`status`, and the integer counts `operations`, `successes`, `rejects`, `errors`.
+
+# Guarantees
+1. The returned status and supplied counts describe the stored run; operation
+   counts describe its currently stored operation rows. [proved/agent: by construction]
+2. Neither the store nor its recorded HC states are modified.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+A recorded success is not a mathematical proof that its move preserves the
+represented manifold. The distinction is owned by
+[move witnesses](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store);
+
+julia> script = joinpath(dirname(pathof(Topology)), "..", "test", "heegaard", "hc_search.jl");
+
+julia> id = begin_hc_search_run!(store, script; label="round-trip");
+
+julia> hc_search_run(store, id).label
+"round-trip"
+
+julia> Topology.close_store!(store);
+```
+
+See also [`begin_hc_search_run!`](@ref), [`finish_hc_search_run!`](@ref).
+
+Role: access
+"""
 function hc_search_run(store::MoveGraphStore.MoveGraphStoreDB, run_id::AbstractString)
     _require_hc_search_store(store)
     row = MoveGraphStore._one(store.db, """
@@ -231,6 +533,58 @@ function hc_search_run(store::MoveGraphStore.MoveGraphStoreDB, run_id::AbstractS
      rejects=Int(row.rejects), errors=Int(row.errors))
 end
 
+"""
+    finish_hc_search_run!(store::MoveGraphStoreDB, run_id::AbstractString; status::AbstractString, counts=Dict{String,Any}()) -> Union{Nothing,NamedTuple}
+
+Finish a running HC-search record and return its stored summary.
+
+# Arguments
+`store` must be an open migrated HC-search store. `status` is `"completed"`,
+`"budget-exhausted"` or `"failed"`; other values throw `ArgumentError`
+identifying an invalid terminal status. `counts` must fit the search JSON
+format, with unsupported values raising `ArgumentError`. Database and schema
+errors propagate. An absent `run_id` is accepted and yields `nothing`.
+
+# Returns
+`nothing` for an absent run, otherwise the named-tuple summary from
+`hc_search_run`: run ID, script path and digest, label, scope, status, counts,
+and recorded operation/success/rejection/error counts.
+
+# Guarantees
+1. A currently running record is updated with the requested terminal status,
+   counts and finish time. An already terminal record is left unchanged.
+   [proved/agent: by construction]
+2. The store can be modified; the supplied counts are not modified.
+   [proved/agent: by construction]
+3. This records the caller's experiment status in the
+   [search interface](../specs/module-structure.md#31-moveapi), without
+   validating a mathematical search result. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+The supplied counts are not checked against operations. Marking a run
+completed does not prove exhaustive search or any manifold equivalence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store);
+
+julia> id = begin_hc_search_run!(store, joinpath(pkgdir(Topology), "test", "heegaard", "hc_search.jl"); label="round-trip");
+
+julia> finish_hc_search_run!(store, id; status="completed").status
+"completed"
+
+julia> Topology.close_store!(store);
+```
+
+See also [`begin_hc_search_run!`](@ref), [`hc_search_run`](@ref).
+
+Role: other
+"""
 function finish_hc_search_run!(store::MoveGraphStore.MoveGraphStoreDB, run_id::AbstractString;
                                status::AbstractString, counts=Dict{String,Any}())
     status in _HC_SEARCH_TERMINAL || throw(ArgumentError("invalid terminal HC search status"))
@@ -325,7 +679,50 @@ end
 
 _hc_candidate_json(witness::LCMoveWitness) = _hc_stable_json(_hc_candidate_data(witness))
 
-"""`movable` が返す候補を、選択の安定な JSON で重複なく並べる。"""
+"""
+    hc_search_candidates(hc::HeegaardCode) -> Vector{LCMoveWitness}
+
+Return distinct recorded move candidates for an HC search state.
+
+# Arguments
+`hc` must be accepted by the registered move enumeration in
+[the HC move domain](../specs/heegaard-moves.md).
+Validation, candidate-enumeration and serialization errors propagate.
+
+# Returns
+A vector of `LCMoveWitness` candidates, unique under their stable serialized
+selection data and retaining first-occurrence order.
+
+# Guarantees
+1. Each returned witness comes from the input's registered move enumeration;
+   candidates with equal serialized selections appear only once.
+   [proved/agent: by construction]
+2. The input is not modified and no candidate is applied.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+Candidate enumeration is not an exhaustive list of geometric Heegaard moves.
+A candidate need not apply successfully or yield a new state or a distinct
+manifold; execution and inverse checks are separate.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §6 — candidate enumeration and move witnesses.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> length(H.hc_search_candidates(hc))
+9
+```
+
+Role: access
+"""
 function hc_search_candidates(hc::HeegaardCode)
     seen = Set{String}()
     result = LCMoveWitness[]
@@ -388,6 +785,56 @@ function _hc_snapshot(hc::HeegaardCode)
     (homology=homology, linking=linking)
 end
 
+"""
+    hc_search_same_homology(left::AbstractDict, right::AbstractDict) -> Bool
+
+Compare two successful HC-search homology summaries by their abelian-group data.
+
+# Arguments
+`left` and `right` are string-keyed homology dictionaries from
+the HC search snapshot. Missing or false `"ok"` returns `false`.
+When both are successful, the caller supplies `"free_rank"` and `"torsion"`
+in the normalized form of `hc_first_homology`; absent keys raise `KeyError`,
+and non-Boolean `"ok"` values can raise a Boolean-context `TypeError`.
+Hand-written, unnormalized torsion lists have no group-isomorphism guarantee.
+
+# Returns
+`Bool`, requiring both successful flags and equal free rank and torsion data.
+
+# Guarantees
+1. On normalized successful summaries, `true` means the recorded finitely
+   generated abelian groups are isomorphic; Smith factors equal to one do
+   not affect the result. [proved/agent: by construction]
+2. Neither dictionary is modified. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+Failure to compute either summary returns `false` without establishing that
+the groups differ. Equality does not identify the represented 3-manifolds.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — first homology as the abelianization of the presentation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("l1" => :beta, "m1" => :alpha), Dict(), Dict(), Dict(), nothing);
+
+julia> hom = hc_first_homology(h); d = Dict("ok" => true, "free_rank" => hom.free_rank, "torsion" => hom.torsion);
+
+julia> hc_search_same_homology(d, d)
+true
+```
+
+See also [`hc_first_homology`](@ref), [`hc_search_explore`](@ref).
+
+Role: condition
+"""
 function hc_search_same_homology(left::AbstractDict, right::AbstractDict)
     # `invariant_factors` in this code keeps the Smith 1s, so it changes with the presentation.
     # The group is the free rank together with the torsion coefficients above 1.
@@ -402,7 +849,50 @@ function _hc_rational_matrix(entries)
     reshape(values, n, n)
 end
 
-"""出発点の絡み形式と同じか。巡回成分は向きを保つ自己同型、それ以外は行列そのものを比べる。"""
+"""
+    hc_search_same_linking(left::AbstractDict, right::AbstractDict) -> Bool
+
+Compare two stored linking-form snapshots under the search's supported coordinate tests.
+
+# Arguments
+Each successful snapshot supplies `ok`, `free_rank`, `torsion` and serialized
+rational `matrix` entries from the HC-search invariant snapshot format.
+Missing successful-record fields, invalid rational strings and nonsquare
+matrix arrays raise lookup, parse or `ArgumentError` exceptions.
+The caller supplies valid positive torsion orders and consistent dimensions.
+An absent or false `ok` returns false.
+
+# Returns
+A Boolean indicating that the available snapshots pass the supported
+linking-form comparison.
+
+# Guarantees
+1. A true result has matching free rank and torsion orders and passes the
+   implemented matrix/isometry comparison. [proved/agent: by construction]
+2. Neither dictionary is modified. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+This is not a general finite-linking-form isometry algorithm: multiple
+factors and cyclic orders above 10000 use literal matrix equality. False can
+mean unavailable data or unsupported coordinate equivalence, not different
+manifolds. The snapshot schema is specified in [HC search records](../specs/heegaard-code.md#hc-search-records).
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md — linking-form coordinate and search interpretation boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> s = Dict("ok"=>true,"free_rank"=>0,"torsion"=>Int[]); H.hc_search_same_linking(s,s)
+true
+```
+
+Role: condition
+"""
 function hc_search_same_linking(left::AbstractDict, right::AbstractDict)
     get(left, "ok", false) && get(right, "ok", false) || return false
     left["free_rank"] == right["free_rank"] || return false
@@ -454,10 +944,59 @@ function _hc_invariant_notes!(problems, start_snap, snap, row_id, depth, detail,
 end
 
 """
-一状態の候補をすべて適用し、遷移を保存する。
+    expand_hc_search_state!(store::MoveGraphStoreDB, run_id::AbstractString, source::HeegaardCode; depth=0, identity=:canonical, room=typemax(Int), check_inverse=true, check_invariants=false, start_snap=nothing, problems=nothing, on_problem=nothing) -> NamedTuple
 
-`depth` は出発状態までの辺の数。新しい状態をあと `room` 個しか置けないとき、
-新しい状態を作る候補に達した時点で、その候補以降は適用しない。
+Store attempted outgoing HC-move transitions from one search state.
+
+# Arguments
+`store` must be open, writable and migrated for HC search; the schema is checked.
+`run_id` must be usable by the store's run records. `identity` is `:canonical`
+or `:literal`, checked with `ArgumentError`. `depth` and `room` convert to `Int`;
+callers supply meaningful nonnegative search limits. `source` must be accepted
+by the [HC move domain](../specs/heegaard-moves.md).
+Optional invariant checking needs `start_snap` and a mutable `problems` collection;
+`on_problem`, when supplied, must accept the recorded problem.
+
+# Returns
+A named tuple with `records` (operation, move-row, outcome, inverse status,
+target ID, target diagram and target depth), `created` (new states), `stopped`
+(capacity stopped enumeration), `source_state_id` and `candidate_count`.
+
+# Guarantees
+1. Returned records describe attempted transitions from the stored source;
+   an `ok` inverse status means the chosen state identity returned to the
+   source identity. [proved/agent: by construction]
+2. At most `room` new target states are admitted when `room` is nonnegative;
+   existing target states do not consume capacity. [proved/agent: by construction]
+3. The store and supplied problem collection can be modified. No mutation
+   of `source` is requested by this entry. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+State-key agreement is not a proof of manifold equivalence beyond the move's
+own witness. Failed operations may already have written states. Callbacks,
+SQL writes and candidate construction can throw; there is no all-or-nothing
+transaction. At the capacity boundary a candidate can have been computed
+without its operation being recorded.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §6 — move candidates, witnesses and partial domains.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> store = Topology.open_store(":memory:"); H.migrate_hc_search_store!(store); hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> try H.expand_hc_search_state!(store, "unused", hc; identity=:unknown) catch e; e isa ArgumentError end
+true
+
+julia> Topology.close_store!(store);
+```
+
+Role: other
 """
 function expand_hc_search_state!(store::MoveGraphStore.MoveGraphStoreDB, run_id::AbstractString,
                                  source::HeegaardCode;
@@ -572,6 +1111,53 @@ function expand_hc_search_state!(store::MoveGraphStore.MoveGraphStoreDB, run_id:
      candidate_count=length(candidates))
 end
 
+"""
+    hc_search_neighbors(store::MoveGraphStoreDB, state_id::AbstractString; row_ids=nothing) -> Vector
+
+Return stored successful outgoing edges of an HC-search state.
+
+# Arguments
+`store` must be open and migrated by `migrate_hc_search_store!`; schema
+checks raise `ArgumentError` and database errors propagate. `state_id` is
+the stored source identifier. Optional `row_ids` is an iterable of move-row
+names convertible to strings; conversion errors propagate. An empty filter
+is accepted and selects no edges.
+
+# Returns
+A vector of named tuples with `operation_id`, `run_id`, `source_state_id`,
+`target_state_id`, `depth`, `row_id`, `inverse_status`, and decoded `candidate`.
+
+# Guarantees
+1. The result consists of the stored successful edges for that source and
+   filter, ordered by depth, row ID and operation ID.
+   [proved/agent: by construction]
+2. The query does not create neighbors or modify the store.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+The result is not the set of all mathematically possible moves, and successful
+rows do not independently certify manifold equivalence. See
+[move witnesses](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store);
+
+julia> isempty(hc_search_neighbors(store, "absent"; row_ids=String[]))
+true
+
+julia> Topology.close_store!(store);
+```
+
+See also [`expand_hc_search_state!`](@ref), [`query_hc_search_paths`](@ref).
+
+Role: access
+"""
 function hc_search_neighbors(store::MoveGraphStore.MoveGraphStoreDB, state_id::AbstractString; row_ids=nothing)
     _require_hc_search_store(store)
     if row_ids === nothing
@@ -596,6 +1182,57 @@ function hc_search_neighbors(store::MoveGraphStore.MoveGraphStoreDB, state_id::A
       candidate=JSON.parse(String(row.candidate_json))) for row in rows]
 end
 
+"""
+    query_hc_search_paths(store::MoveGraphStoreDB, source_state_id::AbstractString; target_state_id, min_depth=1, max_depth=12, limit=100, row_ids=nothing) -> Vector{NamedTuple}
+
+Return bounded simple paths through recorded successful HC-search transitions.
+
+# Arguments
+`store` must be open and migrated by `migrate_hc_search_store!`; schema checks
+raise `ArgumentError`, and database errors propagate. Source and target are
+stored state identifiers. Checked: `0 <= min_depth <= max_depth` and
+`limit > 0`; `ArgumentError` identifies invalid depth bounds or a nonpositive
+limit. `row_ids`, when supplied, is an iterable of move-row names convertible
+to strings. The caller uses identifiers produced by the store.
+
+# Returns
+A vector of `(depth, steps)` named tuples. Each step has `operation_id`,
+`source_state_id`, `target_state_id`, stored `depth`, `row_id`,
+`inverse_status`, and decoded `candidate`. Path depth counts its edges;
+a step's stored depth belongs to the recorded exploration.
+
+# Guarantees
+1. Returned paths connect the requested identifiers using successful edges
+   allowed by the filter, with no repeated state, within the depth bounds.
+   Results are ordered by path depth and their serialized operation-ID
+   sequence, truncated to `limit`. [proved/agent: by construction]
+2. An empty row filter returns no paths. The query does not modify the store.
+   [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+A missing path is not evidence of inequivalent manifolds. A recorded path
+inherits the [move witness limitations](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+This query does not generate moves or replay their witnesses.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> store = Topology.open_store(":memory:"); migrate_hc_search_store!(store);
+
+julia> paths = query_hc_search_paths(store, "absent"; target_state_id="absent", min_depth=0); (length(paths), paths[1].depth, isempty(paths[1].steps))
+(1, 0, true)
+
+julia> Topology.close_store!(store);
+```
+
+See also [`hc_search_neighbors`](@ref).
+
+Role: access
+"""
 function query_hc_search_paths(store::MoveGraphStore.MoveGraphStoreDB, source_state_id::AbstractString;
                                target_state_id::AbstractString, min_depth::Integer=1,
                                max_depth::Integer=12, limit::Integer=100, row_ids=nothing)
@@ -651,10 +1288,57 @@ function query_hc_search_paths(store::MoveGraphStore.MoveGraphStoreDB, source_st
 end
 
 """
-深さ `max_depth` 未満の状態だけを広げ、状態数が `max_states` に達したら止める。
+    hc_search_explore(root::HeegaardCode, store::MoveGraphStoreDB, script_path::AbstractString; label::AbstractString, identity=:canonical, max_depth=3, max_states=2000, check_invariants=true, progress=false, on_problem=nothing) -> NamedTuple
 
-深さは辺の数である。出発点は深さ 0 で、状態数に含まれる。
-`identity` はこの探索の間は変えない。正規形が途中で予算を超えたときは、その遷移を鍵の失敗として残す。
+Explore and record a bounded HC move graph from a root diagram.
+
+# Arguments
+`store` must be open and writable; the HC-search schema is migrated.
+`script_path` must satisfy `begin_hc_search_run!` and `label` names the run.
+`identity` is a supported canonical/literal mode, and nonnegative depth and
+positive state bounds are checked with `ArgumentError`. The root must satisfy
+[the HC move domain](../specs/heegaard-moves.md). Optional `on_problem` accepts
+a recorded problem; database, script, callback and root-state errors propagate.
+
+# Returns
+A named tuple with run identity and record, `status`, counts, reached
+`states`, `transitions`, `depth`, initial invariant snapshot and `problems`.
+
+# Guarantees
+1. The run records attempted moves at source depths below `max_depth` and
+   uses one identity mode throughout. [proved/agent: by construction]
+2. Invariant discrepancies are reported as problems, not silently converted
+   into successful equivalence proofs. [proved/agent: by construction]
+3. The store is modified, optional progress is printed and callbacks may run;
+   the root is not modified by this entry. [proved/agent: by construction]
+
+# Conventions
+HC search-record format: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#hc-search-records).
+
+# Not guaranteed
+This is not a complete manifold-equivalence search. Completion means the
+implemented bounded exploration completed, not that every geometric move was
+tried. A prepopulated store and shared state identities affect capacity
+accounting; there is no transaction rolling back an entire failed run.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md#comparison-and-move-witnesses — search records and equivalence evidence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> store = Topology.open_store(":memory:");
+
+julia> try H.hc_search_explore(hc,store,"unused"; label="example",max_depth=-1) catch e; e isa ArgumentError end
+true
+
+julia> Topology.close_store!(store);
+```
+
+Role: other
 """
 function hc_search_explore(root::HeegaardCode, store::MoveGraphStore.MoveGraphStoreDB,
                            script_path::AbstractString;

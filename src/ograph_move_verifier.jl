@@ -32,7 +32,47 @@ struct OGraphCPBoundaryCertificate
     right_steps::Vector{OGraphCPBoundaryStep}
 end
 
-"One unchanged Gauss occurrence tracked across the raw local rewrite."
+"""
+    OGraphOutsideOccurrence(source_component, source_position, target_component, target_position, source_entry, target_entry) -> OGraphOutsideOccurrence
+
+Store a correspondence of one exterior Gauss occurrence across a local move.
+
+# Arguments
+All six fields must be convertible to `Int`; conversion errors propagate.
+They have the meanings in the [outside-region verification contract](../specs/ograph-move-verifier.md#verified-transition-contract).
+Membership in the source and target and the claimed correspondence are the
+caller's responsibility; this constructor checks neither endpoint.
+
+# Returns
+An `OGraphOutsideOccurrence` with source and target component/position
+coordinates and their signed Gauss entries.
+
+# Guarantees
+1. All fields equal the supplied values after integer conversion.
+   Inputs are unchanged. [proved/agent: by construction]
+2. When supplied by a successful move verifier, the record tracks the exterior
+   occurrence in its raw presentation rewrite. Direct construction asserts
+   no equivalence of spaces. [proved/agent: by construction]
+
+# Not guaranteed
+Indices need not be positive or in range. The record does not verify a
+crossing-label map, adjacency or a geometric move by itself.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §Verified transition contract — occurrence-level exterior evidence.
+
+# Examples
+```jldoctest
+julia> o = OGraphOutsideOccurrence(1, 7, 1, 5, 4, 3);
+
+julia> (o.source_position, o.target_position, o.source_entry, o.target_entry)
+(7, 5, 4, 3)
+```
+
+See also [`OGraphMoveWitness`](@ref), [`replay_ograph_move`](@ref).
+
+Role: construct
+"""
 struct OGraphOutsideOccurrence
     source_component::Int
     source_position::Int
@@ -42,13 +82,100 @@ struct OGraphOutsideOccurrence
     target_entry::Int
 end
 
-"The exact root and label map used by presentation canonicalization."
+"""
+    OGraphCanonicalizationWitness(root_occurrence, raw_to_canonical_labels) -> OGraphCanonicalizationWitness
+
+Store the root and crossing-label map of a presentation canonicalization.
+
+# Arguments
+`root_occurrence` must convert to `Int` and `raw_to_canonical_labels` to
+`Vector{Int}`; conversion errors propagate. The caller supplies a valid map
+for the intended raw and canonical states. No state or map check is performed.
+
+# Returns
+An `OGraphCanonicalizationWitness` carrying the root and label correspondence
+used by [endpoint verification](../specs/ograph-move-verifier.md#verified-transition-contract).
+
+# Guarantees
+1. Fields preserve the supplied data after conversion. A supplied `Vector{Int}`
+   is retained without copying. [proved/agent: by construction]
+2. A record produced by the move verifier concerns presentation coordinates;
+   canonicalization is not itself a move or a manifold identification.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not check root range, a label permutation or equality
+with a canonical endpoint. Mutation of a retained vector can invalidate a
+witness. Its coordinate meaning is fixed in the
+[witness field specification](../specs/ograph-move-verifier.md#witness-coordinates-and-serialization).
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §Verified transition contract — raw-to-canonical endpoint maps.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> c = only(movable(source, "MP"; param="D2", vertices=[1,2,3], strict=true)); w = deepcopy(something(verify_ograph_move(source, c).witness));
+
+julia> old = w.source_canonicalization; labels = OGraphCanonicalizationWitness(old.root_occurrence, copy(old.raw_to_canonical_labels)); copyto!(w.source_canonicalization.raw_to_canonical_labels, labels.raw_to_canonical_labels);
+
+julia> replay_ograph_move(w).valid
+true
+```
+
+See also [`canonicalize_ograph`](@ref), [`OGraphMoveWitness`](@ref).
+
+Role: construct
+"""
 struct OGraphCanonicalizationWitness
     root_occurrence::Int
     raw_to_canonical_labels::Vector{Int}
 end
 
-"One oriented Method-B lane segment, retaining its GC edge occurrence."
+"""
+    OGraphMethodBLaneStep(edge_id, component, tail_occurrence, head_occurrence, lane, from_node, to_node) -> OGraphMethodBLaneStep
+
+Store one oriented Method-B lane segment with its Gauss-edge occurrence.
+
+# Arguments
+All seven fields must be convertible to `Int`; conversion errors propagate.
+Their lane and node coordinates are owned by the
+[PS gate specification](../specs/ograph-move-verifier.md#ps-gate).
+The caller must ensure correspondence to a real segment; it is not checked.
+
+# Returns
+An `OGraphMethodBLaneStep` with the edge ID, component, endpoint occurrences,
+lane and directed local-node endpoints supplied by the caller.
+
+# Guarantees
+1. The record stores the converted field values without modifying inputs.
+   [proved/agent: by construction]
+2. For data from a verified PS witness, the step belongs to the specified
+   Method-B circuit of its evaluated raw endpoint. Construction alone is not
+   a PS admissibility test. [proved/agent: by construction]
+
+# Not guaranteed
+No positivity, lane range, incidence, continuity or membership is validated.
+A single step does not establish a closed circuit or a geometric move.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §PS gate — oriented lane segments and the source-transcribed Method-B frame.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-4,-3,-2,-1,1,2,3,4]], orientation=[1,-1,-1,-1]); c = only(movable(source, "PS"; vertices=[1,2], strict=true));
+
+julia> m = something(something(verify_ograph_move(source, c).witness).method_b); s = first(filter(s -> s.edge_id == m.right_edge_id && s.lane == m.right_lane, m.circuit_trace));
+
+julia> copy = OGraphMethodBLaneStep(s.edge_id, s.component, s.tail_occurrence, s.head_occurrence, s.lane, s.from_node, s.to_node); (copy.edge_id, copy.lane)
+(3, 2)
+```
+
+See also [`OGraphPSMethodBWitness`](@ref), [`replay_ograph_move`](@ref).
+
+Role: construct
+"""
 struct OGraphMethodBLaneStep
     edge_id::Int
     component::Int
@@ -59,7 +186,49 @@ struct OGraphMethodBLaneStep
     to_node::Int
 end
 
-"One inverse-PS source patch gap transported to an edge occurrence of the raw target."
+"""
+    OGraphPSGapBoundary(fragment_index, source_component, source_fragment_positions, source_predecessor_position, source_successor_position, source_predecessor_entry, source_successor_entry, target_component, target_tail_occurrence, target_head_occurrence, target_tail_entry, target_head_entry, target_edge_id) -> OGraphPSGapBoundary
+
+Store a PS patch gap and the edge occurrence on which its Method-B condition is evaluated.
+
+# Arguments
+All fields except `source_fragment_positions` convert to `Int`; that field
+converts to `Vector{Int}`. Conversion errors propagate. Incidence and agreement
+with a PS rewrite in the [PS gate](../specs/ograph-move-verifier.md#ps-gate)
+are the caller's responsibility and are not checked by this constructor.
+
+# Returns
+An `OGraphPSGapBoundary` with the fields and direction-dependent endpoint
+meanings in the [witness field specification](../specs/ograph-move-verifier.md#witness-coordinates-and-serialization).
+
+# Guarantees
+1. Fields retain the supplied values after conversion; an input `Vector{Int}`
+   is shared without copying. [proved/agent: by construction]
+2. A computed gap record describes a selected PS source gap or a gap resulting
+   from inverse deletion, with the evaluated side specified by the linked
+   convention. It does not describe a boundary component of a 3-manifold.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Range, adjacency, fragment disjointness and target edge identity are not
+validated. Distinct fragments can produce the same target edge occurrence.
+This record alone is not a Method-B global-circuit certificate.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §PS gate — boundary gaps and the endpoint on which Method B is evaluated.
+
+# Examples
+```jldoctest
+julia> g = OGraphPSGapBoundary(1, 1, [5,6], 2, 7, -3, 3, 1, 2, 3, -1, 1, 3);
+
+julia> (g.target_component, g.target_tail_occurrence, g.target_head_occurrence, g.target_tail_entry, g.target_head_entry, g.target_edge_id)
+(1, 2, 3, -1, 1, 3)
+```
+
+See also [`OGraphPSMethodBWitness`](@ref), [`OGraphMoveWitness`](@ref).
+
+Role: construct
+"""
 struct OGraphPSGapBoundary
     fragment_index::Int
     source_component::Int
@@ -76,7 +245,54 @@ struct OGraphPSGapBoundary
     target_edge_id::Int
 end
 
-"Source-grounded global circuit evidence for a pure sliding candidate."
+"""
+    OGraphPSMethodBWitness(paper_type, parameter, evaluated_state_side, evaluated_state_sha256, gap_boundaries, left_edge_id, right_edge_id, left_lane, right_lane, circuit_id, circuit_trace) -> OGraphPSMethodBWitness
+
+Store the global Method-B circuit evidence attached to a pure sliding move.
+
+# Arguments
+Supply string-convertible paper type, parameter and hash, a symbol-convertible
+evaluated side, vectors of `OGraphPSGapBoundary` and `OGraphMethodBLaneStep`,
+and integer-convertible edge, lane and circuit IDs. Conversion errors propagate.
+The [PS gate](../specs/ograph-move-verifier.md#ps-gate) conditions are the
+caller's responsibility; this constructor does not validate them.
+
+# Returns
+An `OGraphPSMethodBWitness` with the metadata, evaluated endpoint, gaps, lane
+pairs and trace defined in the
+[witness field specification](../specs/ograph-move-verifier.md#witness-coordinates-and-serialization).
+
+# Guarantees
+1. Fields equal the supplied values after conversion. Vectors already of the
+   declared types are shared without copying. [proved/agent: by construction]
+2. A verified record relates the two specified lanes through Method B in the
+   raw endpoint required by the PS gate. The record alone establishes no
+   topological equivalence. [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction accepts inconsistent metadata, stale hashes, disconnected
+traces and inappropriate endpoint sides. It does not recompute the circuit or
+prove that a candidate is a valid pure sliding move.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §PS gate — source-specific lane and circuit requirements for PS-I–IV.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-4,-3,-2,-1,1,2,3,4]], orientation=[1,-1,-1,-1]); c = only(movable(source, "PS"; vertices=[1,2], strict=true));
+
+julia> m = something(something(verify_ograph_move(source, c).witness).method_b);
+
+julia> copy = OGraphPSMethodBWitness(m.paper_type, m.parameter, m.evaluated_state_side, m.evaluated_state_sha256, m.gap_boundaries, m.left_edge_id, m.right_edge_id, m.left_lane, m.right_lane, m.circuit_id, m.circuit_trace);
+
+julia> (copy.paper_type, copy.evaluated_state_side, copy.left_edge_id, copy.left_lane, copy.right_edge_id, copy.right_lane)
+("PS-III", :target_raw, 3, 1, 3, 2)
+```
+
+See also [`OGraphMoveWitness`](@ref), [`verify_ograph_move`](@ref).
+
+Role: convert
+"""
 struct OGraphPSMethodBWitness
     paper_type::String
     parameter::String
@@ -91,7 +307,57 @@ struct OGraphPSMethodBWitness
     circuit_trace::Vector{OGraphMethodBLaneStep}
 end
 
-"Replayable evidence for one concrete raw move followed by canonicalization."
+"""
+    OGraphMoveWitness(schema, verifier_version, move_type, parameter, direction, vertices, source_locations, target_locations, source_raw, target_raw, source_canonical, target_canonical, source_raw_sha256, target_raw_sha256, source_closedness, target_closedness, source_to_target_vertices, outside_occurrences, outside_adjacencies, source_canonicalization, target_canonicalization, method_b) -> OGraphMoveWitness
+
+Store replay evidence for a concrete raw o-graph move and its canonical endpoints.
+
+# Arguments
+Arguments must convert to the declared field types: string metadata and hashes,
+symbol direction, integer vertex and occurrence vectors, four `OGraphState`
+endpoints, two `ClosednessWitness` records, exterior occurrence/adjacency
+vectors, two `OGraphCanonicalizationWitness` records, and either `nothing` or
+an `OGraphPSMethodBWitness`. Conversion errors propagate. Consistency under the
+[verified transition contract](../specs/ograph-move-verifier.md#verified-transition-contract)
+is the caller's responsibility; direct construction performs no verification.
+
+# Returns
+An `OGraphMoveWitness` storing the move descriptor, raw and canonical source
+and target, their evidence and correspondence fields, and optional PS data.
+The [witness field specification](../specs/ograph-move-verifier.md#witness-coordinates-and-serialization)
+owns their semantic roles and coordinate translations.
+
+# Guarantees
+1. Fields retain their supplied values after conversion. Vectors already of
+   the declared types, and nested witness data, are shared without copying.
+   [proved/agent: by construction]
+2. A value from successful `verify_ograph_move` records that operation's
+   source-grounded transition between presentations. Constructing the record
+   does not perform the move or strengthen its geometric scope.
+   [proved/agent: by construction]
+
+# Not guaranteed
+No field coherence, schema support, closedness, raw rewrite, outside-region
+agreement or source gate is checked here. Use `replay_ograph_move` before
+trusting stored or externally assembled evidence. Retained vectors remain mutable.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §Verified transition contract and §Persistence and replay — the scope of a move witness.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6)); c = only(movable(source, "MP"; param="D2", vertices=[1,2,3], strict=true));
+
+julia> w = something(verify_ograph_move(source, c).witness); copy = OGraphMoveWitness((getfield(w, f) for f in fieldnames(OGraphMoveWitness))...);
+
+julia> replay_ograph_move(copy).valid
+true
+```
+
+See also [`ograph_move_witness_data`](@ref), [`replay_ograph_move`](@ref).
+
+Role: convert
+"""
 struct OGraphMoveWitness
     schema::String
     verifier_version::String
@@ -117,6 +383,53 @@ struct OGraphMoveWitness
     method_b::Union{Nothing,OGraphPSMethodBWitness}
 end
 
+"""
+    OGraphMoveVerification(valid, reason, witness, error) -> OGraphMoveVerification
+
+Store the reported outcome and evidence of an o-graph move verification.
+
+# Arguments
+`valid::Bool`, `reason::Symbol`, `witness::Union{Nothing,OGraphMoveWitness}`
+and `error::Union{Nothing,String}`, or values convertible to these types.
+Conversion errors propagate. Direct construction performs no replay or
+consistency check.
+
+# Returns
+`OGraphMoveVerification` with the supplied acceptance flag, reason code,
+optional move witness and optional error text.
+
+# Guarantees
+1. Fields contain the supplied values after conversion. A supplied witness
+   is retained, including its mutable nested data. [proved/agent: by construction]
+2. For output of [`verify_ograph_move`](@ref) or [`replay_ograph_move`](@ref),
+   the result concerns one concrete transition between normal o-graph
+   presentations under the [verified transition contract](../specs/ograph-move-verifier.md#verified-transition-contract).
+   This record constructor supplies storage, not that verification.
+   [proved/agent: by construction]
+
+# Not guaranteed
+`valid=true` on a manually constructed record does not certify a move.
+The constructor permits mutually inconsistent flags, reasons and evidence.
+No completeness of move enumeration, equivalence classification, or
+verification of arbitrary external evidence follows from the record type.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §Verified transition contract — the scope of a reported replay result and its source-specific move gates.
+
+# Examples
+```jldoctest
+julia> r = replay_ograph_move((unsupported=true,));
+
+julia> stored = OGraphMoveVerification(r.valid, r.reason, r.witness, r.error);
+
+julia> (stored.valid, stored.reason)
+(false, :stored_witness_invalid)
+```
+
+See also [`verify_ograph_move`](@ref), [`replay_ograph_move`](@ref).
+
+Role: convert
+"""
 struct OGraphMoveVerification
     valid::Bool
     reason::Symbol
@@ -151,6 +464,51 @@ function _ograph_raw_serialization(state::OGraphState)
         "vertex_signs=$(join(state.vertex_signs, ','))"
 end
 
+"""
+    ograph_raw_hash(state::OGraphState) -> String
+
+Return the replay fingerprint of an ordered o-graph state.
+
+# Arguments
+`state` is an `OGraphState` satisfying its constructor's
+[representation checks](../specs/ograph-terminology.md#enforcement).
+No further closedness or geometric check is made.
+
+# Returns
+A 64-character lowercase hexadecimal SHA-256 `String` for the raw state.
+
+# Guarantees
+1. The fingerprint retains the stored root, crossing labels, signs and
+   convention identifier. Equal fields give equal fingerprints.
+   [proved/agent: by construction]
+2. It identifies the ordered presentation used by
+   [move-witness replay](../specs/ograph-move-verifier.md), without modifying
+   the state. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a manifold or group invariant, and does not quotient re-rooting
+or relabelling. Hash equality is not a collision-free proof. Cross-version
+byte compatibility is not promised by a versioned raw-serialization page.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md — raw endpoints and persisted replay witnesses.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> candidate = only(movable(source, "MP"; param="D2", vertices=[1,2,3], strict=true));
+
+julia> w = something(verify_ograph_move(source, candidate).witness);
+
+julia> w.source_raw_sha256 == ograph_raw_hash(w.source_raw)
+true
+```
+
+See also [`ograph_canonical_hash`](@ref), [`ograph_move_witness_data`](@ref).
+
+Role: invariant
+"""
 ograph_raw_hash(state::OGraphState) =
     bytes2hex(SHA.sha256(codeunits(_ograph_raw_serialization(state))))
 
@@ -163,6 +521,51 @@ function _ograph_raw_link_serialization(link::VirtualLink)
         "vertex_signs=$(join(orientation, ','))"
 end
 
+"""
+    ograph_raw_hash(link::VirtualLink) -> String
+
+Return the replay fingerprint of a link's ordered real-Gauss projection.
+
+# Arguments
+`link` must be coherent under the
+[VirtualLink data model](../specs/virtual-link-data-model.md).
+The call delegates representation checks to [`real_gauss_code`](@ref);
+malformed stored data can propagate its errors. Closed-normality is not checked.
+
+# Returns
+A 64-character lowercase hexadecimal SHA-256 `String`.
+
+# Guarantees
+1. The fingerprint depends on the ordered real-Gauss components and their
+   vertex signs in the default o-graph convention. It excludes weights.
+   [proved/agent: by construction]
+2. On a single-component projection compatible with `ograph_state`, it equals
+   that state's raw fingerprint. The link is unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is not the exact raw search-state identity: virtual visits and strand
+flags are not retained in this fingerprint. Cut markers remain in the projected
+words. It is not a
+manifold invariant or a closedness certificate. Hash collisions are possible.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md — raw endpoint fingerprints for replay.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone");
+
+julia> ograph_raw_hash(v) == ograph_raw_hash(ograph_state(v))
+true
+```
+
+See also [`ograph_search_state`](@ref), [`ograph_canonical_hash`](@ref).
+
+Role: invariant
+"""
 ograph_raw_hash(link::VirtualLink) =
     bytes2hex(SHA.sha256(codeunits(_ograph_raw_link_serialization(link))))
 
@@ -990,7 +1393,53 @@ function _ps_source_gap_boundaries(source::VirtualLink, candidate::MoveCandidate
     result
 end
 
-"Inspect the actual PS lane circuits; unlike closed-state validation this also handles a nonclosed normal diagram."
+"""
+    ps_global_condition(source::VirtualLink, candidate::MoveCandidate) -> NamedTuple
+
+Return the PS Method-B lane-condition result, diagnostic reason and optional witness for the candidate's edge occurrences.
+
+# Arguments
+- `source`: an unweighted real normal diagram; the open-PS branch admits
+  cut components and multiple strands, while the closed branch requires one
+  circuit. Closed-normal C2–C3 certification is not required here.
+- `candidate`: a PS catalogue candidate matching the source occurrences.
+  The source and catalogue gates report `valid=false` with a diagnostic reason
+  for supported rejection cases, including assigned weights, split parameters,
+  edge-index selection and mismatched patches. Malformed representations or
+  a failed inverse application can still throw errors.
+  See the [PS gate](../specs/ograph-move-verifier.md#ps-gate).
+
+# Returns
+`(valid, reason, witness)`, where `valid::Bool` is the outcome, `reason::Symbol`
+is its diagnostic, and `witness` is `nothing` or `OGraphPSMethodBWitness`.
+
+# Guarantees
+1. A true result supplies the occurrence-preserving Method-B witness required by the linked PS gate, on the side specified there. [proved/agent: by construction]
+2. A false result supplies no witness. The Boolean is authoritative; a non-PS candidate can return false even with reason `:ok`. [proved/agent: by construction]
+3. Neither the source nor the candidate is modified. [proved/agent: by construction]
+
+# Not guaranteed
+This tests the PS lane condition, not every hypothesis of a closed-normal
+move theorem, preservation of a framed structure, or the C1–C3 conditions
+of the destination. Open-path witnesses retain their separate scope.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md#ps-gate — Method-B segments, occurrence transport and the forward/inverse evaluation side.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-1,1]], orientation=[-1]); data = make_move_data();
+
+julia> candidate = MoveCandidate("PS", "1", Int[], NTuple{2,Int}[], :forward, only(data["PS-L"]), data["PS-R"][1], [(1,2),(1,2)]);
+
+julia> result = ps_global_condition(source, candidate); (result.valid, result.reason)
+(false, :different_method_b_circuits)
+```
+
+See also [`verify_ograph_move`](@ref).
+
+Role: condition
+"""
 function ps_global_condition(source::VirtualLink,candidate::MoveCandidate)
     open_ps = _normalize_move_type(candidate.type) == "PS" &&
               any(_is_cut_component, source.gauss)
@@ -1321,16 +1770,64 @@ function _verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
     OGraphMoveVerification(true, :verified, witness, nothing)
 end
 
-"""Verify a frozen MP/PS/CP candidate against its actual raw source and target.
+"""
+    verify_ograph_move(source::VirtualLink, candidate::MoveCandidate; expected_raw_target=nothing, expected_canonical_target=nothing) -> OGraphMoveVerification
 
-The move generator is not consulted. Catalogue row, concrete source fragments,
-locations, raw rewrite, outside occurrences, C1--C3 endpoints, and presentation
-canonicalization are recomputed. Malformed evidence fails closed as a report;
-only process interrupts are rethrown. PS-I--IV require the prescribed
-Method-B lane connection on the pre-insertion state. CP additionally requires the GKS source
-catalogue correspondence, the production-SOT recipe/naturality audit, and the
-independent role-wise rewrite before it enters the same closedness, outside-
-region, canonical-target, persistence, and replay checks as MP/PS.
+Return a verification report for a frozen local move between closed normal o-graph presentations.
+
+# Arguments
+`source` and `candidate` must satisfy the
+[verified-transition contract](../specs/ograph-move-verifier.md#verified-transition-contract)
+and its named move-specific gates. Assigned source weights, weighted split
+parameters and edge-selected candidates are unsupported. Optional expected
+targets are `OGraphState`, `VirtualLink` or `nothing`; a raw target is compared
+as a presentation and a canonical target up to the registered canonicalization.
+Invalid values and failed checks return a negative report. Ordinary validation
+exceptions are recorded in failure reports. `InterruptException` can propagate;
+the interface does not promise that every interruption becomes a report.
+Method-dispatch errors are outside this reporting interface.
+
+# Returns
+An `OGraphMoveVerification`: success has `valid=true`, `reason=:verified`, a
+move witness and no error; failure has `valid=false`, a reason and no witness,
+with diagnostic error text when an exception was recorded.
+
+# Guarantees
+1. Success certifies the linked verified-transition contract for this frozen
+   candidate and these endpoints, with the geometric scope stated by the
+   move-specific source gates. [proved/agent: by construction]
+2. The witness retains the raw and canonical endpoint presentations and the
+   local and outside-region correspondences needed by `replay_ograph_move`.
+   Canonicalization does not replace the raw transition.
+   [proved/agent: by construction]
+3. The supplied source and candidate are unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Failure does not prove that no move or no sequence relates the endpoints.
+This function does not establish candidate-enumeration completeness, a
+weighted/framed move, or a classification of manifolds. The geometric
+interpretation has the source qualifications and finite-audit boundaries
+recorded in the linked specification; a successful check is not a new general
+proof of the underlying move theorem. Nothing is persisted by this call.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md#verified-transition-contract — the accepted transition and move-specific evidence scope.
+cf:[[MST25#^mst25-fig-0102]] — D2 and the primary MP move; the linked specification supplies the PS and CP locators and gates.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> c = only(movable(source, "MP"; param="D2", vertices=[1,2,3], strict=true)); result = verify_ograph_move(source, c);
+
+julia> (result.valid, result.reason, result.witness !== nothing)
+(true, :verified, true)
+```
+
+See also [`replay_ograph_move`](@ref), [`insert_ograph_verified_transition!`](@ref).
+
+Role: condition
 """
 function verify_ograph_move(source::VirtualLink, candidate::MoveCandidate;
                             expected_raw_target=nothing,
@@ -1364,6 +1861,55 @@ function _candidate_from_witness(witness::OGraphMoveWitness)
                   copy(witness.source_locations))
 end
 
+"""
+    ograph_move_witness_data(witness::OGraphMoveWitness) -> NamedTuple
+
+Encode an o-graph move witness as portable endpoint and replay data.
+
+# Arguments
+`witness` is an `OGraphMoveWitness`. For a valid certificate, the caller must
+obtain it from [`verify_ograph_move`](@ref) or successful replay. This function
+does not validate its fields or reject a forged but well-typed witness.
+
+# Returns
+A `NamedTuple` carrying schema and verifier versions, move kind, parameter,
+direction, local vertices and occurrences, raw and canonical endpoints,
+raw hashes, closedness records, outside correspondences, canonicalization
+records and optional `method_b` evidence. These fields have the meanings in
+the [move-witness specification](../specs/ograph-move-verifier.md).
+
+# Guarantees
+1. Returned arrays are copies of the corresponding witness data; symbols
+   used for direction and evaluated side are represented as strings.
+   The witness is unchanged. [proved/agent: by construction]
+2. A valid witness can be decoded by `ograph_move_witness_from_data` and
+   checked by `replay_ograph_move`. The encoded object records a local move
+   between presentations, with the geometric scope of the original verifier.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Encoding is not verification, a proof of manifold equivalence, or a promise
+that an older verifier supports a newer schema. JSON text is not returned.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md — persisted witnesses and independent replay.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> c = only(movable(source, "MP"; param="D2", vertices=[1,2,3], strict=true));
+
+julia> data = ograph_move_witness_data(something(verify_ograph_move(source, c).witness));
+
+julia> replay_ograph_move(data).valid
+true
+```
+
+See also [`ograph_move_witness_from_data`](@ref), [`replay_ograph_move`](@ref).
+
+Role: convert
+"""
 function ograph_move_witness_data(witness::OGraphMoveWitness)
     state_data(state) = (gauss=collect(state.gauss),
                          vertex_signs=collect(state.vertex_signs),
@@ -1569,7 +2115,48 @@ function _move_data_method(value, label)
                        "circuit_id"))..., trace)
 end
 
-"Strictly decode canonical JSON-like move evidence into a typed witness."
+"""
+    ograph_move_witness_from_data(value) -> OGraphMoveWitness
+
+Decode a JSON-like move-witness record into its typed combinatorial evidence.
+
+# Arguments
+`value` must be a dictionary or named tuple of the supported witness schema.
+Field names, scalar types, vector shapes, schema/version and direction tags
+are checked; `ArgumentError` identifies missing, unexpected or invalid fields.
+Boolean values are not integer witness coordinates. Nested state and record
+constructor errors propagate. See the [witness scope](../specs/ograph-move-verifier.md).
+
+# Returns
+An `OGraphMoveWitness` with decoded endpoints, closedness data, canonicalization
+maps, outside occurrences, local operation and optional Method-B evidence.
+
+# Guarantees
+1. Successful return gives a typed record of the supplied evidence in a supported format. [proved/agent: by construction]
+2. The input data are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Decoding does not replay the move, recompute endpoint hashes or certify the
+stored correspondence. Use [`replay_ograph_move`](@ref) before trusting the
+record as evidence of a relation between presentations.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — typed move evidence and independent replay.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> candidate = only(movable(v, "MP"; param="D2", vertices=[1,2,3], strict=true));
+
+julia> data = ograph_move_witness_data(something(verify_ograph_move(v, candidate).witness));
+
+julia> ograph_move_witness_from_data(data) isa OGraphMoveWitness
+true
+```
+
+Role: construct
+"""
 function ograph_move_witness_from_data(value)
     fields = ("schema", "verifier_version", "move_type", "parameter", "direction",
               "vertices", "source_locations", "target_locations", "source_raw",
@@ -1624,7 +2211,47 @@ function ograph_move_witness_from_data(value)
         _move_data_method(_move_data_field(value, "method_b"), "method_b"))
 end
 
-"Recompute a stored witness without using `movable` or a stored success flag."
+"""
+    replay_ograph_move(witness::OGraphMoveWitness) -> OGraphMoveVerification
+
+Recheck a typed move witness against its raw and canonical endpoint presentations.
+
+# Arguments
+`witness` must be a well-formed stored record of the supported verifier
+format. Candidate reconstruction failure returns a negative report; source
+reconstruction and malformed-field errors can propagate. Supported historical
+MP-D2 evidence retains its recorded numbering convention.
+See the [replay specification](../specs/ograph-move-verifier.md).
+
+# Returns
+An `OGraphMoveVerification` with `valid`, `reason`, optional `witness`, and
+optional error information, as for [`verify_ograph_move`](@ref).
+
+# Guarantees
+1. A true report means the fresh semantic verification agrees with the stored endpoint and witness data under the supported version's convention. [proved/agent: by construction]
+2. A discrepant stored witness gives a negative result rather than becoming evidence through a stored success flag. [proved/agent: by construction]
+3. The input witness is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Replay establishes only the particular move relation and source scope of the
+verifier. It supplies no arbitrary manifold-equivalence classification or
+framing transport, and does not discharge any source gate left open there.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — independent move replay, endpoint binding and source gates.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> candidate = only(movable(v, "MP"; param="D2", vertices=[1,2,3], strict=true)); witness = something(verify_ograph_move(v, candidate).witness);
+
+julia> replay_ograph_move(witness).valid
+true
+```
+
+Role: condition
+"""
 function replay_ograph_move(witness::OGraphMoveWitness)
     source = _link_from_ograph_state(witness.source_raw)
     candidate = try _candidate_from_witness(witness) catch err
@@ -1656,6 +2283,42 @@ function replay_ograph_move(witness::OGraphMoveWitness)
 end
 
 
+"""
+    replay_ograph_move(value::Union{NamedTuple,AbstractDict}) -> OGraphMoveVerification
+
+Decode and recheck JSON-like evidence of a move between o-graph presentations.
+
+# Arguments
+`value` must satisfy [`ograph_move_witness_from_data`](@ref). A decoding
+exception is converted to a negative `:stored_witness_invalid` report.
+Errors after decoding follow the typed replay method's contract.
+
+# Returns
+The typed replay's `OGraphMoveVerification`, or a decoding-failure report.
+
+# Guarantees
+1. A valid result has the same particular-move meaning as replay of the decoded witness. [proved/agent: by construction]
+2. Malformed serialized evidence is not accepted as a valid witness; the input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Successful decoding alone does not validate a mathematical move. The typed
+replay's source, version and framing limitations also apply here.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — serialized evidence and independent replay.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-3,1,3,2,-2,-1,4,5,6,-6,-5,-4]], orientation=ones(Int,6));
+
+julia> candidate = only(movable(v, "MP"; param="D2", vertices=[1,2,3], strict=true)); data = ograph_move_witness_data(something(verify_ograph_move(v, candidate).witness));
+
+julia> replay_ograph_move((; data..., unsupported=true)).reason
+:stored_witness_invalid
+```
+
+Role: condition
+"""
 function replay_ograph_move(value::Union{NamedTuple,AbstractDict})
     witness = try ograph_move_witness_from_data(value) catch err
         return _ograph_move_invalid(:stored_witness_invalid; error=err)

@@ -378,6 +378,28 @@ o-graph と同じ線にする。旧配置（abalone, Poincaré など）の自�
 - 自走の停止条件: §4 の検査または §6.3 の 3 の照合が失敗したとき。その面と
   語を報告して止まり、緩和や推測で進めない。
 
+<a id="lc-isotopy-key-normalization"></a>
+## LC isotopy-key normalization
+
+The stored key convention is **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**. [The producer](../../src/heegaard/lc_isotopy_key.jl) isolates one named oriented curve together with the fixed K curves, retaining only crossings whose two owners remain. It drops the input annotations and paths for this calculation. The result concerns that restricted curve arrangement, not the full marked LC or a Heegaard manifold.
+
+For the finite canonical representative, K names occur in the order `l1,…,lg,m1,…,mg,n1,…,n(g−1)`, followed by other retained names in string order. For every simultaneous cyclic starting-position choice, the K-crossing labels `1,…,max(0,3g−2)` stay fixed, and other labels are renamed in first-encounter order beginning at `max(0,3g−2)+1`, retaining passage signs. The least vector of words is selected in Julia's lexicographic order. Traversal reversal is not among these choices. A form is serialized as `name:comma-separated-word|…`; the curve name is part of the key. [proved/agent: by construction]
+
+The local search first removes supported digons, then explores supported vertex moves, reducing newly exposed digons. Its chosen successful representative minimizes total word length among visited canonical forms, breaking ties lexicographically by words. Every accepted step is checked against the algebraic intersections with K. The current stop thresholds are more than 4000 removals within a digon-reduction call, a word longer than 800 after a removal, more than 4000 canonical forms in the vertex orbit, or more than 20000 simultaneous cyclic choices. The word-length threshold is not a general input-length precheck. A stopped search returns `key=nothing` and a failure tagged `:algebra` or `:cap`; it is not a negative isotopy result. The exact row families are those declared by the producer and [the move catalog](heegaard-moves.md#6-各-move-のデータ). [proved/agent: by construction]
+
+The [test `lc_isotopy_key`](../../test/heegaard/lc_isotopy_key.jl) compares the commute, braid, torus order-six, five-chain and lantern fixtures, with negative controls. These exercises include more than genus one and distinguish an invariant assertion from completion of a bounded orbit. A successful key records a representative reached by the supported moves; completeness for arbitrary surface isotopy, global minimality, invariance under renaming the selected curve, and reversal of its orientation are not established. The local relations and negative controls support the intended restricted use; a corresponding isotopic pair with completed different keys would refute completeness, while a normal-form theorem would establish it.
+
+<a id="historical-reference-records"></a>
+## Historical reference records and the modern LC
+
+The translation is **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**. [The historical `lickorish_reference` record](../../src/heegaard/reference_surface.jl) has auxiliary curve records with string port words and named crossings; it is not a modern `LickorishCode`. At a crossing with ordered curves `(a,b)` and stored sign `e`, the cyclic port order is `(a,+),(b,e),(a,−),(b,−e)`, named `p0,p1,p2,p3`. A curve's text token runs from its incoming port through `z` to its outgoing port. Here the historical crossing sign is the ordered intersection sign `I(a,b)`. The modern passage on `a` is `−e` and that on `b` is `e`, by §3. The historical `aux` roles assign no α/β splitting. [proved/agent: oriented rotation and passage translation]
+
+The crossing-name translation is `lm_i → i`, `ln_i_i → g+2i−1`, and `ln_(i+1)_i → g+2i`, for `1 ≤ i < g`. Curve names stay unchanged. Applying it in the historical curve traversal order produces [the modern K constants](../../src/heegaard/lc_k_constants.jl), up to cyclic starting position. The historical top-level curve list is string-sorted; a modern LC lists K in the family order of §3, so list position is not an identity map. The historical producer accepts genera 1 through 16, whereas the modern K-constant helper is not limited by that historical interface. [proved/agent: explicit coordinate translation]
+
+The [test `LC display convention`](../../test/heegaard/hc_plot.jl) embodies the modern K signs and traversal order at genera 2 and 3; the middle column is exercised at genus 3. The historical port-record-to-modern-word translation itself has no dedicated library regression test in the current suite. A direct driver compared every historical port token and crossing sign with the translated modern K word, and checked the resulting `(vertices,edges,faces)=(3g−2,2(3g−2),g)`, for every genus 1 through 16. [verified-computationally: that finite translation and cell-count scope] This comparison checks two existing representations; it does not inspect the source picture. The missing dedicated regression remains a test-coverage gap.
+
+unverified: alignment of every historical auxiliary orientation with the arrows in [[AS13#^anonnd60-sec-0740]] Fig. 12.3. The combinatorial reference arrangement agrees with the repository's fixed K rules, but [the source-orientation comparison](../conventions/LickorishCodes.md#原典との対応未了) remains explicitly unfinished. The source picture's correspondence, rather than equality of two code-derived records, is needed to settle that identification.
+
 ## 10. 未確定事項
 
 なし。§6 の幾何（三角形の穴と内接円の表示、種数 1 の正方形）はあかげふが

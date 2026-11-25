@@ -16,6 +16,57 @@ function _odata_vertex_labels(G::OData)
     1:n
 end
 
+"""
+    odata_to_spine(G::OData; tables=load_koda_local_tables()) -> DecodedSpine
+
+Decode a closed normal o-graph into a finite Koda spine and boundary record.
+
+# Arguments
+`G` uses [normal o-data, §7.1](../specs/heegaard-koda-conversion.md#71-保持するデータ).
+The existing `VirtualLink` checks of C1–C3 are required; failure raises
+`KodaInputError` with the condition results. An empty orientation vector
+also raises `KodaInputError`. Errors while forming the `VirtualLink` can
+propagate before those checks. `tables` must have the installed local-table
+schema. Koda decoding errors propagate; other decoder failures are wrapped
+in `KodaImplementationError` with the input and diagnostic.
+
+# Returns
+`DecodedSpine` with `genus_hint`, `vertex_signs`, directed `edges`, copied
+`gauss` words, and `metadata` containing `table_spine`, label correspondence,
+the convention and `status == "constructed"`. The genus hint is not a
+certified Heegaard genus.
+
+# Guarantees
+1. The record preserves the input Gauss words and vertex signs and contains
+   the finite local-table interpretation of their spine and boundary.
+   [proved/agent: by construction]
+2. Its intended geometric interpretation is the spine/thickening of §7,
+   with the limits in §13.3. [unverified: the general source identification and P1 discrepancy are not resolved by this decoder]
+3. The input and tables are not modified; the returned Gauss words are
+   independent copies. [proved/agent: by construction]
+
+# Not guaranteed
+The input metadata is not preserved wholesale. Constructed status is not a
+proof of the source identification, and the genus hint is not inferred from
+a complete Heegaard construction.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§7–8, 13.3 — finite decoding and source-alignment scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}()); s = odata_to_spine(g);
+
+julia> (s.gauss == [[1,-1]], s.vertex_signs[1])
+(true, 1)
+```
+
+See also [`spine_to_heegaard_koda`](@ref), [`spine_to_odata`](@ref).
+
+Role: convert
+"""
 function odata_to_spine(G::OData; tables=load_koda_local_tables())
     T = parentmodule(@__MODULE__)
     link = T.VirtualLink()
@@ -61,6 +112,47 @@ function odata_to_spine(G::OData; tables=load_koda_local_tables())
     DecodedSpine(get(table_spine, "genus", 0), sigma, edges, deepcopy(G.gauss), meta)
 end
 
+"""
+    spine_to_odata(spine::DecodedSpine) -> OData
+
+Copy the stored signed o-data presentation of a decoded spine.
+
+# Arguments
+`spine` should come from `odata_to_spine`. For hand-built records, the caller
+ensures that its Gauss labels and sign keys have the correspondence of
+[Koda encoding §7.1](../specs/heegaard-koda-conversion.md#71-保持するデータ).
+This method does not validate edges, closedness or that correspondence.
+
+# Returns
+An `OData` with copied Gauss words, signs in sorted vertex-key order, and
+metadata for the normal-o-graph representation, candidate-A convention and
+constructed source status.
+
+# Guarantees
+1. For a decoder-produced spine, the result retains its stored signed
+   presentation. [proved/agent: by construction]
+2. The input is not modified; word vectors and the sign vector are copied.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This does not reconstruct Gauss words from edited spine edges or preserve
+arbitrary metadata. Constructed status is not a new geometric certificate.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §7.1 — data retained by the spine/o-data correspondence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}()); b = spine_to_odata(odata_to_spine(g)); (b.gauss == g.gauss, b.orientation == g.orientation)
+(true, true)
+```
+
+See also [`odata_to_virtual_link`](@ref).
+
+Role: convert
+"""
 function spine_to_odata(spine::DecodedSpine)
     OData(deepcopy(spine.gauss), collect(spine.vertex_signs[i] for i in sort(collect(keys(spine.vertex_signs)))), Dict{String, Any}(
         "representation" => "normal-o-graph",
@@ -79,6 +171,45 @@ function _non_disk_sector(spine::FlowSpine)
 end
 
 # cf: lib/topology.jl/src/virtual_link.jl set_data! — store the o-graph Gauss code and vertex signs on a VirtualLink
+"""
+    odata_to_virtual_link(G::OData) -> VirtualLink
+
+Copy o-data words and vertex signs into the library's VirtualLink representation.
+
+# Arguments
+`G` must satisfy the real-Gauss input requirements of `Topology.set_data!`,
+using [the o-data convention](../specs/heegaard-koda-conversion.md#71-保持するデータ).
+Construction and consistency errors from that setter propagate. The caller
+must separately establish the closed-normal conditions when a 3-manifold
+interpretation is required; this wrapper does not call `is_closed`.
+
+# Returns
+A new `VirtualLink` populated from the real Gauss words and orientation vector.
+
+# Guarantees
+1. The stored real-Gauss input represents the same signed o-data, within
+   the setter's domain and conventions. [proved/agent: by construction]
+2. The input is not modified; its words and sign vector are copied before
+   being supplied to the result. [proved/agent: by construction]
+
+# Not guaranteed
+O-data metadata is not transported. A successful copy is not a closedness,
+manifold-identification or planar-drawing certificate.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}());
+
+julia> Topology.real_gauss_code(odata_to_virtual_link(g))
+([[1, -1]], [1])
+```
+
+See also [`virtual_link_to_odata`](@ref), [`odata_to_spine`](@ref).
+
+Role: convert
+"""
 function odata_to_virtual_link(G::OData)
     T = parentmodule(@__MODULE__)
     link = T.VirtualLink()
@@ -87,6 +218,44 @@ function odata_to_virtual_link(G::OData)
 end
 
 # cf: lib/topology.jl/src/virtual_link.jl VirtualLink — gauss and orientation are the stored o-data presentation
+"""
+    virtual_link_to_odata(link) -> OData
+
+Copy a VirtualLink's stored Gauss words and orientation signs into o-data.
+
+# Arguments
+`link` must be a `VirtualLink`; other inputs raise `KodaInputError` at stage
+`:virtual_link_to_odata` saying that a VirtualLink was expected. The caller
+establishes [the closed-normal o-data domain](../specs/heegaard-koda-conversion.md#71-保持するデータ)
+before using the result for a 3-manifold construction; this copy does not
+check that domain.
+
+# Returns
+An `OData` with copied Gauss words and signs, and metadata identifying the
+normal-o-graph representation and VirtualLink source.
+
+# Guarantees
+1. The returned words and orientation equal the link's stored values.
+   [proved/agent: by construction]
+2. The input is not modified; its word vectors and sign vector are copied.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The metadata's representation label is not a closed-normal certificate.
+Other VirtualLink data and arbitrary metadata are not retained.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}()); b = virtual_link_to_odata(odata_to_virtual_link(g)); (b.gauss == g.gauss, b.orientation == g.orientation)
+(true, true)
+```
+
+See also [`odata_to_spine`](@ref).
+
+Role: convert
+"""
 function virtual_link_to_odata(link)
     T = parentmodule(@__MODULE__)
     link isa T.VirtualLink || throw(KodaInputError(
@@ -172,6 +341,52 @@ function _koda_annulus_regularize(spine::FlowSpine)
     G
 end
 
+"""
+    spine_to_odata(spine::FlowSpine; regularize::Bool=false) -> OData
+
+Encode a supported flow spine as signed o-data, optionally regularizing its sectors.
+
+# Arguments
+`spine` follows [the forward encoding domain](../specs/heegaard-koda-conversion.md#7-branched-spine-と-o-data-の符号化復号).
+Without regularization, vertex-free data raise `KodaNotComputed` with reason
+`:vertex_free_odata_not_encoded`, and recorded nondisk sectors raise it with
+reason `:non_disk_sector`. `regularize=true` requests the supported annulus
+regularization; its domain and conversion failures propagate. Encoding
+failures from `to_ograph` also propagate. Sector records are supplied data;
+their completeness is the caller's responsibility.
+
+# Returns
+An `OData` encoding the supported spine, or the regularized result with its
+regularization metadata.
+
+# Guarantees
+1. Without a required regularization, the result is the encoding returned
+   by `to_ograph`. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Regularization is not implemented for every singular spine. Identification
+with the thickened 3-manifold inherits
+[the Koda conversion limits](../specs/heegaard-koda-conversion.md#133-独立な-c2-と閉入力の追加照合);
+this wrapper supplies no independent proof.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§6.3, 7.0, 13.3 — sector domain and encoding limitations.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}()); ph = odata_to_heegaard_koda(g).value;
+
+julia> compare_odata_words(g, spine_to_odata(heegaard_to_spine(ph).value))["equal_up_to_metadata"]
+true
+```
+
+See also [`to_ograph`](@ref).
+
+Role: convert
+"""
 function spine_to_odata(spine::FlowSpine; regularize::Bool=false)
     if regularize && (get(spine.complex.checks, "vertex_free", false) || _non_disk_sector(spine) !== nothing)
         return _koda_annulus_regularize(spine)
@@ -278,6 +493,55 @@ function _odata_oriented_correspondences(
     found
 end
 
+"""
+    compare_odata_words(a::OData, b::OData) -> Dict{String,Any}
+
+Compare two directed o-data word systems up to relabeling while checking vertex signs.
+
+# Arguments
+`a` and `b` use the [o-data encoding](../specs/heegaard-koda-conversion.md#74-巡回語と復号).
+The caller must supply valid passage labels and vertex-sign vectors, and
+each stored component word must be nonempty; malformed input can raise
+`BoundsError` or lookup errors instead of a verdict. Matching component
+counts above eight throw `ArgumentError` stating that the correspondence
+search is too large. Metadata are ignored.
+
+# Returns
+A dictionary with `gauss_equal` and `orientation_equal` for literal field
+equality, `equal_up_to_metadata` for a sign-preserving word correspondence,
+`correspondence_count` for distinct passage-preserving label maps (including
+those that fail vertex-sign agreement), and a `compared_by` description.
+
+# Guarantees
+1. On valid inputs within the search domain, `equal_up_to_metadata` is true
+   exactly when a label bijection, component permutation and cyclic shifts
+   preserve directed passages and vertex signs. Neither reversal nor a
+   diagram move is included. [proved/agent: by construction]
+2. Both inputs are unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+This is representation comparison, not a test for spine moves or manifold
+homeomorphism. `correspondence_count` counts label maps, not all choices of
+component permutations and starting positions. Literal sign-vector equality
+alone need not be sign agreement under a nontrivial correspondence.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§7.4, 10.1 — directed cyclic words and equality of their encoded data.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = OData([[1,-1]], [1], Dict{String,Any}());
+
+julia> compare_odata_words(g, g)["equal_up_to_metadata"]
+true
+```
+
+See also [`spine_to_odata`](@ref), [`odata_to_spine`](@ref).
+
+Role: condition
+"""
 function compare_odata_words(a::OData, b::OData)
     corrs = _odata_oriented_correspondences(a.gauss, a.orientation, b.gauss, b.orientation)
     orient_ok = any(c -> get(c, "orientation_matches", false), corrs)

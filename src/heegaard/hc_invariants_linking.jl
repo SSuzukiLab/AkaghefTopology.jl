@@ -5,6 +5,46 @@ import AkaghefAlgebra
 const _HCLinkRat = Rational{BigInt}
 const _HCLinkTE = AkaghefAlgebra.TaftExact
 
+"""
+    HCLinkingInputError(reason, detail) -> HCLinkingInputError
+
+Store the reason and explanation for a rejected linking-form computation.
+
+# Arguments
+`reason::Symbol` and `detail::String`, or values convertible to these types.
+Conversion errors propagate. Construction accepts any reason tag and does not
+throw the resulting exception.
+
+# Returns
+`HCLinkingInputError` with the supplied reason tag and explanatory text.
+`showerror` displays both fields.
+
+# Guarantees
+1. Fields equal the supplied values after conversion; already-typed arguments
+   are not modified. [proved/agent: by construction]
+2. When thrown by a linking-form operation, the value reports a failed input
+   or consistency check; it is diagnostic data, not a linking pairing on a
+   3-manifold. [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+The constructor does not check that the stated failure occurred. An error
+record supplies no certificate of a manifold's torsion linking form.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> e = HCLinkingInputError(:isotropy, "isotropy required"); (e.reason, e.detail)
+(:isotropy, "isotropy required")
+```
+
+See also [`hc_linking_form`](@ref).
+
+Role: construct
+"""
 struct HCLinkingInputError <: Exception
     reason::Symbol
     detail::String
@@ -39,13 +79,48 @@ function _hcl_inv_integer(M::Matrix{BigInt})
 end
 
 """
-An exact torsion linking form in Smith generators. `torsion[i]` is the order
-of generator i; `matrix[i,j]` is its pairing in Q/Z, represented in [0,1).
-The columns of `generators` are lifts in the ordered l₁,…,l_g,m₁,…,m_g basis.
-`free_rank` is b₁. `certificate` retains the integral presentation, both Smith
-transforms, the meridian decompositions, and the actual surface form.
-Generators and their matrix depend on the presentation; the linked group is
-the invariant. Stored arrays follow the subsystem's immutable-by-convention API.
+    HCLinkingForm(free_rank, torsion, matrix, generators, certificate) -> HCLinkingForm
+
+Store an exact torsion-linking pairing record and its homology-coordinate data.
+
+# Arguments
+`free_rank::Int`, `torsion::Vector{BigInt}`,
+`matrix::Matrix{Rational{BigInt}}`, `generators::Matrix{BigInt}` and
+`certificate::NamedTuple`, or convertible values. Conversion errors propagate.
+The constructor does not check shapes, symmetry, nondegeneracy or compatibility
+with a surface presentation; these are the caller's responsibility.
+
+# Returns
+An `HCLinkingForm` retaining the supplied free rank, torsion orders, exact
+pairing matrix, generator lifts and certificate fields.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed containers are
+   retained without mutation. [proved/agent: by construction]
+2. The record can carry the pairing computed by `hc_linking_form`; constructing
+   the record itself performs no linking-form calculation.
+   [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+Arbitrary matrices need not represent the linking form of a closed oriented
+3-manifold. The [linking-coordinate specification](../specs/heegaard-code.md#linking-generator-conventions)
+states the Smith-generator and lift convention. Presentation-dependent arrays alone do
+not certify isometry of linked groups.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> f = HCLinkingForm(0, BigInt[2], reshape(Rational{BigInt}[1//2],1,1), reshape(BigInt[1,0],2,1), NamedTuple()); (f.free_rank, Tuple(f.torsion), f.matrix[1,1])
+(0, (2,), 1//2)
+```
+
+See also [`hc_linking_form`](@ref), [`linking_pairing`](@ref).
+
+Role: construct
 """
 struct HCLinkingForm
     free_rank::Int
@@ -100,21 +175,55 @@ function _hcl_lattice_form(A::Matrix{BigInt}, B::Matrix{BigInt}, omega::Matrix{B
 end
 
 """
-    hc_linking_form(hc::HeegaardCode; boundary_side=:alpha)
+    hc_linking_form(hc::HeegaardCode; boundary_side::Symbol=:alpha) -> HCLinkingForm
 
-Compute Tor H₁ and its symmetric Q/Z linking form using exact integer Smith
-transforms. The LC passage rule is used literally: + on c and − on d gives
-c⋅d = −1. Coordinates come from intersections with the fixed l/m curves.
+Return the torsion linking-form record of the HC's meridian lattices.
 
-By default the encoded oriented surface is ∂Hα (outward normal first), so
-`m*u=a+b` gives λ(u,v)=a⋅v/m. `boundary_side=:beta` selects the opposite
-orientation. Reversing every passage sign also reverses the form. Individual
-curve orientations and Smith generators do not affect the isometry class.
+# Arguments
+`hc` satisfies the [Heegaard domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+The nonempty input is validated; meridian counts, self/family intersections,
+connected active ribbon, reference-coordinate consistency and primitive
+isotropic meridian ranks are checked with `HCLinkingInputError` naming the
+condition. `boundary_side` is `:alpha` or `:beta`, otherwise `ArgumentError`.
+Validation and exact-linear-algebra errors propagate. The caller supplies
+the geometric handlebody interpretation of the meridian systems.
 
-Requires genus-many embedded disjoint meridians in each family, with primitive
-rank-g homology lattices. Checks passages, the connected capped ribbon surface,
-reference basis, geometric disjointness, and the complete cut-system ranks.
-Joining disks, weights, combing, framing, and spin structures are unused.
+# Returns
+`HCLinkingForm` containing free rank, torsion orders, a rational linking
+matrix, integral generator lifts and a certificate of presentation, Smith,
+meridian and reference-surface coordinates.
+
+# Guarantees
+1. The returned torsion pairing passes symmetry, denominator and
+   nonsingularity checks on the reported finite group.
+   [proved/agent: by construction]
+2. Changing `boundary_side` negates the reported form modulo integers.
+   [proved/agent: by construction]
+3. The HC is not modified. [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+The [linking specification](../specs/heegaard-code.md#linking-generator-conventions)
+states the coordinates and normalization. This record alone is not an independent proof identifying
+the algebraic pairing with the linking form of an arbitrary claimed manifold.
+Joining disks, combings and spin structures are not classified here.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#linking-generator-conventions — linking lifts, boundary orientation and identification limits.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> f = H.hc_linking_form(hc); (f.free_rank, Tuple(f.torsion), size(f.matrix))
+(0, (), (0, 0))
+```
+
+Role: invariant
 """
 function hc_linking_form(hc::HeegaardCode; boundary_side::Symbol=:alpha)
     g = hc.lc.genus
@@ -164,7 +273,40 @@ function hc_linking_form(hc::HeegaardCode; boundary_side::Symbol=:alpha)
     _hcl_lattice_form(A,B,omega;boundary_side=boundary_side,reference_names=names)
 end
 
-"""Evaluate a linking form on integer vectors in its reported torsion generators."""
+"""
+    linking_pairing(form::HCLinkingForm, x::AbstractVector{<:Integer}, y::AbstractVector{<:Integer}) -> Rational{BigInt}
+
+Evaluate the recorded torsion pairing on two integer coordinate vectors.
+
+# Arguments
+`x` and `y` each have one entry per element of `form.torsion`; otherwise `DimensionMismatch` is thrown. The caller supplies a consistent `HCLinkingForm`, normally from `hc_linking_form`. Matrix-size and conversion errors propagate; this accessor does not validate a hand-built form.
+
+# Returns
+The exact rational representative in `[0,1)` of the matrix pairing modulo the integers.
+
+# Guarantees
+1. The result evaluates the bilinear pairing recorded in `form.matrix` on the supplied generator coordinates. Its geometric meaning, when established, is the torsion linking pairing of the oriented manifold represented by the producer's HC. [proved/agent: matrix evaluation; geometric identification conditional on the producer]
+2. Inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+This does not independently certify symmetry, nonsingularity, the generator orders or a manifold interpretation. It does not translate coordinates between different `HCLinkingForm` records.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md — reference-marked HC data and invariant interpretation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> f = H.HCLinkingForm(0, BigInt[3], reshape([big(2)//3],1,1), reshape(BigInt[1],1,1), (;)); H.linking_pairing(f, [3], [1])
+0//1
+```
+
+Role: invariant
+"""
 function linking_pairing(form::HCLinkingForm,x::AbstractVector{<:Integer},y::AbstractVector{<:Integer})
     length(x)==length(y)==length(form.torsion) || throw(DimensionMismatch("one coordinate per torsion generator required"))
     _hcl_mod1(dot(BigInt.(x),form.matrix*BigInt.(y)))
@@ -242,25 +384,50 @@ function _hcl_canonical_moo(value::_HCLinkTE.Cyclotomic{C},form::HCLinkingForm,N
 end
 
 """
-    Z_MOO(hc_or_form, N::Integer=2; max_terms=1_000_000, max_conductor=100_000)
+    Z_MOO(form::HCLinkingForm, N::Integer=2; max_terms=1_000_000, max_conductor=100_000) -> AkaghefAlgebra.Cyclotomic
 
-The MOO invariant at the positive primitive 2N-th root exp(πi/N), for positive
-even N. Returns the existing `AkaghefAlgebra.Cyclotomic` exact value. Its root
-metadata describes the *output field*, not the MOO level; there is no floating
-approximation. For T=Tor H₁, the formula is
-`N^(b₁/2)/sqrt(|T|) * sum(exp(+πi*N*λ(x,x)) for x in T)`.
+Return the exact even-level MOO value computed from a torsion-linking-form record.
 
-Rational values use Q(ζ₂). Other values use Q(ζ_lcm(8,4d)), where d is the
-squarefree part of the squared absolute value. Equal invariant values therefore
-have equal field parameters and compare with ordinary `==`, even for different
-torsion groups. Exact comparison with the original sum certifies the conversion.
+# Arguments
+`form` must be a valid linking-form result with consistent torsion coordinates;
+this method does not revalidate that geometric input. `N` must be a positive
+even integer other than `Bool`. `max_terms > 0` and `max_conductor >= 2` are
+required. These conditions and resource bounds are checked with `ArgumentError`
+identifying the level, enumeration size or field bound. Pairing and exact
+arithmetic errors propagate.
 
-The positive square root is embedded by G(4d)=2(1+i)√d after removing square
-factors. Cost includes |T| summands, radical Gauss sums, and exact embeddings.
-`max_conductor` bounds both construction and canonical comparison fields;
-it may reject an answer that would simplify to a smaller field. Limits may be
-raised explicitly. The zero Gauss sum is a valid result. Odd levels
-require a separate definition and are rejected. No spin refinement is chosen.
+# Returns
+An exact `AkaghefAlgebra.Cyclotomic` value. Its root metadata describes the
+output field, rather than the requested MOO level. Zero is a valid result.
+
+# Guarantees
+1. The returned value uses exact arithmetic for the supplied form and level.
+   [proved/agent: by construction]
+2. Its intended interpretation is the MOO invariant of the oriented closed
+   3-manifold whose linking form and first Betti number were supplied.
+   [unverified: general source alignment under docs/specs/heegaard-code.md#moo-tv-normalization]
+3. The input form is not modified. [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+The method does not certify the input as a manifold's linking form, choose a
+spin refinement or support odd levels. The general identification in guarantee
+2 remains limited by the unresolved source registration at file scope.
+Resource limits can reject a value that would simplify into a smaller field.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> f = HCLinkingForm(0, BigInt[2], reshape(Rational{BigInt}[1//2],1,1), reshape(BigInt[1,0],2,1), NamedTuple()); Z_MOO(f, 2) == 0
+true
+```
+
+See also [`hc_linking_form`](@ref).
+
+Role: invariant
 """
 function Z_MOO(form::HCLinkingForm,N::Integer=2;max_terms::Integer=1_000_000,
                max_conductor::Integer=100_000)
@@ -294,5 +461,47 @@ function Z_MOO(form::HCLinkingForm,N::Integer=2;max_terms::Integer=1_000_000,
     _hcl_canonical_moo(value,form,Nbig;max_conductor=max_conductor)
 end
 
+"""
+    Z_MOO(hc::HeegaardCode, N::Integer=2; boundary_side=:alpha, kwargs...) -> AkaghefAlgebra.Cyclotomic
+
+Return the even-level MOO value of the linking form computed from an HC.
+
+# Arguments
+`hc` and `boundary_side` must satisfy `hc_linking_form`; its input and
+geometry errors propagate. `N` and resource keywords follow the linking-form
+overload of `Z_MOO`, including rejection of nonpositive or odd levels with
+`ArgumentError`. Unsupported keywords raise `MethodError`.
+
+# Returns
+The exact cyclotomic value returned by `Z_MOO` for the computed linking form.
+
+# Guarantees
+1. The result equals evaluating the form overload on
+   `hc_linking_form(hc; boundary_side)` at the same level and limits.
+   [proved/agent: by construction]
+2. The intended invariant belongs to the oriented closed 3-manifold of the
+   valid HC and chosen boundary-side convention.
+   [unverified: general linking-form identification and MOO normalization source alignment]
+3. The input HC is not modified. [proved/agent: by construction]
+
+# Conventions
+Linking coordinates and state-sum normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#linking-generator-conventions).
+
+# Not guaranteed
+This wrapper does not supply an independent manifold or normalization
+certificate; the linking-form overload's source and coordinate limits apply.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = HeegaardCode(lc, Dict("m1"=>:alpha, "l1"=>:beta), Dict(), Dict(), Dict(), nothing); Z_MOO(h, 2) == 1
+true
+```
+
+See also [`hc_linking_form`](@ref).
+
+Role: invariant
+"""
 Z_MOO(hc::HeegaardCode,N::Integer=2;boundary_side::Symbol=:alpha,kwargs...) =
     Z_MOO(hc_linking_form(hc;boundary_side=boundary_side),N;kwargs...)

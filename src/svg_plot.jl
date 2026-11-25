@@ -193,6 +193,44 @@ function _write_svg(path, body; width=900, height=600)
     abspath(path)
 end
 
+"""
+    plot_svg(d::URDiagram, path::AbstractString) -> String
+
+Write the fixed UR-interface one-arrow schematic and return its absolute SVG file path.
+
+# Arguments
+- `d` is a `URDiagram`; its fields are neither validated nor used to determine
+  this schematic.
+- `path` is the output file name. Its parent directory must exist and be
+  writable; file-system errors propagate. An existing file is overwritten.
+
+# Returns
+The absolute output path as a `String`.
+
+# Guarantees
+1. On success the file is an SVG with one horizontal left-pointing arrow,
+   independent of the diagram's endpoints, coefficients and weights. This is
+   a schematic, not an encoding of the UR pairing. [proved/agent: by construction]
+2. `d` is not modified. The output file is created or overwritten.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The image does not certify a reduction, a trace value or a represented
+topological space. File replacement is not atomic.
+
+# Sources
+cf:references/library/articles/MST-Rx/sources/selected-main/04_trace_computation/SRC-262_computations_URDiagram.m, plot — the one-arrow schematic; no scale correspondence is asserted.
+
+# Examples
+```jldoctest
+julia> mktempdir() do dir; svg = read(plot_svg(URDiagram(), joinpath(dir,"ur.svg")), String); (count("<line",svg), count("<path",svg)); end
+(1, 1)
+```
+
+See also [`plot_urd_structure_svg`](@ref).
+
+Role: draw
+"""
 function plot_svg(d::URDiagram, path::AbstractString)
     # The MATLAB URDiagram.plot implementation is intentionally minimal: one
     # left-pointing horizontal quiver of length length(V)+1.
@@ -202,12 +240,50 @@ function plot_svg(d::URDiagram, path::AbstractString)
     _write_svg(path,join(body,"\n"))
 end
 
-"""Draw a readable UR-diagram diagnostic, including signed endpoints and weights.
+"""
+    plot_urd_structure_svg(d::URDiagram, path::AbstractString) -> String
 
-`plot_svg(::URDiagram, ...)` deliberately preserves MATLAB's one-arrow
-`URDiagram.plot`.  That rendering cannot validate a reduction: this companion
-view makes the pairing represented by `V` and the current edge weights visible
-without changing the source-compatible output.
+Write the UR diagram's signed endpoints, paired edges and weights as SVG and return the absolute file path.
+
+# Arguments
+Checked: `validate_data(d)` checks U1–U2 of the UR data conditions; invalid data raise
+`ArgumentError` and other validation errors propagate.
+Caller: `path` must designate a writable output file in an existing directory;
+file-writing errors propagate. The diagram must satisfy
+[UR endpoint conditions](../specs/ur-diagrams.md#numbered-conditions).
+
+# Returns
+The absolute output path as a `String`, after writing the SVG.
+
+# Guarantees
+1. The drawing depicts the ordered signed endpoint pairing and current edge
+   weight labels in the [UR structural diagnostic](../specs/virtual-link-plot.md#ur-structural-diagnostic).
+   Long symbolic labels are summarized as specified there.
+   [proved/agent: by construction]
+2. Diagram data are unchanged. The output file is created or overwritten.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The diagnostic is not an embedding or a certificate of reduction correctness.
+It does not expose every term of a summarized symbolic weight or replace the
+distinct `plot_svg(::URDiagram, ...)` view.
+
+# Sources
+cf: [plot specification](../specs/virtual-link-plot.md#ur-structural-diagnostic) — diagnostic projection of [UR data](../specs/ur-diagrams.md#weighted-endpoint-data).
+
+# Examples
+```jldoctest
+julia> d = URDiagram(); set_data_cvw!(d, 1, [1,-2,-3,3,-1,2], [1,2,3]);
+
+julia> mktempdir() do dir
+           path = joinpath(dir, "structure.svg")
+           plot_urd_structure_svg(d, path)
+           occursin("signed endpoints, paired edges, weights", read(path, String))
+       end
+true
+```
+
+Role: draw
 """
 function plot_urd_structure_svg(d::URDiagram, path::AbstractString)
     validate_data(d)
@@ -516,6 +592,70 @@ function _fmt_z3_label(value)
     string(reduced == 2 ? -1 : reduced)
 end
 
+"""
+    plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing, edge_labels=:weight, replay_positions=nothing, planarization=:matlab, edge_colours=nothing) -> String
+
+Write an SVG drawing of the oriented link or cut-link diagram and return the absolute file path.
+
+# Arguments
+- `v` must satisfy the [VirtualLink input contract](../specs/virtual-link-plot.md#4-virtuallink-input-contract).
+  The caller supplies consistent data; this renderer does not run the geometric
+  acceptance checks. Invalid data can cause routing errors or an invalid drawing.
+- `path` names a writable file in an existing directory. File-system errors
+  propagate, and an existing file is overwritten.
+- `bending_numbers` and `planarization` select the
+  [layout branch](../specs/virtual-link-plot.md#6-layout-stage-contracts).
+  Layout and solver errors propagate when that branch is used.
+- `replay_positions` is `nothing` or the replay data of
+  [section 8](../specs/virtual-link-plot.md#8-replay-branch). Replay cardinality,
+  minimum polyline length and common crossing positions are checked:
+  `ArgumentError` identifies the failed requirement. Geometric embedding and
+  finite nondegenerate coordinates remain the caller's responsibility.
+- `edge_labels` selects the [edge labels](../specs/virtual-link-plot.md#96-edge-labels).
+  For `:colour`, `edge_colours` supplies the arc-indexed colours; a missing
+  vector or entry raises `ArgumentError` when the relevant arc is rendered.
+  Other unrecognized label choices produce no edge labels.
+
+# Returns
+The absolute path of the written SVG as a `String`.
+
+# Guarantees
+1. For valid routed or replayed geometry, the SVG depicts the input diagram's
+   oriented real arcs and crossing information, with cut endpoints handled by
+   [the cut-component contract](../specs/virtual-link-plot.md#71-cut-components).
+   It is a drawing of diagram data, not a manifold invariant.
+   [proved/agent: by construction]
+2. The crossing-free closed branch produces the
+   [unknot drawing](../specs/virtual-link-plot.md#98-crossing-free-unknot).
+   [proved/agent: by construction]
+3. `v` and supplied replay polylines are not modified. The output file is
+   created or overwritten. [proved/agent: by construction]
+
+# Conventions
+Rendering choices are owned by the
+[SVG rendering contract](../specs/virtual-link-plot.md#9-svg-rendering-contract).
+
+# Not guaranteed
+Rendering does not certify the geometric properties of section 11.2 or
+equivalence to a MATLAB drawing. The crossing-free closed branch draws one
+circle even if several empty closed components are supplied. Replay data are
+not checked for unintended intersections. File replacement is not atomic.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-plot.md §§7–11 — diagram rendering, replay and the separate geometric acceptance boundary.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; gauss=[[0]], orientation=Int[]);
+
+julia> mktempdir() do dir; count("boundary-endpoint", read(plot_svg(v,joinpath(dir,"cut.svg")),String)); end
+2
+```
+
+See also [`orthogonal_layout`](@ref), [`check_layout`](@ref).
+
+Role: draw
+"""
 function plot_svg(v::VirtualLink, path::AbstractString; bending_numbers=nothing,
                   edge_labels=:weight,replay_positions=nothing,
                   planarization=:matlab, edge_colours=nothing)

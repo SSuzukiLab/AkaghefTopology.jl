@@ -39,13 +39,50 @@ const KURLIN_GAUSS_PARAGRAPH_URL = "https://arxiv.org/abs/math/0610929"
 const MARX_GAUSS_REALIZABILITY_URL =
     "https://doi.org/10.1090/S0002-9939-1969-0244984-6"
 
-"""A machine-checkable ribbon-map certificate.
+"""    ClassicalGaussCertificate(code, orientation, route, realizable, genus, vertices, edges, faces, rotation_bits, rotation, face_cycles) -> ClassicalGaussCertificate
 
-`route == :carter_surface` is a full signed-diagram certificate.  For
-`route == :unsigned_ribbon`, `orientation` is empty and `code` is the positive
-double-occurrence word.  Darts are numbered `1:4n`, with two darts per arc:
-the odd dart leaves the earlier word position and the even dart enters its
-successor.
+Store the coordinate and Euler data of an oriented ribbon-map certificate.
+
+# Arguments
+The fields use the types and meanings in [Ribbon records](../specs/knot-gauss.md#ribbon-records).
+K6 ([conditions](../specs/knot-gauss.md#numbered-conditions)) is the caller's
+responsibility: this field constructor does not validate a certificate.
+Julia converts arguments to the declared field types; unsupported conversions
+raise `MethodError` or an appropriate conversion exception.
+
+# Returns
+A `ClassicalGaussCertificate` containing `code`, `orientation`, `route`,
+`realizable`, `genus`, `vertices`, `edges`, `faces`, `rotation_bits`,
+`rotation` and `face_cycles`, as defined in the linked record entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after field-type conversion. For K6 inputs they describe the capped oriented ribbon surface of the recorded rotation system. [proved/agent: by construction]
+2. Construction does not modify the supplied arrays; arrays already of the declared type are retained and can subsequently be mutated through aliases. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+An arbitrary constructed record need not satisfy K6. Use
+`classical_gauss_certificate` to obtain consistent data. The general literature
+identification of the signed genus-zero test with classical realizability is
+unverified here; the missing source and rotation-convention comparison are
+recorded in the specification. A stored flag is not itself that proof.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — local surface and record definitions; unresolved literature comparison is stated there.
+
+# Examples
+```jldoctest
+julia> c = classical_gauss_certificate(KnotGaussDiagram([1, -2, 3, -1, 2, -3], [1, 1, 1]));
+
+julia> (c isa ClassicalGaussCertificate, c.genus, c.faces)
+(true, 0, 5)
+```
+
+See also [`classical_gauss_certificate`](@ref).
+
+Role: construct
 """
 struct ClassicalGaussCertificate
     code::Tuple{Vararg{Int}}
@@ -61,7 +98,47 @@ struct ClassicalGaussCertificate
     face_cycles::Vector{Vector{Int}}
 end
 
-"""A constructive spherical/shadow rotation map for an unsigned word."""
+"""    ClassicalGaussImmersion(word, rotation_bits, rotation, face_cycles, genus) -> ClassicalGaussImmersion
+
+Store a rotation-map representation of an unsigned immersed-circle shadow.
+
+# Arguments
+The five fields have the meanings in [Ribbon records](../specs/knot-gauss.md#ribbon-records).
+K5 ([conditions](../specs/knot-gauss.md#numbered-conditions)) is the caller's
+responsibility for a spherical immersion: no consistency or genus check is
+performed. Julia field conversions may raise `MethodError` or conversion errors.
+
+# Returns
+A `ClassicalGaussImmersion` with `word`, `rotation_bits`, `rotation`,
+`face_cycles` and `genus` as specified by the linked record definition.
+
+# Guarantees
+1. The fields retain the supplied data after conversion. For K5 inputs they encode a spherical rotation map with the prescribed circle traversal. [proved/agent: by construction]
+2. Input arrays are not modified; correctly typed arrays remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+This constructor does not prove K5, embed a curve in Euclidean coordinates,
+or choose over/under decorations. The specification records the unresolved
+literature comparison for the general planar-realizability criterion.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — local rotation-map meaning.
+
+# Examples
+```jldoctest
+julia> immersion = Topology.KnotGauss.construct_classical_immersion([1, 1]);
+
+julia> (immersion isa ClassicalGaussImmersion, immersion.genus)
+(true, 0)
+```
+
+See also `construct_classical_immersion`.
+
+Role: construct
+"""
 struct ClassicalGaussImmersion
     word::Tuple{Vararg{Int}}
     rotation_bits::Tuple{Vararg{Int}}
@@ -267,7 +344,56 @@ function _cg_make_certificate(code::Vector{Int}, orientation::Vector{Int},
                               rotation_bits, rotation, cycles)
 end
 
-"""Exact Carter-surface certificate for a signed one-component Gauss code."""
+"""    classical_gauss_certificate(code, orientation) -> ClassicalGaussCertificate
+
+Return the oriented ribbon-surface certificate of signed Gauss data or an unsigned word.
+
+# Arguments
+With two arguments, `code` and `orientation` are integer-convertible sequences
+subject to K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)).
+The one-argument form accepts an object with `gauss` and `orientation`
+properties and checks those data, or an `AbstractVector`/`Tuple` subject to K8
+for the unsigned route. These conditions are checked: a sign-count mismatch
+raises `DimensionMismatch`; invalid word length, labels, visits or signs raise
+`ArgumentError` naming the failure. An unsupported one-argument object raises
+`ArgumentError` requesting signed data. Integer conversion failures propagate;
+values must fit `Int`, including their absolute labels.
+
+# Returns
+A `ClassicalGaussCertificate` with every field interpreted by
+[Ribbon records](../specs/knot-gauss.md#ribbon-records). The signed route uses
+the supplied crossing data; the unsigned route returns a genus-zero witness
+if one exists, otherwise a least-genus witness among its permitted rotations.
+
+# Guarantees
+1. The certificate satisfies K6; its Euler data describe the capped oriented ribbon surface of the stored rotation system. [proved/agent: by construction]
+2. In the signed route, `realizable` is true exactly when that ribbon genus is zero. In the unsigned route it is true exactly when an admissible rotation has genus zero. [proved/agent: by construction]
+3. The input containers are unchanged; the certificate owns newly created rotation and face-cycle arrays. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates and empty circle](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+The general literature identification with classical realizability is
+unverified at the source-comparison level stated in the specification. A
+ribbon certificate does not provide a coordinate drawing or a knot-type
+classification. Unsigned search can be exponential in the crossing count.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — combinatorial surface and certificate semantics; source comparison remains recorded there.
+
+# Examples
+```jldoctest
+julia> c = classical_gauss_certificate(KnotGaussDiagram([1, -2, 3, -1, 2, -3], [1, 1, 1]));
+
+julia> (c.realizable, c.genus, c.faces)
+(true, 0, 5)
+```
+
+See also [`classical_gauss_realizable`](@ref).
+
+Role: convert
+"""
 function classical_gauss_certificate(code, orientation)
     signed_code, signs = _cg_validate_signed(code, orientation)
     n = length(signs)
@@ -278,10 +404,55 @@ function classical_gauss_certificate(code, orientation)
     _cg_make_certificate(signed_code, signs, :carter_surface, Tuple(signs), rotation)
 end
 
-"""Carter certificate for a `KnotGaussDiagram`-like object.
+"""    classical_gauss_certificate(diagram) -> ClassicalGaussCertificate
 
-This method is intentionally duck-typed so that the file remains includable in
-focused tests without loading the full `Topology` module.
+Return the oriented ribbon-surface certificate of signed Gauss data or an unsigned word.
+
+# Arguments
+With two arguments, `code` and `orientation` are integer-convertible sequences
+subject to K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)).
+The one-argument form accepts an object with `gauss` and `orientation`
+properties and checks those data, or an `AbstractVector`/`Tuple` subject to K8
+for the unsigned route. These conditions are checked: a sign-count mismatch
+raises `DimensionMismatch`; invalid word length, labels, visits or signs raise
+`ArgumentError` naming the failure. An unsupported one-argument object raises
+`ArgumentError` requesting signed data. Integer conversion failures propagate;
+values must fit `Int`, including their absolute labels.
+
+# Returns
+A `ClassicalGaussCertificate` with every field interpreted by
+[Ribbon records](../specs/knot-gauss.md#ribbon-records). The signed route uses
+the supplied crossing data; the unsigned route returns a genus-zero witness
+if one exists, otherwise a least-genus witness among its permitted rotations.
+
+# Guarantees
+1. The certificate satisfies K6; its Euler data describe the capped oriented ribbon surface of the stored rotation system. [proved/agent: by construction]
+2. In the signed route, `realizable` is true exactly when that ribbon genus is zero. In the unsigned route it is true exactly when an admissible rotation has genus zero. [proved/agent: by construction]
+3. The input containers are unchanged; the certificate owns newly created rotation and face-cycle arrays. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates and empty circle](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+The general literature identification with classical realizability is
+unverified at the source-comparison level stated in the specification. A
+ribbon certificate does not provide a coordinate drawing or a knot-type
+classification. Unsigned search can be exponential in the crossing count.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — combinatorial surface and certificate semantics; source comparison remains recorded there.
+
+# Examples
+```jldoctest
+julia> c = classical_gauss_certificate(KnotGaussDiagram([1, -2, 3, -1, 2, -3], [1, 1, 1]));
+
+julia> (c.realizable, c.genus, c.faces)
+(true, 0, 5)
+```
+
+See also [`classical_gauss_realizable`](@ref).
+
+Role: convert
 """
 function classical_gauss_certificate(diagram)
     if hasproperty(diagram, :gauss) && hasproperty(diagram, :orientation)
@@ -324,17 +495,143 @@ unsigned_gauss_realizable(code) =
 is_unsigned_gauss_realizable(code) =
     unsigned_gauss_realizable(code)
 
-"""Return the least-genus Carter decision for a signed diagram."""
+"""
+    classical_gauss_realizable(code, orientation) -> Bool
+
+Return whether the signed Gauss rotation surface has genus zero.
+
+# Arguments
+The signed forms use K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)):
+integer-convertible sequences, or an object with `gauss` and `orientation`
+properties. Validation is performed; wrong sign count raises `DimensionMismatch`,
+and invalid lengths, labels, visits or signs raise `ArgumentError` naming the
+failure. Conversion errors propagate; absolute labels must fit `Int`.
+A single `AbstractVector` or `Tuple` instead uses the unsigned K8 route, checked with `ArgumentError` on invalid data. Other unsupported objects raise `ArgumentError`.
+
+# Returns
+`Bool` for the genus-zero decision of the corresponding
+[ribbon surface](../specs/knot-gauss.md#ribbon-records).
+
+# Guarantees
+1. For signed inputs the result equals `classical_gauss_certificate(code, orientation).realizable`. [proved/agent: by construction]
+2. The input data are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+No witness, coordinate embedding or knot-type classification is returned.
+The general literature identification with classical realizability retains
+the unresolved source/convention comparison recorded in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — genus-zero predicate and its mathematical scope.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -2, -1, 2], [-1, 1]);
+
+julia> classical_gauss_realizable(d)
+false
+```
+
+See also [`classical_gauss_certificate`](@ref).
+
+Role: condition
+"""
 classical_gauss_realizable(code, orientation) =
     classical_gauss_certificate(code, orientation).realizable
 
+"""
+    classical_gauss_realizable(diagram) -> Bool
+
+Return whether the signed Gauss rotation surface has genus zero.
+
+# Arguments
+The signed forms use K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)):
+integer-convertible sequences, or an object with `gauss` and `orientation`
+properties. Validation is performed; wrong sign count raises `DimensionMismatch`,
+and invalid lengths, labels, visits or signs raise `ArgumentError` naming the
+failure. Conversion errors propagate; absolute labels must fit `Int`.
+A single `AbstractVector` or `Tuple` instead uses the unsigned K8 route, checked with `ArgumentError` on invalid data. Other unsupported objects raise `ArgumentError`.
+
+# Returns
+`Bool` for the genus-zero decision of the corresponding
+[ribbon surface](../specs/knot-gauss.md#ribbon-records).
+
+# Guarantees
+1. The result equals `classical_gauss_certificate(diagram).realizable`. [proved/agent: by construction]
+2. The input data are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+No witness, coordinate embedding or knot-type classification is returned.
+The general literature identification with classical realizability retains
+the unresolved source/convention comparison recorded in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — genus-zero predicate and its mathematical scope.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -2, -1, 2], [-1, 1]);
+
+julia> classical_gauss_realizable(d)
+false
+```
+
+See also [`classical_gauss_certificate`](@ref).
+
+Role: condition
+"""
 classical_gauss_realizable(diagram) = classical_gauss_certificate(diagram).realizable
 is_classical_gauss_realizable(args...) = classical_gauss_realizable(args...)
 
-"""Fast Boolean Carter decision used by the bounded census runner.
+"""
+    classical_gauss_realizable_fast(code, orientation) -> Bool
 
-It performs the same validation and face permutation as
-`classical_gauss_certificate`, but omits rotation and face-cycle allocation.
+Return whether the signed Gauss rotation surface has genus zero.
+
+# Arguments
+The signed forms use K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)):
+integer-convertible sequences, or an object with `gauss` and `orientation`
+properties. Validation is performed; wrong sign count raises `DimensionMismatch`,
+and invalid lengths, labels, visits or signs raise `ArgumentError` naming the
+failure. Conversion errors propagate; absolute labels must fit `Int`.
+The one-argument form requires both properties and rejects other objects with `ArgumentError`.
+
+# Returns
+`Bool` for the genus-zero decision of the corresponding
+[ribbon surface](../specs/knot-gauss.md#ribbon-records).
+
+# Guarantees
+1. For signed inputs the result equals `classical_gauss_certificate(code, orientation).realizable`. [proved/agent: by construction]
+2. The input data are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+No witness, coordinate embedding or knot-type classification is returned.
+The general literature identification with classical realizability retains
+the unresolved source/convention comparison recorded in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — genus-zero predicate and its mathematical scope.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -2, -1, 2], [-1, 1]);
+
+julia> classical_gauss_realizable_fast(d)
+false
+```
+
+See also [`classical_gauss_certificate`](@ref).
+
+Role: condition
 """
 function classical_gauss_realizable_fast(code, orientation)
     signed_code, signs = _cg_validate_signed(code, orientation)
@@ -344,6 +641,50 @@ function classical_gauss_realizable_fast(code, orientation)
     _cg_face_count(rotation, n) == n + 2
 end
 
+"""
+    classical_gauss_realizable_fast(diagram) -> Bool
+
+Return whether the signed Gauss rotation surface has genus zero.
+
+# Arguments
+The signed forms use K1 ([conditions](../specs/knot-gauss.md#numbered-conditions)):
+integer-convertible sequences, or an object with `gauss` and `orientation`
+properties. Validation is performed; wrong sign count raises `DimensionMismatch`,
+and invalid lengths, labels, visits or signs raise `ArgumentError` naming the
+failure. Conversion errors propagate; absolute labels must fit `Int`.
+The one-argument form requires both properties and rejects other objects with `ArgumentError`.
+
+# Returns
+`Bool` for the genus-zero decision of the corresponding
+[ribbon surface](../specs/knot-gauss.md#ribbon-records).
+
+# Guarantees
+1. The result equals `classical_gauss_certificate(diagram).realizable`. [proved/agent: by construction]
+2. The input data are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Ribbon coordinates](../specs/knot-gauss.md#ribbon-records).
+
+# Not guaranteed
+No witness, coordinate embedding or knot-type classification is returned.
+The general literature identification with classical realizability retains
+the unresolved source/convention comparison recorded in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Ribbon records — genus-zero predicate and its mathematical scope.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -2, -1, 2], [-1, 1]);
+
+julia> classical_gauss_realizable_fast(d)
+false
+```
+
+See also [`classical_gauss_certificate`](@ref).
+
+Role: condition
+"""
 function classical_gauss_realizable_fast(diagram)
     hasproperty(diagram, :gauss) && hasproperty(diagram, :orientation) ||
         throw(ArgumentError("expected a signed Gauss code and orientation"))

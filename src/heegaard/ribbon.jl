@@ -15,12 +15,36 @@ function _port(family::Symbol, direction::Symbol)
         (direction == :out ? :beta_out : :beta_in)
 end
 
-"""Build the oriented ribbon graph using the fixed sign convention.
+"""
+    ribbon_graph(object) -> RibbonGraph
 
-The four local ports at a positive crossing are ordered
-`alpha_out, beta_out, alpha_in, beta_in` counter-clockwise.  At a negative
-crossing the beta ports are exchanged.  The boundary permutation uses the
-clockwise (right-turn) predecessor in this order.
+Construct the oriented ribbon graph of a legacy curve arrangement.
+
+# Arguments
+`object` is a legacy combinatorial code, decorated code or cellular diagram. The caller supplies consistent incidence in the [legacy representation](../specs/heegaard-terminology.md#legacy-cellular-records). Unknown intersections, duplicate ports and missing outgoing darts raise `ArgumentError`; unsupported objects also raise `ArgumentError`. This operation does not run every validation level.
+
+# Returns
+A `RibbonGraph` with vertices, directed curve edges, paired darts, local rotations and the boundary-successor permutation.
+
+# Guarantees
+1. On valid input, the ribbon graph represents the oriented regular neighborhood of the curve arrangement, in the [legacy port convention](../specs/heegaard-terminology.md#legacy-cut-indices). [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Empty curves have no graph edges. The ribbon graph alone does not supply a complement partition, complete cut systems or a 3-manifold.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md#legacy-cut-indices — ribbon ports and boundary numbering.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> g = H.ribbon_graph(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)])); (length(g.vertices), length(g.edges), length(g.darts))
+(1, 2, 4)
+```
+
+Role: convert
 """
 function ribbon_graph(object)
     code = _undecorated(object)
@@ -90,6 +114,54 @@ function boundary_cycles(graph::RibbonGraph)
     cycles
 end
 
+"""
+    boundary_cycles(object) -> Vector{Vector{Int}}
+
+Return the oriented boundary circuits of a legacy curve arrangement's ribbon neighbourhood.
+
+# Arguments
+`object` is a `CombinatorialHeegaardCode`, `DecoratedHeegaardCode` or
+`CellularHeegaardDiagram`; alternatively supply a `RibbonGraph` directly.
+The caller must supply consistent incidence and a valid boundary permutation
+as described in [legacy cellular records](../specs/heegaard-terminology.md#legacy-cellular-records).
+A traversal that joins an already visited circuit throws `ArgumentError`
+explaining that the boundary permutation is not disjoint cycles. Invalid dart
+indices can raise `BoundsError`; incidence errors from `ribbon_graph` propagate.
+
+# Returns
+Fresh vectors of dart IDs, in the
+[legacy boundary order](../specs/heegaard-terminology.md#legacy-cellular-records).
+
+# Guarantees
+1. For a valid ribbon graph, every dart occurs once among the circuits, and
+   each circuit follows the graph's boundary successor cyclically.
+   [proved/agent: by construction]
+2. The circuits bound the oriented ribbon neighbourhood; identifying which
+   circuits bound one complementary region requires a separate decoration.
+   [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Circuits alone do not determine a closed surface or Heegaard splitting.
+This operation does not fully validate a hand-built graph or use LC face numbering.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §legacy cellular 記録 — ribbon boundary circuits and numbering.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> g = ribbon_graph(heegaard_code([[1]], [[1]], [Intersection(1,1,1,1)]));
+
+julia> sort(vcat(boundary_cycles(g)...)) == collect(1:length(g.darts))
+true
+```
+
+See also [`ribbon_graph`](@ref), [`RegionPartition`](@ref), [`complement_regions`](@ref).
+
+Role: access
+"""
 boundary_cycles(object) = boundary_cycles(ribbon_graph(object))
 
 function _dart_map(graph::RibbonGraph)

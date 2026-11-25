@@ -37,10 +37,46 @@ function _hc_explicit_triangulation(input)
     (;n,gluings,topology,signs,orientation_source=supplied ? "input" : "chosen coherent orientation")
 end
 
-"""Use the existing Koda reverse after checking its sphere/one-suture flow domain.
+"""
+    hc_triangulation_to_heegaard_koda(input; kwargs...) -> NamedTuple
 
-The output is a punctured cellular Koda diagram. Marking it on the fixed
-Lickorish reference surface remains the separate existing `odata_to_hc` boundary.
+Return the punctured cellular Koda diagram reconstructed from a triangulation's checked flow.
+
+# Arguments
+`input` and keywords have the domain of `hc_flow_certificate` in
+[the inverse bridge](../specs/heegaard-snappy.md).
+Encoding, branching, boundary-flow, joining-disk and round-trip errors
+propagate with their original exception types.
+
+# Returns
+A named tuple with punctured `value`, a `KodaConversionResult` in `conversion`,
+the o-data `encoding`, and `flow_witness`. The conversion records genus,
+Euler data, intersections, joining region and table-decode counts.
+
+# Guarantees
+1. The returned punctured diagram is exactly the checked flow reconstruction
+   with labelled source identity. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The output is not yet a resolved LC-bound HC, nor an independent PL
+homeomorphism certificate for the input's capped manifold. Forward-word
+agreement retains the limits of the flow certificate.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — inverse flow reconstruction and unresolved reference placement.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> t = H.hc_triangulation(Topology.lens_space_link(2,1); signature=false);
+
+julia> r = H.hc_triangulation_to_heegaard_koda(t; orders=t.branch_orders); r.conversion.source_status
+:constructed
+```
+
+Role: convert
 """
 function hc_triangulation_to_heegaard_koda(input; kwargs...)
     f=hc_flow_certificate(input;kwargs...)
@@ -52,10 +88,49 @@ function hc_triangulation_to_heegaard_koda(input; kwargs...)
     (;value=f.punctured,conversion,encoding=f.encoded,flow_witness=f.certificate)
 end
 
-"""Find full branching on the unchanged face pairing, or check supplied vertex orders.
+"""
+    hc_find_branching(input; orders=nothing, max_nodes::Int=100_000, accept=nothing, max_solutions::Int=1024) -> NamedTuple
 
-An exhausted search proves only nonbranchability of this triangulation. Budget
-exhaustion is a separate error. This function does not certify manifold links.
+Return a checked full branching of a fixed triangulation.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or face-pairing dictionary in
+[the triangulation domain](../specs/heegaard-snappy.md).
+Positive budgets are checked with `ArgumentError`. Explicit `orders` must
+satisfy the vertex-permutation and face-compatibility checks, or
+`HCTriangulationError` is thrown. Without explicit orders, `accept`, if given,
+must return a Boolean for an assignment. It is not applied to explicit orders.
+Invalid, disconnected or nonorientable face data and callback errors propagate.
+
+# Returns
+A named tuple of `orders`, coherent tetrahedron `signs`, `orientation_source`
+and `search_nodes`; searched results also contain `solutions_checked`.
+
+# Guarantees
+1. A returned assignment obeys the full-branching face-order condition on
+   the unchanged triangulation. [proved/agent: by construction]
+2. Exhaustion distinguishes no branching (`:not_branchable_on_input`) from
+   rejected branchings (`:branching_filter_exhausted`) and budget exhaustion.
+   [proved/agent: by construction]
+3. The input is not modified by this entry; callback side effects are the
+   caller's responsibility. [proved/agent: by construction]
+
+# Not guaranteed
+A failed search is not a nonbranchability result for the represented
+manifold. Vertex links are not certified as manifold links.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — branching on the fixed oriented face pairing.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.hc_find_branching(Dict{String,Any}(); max_solutions=0) catch e; e isa ArgumentError end
+true
+```
+
+Role: convert
 """
 function hc_find_branching(input; orders=nothing, max_nodes::Int=100_000,
                            accept=nothing, max_solutions::Int=1024)
@@ -128,7 +203,47 @@ end
 include("hc_triangulation_surface.jl")
 include("hc_triangulation_search.jl")
 
-"""Enumerate branchings with explicit completeness; bounded stops retain checked solutions."""
+"""
+    hc_each_branching(input; max_nodes::Int=100_000, max_solutions::Int=1024) -> NamedTuple
+
+Enumerate full branchings of a fixed triangulation with an explicit completion status.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or explicit face-pairing dictionary in
+[the triangulation domain](../specs/heegaard-snappy.md).
+Both budgets must be positive, checked with `ArgumentError`.
+Face-pairing, connectedness and coherent-orientation errors propagate as
+`HCTriangulationError`; malformed dictionary and conversion errors propagate.
+
+# Returns
+A named tuple `solutions` (vertex orders by tetrahedron), `complete`,
+`stop` (a budget reason or `nothing`), `max_nodes` and `max_solutions`.
+
+# Guarantees
+1. Every returned assignment satisfies the full-branching face-order checks
+   on the unchanged input face pairing. [proved/agent: by construction]
+2. `complete=true` means the search exhausted all assignments; bounded stops
+   retain checked solutions and report `complete=false`.
+   [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+These checks do not certify manifold links. An incomplete empty list does
+not prove nonbranchability. This entry does not search other triangulations.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — finite branching search and its domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.hc_each_branching(Dict{String,Any}(); max_nodes=0) catch e; e isa ArgumentError end
+true
+```
+
+Role: access
+"""
 function hc_each_branching(input;max_nodes::Int=100_000,max_solutions::Int=1024)
     solutions=Vector{Vector{Vector{Int}}}()
     stop=nothing; complete=false
@@ -161,13 +276,50 @@ function _hc_recorded_branch_orders(input)
     recorded
 end
 
-"""Encode a one-vertex triangulation using existing o-graph port conventions.
+"""
+    hc_triangulation_to_odata(input; orders=nothing, max_nodes::Int=100_000) -> NamedTuple
 
-Returns the OData, the VirtualLink and explicit face/vertex/edge correspondence.
-Acceptance requires the existing closed-o-graph checker and exact re-decoding
-of every face map, including orientation. Flow and marked HC are separate.
-`orders` is the branching. When omitted, a recorded `branch_orders` field is
-used. That field is not an orientation.
+Encode a supported one-vertex oriented triangulation as an o-graph with checked face correspondence.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or explicit face-pairing dictionary in
+[the inverse encoding domain](../specs/heegaard-snappy.md).
+One finite vertex, zero Euler characteristic, coherent orientation, branching,
+normal-o-graph conditions and exact face correspondence are checked; failures
+raise stage-specific `HCTriangulationError` or the underlying validator error.
+Explicit `orders` take precedence; otherwise recorded branching orders are
+used when present, and bounded branching search applies if absent.
+
+# Returns
+A named tuple with `value::OData`, `virtual_link`, `branching`, source-to-
+o-graph `correspondence`, and a `koda_status` requiring a flow witness.
+
+# Guarantees
+1. Decoding the output verifies every oriented face pairing against the
+   input in the transported local vertex coordinates.
+   [proved/agent: by construction]
+2. The result records tetrahedron, vertex, face-port and edge-disk
+   correspondences; the input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+A branching is not an orientation. Successful o-graph encoding does not
+establish the boundary-flow conditions or construct a marked Heegaard diagram.
+It does not identify the manifold with an external catalog name.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — exact oriented-face correspondence and separate flow boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> t = H.hc_triangulation(Topology.lens_space_link(2,1); signature=false);
+
+julia> r = H.hc_triangulation_to_odata(t; orders=t.branch_orders); r.correspondence["exact_oriented_face_correspondence"]
+true
+```
+
+Role: convert
 """
 function hc_triangulation_to_odata(input; orders=nothing, max_nodes::Int=100_000)
     orders === nothing && (orders = _hc_recorded_branch_orders(input))

@@ -98,6 +98,17 @@ witness は次を固定する。
 
 外部から受け取った witness は、現在の入力と同じ局所条件を満たすことを認証する。固定済み witness の適用では、別の出現位置を探索して代用しない。複数候補は候補集合として返し、選択した一件だけを実行する。
 
+<a id="comparison-and-move-witnesses"></a>
+### 4.1 比較への申告と実行する witness
+
+[`HCMoveStep` と `HCMoveSearchResult`](../../src/heegaard/hc_compare.jl) は比較呼出側の移動列の申告である。`compare_hc` は非空列の種類が `isotopy`、`handle_slide`、`stabilization`、`destabilization` の範囲にあると move equivalence と manifold の比較根拠に使い、すべて `isotopy` なら isotopy の根拠にも使う。ここでは各 step の支持、実行可能性、source から target への端点を再生検査しない。したがってこの経路の一致判定は、申告した移動列が正しいという呼出側の仮定に依存する。
+
+これに対して [`LCMoveWitness`](../../src/heegaard/lc_moves.jl) はカタログ行、入力 fingerprint、支持曲線・位置・書き換え片などを持ち、`move` による適用時に入力と局所書き換えを照合する。上位の affine、glue、K inclusion、role parallel の witness は [certificate 検査](../../src/heegaard/lc_moves_certificates.jl) で支持を再構成し、実行用フィールドの一致を調べる。逆向きも対応する順向き支持を照合する。下位の literal witness には構築済みの記録を信頼する経路があるため、任意に手で組み立てた値が同じ幾何的検査を受けたとは限らない。保存された digest はこの実行比較で暗号学的真正性を認証するものではない。
+
+legacy `MoveCertificate` の対応辞書、hash、逆操作、保存量の欄も記録である。値の存在だけで幾何的移動の証明とみなさず、それを作った操作の契約と実行検査を根拠にする。この区別は出力に `witness` や `certificate` という名前があるかどうかに依存しない。
+
+証拠: [HC 比較テスト](../../test/heegaard/hc_compare.jl) の move sequence の例は、同じ不変量だけでは未決定の組が呼出側の handle slide / isotopy の申告で一致になることを確認する。[LC 移動テスト](../../test/heegaard/lc_moves.jl) の `returning runs in a certified source annulus` は `q=-3,-1,1,3` の支持と、書き換え片を変更した witness に対する `witness_plan_mismatch` を照合する。これらは検査の境界を示す有限例であり、すべての申告された移動列の妥当性を確立しない。
+
 ## 5. 共通の書き換えと対応
 
 共通実行器は、witness の区間で語を切り、外部の語片を保持する。source の局所片を除き、target の片を外部 port で貼る。capacity の接続グラフを辿り、閉じた語を組み立てる。新しい空語成分には、その構成から place を付ける。曲面の局所片も同じ外部境界で貼る。
@@ -183,6 +194,17 @@ source と target は、同じ局所曲面、同じ境界 port、同じ K の部
 
 K の保持だけから同位や多様体の同値は導けない。同値を主張する行には、局所同位、曲面同相、または Heegaard の操作としての根拠を付ける。任意の before・after を受けて同値を宣言する汎用行は定めない。具体的な関係が未指定の行はカタログで未解決とする。
 
+<a id="route-point-coordinates"></a>
+## Route-point coordinates
+
+The route convention is **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**, following [the ribbon-route checker](../../src/heegaard/lc_moves_ribbon.jl) and [the public path constructor](../../src/heegaard/lc_moves_support.jl). A route-point dictionary has `dart=[label, passage_sign, direction]` and optional `u`, default `1/2`. Here the positive LC crossing label and passage sign `"+"` or `"-"` select a curve occurrence, and `"in"` or `"out"` selects its incident half-edge. It must be a dart of the active LC. The exact rational parameter satisfies `0 < u < 1` and is measured in the **oriented curve edge** coordinate, independently of which of its two darts describes it. The decoder accepts integer and rational values and rational strings using `/` or `//`, then the strict interior condition rejects endpoints and all integer positions. [proved/agent: by construction]
+
+The point belongs to the face indexed by the supplied right-face dart. If the occurrence has zero-based position `p` in a word of length `n`, an outgoing dart selects edge `p+1`; an incoming dart selects edge `mod1(p,n)`. The returned internal edge index is 1-based. Switching to the opposite dart by `τ` keeps `u`; it does not replace `u` with `1−u`. Within a face boundary, the cyclic comparison rank for its `j`th dart is `j−1+u` for an outgoing dart and `j−1+(1−u)` for an incoming dart. This rank is a boundary-order coordinate, not a global Euclidean position. [proved/agent: explicit coordinate translation]
+
+The public `lc_move_path` also accepts a bare three-part corner in place of a point dictionary. For that shorthand it applies `τ` and uses `u=1/2`; supplying the same triple as a dictionary's `dart` therefore selects the opposite face from the shorthand. A path consists of `start`, ordered intermediate `crossings`, and `finish`. Each within-face segment joins successive boundary points; at an intermediate crossing the next face is entered through `τ` at the same `u`. Repeated `(component,edge,u)` events, disconnected face segments, alternating chord endpoints, and faces containing a placed empty component are rejected by the current checker. `avoid` restricts intermediate crossed components, not endpoint components. The returned crossing summaries' `gap` equals the internal edge index plus one; it must not be used as that edge index without translation. [proved/agent: by construction]
+
+The [LC-move tests](../../test/heegaard/lc_moves.jl), `shared support and embedded path`, exercise the shorthand, face transition, excluded crossing and repeated-event rejection. `ribbon banks and corpus relations` uses two opposite-dart events with parameters `1/3` and `2/3`; [the bordered tests](../../test/heegaard/bordered_lickorish_code.jl), `geometric slide inverse`, compare the reversed route with the inverse slide. These conventions specify finite support through disk faces. General routing through punctured faces, a Euclidean path shape and a complete isotopy classification of paths are not supplied by this representation.
+
 ## 7. 逆方向と保存データ
 
 逆方向は source・target の交換、境界写像と対応の逆、展開の逆順から得る。曲線や交点を除く操作は、逆を構成するのに必要な局所片とラベルの対応を witness に残す。適用後の対象に対して逆の適用可能性を認証する。
@@ -207,6 +229,11 @@ K の保持だけから同位や多様体の同値は導けない。同値を主
 研究リポジトリ基準の `threads/PJ260922/code/hc_operations*.py` と `hc_twist.py` は、入力例と局所操作の材料である。`src/heegaard/marked_moves.jl` の三角形・頂点同位、`marked_slides.jl` の band と pair-of-pants、`marked_stabilization.jl` の支持の切除と貼付けは、構成と輸送で必要な情報の材料である。これらの種類ごとの実装を、新しい種類別の語の処理として移植することは仕様の根拠にしない。
 
 `marked_twists.jl` の全曲線への区分的アフィン写像と `marked_twist_words.jl` の有限写像の合成も材料とした。全曲線を同時に動かす場合と部分族だけを動かす場合を分けること、周期境界での対応と逆の写像を記録することを本書へ取り込んだ。
+
+<a id="legacy-reversal-id-collision"></a>
+## Legacy reversal with colliding family IDs
+
+bug: For a legacy cellular diagram with α visits `[[1],[2]]`, β visits `[[1,2]]`, and positive crossings `(1,α1,β1)` and `(2,α2,β1)`, reversing only `(:alpha,1)` should negate the first ordered intersection sign and preserve the second. [The current `reverse_curve_orientation`](../../src/heegaard/moves.jl) compares the selected numeric ID against both `point.alpha` and `point.beta`; it consequently negates both crossings. This contradicts the geometric reversal of the curve named by the selector, even when the resulting diagram passes cellular certification. The contract therefore promises the stored visit reversal and recertification, and explicitly excludes general geometric reversal on inputs with such a family-ID collision. [proved/agent: by construction and ordered intersection signs]
 
 ## 9. 確定項目
 

@@ -1,14 +1,52 @@
 # cf: Turaev–Viro (1992), DOI 10.1016/0040-9383(92)90015-A, §9.1 and §9.2.A — r=3 surface-colouring sum; Work registration unresolved, unverified.
 # cf: lib/topology.jl/src/heegaard/lc_combinatorial.jl::_lc_faces / _lc_tau — existing oriented surface CW cells.
 
-"""Exact r=3 TV sum on Σ ∪ meridian disks, without triangulation or Regina.
+"""
+    Z_TuraevViro_skeleton(hc::HeegaardCode, r::Integer=3; parity=true, certificate=false, max_states=1_000_000) -> Union{Rational{BigInt},NamedTuple}
 
-The full LC cell structure subdivides the skeleton. Reference-only edges impose
-equal face colours. Meridian edges impose the admissible binary triple. For
-`parity=true`, each selected closed surface contributes (-1)^χ; for `false`,
-each contributes 1. Both use the original normalisation 1/4 (χ(skeleton)=2).
-Returns Rational{BigInt}; r>=4 is outside this backend. Completeness of the
-meridian systems is checked by hc_linking_form; its value is unused.
+Return the exact r=3 Turaev–Viro surface-colouring sum on the HC skeleton.
+
+# Arguments
+`r` must equal 3 and `max_states` must be positive; checked failures raise
+`ArgumentError`. The HC must pass the applicable `hc_linking_form` and
+`realize_hc` domains; their errors propagate. The skeleton Euler-characteristic
+and state-count bounds are checked with `ArgumentError`. `parity` and
+`certificate` are Boolean. The empty genus-zero HC has a supported special case.
+
+# Returns
+A `Rational{BigInt}`, or `(value, certificate)` containing method/parameter
+information, state count and Euler-characteristic data. Nonempty inputs also
+record kernel dimension and cell counts; the genus-zero case records its
+special-case name instead.
+
+# Guarantees
+1. The value is the exact finite surface-colouring sum of the supplied
+   HC skeleton within this backend's supported domain.
+   [proved/agent: by construction]
+2. Its intended interpretation is the r=3 Turaev–Viro invariant of the HC's
+   closed 3-manifold. [unverified: general source alignment under docs/specs/heegaard-code.md#moo-tv-normalization]
+3. The HC is not modified and no Regina backend is invoked.
+   [proved/agent: by construction]
+
+# Conventions
+Turaev–Viro normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#moo-tv-normalization).
+
+# Not guaranteed
+The source alignment in guarantee 2 is not established for arbitrary
+hand-built HC data. Higher levels are unsupported. The [state-sum specification](../specs/heegaard-code.md#moo-tv-normalization)
+states the colouring, parity and normalization.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(0, Dict(), Dict(), Dict(), Dict(), Dict(), nothing); h = HeegaardCode(lc, Dict(), Dict(), Dict(), Dict(), nothing); Z_TuraevViro_skeleton(h) == 1//2
+true
+```
+
+See also [`Z_TuraevViro`](@ref).
+
+Role: invariant
 """
 function Z_TuraevViro_skeleton(hc::HeegaardCode,r::Integer=3;
         parity::Bool=true,certificate::Bool=false,max_states::Integer=1_000_000)

@@ -245,6 +245,19 @@ Koda Lemma 5.3 は、この P(H) が穿孔した図式の多様体の branched s
 
 この対応から、真頂点の四つの特異 ray、六つの局所 sheet、各特異辺の三枚の sheet を復元できるものとする。
 
+<a id="cellular-basis-coordinates"></a>
+### 6.5 cellular basis の向きと座標
+
+[`CellularBasis` と `CellularMapWitness`](../../src/heegaard/koda_cmr3.jl) の記録では、`vertices`、`edges`、`faces` の各ラベル列がそれぞれの次数の基底順を指定する。行列は列ベクトルに作用する。境界行列 `B₁` の行は頂点、列は辺、`B₂` の行は辺、列は面である。向き付き辺 `u→v` の境界は `v−u` とし、面の向きは呼出側が選んだ向きの境界係数で与える。名前だけから辺や面の向きを復元することはできない。
+
+`phi_d` の列は source の次数 `d` の基底、行は spine の同次数の基底であり、負の係数は逆向き、絶対値は符号付き重複度を表す。chain map の照合は `B₁_spine phi₁ = phi₀ B₁_source` と `B₂_spine phi₂ = phi₁ B₂_source` である。cochain も基底に双対な列座標を用い、引き戻しは `phi_dᵀ`、coboundary は `B_(d+1)ᵀ` となる。
+
+規約辞書として、旧座標で書いた新基底の列を並べる符号付き置換行列を `Q_d` とすると、境界は `B_d,new = Q_(d−1)⁻¹ B_d,old Q_d`、写像は `phi_d,new = Q_d,spine⁻¹ phi_d,old Q_d,source` に翻訳する。任意の向きの変更や基底順の変更は、この対応とともに記録する。
+
+規約の状態: **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**。[CMR3 テスト](../../test/heegaard/koda_cmr3.jl) の `CMR3 frozen Euler classes and cellular witnesses` は固定した cellular 例で係数 `−1` と重複度 `2`、chain map の二式、転置による degree 2 の引き戻しを照合し、符号を変えた witness を拒否する。今回の direct driver でも、同じ登録済み行列を実装の `CellularMapWitness`、`cellular_map_commutes`、`cellular_cochain_natural` に渡し、両等式の成立、係数 `−1` と `2`、符号変更後の両検査の失敗を照合した。パッケージ全体のテストを再実行した結果ではない。
+
+`CellularMapWitness` の構築は行列の寸法、規約と hash 文字列の有無を検査する。chain map の等式、境界の二乗が零であること、指定した胞体が実際の HC・spine に対応することを構築だけでは保証しない。固定 cellular 例の一致から一般の幾何的対応 φ が認証済みとは結論できない。期待される対応は上の鎖写像であるが、実際の変換から胞体の向きと対応を独立に取り出して照合することが、その主張を確立するために残る。
+
 ## 7. branched spine と o-data の符号化・復号
 
 ### 7.0 専用データと共通の解釈手順
@@ -403,6 +416,11 @@ over/under を固定したまま全 strand を反転すると、σ は同じで�
 裸の o-data を復号するときは、ラベルと vertex sign ごとに局所 spine を置き、巡回語の各辺に沿って貼る。各頂点の六つの sheet と各辺の三つの sheet を辿って sector の貼付けを得る。数値局所表の確定後、この操作は有限で決定的になる。
 
 閉 normal o-graph の入力検査には、既存の C1・C2・C3 の定義と実装を使う。さらに逆変換の要求が一枚の D なら、入力が表す正則近傍の S² 境界と一つの垂直円環を入力条件として確認する。C1・C2・C3 は出力を作った後の通常経路の自己検査には加えない。
+
+<a id="forward-sign-map-loss"></a>
+### 7.5 診断用 forward 変換の符号辞書
+
+bug: `sigma = Dict(1=>1)`、`d = koda_table_decode([[1,-1]], sigma)`、`hc = koda_hc_from_boundary(d, sigma)` に対する `koda_forward_gauss_from_hc(hc, sigma)` は、§7.1 の完全な o-data が必要とする真頂点の符号を返さず、語と空の符号辞書を返す。[診断用変換](../../src/heegaard/koda_interpreter.jl) の現動作であり、[triangulation 経路の既存コメント](../../src/heegaard/hc_triangulation_surface.jl) もこの欠落を記録している。完全な符号化には `hc_to_odata` の公開経路を使う。この診断用の組を完全な o-data とみなしてはならない。[proved/agent: by construction、ラベル逆辞書のキーの不一致]
 
 ## 8. 入力 spine そのものから Heegaard diagramを作る
 
@@ -737,6 +755,31 @@ o-data 側の H₁ は、特異グラフの極大木を縮め、sector の貼付
 
 - implementation: 既存 `src/ograph_state.jl` の `c2_graph` と `docs/specs/ograph-c2.md`。独立な BP97 の図からの転写として照合
 - computation: 上記 6,371 行の C2 比較と九例の曲線・H₁ の計算
+
+<a id="cmr3-euler-framing"></a>
+## CMR3, Euler classes and framing records
+
+The algebraic and record conventions are **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**. [The CMR3 classifier](../../src/heegaard/koda_cmr3.jl) takes an integer matrix `delta` and a column `c_P` with one entry per row. In the [cellular basis convention](#cellular-basis-coordinates), these are a cochain coboundary matrix and a proposed Euler representative. Algebraically the classifier determines `[c_P]` in `coker(delta)`. Its integer second-field equation is **`delta*x = −c_P`**. The matrix/vector alone do not certify that this is the Euler obstruction of a particular geometric combing. [proved/agent: algebraic interpretation]
+
+For `S = U delta V`, set `y = U c_P`. A nonzero coordinate beyond the nonzero Smith diagonal gives infinite order: state `:euler_obstructed`, `order=nothing`, diagnostic `:not_torsion`. Otherwise the order is `lcm(Sᵢᵢ/gcd(Sᵢᵢ,yᵢ))` over the nonzero diagonal (empty lcm is 1). Order greater than 1 gives `:euler_obstructed`, that finite order, diagnostic `:rational_only`. Order 1 gives `:framing_extendable` and a checked integral solution of the second-field equation, with no order/diagnostic stored. This is a particular Smith-coordinate solution with free Smith coordinates zero, not a distinguished homotopy class of framings. [proved/agent: integer cokernel calculation]
+
+A `ModularWitness(m,u)` is a proposed row functional modulo positive `m`. Its check reports separately whether `uᵀ delta = 0 mod m` and the residue `uᵀ c_P mod m`. Both annihilation and a nonzero residue are needed to obstruct an integer solution. A zero residue is not a proof that the class vanishes. The mod-two solver only decides whether the reduced equation is soluble: `:mod2_solution`, or `:euler_obstructed` with diagnostic `:mod2_unsolvable`. It supplies no integer second field. `cmr3_combed()` is the record `(:combed,nothing,nothing)`, with no obstruction computation. [proved/agent: by construction]
+
+[CombingFraming](../../src/heegaard/koda_combing.jl) currently supports `b1=0` in its producer. A `:combed` state gives `framing_status=:unjudged`; an obstructed state gives `:obstructed`; a framing-extendable state without a solution gives `:extendable`; with a solution it gives `:framed` and records that vector as `second_field`. The framed producer requires an Euler vector and a nonempty solution vector, but receives no matrix and cannot recheck the equation. Compatibility of a supplied state, representative and solution is a caller obligation. `mod2_status` remains separate. `spin_c`, `p1` and `theta` are `nothing`; this means unidentified or uncomputed, not zero. If theta data are supplied to the raw record, the certificate's intended order is `(ell_2,s_ell,e,Theta)`. [proved/agent: by construction]
+
+The [test `CMR3 frozen Euler classes and cellular witnesses`](../../test/heegaard/koda_cmr3.jl) embodies the sign of the integer equation, finite Euler orders, the distinction between mod-two solvability and integral framing, the absent invariant fields, and the cellular-basis transport. It checks recorded printed weights with `delta*weights == −c_P`, as well as obstructed examples with mod-two solutions. The source interpretation depends on the geometric correspondence already required by §10.3; neither a successful algebraic solve nor a `:framed` record supplies that correspondence.
+
+unverified: identification of an arbitrary supplied `c_P` with the Euler class of the orthogonal plane field, and identification of the resulting second-field coordinates with a framing of the claimed 3-manifold. The cellular naturality checks and printed-weight fixtures support this for their corresponding data, but a general geometric cochain correspondence is still needed; a mismatch under such a correspondence would refute it. The implementation does not equate this Euler representative with the first Chern class of [the Lescop Spinᶜ label](heegaard-terminology.md#lescop-coordinates), does not vary the combing by a CP move, and does not compute its absolute `p1`.
+
+<a id="forward-file-lc-argument"></a>
+## Forward file-argument discrepancy
+
+bug: For `hc_to_odata(lc_path,hc_path)`, the two-path signature presents an LC input path, but [the current overload](../../src/heegaard/koda_forward.jl) never reads or checks `lc_path`: it calls `read_hc(hc_path)` and uses the LC declared inside that HC file. Supplying a different or nonexistent `lc_path` therefore has no effect when the declared HC dependency is readable. The current contract states this behavior. A caller needing a chosen LC must resolve the HC against that LC before passing the object to the forward converter. This record does not prescribe a code change to the overload. [proved/agent: by construction]
+
+<a id="joining-preparation-witness-gap"></a>
+## Joining-preparation witness discrepancy
+
+bug: For an input on which `hc_prepare_joining_disk` finds a joining candidate but subsequently changes it by `_prepare_cut_annuli`, [the producer](../../src/heegaard/koda_joining_prepare.jl) returns the final HC together with only `found.witnesses` from the earlier search. The later annulus-finger edits have no entries in that returned list. This fails the complete source-to-target witness interpretation required by [move transport and inverse data](heegaard-moves.md#7-逆方向と保存データ). Replaying the listed search witnesses alone need not reach the returned HC. The implementation's file comment explicitly says the finger is not a catalogued move row. This is a branch-level finding; no general geometric preservation claim is inferred from the incomplete list. [proved/agent: by construction]
 
 ## 14. LC と HC の追加仕様案
 

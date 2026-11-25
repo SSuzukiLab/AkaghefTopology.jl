@@ -1,3 +1,52 @@
+"""
+    FiniteAlgebra(dimension, multiplication, unit, name) -> FiniteAlgebra
+
+Store multiplication and unit data for a finite-dimensional algebra in a chosen basis.
+
+# Arguments
+`dimension::Int`, `multiplication::SparseFactor`, `unit::SparseFactor`, and
+`name::String`, or values convertible to those field types. Conversion
+failures propagate. No dimension, tensor-shape, unit or associativity check
+is performed; the caller supplies coherent algebra data.
+
+# Returns
+`FiniteAlgebra` with the supplied dimension, multiplication tensor, unit
+tensor and descriptive name. The representation-independent algebra API is
+owned by [Algebra](../specs/algebra.md#definitions).
+
+# Guarantees
+1. Fields retain the supplied values after conversion; supplied sparse
+   factors are shared with the result. [proved/agent: by construction]
+2. If the supplied tensors are the multiplication and unit of an algebra,
+   the result stores that algebra in the supplied basis. Construction does
+   not certify the hypothesis. [proved/agent: by construction]
+3. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The name does not identify an isomorphism class. Invalid dimensions and
+inconsistent structure constants are not rejected. No coalgebra, antipode
+or integral data are added.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0039]] multiplication tensor of a finite-dimensional algebra; the container and its validation boundary are repository-specific.
+
+# Examples
+```jldoctest
+julia> h = uqsl2_borel_small(1//3; style=:L); d = heisenberg_double(h);
+
+julia> a = FiniteAlgebra(d.dimension, d.multiplication, d.unit, d.name);
+
+julia> a.dimension
+81
+```
+
+See also [`basis_element`](@ref), [`FiniteHopfAlgebra`](@ref).
+
+Role: convert
+"""
 struct FiniteAlgebra
     dimension::Int
     multiplication::SparseFactor
@@ -5,6 +54,58 @@ struct FiniteAlgebra
     name::String
 end
 
+"""
+    AlgebraElement(algebra::FiniteAlgebra, coefficients_or_index) -> AlgebraElement
+
+Return a coordinate element of the supplied finite-dimensional algebra.
+
+# Arguments
+- `algebra` supplies the basis and algebra operations.
+- A coefficient vector must be convertible to `Vector{ComplexF64}` and
+  should have `algebra.dimension` entries. Conversion failures propagate;
+  the vector's length is not checked by this constructor.
+- An integer `index` selects a basis element and must lie in
+  `1:algebra.dimension`; otherwise a `BoundsError` contains that range and
+  the offending index.
+
+# Returns
+`AlgebraElement` with `algebra` the supplied algebra and
+`coefficients::Vector{ComplexF64}` its coordinates. This is part of the
+[Algebra API](../specs/algebra.md#definitions).
+
+# Guarantees
+1. The vector form preserves the supplied coordinates after conversion.
+   A supplied `Vector{ComplexF64}` is retained without copying. [proved/agent: by construction]
+2. The index form returns the indicated basis vector: its indexed
+   coefficient is one and all other coefficients are zero, in a fresh vector. [proved/agent: by construction]
+3. For coherent algebra data and a correctly sized vector, the result is
+   the corresponding element of that algebra, not an element of its dual. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The algebra axioms and the vector length are not certified. Coefficients
+are stored in floating-point complex arithmetic, even when supplied exactly.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0024]] coordinates of a vector in a given finite-dimensional basis; complex floating-point storage is a repository choice.
+
+# Examples
+```jldoctest
+julia> h = cyclic_group_algebra(5); b = basis_element(h, 2);
+
+julia> a = AlgebraElement(b.algebra, 2);
+
+julia> (a^5).coefficients ≈ basis_element(h, 1).coefficients
+true
+```
+
+See also [`basis_element`](@ref), [`hopf_pairing`](@ref).
+
+Role: convert
+"""
 struct AlgebraElement
     algebra::FiniteAlgebra
     coefficients::Vector{ComplexF64}
@@ -20,7 +121,95 @@ function _finite_algebra(algebra::FiniteHopfAlgebra,name="Hopf algebra")
     FiniteAlgebra(algebra.dimension,algebra.multiplication,algebra.unit,name)
 end
 
+"""
+    basis_element(algebra::FiniteAlgebra, index::Integer) -> AlgebraElement
+
+Return the indicated basis element of a finite algebra or the algebra underlying a Hopf algebra.
+
+# Arguments
+`index` must lie in `1:algebra.dimension`; otherwise `BoundsError` reports
+the admissible range and index. The supplied algebra must have coherent
+dimension and multiplication data for subsequent algebra operations.
+
+# Returns
+An `AlgebraElement` with a fresh `Vector{ComplexF64}` of coordinates.
+For a Hopf input, its `algebra` field is a `FiniteAlgebra` with the same
+dimension, multiplication and unit, named `"Hopf algebra"`.
+
+# Guarantees
+1. The coordinate vector has `algebra.dimension` entries, one at `index`
+   and zero elsewhere. It represents that basis vector of the input algebra. [proved/agent: by construction]
+2. A Hopf input's multiplication and unit factors are shared with the
+   underlying algebra in the result. The input is unchanged. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+This does not validate the algebra or choose a canonical basis. The result
+stores no coproduct or antipode. Basis order belongs to the particular
+algebra constructor; see the [Algebra scope](../specs/algebra.md#definitions).
+
+# Sources
+cf:[[Kup91#^kup91-blk-0024]] coordinates in a chosen basis; extracting an underlying algebra is the repository API boundary.
+
+# Examples
+```jldoctest
+julia> h = cyclic_group_algebra(5);
+
+julia> (basis_element(h, 2)^5).coefficients ≈ basis_element(h, 1).coefficients
+true
+```
+
+See also [`AlgebraElement`](@ref).
+
+Role: access
+"""
 basis_element(algebra::FiniteAlgebra,index::Integer)=AlgebraElement(algebra,index)
+"""
+    basis_element(algebra::FiniteHopfAlgebra, index::Integer) -> AlgebraElement
+
+Return the indicated basis element of the algebra underlying a Hopf algebra.
+
+# Arguments
+`index` must lie in `1:algebra.dimension`; otherwise `BoundsError` reports
+the admissible range and index. The input must have coherent dimension,
+multiplication and unit data for subsequent algebra operations.
+
+# Returns
+An `AlgebraElement` with a fresh `Vector{ComplexF64}` of coordinates and a
+`FiniteAlgebra` carrying the input's dimension, multiplication and unit,
+named `"Hopf algebra"`.
+
+# Guarantees
+1. The vector has `algebra.dimension` entries, one at `index` and zero
+   elsewhere. It represents that basis vector of the input algebra. [proved/agent: by construction]
+2. Multiplication and unit factors are shared with the input. The input is
+   unchanged; no coproduct or antipode is stored in the result. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+No algebra identities are checked and no canonical basis is chosen.
+The basis belongs to the input constructor in the
+[Algebra API](../specs/algebra.md#definitions).
+
+# Sources
+cf:[[Kup91#^kup91-blk-0024]] coordinates in a chosen finite-dimensional basis.
+
+# Examples
+```jldoctest
+julia> h = cyclic_group_algebra(5);
+
+julia> (basis_element(h, 2)^5).coefficients ≈ basis_element(h, 1).coefficients
+true
+```
+
+See also [`AlgebraElement`](@ref).
+
+Role: access
+"""
 basis_element(algebra::FiniteHopfAlgebra,index::Integer)=basis_element(_finite_algebra(algebra),index)
 
 _same_algebra(left::FiniteAlgebra,right::FiniteAlgebra)=left===right ||
@@ -118,11 +307,55 @@ function _make_hopf_algebra(dimension,multiplication,unit,coproduct,counit,antip
         _sparse_data(left_cointegral))
 end
 
-"""Construct the integer-coefficient group Hopf algebra from a finite multiplication table.
+"""
+    group_algebra(table::AbstractMatrix{<:Integer}) -> FiniteHopfAlgebra
 
-`table[i,j] == k` means that the product of basis elements `i` and `j` is
-basis element `k`. The table must describe a group; closure, a two-sided
-identity, associativity, and two-sided inverses are validated exactly.
+Return exact structure tensors for the Hopf algebra of a finite group supplied by its multiplication table.
+
+# Arguments
+`table` is a nonempty square group multiplication table with entries
+convertible to `Int`. Shape, closure, a two-sided identity, associativity and
+unique two-sided inverses are checked. Violations raise `ArgumentError`
+naming the failed group-table requirement; conversion and allocation errors
+propagate. The table's index convention belongs to the
+[Algebra API](../specs/algebra.md#definitions).
+
+# Returns
+A `FiniteHopfAlgebra` of dimension `size(table,1)` with `BigInt` structure
+coefficients. Fields have the API roles described by [`FiniteHopfAlgebra`](@ref).
+
+# Guarantees
+1. Multiplication, unit, coproduct, counit and antipode are the group-algebra
+   structural maps for the validated table in its supplied group basis.
+   [proved/agent: by construction]
+2. The crossing tensors and distinguished tensors use the same basis and
+   agree with the library's cyclic specialization when its table is supplied.
+   [proved/agent: by construction]
+3. The input table is not modified. Result tensors are newly allocated.
+   [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The `integral` and `cointegral` field names do not certify agreement with a
+literature naming convention. Exact structural coefficients do not make every
+downstream operation exact or certify a topological invariant.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0138]] the group-basis specialization of Hopf tensors; storage and distinguished-field names follow the repository API.
+
+# Examples
+```jldoctest
+julia> h = group_algebra([2 1; 1 2]);
+
+julia> h.unit.terms == Dict{Tuple,ComplexF64}((2,)=>1)
+true
+```
+
+See also [`cyclic_group_algebra`](@ref), [`verify_hopf`](@ref).
+
+Role: construct
 """
 function group_algebra(table::AbstractMatrix{<:Integer})
     rows,columns=size(table)
@@ -165,10 +398,59 @@ function group_algebra(table::AbstractMatrix{<:Integer})
         _sparse_data(cointegral),_sparse_data(integral),_sparse_data(cointegral))
 end
 
-"""Construct the complex group Hopf algebra from ordered labels and a product.
+"""
+    group_algebra(elements::AbstractVector, multiply) -> FiniteHopfAlgebra
 
-Basis index `i` corresponds to `elements[i]`. The operation is materialized
-once on every ordered pair and then validated as a finite group table.
+Return exact group Hopf tensors for a finite group supplied by ordered elements and a product.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/algebra.md).
+
+- `elements` must be nonempty with pairwise distinct labels under `isequal`.
+  Violations raise `ArgumentError` naming nonemptiness or uniqueness.
+- `multiply` must accept two labels and return a label equal under `isequal`
+  to exactly one supplied element; failure raises `ArgumentError` reporting
+  lack of closure. Callback exceptions propagate. The resulting group-table
+  requirements are checked as in [`group_algebra(::AbstractMatrix)`](@ref group_algebra).
+- Stable equality and a deterministic, nonmutating product callback are the
+  caller's responsibility. A stateful callback can invalidate the intended
+  group interpretation and can modify data passed to it.
+
+# Returns
+A `FiniteHopfAlgebra` with `BigInt` tensor coefficients, of dimension
+`length(elements)`, in the supplied element order.
+
+# Guarantees
+1. For a stable product on the supplied labels, the result is the group Hopf
+   algebra in that ordered basis, with the structural interpretation of the
+   table overload. [proved/agent: by construction]
+2. The function itself does not modify the element vector or its labels;
+   side effects of `multiply` are not controlled. Tensor containers are new.
+   [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The returned record does not retain the label vector or decide isomorphism
+between different group presentations. Distinguished-field naming and
+downstream exactness have the limitations of the table overload.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0138]] group-algebra tensors in a group basis; the ordered labels choose the repository coordinate basis.
+
+# Examples
+```jldoctest
+julia> h = group_algebra(collect(0:4), (a,b)->mod(a+b,5));
+
+julia> (h.dimension, all(values(verify_hopf(h))))
+(5, true)
+```
+
+See also [`cyclic_group_algebra`](@ref).
+
+Role: construct
 """
 function group_algebra(elements::AbstractVector,multiply)
     isempty(elements) && throw(ArgumentError("group elements must be nonempty"))
@@ -186,6 +468,59 @@ function group_algebra(elements::AbstractVector,multiply)
     group_algebra(table)
 end
 
+"""
+    cyclic_group_algebra(order::Integer) -> FiniteHopfAlgebra
+
+Return exact structure tensors for the group Hopf algebra of a cyclic group.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/algebra.md).
+
+`order` must be positive; otherwise `ArgumentError` states that the group
+order must be positive. The dimension must fit the machine's array indices
+and available storage. Conversion or allocation failures propagate.
+
+# Returns
+`FiniteHopfAlgebra` of dimension `order`, with `BigInt` coefficients in its
+sparse tensors. Its fields have the roles described by
+[`FiniteHopfAlgebra`](@ref).
+
+# Guarantees
+1. The multiplication, unit, coproduct, counit and antipode are those of
+   the cyclic group's group algebra in the ordered group basis. [proved/agent: by construction]
+2. The result has the same tensor values as
+   `group_algebra(collect(0:order-1), (a,b) -> mod(a+b,order))`. [proved/agent: by construction]
+3. Each call returns independently allocated tensor data. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The integer tensor coefficients do not make all downstream operations exact:
+`basis_element`, duals and doubles use complex floating-point coordinates.
+No translation to another basis or integral normalization is certified, and
+no manifold invariant is computed by this constructor.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0138]] group-algebra weights in a group basis; the cyclic specialization and integer coefficient representation are reconstructed.
+
+# Examples
+```jldoctest
+julia> h = cyclic_group_algebra(5);
+
+julia> all(values(verify_hopf(h)))
+true
+
+julia> (basis_element(h, 2)^5).coefficients ≈ basis_element(h, 1).coefficients
+true
+```
+
+See also [`group_algebra`](@ref), [`basis_element`](@ref).
+
+Role: construct
+"""
 function cyclic_group_algebra(order::Integer)
     order>0 || throw(ArgumentError("group order must be positive"))
     table=[mod(i+j-2,order)+1 for i in 1:order,j in 1:order]
@@ -277,12 +612,110 @@ function _kp_structure_constants(::Type{T}=ComplexF64) where T
 end
 
 # cf:_kp_structure_constants — same local definition, retaining the existing approximate integral construction.
-"""Eight-dimensional Kac–Paljutkin Hopf algebra with the existing approximate integral construction."""
+"""
+    kac_paljutkin_algebra() -> FiniteHopfAlgebra
+
+Return the library's eight-dimensional Kac–Paljutkin tensor model with numerical distinguished tensors.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/algebra.md).
+
+No arguments are required. Numerical linear-algebra and allocation errors
+can propagate when constructing the model.
+
+# Returns
+`FiniteHopfAlgebra{Nothing}` of dimension eight with `ComplexF64` coefficients
+in the fields described by [`FiniteHopfAlgebra`](@ref).
+
+# Guarantees
+1. The result is the repository's fixed eight-dimensional algebra and
+   coalgebra model, with crossing, antipode and distinguished tensors in
+   the same coordinate space. [proved/agent: by construction]
+2. Each call returns newly allocated tensor data; there are no input
+   arguments to modify. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The distinguished tensors are numerical, not exact algebraic certificates.
+Their normalization and basis identification with another literature
+presentation are not certified. Construction does not return a proof of
+Hopf identities or topological invariance.
+
+# Sources
+cf:lib/topology.jl/src/finite_algebra.jl, _kp_structure_constants — the fixed local eight-dimensional model; no literature basis identification is asserted.
+
+# Examples
+```jldoctest
+julia> h = kac_paljutkin_algebra(); x = basis_element(h,2); y = basis_element(h,3); z = basis_element(h,5);
+
+julia> (z*x ≈ y*z, z*y ≈ x*z)
+(true, true)
+```
+
+See also [`verify_hopf`](@ref), [`is_involutory`](@ref).
+
+Role: construct
+"""
 function kac_paljutkin_algebra()
     h=_kp_structure_constants()
     _make_hopf_algebra(h.dimension,h.multiplication,h.unit,h.coproduct,h.counit,h.antipode)
 end
 
+"""
+    dual_algebra(algebra::FiniteHopfAlgebra) -> FiniteHopfAlgebra
+
+Return tensor data for the linear dual of a finite-dimensional Hopf algebra.
+
+# Arguments
+`algebra` must supply coherent finite-dimensional Hopf structure tensors
+in a fixed basis. Multiplication and coproduct keys must have three entries
+and antipode keys two entries; their coefficients must be convertible to
+`ComplexF64`. Invalid keys and conversion failures propagate their Julia
+exceptions. No Hopf-axiom or dimension validation is performed.
+
+# Returns
+`FiniteHopfAlgebra{Nothing}` of the same dimension. Its multiplication and
+unit correspond to the input coproduct and counit; its coproduct and counit
+correspond to the input multiplication and unit; its antipode is the dual
+map. The distinguished left/right tensors exchange the integral and
+cointegral field roles. See the [Algebra API](../specs/algebra.md#definitions).
+
+# Guarantees
+1. For valid input Hopf data, the structural maps are those of its linear
+   dual in the dual basis, subject to conversion of multiplication,
+   coproduct and antipode coefficients to `ComplexF64`. [proved/agent: by construction]
+2. The input is unchanged. The four distinguished integral/cointegral
+   factors are shared with the result; the other tensor dictionaries are new. [proved/agent: by construction]
+3. The returned dimension equals the input dimension. No involutivity
+   assumption is checked or imposed. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+Floating-point conversion need not preserve exact coefficients. Applying
+duality twice need not recover the input's type tag or bitwise tensor data.
+The stored integral-field names do not certify a normalization or resolve
+conventions absent from the algebra specification.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0038]] algebra structures on a finite-dimensional Hopf algebra and its dual; dual antipode and distinguished tensors use the repository field convention.
+
+# Examples
+```jldoctest
+julia> d = dual_algebra(uqsl2_borel_small(1//3; style=:L));
+
+julia> (d.dimension, all(values(verify_hopf(d))))
+(9, true)
+```
+
+See also [`hopf_pairing`](@ref), [`verify_hopf`](@ref).
+
+Role: convert
+"""
 function dual_algebra(algebra::FiniteHopfAlgebra)
     multiplication=Dict{Tuple,ComplexF64}((left,right,output)=>value
         for ((output,left,right),value) in algebra.coproduct.terms)
@@ -299,6 +732,55 @@ function dual_algebra(algebra::FiniteHopfAlgebra)
         algebra.left_cointegral,algebra.left_integral)
 end
 
+"""
+    hopf_pairing(dual::AlgebraElement, primal::AlgebraElement) -> ComplexF64
+
+Return the bilinear coordinate pairing of a dual element with a primal element.
+
+# Arguments
+The two stored algebra dimensions must agree; otherwise `DimensionMismatch`
+is thrown without a custom message. For the evaluation interpretation,
+`dual` and `primal` must be expressed in corresponding dual bases and have
+coordinate vectors of the declared dimension. That correspondence and those
+lengths are not checked; incompatible broadcast lengths can throw
+`DimensionMismatch`.
+
+# Returns
+A `ComplexF64` scalar. This operation belongs to the
+[Algebra API](../specs/algebra.md#definitions).
+
+# Guarantees
+1. For corresponding bases and correctly sized vectors, the result is the
+   value of the supplied linear functional on the supplied vector, subject
+   to complex floating-point arithmetic. [proved/agent: by construction]
+2. The pairing is bilinear: the dual coefficients are not conjugated. [proved/agent: by construction]
+3. Both inputs are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+Equal dimensions do not establish that the two stored algebras are dual.
+This is not a Hermitian inner product or an exact pairing for arbitrary
+exact mathematical coefficients.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0023]] evaluation of a dual vector on a vector by contraction in corresponding bases.
+
+# Examples
+```jldoctest
+julia> h = uqsl2_borel_small(1//3; style=:L); d = dual_algebra(h);
+
+julia> K = basis_element(h, 2); E = basis_element(h, 4); pE = basis_element(d, 4);
+
+julia> hopf_pairing(pE, E*K) ≈ 0
+true
+```
+
+See also [`dual_algebra`](@ref), [`basis_element`](@ref).
+
+Role: invariant
+"""
 hopf_pairing(dual::AlgebraElement,primal::AlgebraElement)=begin
     dual.algebra.dimension==primal.algebra.dimension || throw(DimensionMismatch())
     sum(dual.coefficients.*primal.coefficients)
@@ -338,5 +820,106 @@ function _double_algebra(algebra::FiniteHopfAlgebra,kind::Symbol)
     FiniteAlgebra(dimension^2,_sparse_data(multiplication),_sparse_data(unit),name)
 end
 
+"""
+    heisenberg_double(algebra::FiniteHopfAlgebra) -> FiniteAlgebra
+
+Return the repository's Heisenberg-double product data on the dual/primal tensor-product space.
+
+# Arguments
+`algebra` must contain coherent dimension and structure-tensor data with
+valid coordinate indices and coefficients convertible to complex floating
+point. Malformed tensors propagate indexing, conversion or tensor-expression
+errors; the Hopf axioms are not checked here.
+
+# Returns
+`FiniteAlgebra` of dimension `algebra.dimension^2`, named
+`"Heisenberg double"`, with complex floating-point multiplication data and
+the tensor-product unit. The algebra operations belong to
+[Algebra](../specs/algebra.md#definitions).
+
+# Guarantees
+1. The underlying coordinate space is the tensor product of the input's
+   dual and primal vector spaces. Multiplication and unit are the stored
+   double-model tensors on this space. [proved/agent: by construction]
+2. The returned dimension is the square of the input dimension, when that
+   value is representable. The input is unchanged and result tensors are new. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The current specification does not establish the identification of this
+product with a literature Heisenberg double under a fixed action and
+opposite-algebra convention. Construction does not validate associativity.
+No Hopf structure or universal R-matrix is returned, and exact input
+coefficients do not imply exact output arithmetic.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0018]] tensor products and contractions in finite-dimensional coordinates; this supports the tensor-space interpretation, not the identification of the repository product with a literature double.
+
+# Examples
+```jldoctest
+julia> d = heisenberg_double(uqsl2_borel_small(1//3; style=:L));
+
+julia> (d.dimension, !isempty(d.multiplication.terms))
+(81, true)
+```
+
+See also [`drinfeld_double`](@ref), [`basis_element`](@ref).
+
+Role: convert
+"""
 heisenberg_double(algebra::FiniteHopfAlgebra)=_double_algebra(algebra,:heisenberg)
+
+"""
+    drinfeld_double(algebra::FiniteHopfAlgebra) -> FiniteAlgebra
+
+Return the repository's Drinfeld-double product data on the dual/primal tensor-product space.
+
+# Arguments
+`algebra` must contain coherent finite-dimensional Hopf data with valid
+coordinate indices and coefficients convertible to complex floating point.
+Its antipode matrix must be invertible; singular inversion propagates
+`LinearAlgebra.SingularException`. Invalid tensor data can propagate
+indexing, conversion or tensor-expression errors. The Hopf axioms are not
+checked here.
+
+# Returns
+`FiniteAlgebra` of dimension `algebra.dimension^2`, named
+`"Drinfeld double"`, with complex floating-point multiplication data and
+the tensor-product unit. This belongs to the
+[Algebra API](../specs/algebra.md#definitions).
+
+# Guarantees
+1. The underlying coordinate space is the tensor product of the input's
+   dual and primal vector spaces. Multiplication and unit are the stored
+   double-model tensors on this space. [proved/agent: by construction]
+2. The returned dimension is the square of the input dimension, when that
+   value is representable. The input is unchanged and result tensors are new. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The current specification does not establish which opposite/copposite and
+basis conventions identify this product with a literature Drinfeld double.
+Construction does not validate associativity or return coproduct, antipode
+or universal R-matrix data for the double. Floating-point arithmetic and
+tensor zero filtering do not certify exact identities.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0018]] tensor products and contractions in finite-dimensional coordinates; the double-product identification requires additional convention evidence.
+
+# Examples
+```jldoctest
+julia> d = drinfeld_double(uqsl2_borel_small(1//3; style=:L));
+
+julia> (d.dimension, !isempty(d.multiplication.terms))
+(81, true)
+```
+
+See also [`heisenberg_double`](@ref), [`basis_element`](@ref).
+
+Role: convert
+"""
 drinfeld_double(algebra::FiniteHopfAlgebra)=_double_algebra(algebra,:drinfeld)

@@ -1,7 +1,43 @@
-"""All explicit cyclic-root / label identifications of two closed one-circuit geometries.
+"""
+    ograph_path_endpoint_permutations(target, reference) -> Vector{Vector{Int}}
 
-Each permutation p indexes target edge occurrences in reference order. Weights
-are not compared, and no manifold homology marking is silently inferred.
+Return the cyclic-root and crossing-label identifications of two closed one-circuit presentations.
+
+# Arguments
+`target` and `reference` must be coherent `VirtualLink`-compatible presentations.
+Cuts throw `ArgumentError` naming the closed-endpoint restriction. Multiple
+components or unequal word lengths give an empty result. The caller supplies
+valid passage incidence and vertex signs; these are not independently
+validated and malformed inputs can give errors or meaningless identifications.
+
+# Returns
+Vectors `p` of target edge-occurrence indices in reference order, as specified
+by the [endpoint-coordinate specification](../specs/ograph-search-db.md#affine-caches-and-endpoint-coordinates).
+
+# Guarantees
+1. For valid nonempty one-circuit inputs, every returned permutation preserves passage and vertex signs under a bijection of crossing labels. [proved/agent: by construction]
+2. All matching cyclic roots are returned in increasing starting-index order. [proved/agent: by construction]
+3. Assigned weights are not compared and neither input is modified. [proved/agent: by construction]
+
+# Not guaranteed
+No move-equivalence or manifold-homeomorphism search is performed. The result
+does not give an induced homology marking. Two empty words return no
+permutations, so an empty result is not always proof of nonisomorphism.
+
+# Sources
+cf:docs/specs/ograph-search-db.md#exact-h-insertion-feasibility — explicit endpoint permutations and the homology-marking boundary.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,-2,3,4,-4,-3,2,1]], orientation=ones(Int,4));
+
+julia> code, signs = real_gauss_code(v); iso = VirtualLink(); set_data!(iso; rgauss=[circshift(only(code),-3)], orientation=signs);
+
+julia> [6,7,8,1,2,3,4,5] in ograph_path_endpoint_permutations(iso, v)
+true
+```
+
+Role: condition
 """
 function ograph_path_endpoint_permutations(target,reference)
     any(_is_cut_component,target.gauss) && throw(ArgumentError("closed endpoints only"))
@@ -25,11 +61,65 @@ function ograph_path_endpoint_permutations(target,reference)
     result
 end
 
-"""Lift a DB-selected MP/02 word to an isomorphic geometric source.
+"""
+    lift_ograph_search_path!(store, run, path, new_source_state_id; source_permutation=nothing) -> Vector{NamedTuple}
 
-All original vertex roles are tracked through every move. Intermediate graph
-automorphisms are therefore not chosen independently. Every lifted move is
-recorded by expand_ograph_search_state!, with weights still excluded.
+Return the stored operation rows of a geometric move word lifted to an isomorphic unweighted source presentation.
+
+# Arguments
+- `store`, `run`: an open migrated search store and a registered run, as for
+  [`expand_ograph_search_state!`](@ref).
+- `path`: stored contiguous path rows returned by the search queries. The
+  caller supplies coherent row data; it is not authenticated against the
+  database as a complete path. Checked: moves other than MP or literal 02
+  throw `ArgumentError`. An empty path returns immediately.
+- `new_source_state_id`: a stored presentation isomorphic to the path source
+  in the sense of [`ograph_path_endpoint_permutations`](@ref).
+- `source_permutation`: one of those endpoint permutations, or `nothing` to
+  choose the first. `ArgumentError` identifies nonisomorphic sources, an invalid
+  permutation, a lost vertex marking or a nonunique lifted candidate.
+  State loading, candidate enumeration and malformed-row errors propagate.
+
+# Returns
+The lifted operation rows in order, with the same field meanings as
+[`query_ograph_search_paths`](@ref); an empty path gives an empty vector.
+
+# Guarantees
+1. On successful return, each row is a stored successful unweighted move with the original move kind, parameter and direction, transported using a consistent vertex marking. [proved/agent: by construction]
+2. The first row starts at `new_source_state_id`, and subsequent rows start at the preceding lifted target. [proved/agent: by construction]
+3. The database and run associations may change; the input path is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is a lift of presentation isomorphisms, not an arbitrary manifold
+homeomorphism or a weighted move word. A later failure can leave earlier
+expansions persisted. Successful return does not certify framing transport.
+
+# Sources
+cf:docs/specs/ograph-search-db.md#exact-h-insertion-feasibility — marked geometric path lifting and separate weighted replay.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_search_store!(store);
+
+julia> run = begin_ograph_search_run!(store, joinpath(pkgdir(Topology), "test", "ograph_path_constraints.jl"); label="affine relation smoke");
+
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,-2,3,4,-4,-3,2,1]], orientation=ones(Int,4)); sid = put_ograph_search_state!(store, v).state_id;
+
+julia> rows = expand_ograph_search_state!(store, run, v, "02"; selector=Dict("direction" => "forward"));
+
+julia> path = query_ograph_search_path(store, sid; target_state_id=String(first(rows).target_state_id), kinds=("02",), max_depth=1);
+
+julia> code, signs = real_gauss_code(v); iso = VirtualLink(); set_data!(iso; rgauss=[circshift(only(code),-3)], orientation=signs); iso_id = put_ograph_search_state!(store, iso).state_id;
+
+julia> lifted = lift_ograph_search_path!(store, run, path, iso_id; source_permutation=[6,7,8,1,2,3,4,5]);
+
+julia> only(lifted).source_state_id == iso_id
+true
+
+julia> close_store!(store);
+```
+
+Role: other
 """
 function lift_ograph_search_path!(store,run,path,new_source_state_id;
         source_permutation=nothing)

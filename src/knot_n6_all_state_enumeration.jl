@@ -31,12 +31,51 @@ const KNOT_N6_ALL_STATE_ENUMERATION_VERSION = 1
 const KNOT_GAUSS_EXPECTED_CANONICAL_COUNTS = (1, 2, 14, 164, 3388, 96776)
 const _KNOT_N6_ALL_STATE_NEWLINE = UInt8[0x0a]
 
-"""Compact result returned by `stream_canonical_knot_gauss`.
+"""    KnotGaussCanonicalStreamStats(n, raw_total, raw_seen, canonical_emitted, planar_emitted, nonplanar_emitted, planar_unknown, elapsed_seconds, stopped, stop_reason, emitted_serialization_bytes, max_emitted_serialization_bytes, emitted_fingerprint) -> KnotGaussCanonicalStreamStats
 
-No diagram or canonical collection is retained in this object.  The
-`emitted_fingerprint` is SHA-256 of emitted canonical serializations in
-emission order, each followed by one newline; it is a stream audit value, not
-the per-state `canonical_hash` value.
+Store the counts and audit data of a canonical signed-Gauss stream.
+
+# Arguments
+The fields and their meaning are defined in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+K7 ([conditions](../specs/knot-gauss.md#numbered-conditions)) is the caller's
+responsibility; the field constructor does not check counts, stopping state
+or fingerprint. Julia conversions to the declared field types may fail.
+
+# Returns
+A `KnotGaussCanonicalStreamStats` with the crossing count `n`, rooted counts
+`raw_total`, `raw_seen`, emitted counts `canonical_emitted`, `planar_emitted`,
+`nonplanar_emitted`, `planar_unknown`, timing `elapsed_seconds`, stopping data
+`stopped`, `stop_reason`, and byte/fingerprint fields
+`emitted_serialization_bytes`, `max_emitted_serialization_bytes`,
+`emitted_fingerprint`, as defined in the linked entry.
+
+# Guarantees
+1. Fields equal the supplied values after conversion; for K7 they summarize a finite stream of the repository's canonical representatives. [proved/agent: by construction]
+2. Construction does not change any argument. [proved/agent: by construction]
+
+# Conventions
+[Stream fingerprint and membership](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No diagrams or population certificate are retained. Membership counts do not
+establish classical realizability independently of the supplied membership
+relation. Construction does not verify a digest or run an enumeration.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration records — canonical stream and audit definitions.
+
+# Examples
+```jldoctest
+julia> s = stream_canonical_knot_gauss(0);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stopped, s.stop_reason)
+(1, 1, false, :complete)
+```
+
+See also [`stream_canonical_knot_gauss`](@ref).
+
+Role: construct
 """
 struct KnotGaussCanonicalStreamStats
     n::Int
@@ -100,26 +139,55 @@ function _knot_n6_stream_serialization(d::KnotGaussDiagram)
         "gauss=$(join(d.gauss, ','));orientation=$(join(d.orientation, ','))"
 end
 
-"""Emit repository-canonical signed Gauss states without retaining a census.
+"""
+    stream_canonical_knot_gauss(n::Integer; callback=nothing, classical_canonical_set=nothing, planar_membership=nothing, max_raw=nothing, max_seconds=nothing) -> KnotGaussCanonicalStreamStats
 
-Arguments and keywords:
+Stream canonical signed Gauss representatives and return their counts and fingerprint.
 
-* `n` is bounded by the repository iterator to `0:6`.
-* `callback` may receive the complete one-argument record, a typed
-  diagram-only argument, `(diagram, planar)`, or
-  `(diagram, serialization, planar)`.  It is optional when only
-  counts/fingerprints are wanted.
-* `classical_canonical_set` is an externally-owned set of canonical
-  serialization strings.  `planar_membership` is an alternative predicate on
-  those strings; supplying both is an error.
-* `max_raw` and `max_seconds` stop the stream before the next raw item.  They
-  are intended for bounded N=6 benchmarks and are not needed for an exact
-  run through N=5.
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+Range, callback type, membership exclusivity/type and positive limits are
+checked with `ArgumentError` naming the failure; numeric conversion errors
+propagate. Callback and membership exceptions propagate. The callback can
+also be a second positional argument or first argument in do-block form.
+The one-record callback receives `(diagram, serialization, planar)` as named
+fields; `planar` is `missing` without a membership source and a Boolean
+otherwise. Other callback shapes are specified by K10.
 
-The repository identity convention is cyclic root shift followed by
-first-occurrence relabeling; mirror and traversal reversal remain distinct.
-The source iterator itself is never collected, and the function retains only
-scalar counters plus the SHA-256 context.
+# Returns
+A `KnotGaussCanonicalStreamStats` with all fields defined in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+No diagram collection is retained in the result.
+
+# Guarantees
+1. Without early termination, exactly one representative of every canonical coordinate class at `n` crossings is emitted; each emitted diagram equals its canonicalization. [proved/agent: by construction]
+2. The returned counts and fingerprint describe the emitted prefix. Membership counts equal the supplied lookup's answers, or unknown counts when none is supplied. [proved/agent: by construction]
+3. A limit stops before another raw input is processed and records its stopping reason; completing the population records `:complete`. [proved/agent: by construction]
+4. Input sets are only queried. The routine does not mutate an input container; callback/predicate side effects remain the caller's responsibility. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream order fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No classicality or knot-type decision is performed internally. The two
+membership keyword names do not certify their supplied relation. A time limit
+is not an interrupt deadline inside a raw item or callback. Early termination
+does not give a complete census; callback results are ignored and cannot
+request termination by their return value.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite canonical population and stream evidence.
+
+# Examples
+```jldoctest
+julia> s = stream_canonical_knot_gauss(0);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stopped, s.stop_reason)
+(1, 1, false, :complete)
+```
+
+Role: construct
 """
 function stream_canonical_knot_gauss(n::Integer;
                                     callback=nothing,
@@ -215,15 +283,254 @@ function stream_canonical_knot_gauss(n::Integer;
 end
 
 # Both forms support normal calls and Julia's `f(n) do record ... end` syntax.
+"""
+    stream_canonical_knot_gauss(n::Integer, callback::Function; kwargs...) -> KnotGaussCanonicalStreamStats
+
+Stream canonical signed Gauss representatives and return their counts and fingerprint.
+
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+Range, callback type, membership exclusivity/type and positive limits are
+checked with `ArgumentError` naming the failure; numeric conversion errors
+propagate. Callback and membership exceptions propagate. The callback can
+also be a second positional argument or first argument in do-block form.
+The one-record callback receives `(diagram, serialization, planar)` as named
+fields; `planar` is `missing` without a membership source and a Boolean
+otherwise. Other callback shapes are specified by K10.
+
+# Returns
+A `KnotGaussCanonicalStreamStats` with all fields defined in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+No diagram collection is retained in the result.
+
+# Guarantees
+1. Without early termination, exactly one representative of every canonical coordinate class at `n` crossings is emitted; each emitted diagram equals its canonicalization. [proved/agent: by construction]
+2. The returned counts and fingerprint describe the emitted prefix. Membership counts equal the supplied lookup's answers, or unknown counts when none is supplied. [proved/agent: by construction]
+3. A limit stops before another raw input is processed and records its stopping reason; completing the population records `:complete`. [proved/agent: by construction]
+4. Input sets are only queried. The routine does not mutate an input container; callback/predicate side effects remain the caller's responsibility. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream order fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No classicality or knot-type decision is performed internally. The two
+membership keyword names do not certify their supplied relation. A time limit
+is not an interrupt deadline inside a raw item or callback. Early termination
+does not give a complete census; callback results are ignored and cannot
+request termination by their return value.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite canonical population and stream evidence.
+
+# Examples
+```jldoctest
+julia> s = stream_canonical_knot_gauss(0, x -> nothing);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stopped, s.stop_reason)
+(1, 1, false, :complete)
+```
+
+Role: construct
+"""
 stream_canonical_knot_gauss(n::Integer, callback::Function; kwargs...) =
     stream_canonical_knot_gauss(n; callback=callback, kwargs...)
+"""
+    stream_canonical_knot_gauss(callback::Function, n::Integer; kwargs...) -> KnotGaussCanonicalStreamStats
+
+Stream canonical signed Gauss representatives and return their counts and fingerprint.
+
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+Range, callback type, membership exclusivity/type and positive limits are
+checked with `ArgumentError` naming the failure; numeric conversion errors
+propagate. Callback and membership exceptions propagate. The callback can
+also be a second positional argument or first argument in do-block form.
+The one-record callback receives `(diagram, serialization, planar)` as named
+fields; `planar` is `missing` without a membership source and a Boolean
+otherwise. Other callback shapes are specified by K10.
+
+# Returns
+A `KnotGaussCanonicalStreamStats` with all fields defined in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+No diagram collection is retained in the result.
+
+# Guarantees
+1. Without early termination, exactly one representative of every canonical coordinate class at `n` crossings is emitted; each emitted diagram equals its canonicalization. [proved/agent: by construction]
+2. The returned counts and fingerprint describe the emitted prefix. Membership counts equal the supplied lookup's answers, or unknown counts when none is supplied. [proved/agent: by construction]
+3. A limit stops before another raw input is processed and records its stopping reason; completing the population records `:complete`. [proved/agent: by construction]
+4. Input sets are only queried. The routine does not mutate an input container; callback/predicate side effects remain the caller's responsibility. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream order fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No classicality or knot-type decision is performed internally. The two
+membership keyword names do not certify their supplied relation. A time limit
+is not an interrupt deadline inside a raw item or callback. Early termination
+does not give a complete census; callback results are ignored and cannot
+request termination by their return value.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite canonical population and stream evidence.
+
+# Examples
+```jldoctest
+julia> s = stream_canonical_knot_gauss(x -> nothing, 0);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stopped, s.stop_reason)
+(1, 1, false, :complete)
+```
+
+Role: construct
+"""
 stream_canonical_knot_gauss(callback::Function, n::Integer; kwargs...) =
     stream_canonical_knot_gauss(n; callback=callback, kwargs...)
 
-"""Compatibility spelling for callers treating this as an enumerator."""
+"""    enumerate_canonical_knot_gauss(n::Integer; callback=nothing, classical_canonical_set=nothing, planar_membership=nothing, max_raw=nothing, max_seconds=nothing) -> KnotGaussCanonicalStreamStats
+
+Enumerate canonical signed Gauss states through the canonical-stream interface.
+
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+The same arguments and checks as `stream_canonical_knot_gauss` are used.
+The callback may also be supplied as a second positional argument or first
+argument in Julia's do-block form. Invalid range, callback type, membership
+combination or limits raise `ArgumentError` describing the failure; conversion,
+lookup and callback exceptions propagate.
+
+# Returns
+`KnotGaussCanonicalStreamStats` with the field meanings in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+
+# Guarantees
+1. This entry point has the same emitted records, stopping behavior and result semantics as `stream_canonical_knot_gauss` for the same arguments. [proved/agent: by construction]
+2. Without a limit or exception, every canonical signed state for `n` is emitted exactly once. With a limit, counts describe the completed prefix. [proved/agent: by construction]
+3. Input sets are only queried; user callbacks and predicates may perform their own side effects. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+The result is not a materialized collection of diagrams. Membership labels
+are supplied externally and do not prove classicality. A time limit is not
+an interruption deadline inside one item or callback. No knot-type quotient
+or census is implied.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite representation population and stream semantics.
+
+# Examples
+```jldoctest
+julia> s = enumerate_canonical_knot_gauss(0);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stop_reason)
+(1, 1, :complete)
+```
+
+See also [`stream_canonical_knot_gauss`](@ref).
+
+Role: construct
+"""
 enumerate_canonical_knot_gauss(n::Integer; kwargs...) =
     stream_canonical_knot_gauss(n; kwargs...)
+"""
+    enumerate_canonical_knot_gauss(n::Integer, callback::Function; kwargs...) -> KnotGaussCanonicalStreamStats
+
+Enumerate canonical signed Gauss states through the canonical-stream interface.
+
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+The same arguments and checks as `stream_canonical_knot_gauss` are used.
+The callback may also be supplied as a second positional argument or first
+argument in Julia's do-block form. Invalid range, callback type, membership
+combination or limits raise `ArgumentError` describing the failure; conversion,
+lookup and callback exceptions propagate.
+
+# Returns
+`KnotGaussCanonicalStreamStats` with the field meanings in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+
+# Guarantees
+1. This entry point has the same emitted records, stopping behavior and result semantics as `stream_canonical_knot_gauss` for the same arguments. [proved/agent: by construction]
+2. Without a limit or exception, every canonical signed state for `n` is emitted exactly once. With a limit, counts describe the completed prefix. [proved/agent: by construction]
+3. Input sets are only queried; user callbacks and predicates may perform their own side effects. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+The result is not a materialized collection of diagrams. Membership labels
+are supplied externally and do not prove classicality. A time limit is not
+an interruption deadline inside one item or callback. No knot-type quotient
+or census is implied.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite representation population and stream semantics.
+
+# Examples
+```jldoctest
+julia> s = enumerate_canonical_knot_gauss(0, x -> nothing);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stop_reason)
+(1, 1, :complete)
+```
+
+See also [`stream_canonical_knot_gauss`](@ref).
+
+Role: construct
+"""
 enumerate_canonical_knot_gauss(n::Integer, callback::Function; kwargs...) =
     stream_canonical_knot_gauss(n, callback; kwargs...)
+"""
+    enumerate_canonical_knot_gauss(callback::Function, n::Integer; kwargs...) -> KnotGaussCanonicalStreamStats
+
+Enumerate canonical signed Gauss states through the canonical-stream interface.
+
+# Arguments
+K4 and K10–K12 ([conditions](../specs/knot-gauss.md#numbered-conditions)) apply.
+The same arguments and checks as `stream_canonical_knot_gauss` are used.
+The callback may also be supplied as a second positional argument or first
+argument in Julia's do-block form. Invalid range, callback type, membership
+combination or limits raise `ArgumentError` describing the failure; conversion,
+lookup and callback exceptions propagate.
+
+# Returns
+`KnotGaussCanonicalStreamStats` with the field meanings in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+
+# Guarantees
+1. This entry point has the same emitted records, stopping behavior and result semantics as `stream_canonical_knot_gauss` for the same arguments. [proved/agent: by construction]
+2. Without a limit or exception, every canonical signed state for `n` is emitted exactly once. With a limit, counts describe the completed prefix. [proved/agent: by construction]
+3. Input sets are only queried; user callbacks and predicates may perform their own side effects. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[stream fingerprint](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+The result is not a materialized collection of diagrams. Membership labels
+are supplied externally and do not prove classicality. A time limit is not
+an interruption deadline inside one item or callback. No knot-type quotient
+or census is implied.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates and Enumeration records — finite representation population and stream semantics.
+
+# Examples
+```jldoctest
+julia> s = enumerate_canonical_knot_gauss(x -> nothing, 0);
+
+julia> (s.canonical_emitted, s.planar_unknown, s.stop_reason)
+(1, 1, :complete)
+```
+
+See also [`stream_canonical_knot_gauss`](@ref).
+
+Role: construct
+"""
 enumerate_canonical_knot_gauss(callback::Function, n::Integer; kwargs...) =
     stream_canonical_knot_gauss(callback, n; kwargs...)

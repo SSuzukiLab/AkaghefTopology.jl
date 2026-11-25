@@ -1,11 +1,52 @@
 # cf: docs/specs/heegaard-snappy.md — inverse certificates and the unresolved PL-map boundary.
 # cf: koda_interpreter.jl::koda_table_decode, koda_hc_from_boundary — reuse local tables.
 
-"""Certify the boundary pattern and reconstruct Koda curves using existing table primitives.
+"""
+    hc_flow_certificate(input; orders=nothing, max_nodes::Int=100_000) -> NamedTuple
 
-The returned punctured diagram is cellular Koda data, not resolved LC/HC.
-Boundary counts are derived from the actual common B/W edges; the decoder's
-reported B boundary_count is retained separately, never overwritten.
+Return a checked Koda boundary-flow reconstruction of an oriented triangulation.
+
+# Arguments
+`input` and optional branching `orders` satisfy the
+[triangulation-to-Koda domain](../specs/heegaard-snappy.md).
+Encoding and branching checks propagate. The sphere-boundary, one-suture,
+B/W disk, incidence, spine-Euler, curve-count and forward-word round-trip
+conditions are checked; failures raise `HCTriangulationError` naming the stage.
+Joining-disk and Koda reconstruction failures propagate.
+
+# Returns
+A named tuple with `encoded` o-data, `spine`, decoded `data`, raw curve data
+`raw`, cellular `diagram`, selected joining `region`, `punctured` diagram and
+`certificate` of boundary, suture and forward-round-trip checks.
+
+# Guarantees
+1. Successful return records the linked boundary-flow conditions and an
+   exact forward o-data comparison up to metadata.
+   [proved/agent: by construction]
+2. The reconstructed object is a punctured cellular Koda diagram; its
+   source identity is labelled. [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The result does not yet place curves on the fixed Lickorish reference
+surface, nor independently certify a general PL homeomorphism between the
+capped reconstruction and the input manifold. Equal o-data round trips do
+not supply that missing geometric proof.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — inverse flow domain and unresolved PL-map boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> t = H.hc_triangulation(Topology.lens_space_link(2,1); signature=false); f = H.hc_flow_certificate(t; orders=t.branch_orders);
+
+julia> (f.certificate["boundary_components"], f.certificate["suture_components"])
+(1, 1)
+```
+
+Role: convert
 """
 function hc_flow_certificate(input;orders=nothing,max_nodes::Int=100_000)
     encoded=hc_triangulation_to_odata(input;orders=orders,max_nodes=max_nodes)
@@ -58,10 +99,47 @@ function hc_flow_certificate(input;orders=nothing,max_nodes::Int=100_000)
     (;encoded,spine,data,raw,diagram,region,punctured,certificate)
 end
 
-"""Produce a checked tree-cotree polygon, retaining edge ancestry.
+"""
+    hc_surface_cut_system(diagram) -> Dict{String,Any}
 
-This is a surface cut certificate. It does not yet provide the PL map needed
-to pull back the standard Lickorish curves, so it is not an HC constructor.
+Return a checked tree–cotree polygon for a cellular Heegaard surface.
+
+# Arguments
+`diagram` must supply a nonempty connected ribbon graph and the surface data
+of [the surface-cut domain](../specs/heegaard-snappy.md).
+Spanning-tree, Euler, single-boundary, opposite-pair and polygon-vertex checks
+raise stage-specific `HCTriangulationError`. Ribbon and surface errors propagate.
+The caller supplies a valid cellular embedding for the geometric surface meaning.
+
+# Returns
+A dictionary with `genus`, primal and dual trees, residual edges, disk-boundary
+darts, polygon word and edge ancestry, plus check and unresolved-transport fields.
+
+# Guarantees
+1. On success the retained polygon has the checked edge pairing and vertex
+   structure of the input surface, with `2genus` residual edges.
+   [proved/agent: by construction]
+2. The original diagram is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The certificate leaves `pl_identification` absent and does not itself place
+Lickorish reference curves or produce a resolved HC. The input's manifold
+interpretation is not certified by this surface calculation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — tree–cotree cut and reference-overlay boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]],[[1]],[H.Intersection(1,1,1,1)]); h = H.certify_heegaard(H.decorate(c,[[1]])); r = H.hc_surface_cut_system(h);
+
+julia> (r["genus"], length(r["residual_edges"]), r["pl_identification"])
+(1, 2, nothing)
+```
+
+Role: convert
 """
 function hc_surface_cut_system(diagram)
     graph=ribbon_graph(diagram); faces=boundary_cycles(graph)

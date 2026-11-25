@@ -179,6 +179,50 @@ sector は spine の領域である。Heegaard 側の面・補領域との対応
 
 正本チェックアウトの研究リポジトリ基準 `lib/topology.jl/docs/specs/heegaard-moves.md` が、LC・HC の move の草稿を所有する。型名 MovePattern は有限な語の断片の共通表現を指す。Koda の模型のデータは、三 sheet と B-W の貼付けも持つ別の表である。
 
+<a id="legacy-cellular-records"></a>
+## legacy cellular 記録
+
+[`CombinatorialHeegaardCode`](../../src/heegaard/types.jl) は、LC の K や `place` を持たない旧 cellular 経路の曲線・交点記録である。`Curve.family` は α または β、`id` はその族の正整数 ID、`visits` は向きに沿う交点 ID の巡回語である。ここでは交点 ID に交差符号を付けない。符号は `Intersection.sign` に独立して保存し、順序付き `(Tα,Tβ)` が曲面の向きに一致するとき正とする。符号付き LC 語への翻訳は [HC 比較の符号対応](heegaard-code.md#intersection-sign-translation) に従う。コンストラクタが族、正の ID、符号を検査することと、全訪問の incidence が整合することは別であり、後者には検証が必要である。
+
+`RegionPartition.boundary_cycle_blocks` は `boundary_cycles(ribbon_graph(code))` の返却順に付けた 1 始まり番号のリストをまとめ、同じ補領域に属する境界を指定する。リスト内の番号は交点 ID でも LC の細分面番号でもない。回転系の辺は保存順の α 曲線、β 曲線と各語の位置から定まり、辺 `e` の dart `2e−1` は曲線の向き、`2e` は逆向きに対応する。境界サイクルは dart 列の最初の未訪問要素から順に列挙する。`DecoratedHeegaardCode` がこの境界の分割を加え、`CellularHeegaardDiagram` が検証報告を伴う。型の直接構築は幾何的認証を代替しない。公開の `HeegaardDiagram` 別名は現在の HC を指し、この legacy 型とは区別する。
+
+`complement_regions` は各 block を genus 0 の補領域として読む。`ComplementRegion` の境界数はその block の長さであり、この経路の Euler 標数はこの平面補領域の解釈による。任意の境界分割に対して正の genus を持つ補領域まで指定できる記録ではない。
+
+<a id="legacy-cut-indices"></a>
+### 切断境界と port の番号
+
+legacy `cut_along_alpha` の境界は保存された α 曲線の順に並ぶ。第 `k` 曲線の plus 側が `2k−1`、minus 側が `2k` で、`pair=k` はこの対の番号、`curve_id` は元の曲線 ID である。plus 側の交点順は保存された訪問順、minus 側はその逆順である。境界上の port はこの境界順と訪問順に正整数 ID を付ける。訪問数 `n` の境界の第 `r` port のパラメータは `(r−1/2)/n` である。各交点の β の出側は交差符号が正なら plus、負なら minus となり、入側は反対側である。β に沿う wire はある交点の出側から次の交点の入側へ向く。
+
+既定の legacy puncture 配置は第 `k` 対の plus を `(k,1)`、minus を `(k,−1)` に置く。この配置は legacy の作業座標であり、[LC 平面図の規約](../conventions/LickorishCodes.md) の半平面や境界名との同定を与えない。両図式を対応させるには、境界の対応と曲面の向きを別に指定する必要がある。
+
+<a id="presentation-word-encoding"></a>
+### 群表示の語
+
+`GroupPresentation` の `generators` は順序付き生成元名、各 `relators` の語は `(generator_index, exponent)` の有限列である。添字は生成元列への 1 始まり位置、指数は整数であり、空語は単位元を表す。`abelianization_matrix` の行は関係語、列は生成元で、成分は指数和である。型の直接構築では添字の整合性を認証しない。
+
+legacy `relator` の返す対の先頭は α 曲線の ID であり、`fundamental_group_presentation` がこれを生成元の位置へ変換する。legacy の `beta_ids` は元の β 曲線 ID である。一方 `hc_presentation` の `beta_ids` は比較用 β 順序の位置を表す。群が表す空間は [Koda 変換仕様 §5.1](heegaard-koda-conversion.md#51-曲線系と多様体) の完全切断系の仮定のもとで定まり、任意の手製の語記録それ自体は多様体の認証を含まない。
+
+これらの番号・語の規約の状態: **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**。[core テスト](../../test/heegaard/core.jl) の `Ribbon, surface, and exact algebra` と `Alpha-cut surface and ports` が境界被覆、表示のアーベル化、2 境界と wire の対応を照合する。今回の direct driver でも一交点の両符号の回転系と、正符号の境界 `(1,plus),(2,minus)`、port パラメータ `1/2`、wire `1→2` を照合した。LC の細分面番号との一般の対応は、この legacy 記録には含まれていない。
+
+<a id="lescop-coordinates"></a>
+## Lescop combing, edge-side and Spinᶜ coordinates
+
+The stored conventions are **fixed 2026-11-25 Codex lane lib-api-heegaard (rule a)**, following [the cellular evaluator](../../src/heegaard/lescop_theta.jl) and [the HC adapter](../../src/heegaard/hc_lescop.jl). A matching chooses one crossing on every α and β curve. The Lescop diagram quantity additionally chooses the complement region of the exterior point. These data are intended to specify the infinity-combing used in Lescop's construction; they do not contain an explicit vector field or an absolute value of its `p1`. The evaluators for Θ and its edge variation require complete cut systems and an invertible ordered intersection matrix over the rationals. Their returned quantities are diagram calculations on this domain. [proved/agent: checked domain and data dependence]
+
+The matrix `I` has α rows and β columns in the stored legacy curve order, and `J = I⁻¹` has β rows and α columns. Crossing signs are the ordered `(Tα,Tβ)` signs; the HC adapter applies [the sign translation](heegaard-code.md#intersection-sign-translation). Its cellular crossing IDs enumerate the α–β LC labels in ascending order. The adapter forgets roleless curves, merges adjacent LC faces, and numbers the resulting complement regions by the minimum numerical face ID in each merged block. An LC face number must therefore be translated through `face_region`, and an LC crossing label through `label_of_id`.
+
+In the implemented arc sums, endpoints have half weight, interior crossings have weight one, and an arc from a matching crossing to itself is empty. For an oriented β edge from one crossing to the next in its stored traversal order, `lescop_p1_difference` returns `(lk, delta_p1)` with `delta_p1 = 8lk`. The test's side labels are operational: `left = owner[2e−1]`, `right = owner[2e]`, where `owner` maps a ribbon dart to its complement region. The tested identity is `delta_p1 = 4(Θ(right)−Θ(left))`. These names must not be substituted directly for the local variables of `_lescop_arc_regions`: the HC adapter assigns the odd dart to that helper's `right` region and the even dart to its `left` region. The correspondence, including its reversed naming, is retained in the [convention dictionary](../conventions/HeegaardCodes.md#comparison-conventions). [proved/agent: data-coordinate translation]
+
+For the finite homology labels, the quotient is `Z^g / I Z^g`, with coordinates indexed by the stored α curves and relations the columns of `I`. It is not a Smith coordinate vector. If `h = |det I|`, the canonical representative is the lexicographically least equivalent vector in `{0,…,h−1}^g`; the implemented enumeration rejects a box larger than 20000 for genus greater than one. Equality of these coordinates across different diagrams requires a separately supplied basis correspondence. [proved/agent: integer-lattice definition]
+
+For two matchings, traverse each β curve from the first chosen crossing to the second, exclude the departure crossing, include the arrival crossing, and sum the signed α-coordinate arrivals. `lescop_epsilon` is the class of the **negative** of this vector. The reference matching for the absolute stored label is the first lexicographic matching, and region 1 has shift zero. Across a dart-side edge from the operational left region to the operational right region, an α edge contributes `−eᵢ`; the β-edge classes are the unique assignments, if any, making these region shifts a coboundary in the finite quotient. A nonunique or absent assignment raises an error. `lescop_spinc_label` is the canonical class of the matching difference plus the selected region shift. Thus its zero is an affine record choice; it does not designate a canonical Spinᶜ structure of an unmarked manifold. [proved/agent: by construction]
+
+The [Lescop tests](../../test/heegaard/lescop_theta.jl), `Lescop p1 difference across one beta edge`, assert both `8lk` and the Θ side-difference identity, while `Spin^c labels from matchings and exterior regions` checks matching differences, reversed differences, region shifts and HC/legacy coordinate translation, including a genus-two census diagram. `Lescop variation, rotation sign, and singular or multi-boundary regions` exercises the region interpretation beyond a one-boundary disk. These are finite comparison obligations; no absolute lens-space `p1` is assigned by them.
+
+verified-computationally: a direct driver on 2026-11-25 checked matching differences, their reversals, affine labels and the β-edge Θ identity on the tests' genus-one `L(5,2)` input (5 matchings, 5 regions, 5 affine classes, 5 β edges) and genus-two census `L(3,1)` input (5 matchings, 4 regions, 3 affine classes, 6 β edges). This checks the stored coordinates on those two inputs, including the HC-to-cellular translation; it does not identify an absolute `p1`.
+
+unverified: a general geometric identification of all these affine labels and side conventions with the source's infinity-combing and Spinᶜ labels. The matching-difference and basepoint tests support the intended interpretation, but a source-to-cellular correspondence including the side naming is required to establish it; a corresponding diagram with different source differences would refute it. The intended source is [[Les14]] §§1.3–1.5 for Θ, and Theorem 3.4 and Proposition 5.1 for combing variation, as cited by the HC adapter. The intended source for matching/basepoint variation is [[OS04a]] subsection `subsec:SpinCStructures`, lemma `VarySpinC`. These locators do not upgrade the coordinate translation to proved/literature. In particular, equality of Θ or of a `p1` difference is not used to define a Spinᶜ label.
+
 ## 10. 推奨する表記
 
 | 使用する表記 | 使用場面 |

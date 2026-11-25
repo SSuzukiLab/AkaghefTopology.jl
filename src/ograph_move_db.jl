@@ -61,6 +61,49 @@ function _ograph_canonical_json(value)
     throw(ArgumentError("unsupported canonical JSON value $(typeof(value))"))
 end
 
+"""
+    ograph_canonical_json(value) -> String
+
+Return deterministic JSON text for supported o-graph persistence data.
+
+# Arguments
+`value` may contain `nothing`, booleans, signed-64-bit-representable integers,
+finite floating-point numbers, strings, tuples, vectors, named tuples and
+dictionaries with string or symbol keys. Unsupported values, nonfinite
+numbers, out-of-range integers and keys colliding after string conversion
+throw `ArgumentError` describing the offending category. Recursive containers
+must be acyclic; this is the caller's responsibility.
+
+# Returns
+A JSON `String` for the supplied data, with dictionary order normalized.
+
+# Guarantees
+1. Dictionaries with equal normalized keys and values serialize identically
+   regardless of insertion order. Array order is retained.
+   [proved/agent: by construction]
+2. The result describes persistence data, not an equivalence class of groups,
+   spines or manifolds. The input containers are unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is not a general Julia serializer or a version-independent numeric
+normalization: equal numerical values of different types need not have equal
+text. The [canonical JSON specification](../specs/ograph-relation-db.md#canonical-json)
+defines its compatibility boundary. It is distinct from coloured-o-graph serialization.
+
+# Sources
+cf: lib/topology.jl/db/ograph_relation_schema.sql — JSON-valued provenance, profile and relation records.
+
+# Examples
+```jldoctest
+julia> ograph_canonical_json(Dict("b" => 2, "a" => 1)) == ograph_canonical_json(Dict("a" => 1, "b" => 2))
+true
+```
+
+See also [`OGraphProvenance`](@ref), [`OGraphRelationProfile`](@ref).
+
+Role: convert
+"""
 ograph_canonical_json(value) = _ograph_canonical_json(value)
 
 _ograph_sha256(text::AbstractString) =
@@ -104,7 +147,48 @@ function _assert_ograph_schema(store::MoveGraphStoreDB)
     true
 end
 
-"""Install the o-graph extension after the generic v2 store is valid."""
+"""
+    migrate_ograph_store!(store::MoveGraphStoreDB) -> MoveGraphStoreDB
+
+Prepare the database extension for certified closed o-graph presentations and their relation profiles.
+
+# Arguments
+`store` must be an open writable store accepted by the generic migration.
+`ArgumentError` identifies unsupported o-graph versions, invalid foreign keys,
+missing required schema fields, or legacy rows rejected by verification.
+Database and schema-file errors propagate. Existing version-1 records must
+replay under the current closed-state and provenance checks.
+
+# Returns
+The same `MoveGraphStoreDB` with the current o-graph extension installed.
+
+# Guarantees
+1. Successful return supplies the current o-graph schema, required transition-profile column and valid foreign keys. [proved/agent: by construction]
+2. A valid version-1 extension is replayed before the extension upgrade is committed. [proved/agent: by construction]
+3. The database is modified; its presentation records retain their operational closedness meaning. [proved/agent: by construction]
+
+# Not guaranteed
+Schema migration is not a manifold-equivalence proof and does not independently
+replay every already-current store. Typed transition insertion requires the
+separate [`migrate_ograph_transition_store!`](@ref) entrypoint. Generic base
+migration can remain committed if the extension migration later fails.
+
+# Sources
+cf:docs/specs/ograph-terminology.md — operational closed-normal presentation meaning.
+cf:docs/specs/ograph-move-verifier.md — semantic scope of admitted relation evidence.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store); migrate_ograph_store!(store);
+
+julia> Topology._ograph_existing_schema_version(store.db)
+2
+
+julia> close_store!(store);
+```
+
+Role: other
+"""
 function migrate_ograph_store!(store::MoveGraphStoreDB)
     MoveGraphStore.migrate!(store)
     version = _ograph_existing_schema_version(store.db)
@@ -150,11 +234,45 @@ function _ograph_transition_schema_version(db)
     end
 end
 
-"""Enable the typed Area-3 transition evidence extension.
+"""
+    migrate_ograph_transition_store!(store::MoveGraphStoreDB) -> MoveGraphStoreDB
 
-The base v2 migration intentionally leaves Area-3 transitions disabled.  This
-separate migration is explicit so opening the historical pilot cannot silently
-change its write contract.
+Enable typed replay evidence for relations between stored closed o-graph presentations.
+
+# Arguments
+`store` must be open and writable with the current base o-graph extension.
+Checked: absent/incompatible base or typed-transition schemas throw
+`ArgumentError` identifying the schema. File and database errors propagate.
+
+# Returns
+The same `MoveGraphStoreDB` with typed transition schema version 1 enabled.
+
+# Guarantees
+1. Successful return enables the typed-transition extension while retaining profile and endpoint constraints. [proved/agent: by construction]
+2. Repeated calls on a valid migrated store preserve its records. [proved/agent: by construction]
+3. The database is modified; no relation between distinct presentations is established by migration itself. [proved/agent: by construction]
+
+# Not guaranteed
+The call changes the historical store's transition write policy and is not
+merely a read-only verification. It does not replay existing transition rows
+or supply a completeness theorem for the registered profiles.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — semantic replay required for admitted typed relations.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store); migrate_ograph_transition_store!(store);
+
+julia> verify_ograph_store(store).ograph_schema_version
+2
+
+julia> close_store!(store);
+```
+
+See also [`insert_ograph_verified_transition!`](@ref).
+
+Role: other
 """
 function migrate_ograph_transition_store!(store::MoveGraphStoreDB)
     _assert_ograph_schema(store)
@@ -233,7 +351,65 @@ function _require_transition_evidence(evidence, source, target, move_type, direc
     _ograph_canonical_json(data), data
 end
 
-"""Persist one source-bound, typed, replayable Area-3 relation edge."""
+"""
+    insert_ograph_verified_transition!(store::MoveGraphStoreDB, source::CanonicalState, target::CanonicalState, move_type; profile_id::AbstractString, direction=:forward, location=nothing, parameters=Dict{String,Any}(), evidence, engine_version::AbstractString, verifier_version::AbstractString, created_at_utc::AbstractString, verification=nothing) -> Int
+
+Store a replay-verified relation between two registered closed o-graph presentations.
+
+# Arguments
+- `store`: an open database with the base o-graph and typed transition schemas
+  enabled. `ArgumentError` identifies absent or unsupported schemas.
+- `source`, `target`: registered Area-3 o-graph `CanonicalState` endpoints.
+  Area, representation, registration, serialization and hash agreement with
+  the witness are checked; failures throw `ArgumentError` naming the mismatch.
+- `move_type`, `profile_id`, `direction`, `location`, `parameters`: the
+  concrete operation and registered relation profile. Direction must be forward
+  or inverse and the profile must admit the move. Operation identity and
+  occurrence data must agree with the witness; mismatches throw `ArgumentError`.
+- `evidence`: JSON-like typed transition evidence matching the supplied
+  endpoints and operation, including PS Method-B evidence when applicable.
+  Missing fields, incompatible versions or inconsistent evidence throw
+  `ArgumentError`; canonical JSON conversion errors propagate.
+- `verification`: a valid semantic report with a replayable witness, required
+  despite the `nothing` default. Missing, rejected or mismatched verification
+  throws `ArgumentError`. Malformed report objects can raise property errors.
+- `engine_version`, `verifier_version`, `created_at_utc`: supplied provenance
+  strings. Their historical accuracy is the caller's responsibility.
+  See the [move verifier](../specs/ograph-move-verifier.md).
+
+# Returns
+The integer transition row identifier, including when the same relation and
+identical evidence were already stored.
+
+# Guarantees
+1. Successful return binds a freshly replayed witness to the supplied canonical endpoints and concrete operation. [proved/agent: by construction]
+2. The row represents the relation admitted by its profile and verifier, not a classification of the endpoints' manifolds. [proved/agent: by construction]
+3. Conflicting typed evidence for the same stored relation throws `ArgumentError`; transition and evidence writes are transactional. [proved/agent: by construction]
+4. The database is updated; supplied states, parameters and evidence are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Caller-supplied version and timestamp strings are not independently certified.
+The evidence record's stored replay metadata is not itself a substitute for
+the fresh semantic replay. A general completeness theorem for the profile's
+move system is not established by inserting an edge.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — source-bound move verification, witness replay and PS Method-B scope.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store); migrate_ograph_transition_store!(store);
+
+julia> a = CanonicalState("a"; area=AREA_3, representation="o-graph"); b = CanonicalState("b"; area=AREA_3, representation="o-graph");
+
+julia> try insert_ograph_verified_transition!(store, a, b, "MP"; profile_id="invalid", parameters=NaN, evidence=Dict(), engine_version="test", verifier_version="test", created_at_utc="2026-09-04T00:00:00Z"); false catch e; e isa ArgumentError end
+true
+
+julia> close_store!(store);
+```
+
+Role: other
+"""
 function insert_ograph_verified_transition!(store::MoveGraphStoreDB,
         source::CanonicalState, target::CanonicalState, move_type;
         profile_id::AbstractString, direction=:forward, location=nothing,
@@ -374,6 +550,48 @@ function insert_ograph_verified_transition!(store::MoveGraphStoreDB,
     transition_id[]
 end
 
+"""
+    OGraphProvenance(source_id, source_kind, locator, snapshot_sha256, metadata_json) -> OGraphProvenance
+
+Store a source reference and its supplied identity and metadata.
+
+# Arguments
+`source_id`, `source_kind`, `locator` and `metadata_json` are `String` fields;
+`snapshot_sha256` is `nothing` or `String`. Convertible values are accepted;
+conversion errors propagate. This field constructor does not validate contents.
+
+# Returns
+`OGraphProvenance` with the supplied fields, whose meanings are defined by
+[state and provenance identity](../specs/ograph-relation-db.md#state-and-provenance-identity).
+
+# Guarantees
+1. Each field equals the supplied value after conversion. [proved/agent: by construction]
+2. The record is source metadata for a presentation, not a topological
+   invariant or evidence that the cited mathematical claim is true.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not open the locator, hash a file, parse the JSON or check
+the identity. Use the two-argument constructor to derive consistent identity
+fields. Database insertion may reject a manually assembled record.
+
+# Sources
+cf: lib/topology.jl/db/ograph_relation_schema.sql table ograph_sources — repository source-reference storage, not a mathematical identification theorem.
+
+# Examples
+```jldoctest
+julia> p = OGraphProvenance("implementation", "lib/topology.jl/src/virtual_link.jl:35-53"; metadata=Dict("constructor" => "lens_space_link(2,1)"));
+
+julia> q = OGraphProvenance(p.source_id, p.source_kind, p.locator, p.snapshot_sha256, p.metadata_json);
+
+julia> q.source_id == p.source_id
+true
+```
+
+See also [`put_closed_ograph!`](@ref).
+
+Role: construct
+"""
 struct OGraphProvenance
     source_id::String
     source_kind::String
@@ -382,6 +600,50 @@ struct OGraphProvenance
     metadata_json::String
 end
 
+"""
+    OGraphProvenance(source_kind::AbstractString, locator::AbstractString; snapshot_sha256=nothing, metadata=Dict{String,Any}()) -> OGraphProvenance
+
+Construct a deterministic source-reference record from a category, locator and metadata.
+
+# Arguments
+`source_kind` and `locator` must be nonempty after stripping whitespace.
+`snapshot_sha256` is `nothing` or a value convertible to `String` whose
+stripped lowercase form is a 64-character hexadecimal digest. Violations
+throw `ArgumentError` naming the empty field or digest format; failed string
+conversions propagate. `metadata` must be accepted by [`ograph_canonical_json`](@ref).
+
+# Returns
+`OGraphProvenance` with normalized category, locator and optional digest,
+canonical JSON metadata and a derived `source_id`. These fields have the
+same meanings as in the five-field constructor.
+
+# Guarantees
+1. Equal normalized input data yield equal source identifiers. Metadata
+   object-key insertion order does not affect that identity. [proved/agent: by construction]
+2. The locator is stored as text; construction performs no source acquisition
+   or source-content verification. The record refers to evidence supplied
+   by the caller and does not identify a space or prove a mathematical claim.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The locator need not exist, the optional digest need not match its contents,
+and the source category need not belong to a controlled vocabulary. Hash
+identity is not a proof of authenticity. No database row is inserted.
+
+# Examples
+```jldoctest
+julia> a = OGraphProvenance("local-source", "threads/PJ260825/sources/MST1/heisenberg-double-04-07.tex:318-336"; snapshot_sha256=repeat("a", 64), metadata=Dict("claim" => "closed normal o-graph"));
+
+julia> b = OGraphProvenance("local-source", "threads/PJ260825/sources/MST1/heisenberg-double-04-07.tex:318-336"; snapshot_sha256=repeat("a", 64), metadata=Dict("claim" => "closed normal o-graph"));
+
+julia> a.source_id == b.source_id
+true
+```
+
+See also [`put_closed_ograph!`](@ref).
+
+Role: construct
+"""
 function OGraphProvenance(source_kind::AbstractString, locator::AbstractString;
                           snapshot_sha256=nothing, metadata=Dict{String,Any}())
     kind = strip(String(source_kind))
@@ -427,7 +689,49 @@ function _ograph_state_payload(graph::ClosedNormalOGraph)
     ))
 end
 
-"""Wrap one certified presentation in the generic domain-qualified state."""
+"""
+    ograph_canonical_state(graph::ClosedNormalOGraph) -> CanonicalState
+
+Return the database state descriptor of a certified closed normal o-graph presentation.
+
+# Arguments
+`graph` supplies a state and its certified witness. This function uses their
+stored contents and does not independently replay the witness. Canonical
+serialization, JSON encoding and `CanonicalState` validation errors propagate.
+
+# Returns
+A `CanonicalState` with `state_id`, `state_hash`, `canonical_version`,
+`serialization`, `payload`, `area`, `representation` and `complexity`.
+The payload records presentation and closedness data, and complexity records
+the true vertex count as `Float64`.
+
+# Guarantees
+1. `area == AREA_3` and `representation == "o-graph"`; the identity is that of the canonical presentation, not the represented manifold. [proved/agent: by construction]
+2. The serialization equals `ograph_canonical_serialization(graph.state)`. [proved/agent: by construction]
+3. Neither the graph nor any database is modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not persist the state, replay its closedness, or establish
+equivalence under MP, PS or CP. The descriptor's payload is evidence data,
+not a new mathematical proof.
+
+# Sources
+cf:docs/specs/ograph-terminology.md — presentation identity and persisted closedness evidence.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]);
+
+julia> state = ograph_canonical_state(certify_closed_ograph(v));
+
+julia> (state.area == AREA_3, state.representation == "o-graph")
+(true, true)
+```
+
+See also [`put_closed_ograph!`](@ref).
+
+Role: convert
+"""
 function ograph_canonical_state(graph::ClosedNormalOGraph)
     CanonicalState(ograph_canonical_serialization(graph.state);
         area=AREA_3, representation="o-graph",
@@ -483,7 +787,54 @@ function _assert_source_row(row, source::OGraphProvenance)
     true
 end
 
-"""Persist a certified state and any number of provenance aliases atomically."""
+"""
+    put_closed_ograph!(store::MoveGraphStoreDB, graph::ClosedNormalOGraph; provenance::AbstractVector{<:OGraphProvenance}=OGraphProvenance[]) -> CanonicalState
+
+Store a certified closed normal presentation together with source-reference aliases.
+
+# Arguments
+- `store`: an open writable store with the current o-graph extension;
+  schema failures throw `ArgumentError` and database errors propagate.
+- `graph`: a certified state and witness. Existing rows with the same identity
+  must agree in all stored data; `ArgumentError` identifies conflicts.
+- `provenance`: source records whose identities derive from their canonical
+  contents. Malformed JSON, forged identities or conflicting stored source
+  data throw `ArgumentError`. The mathematical truth and accuracy of the
+  source references remain the caller's responsibility.
+
+# Returns
+The `CanonicalState` descriptor of `graph`, as in [`ograph_canonical_state`](@ref).
+
+# Guarantees
+1. Successful return registers the generic state, closedness evidence and every supplied provenance association in one transaction. [proved/agent: by construction]
+2. Repeating a call with identical data reuses the records; a later valid provenance alias can be added to the same state. [proved/agent: by construction]
+3. The record concerns canonical presentation identity with its operational closedness evidence. Storage does not strengthen that evidence to a manifold classification. [proved/agent: by construction]
+4. The database changes; the input graph and provenance records are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This function does not independently replay the graph's witness or verify the
+contents of cited sources. Hash-based identity is not a proof of manifold
+equivalence or group isomorphism.
+
+# Sources
+cf:docs/specs/ograph-terminology.md#persisted-closedness-evidence — stored state and witness semantics.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store);
+
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]); graph = certify_closed_ograph(v);
+
+julia> state = put_closed_ograph!(store, graph);
+
+julia> put_closed_ograph!(store, graph).state_id == state.state_id
+true
+
+julia> close_store!(store);
+```
+
+Role: other
+"""
 function put_closed_ograph!(store::MoveGraphStoreDB, graph::ClosedNormalOGraph;
                             provenance::AbstractVector{<:OGraphProvenance}=OGraphProvenance[])
     _assert_ograph_schema(store)
@@ -533,6 +884,52 @@ function put_closed_ograph!(store::MoveGraphStoreDB, graph::ClosedNormalOGraph;
     end
 end
 
+"""
+    OGraphRelationProfile(profile_id, profile_name, profile_version, parent_profile_id, moves, moves_complete, evidence_status, conventions_json, profile_fingerprint, created_at_utc) -> OGraphRelationProfile
+
+Store a declared relation profile for an o-graph presentation database.
+
+# Arguments
+`profile_version::Int`, `parent_profile_id::Union{Nothing,String}`,
+`moves::Tuple{Vararg{String}}` and `moves_complete::Bool` supply those fields;
+the remaining fields are `String`. Convertible values are accepted and
+conversion errors propagate. The field constructor does not check consistency.
+
+# Returns
+`OGraphRelationProfile` with identity, name and version, optional parent identity,
+move names, supplied completeness and evidence-status declarations, conventions
+JSON, fingerprint and creation-time text.
+
+# Guarantees
+1. Each field equals the supplied value after conversion. [proved/agent: by construction]
+2. This is a declared scope for relations between presentations. It is not
+   itself a sequence of verified moves or a proof of equivalence of spaces.
+   Source-grounded transition evidence has the separate
+   [replay contract](../specs/ograph-move-verifier.md#verified-transition-contract).
+   [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not validate a profile identity, parent, move list,
+timestamp or evidence declaration. It does not establish calculus completeness.
+Use the name-based constructor for checked metadata and derived identities.
+
+# Sources
+cf: lib/topology.jl/db/ograph_relation_schema.sql tables ograph_relation_profiles and ograph_relation_profile_moves — repository relation-scope metadata.
+
+# Examples
+```jldoctest
+julia> p = OGraphRelationProfile("presentation"; moves_complete=true, evidence_status="identity-only", created_at_utc="2026-09-04T00:00:00Z");
+
+julia> q = OGraphRelationProfile(p.profile_id, p.profile_name, p.profile_version, p.parent_profile_id, p.moves, p.moves_complete, p.evidence_status, p.conventions_json, p.profile_fingerprint, p.created_at_utc);
+
+julia> q.profile_id == p.profile_id
+true
+```
+
+See also [`register_ograph_profile!`](@ref).
+
+Role: construct
+"""
 struct OGraphRelationProfile
     profile_id::String
     profile_name::String
@@ -570,6 +967,66 @@ function ograph_move_capabilities(profile_name::AbstractString="manifold")
     result
 end
 
+"""
+    OGraphRelationProfile(profile_name::AbstractString; profile_version::Integer=1, parent_profile_id=nothing, moves_complete::Bool=false, evidence_status::AbstractString="unimplemented", conventions=Dict{String,Any}(), created_at_utc::AbstractString) -> OGraphRelationProfile
+
+Construct checked relation-profile metadata with a deterministic identity.
+
+# Arguments
+- `profile_name` is normalized by stripping whitespace and lowercasing; it must
+  be a supported unweighted profile. Unsupported names throw `ArgumentError`
+  explaining the separate-adapter requirement.
+- `profile_version` must convert to a positive `Int`; failure throws a
+  conversion error or `ArgumentError` identifying the version.
+- `parent_profile_id`, `moves_complete` and `evidence_status` must be mutually
+  compatible with the selected profile. The identity-only profile requires
+  no parent, completeness and status `"identity-only"`. Other supported
+  profiles require a parent and consistent completeness/status declarations;
+  invalid combinations throw `ArgumentError` naming the violated restriction.
+- `conventions` must be JSON-serializable by [`ograph_canonical_json`](@ref).
+  For versions at least two it must also support `pairs` with string-convertible
+  keys. `created_at_utc` is stored as supplied text; no date parser is applied.
+
+# Returns
+`OGraphRelationProfile` with the normalized name and version, selected move
+names, supplied parent/status/completeness, serialized conventions, derived
+fingerprint and profile identity, and supplied creation-time text.
+
+# Guarantees
+1. Equal normalized profile data produce equal identity fields independently
+   of `created_at_utc`. A supplied parent identity is not looked up.
+   [proved/agent: by construction]
+2. For version two or later, the conventions contain a `move_capabilities`
+   entry: a supplied entry is retained, otherwise current capability metadata
+   is supplied. The result is a snapshot and does not track later changes.
+   [proved/agent: by construction]
+3. The result declares a relation scope on presentations; creating it performs
+   no [transition verification](../specs/ograph-move-verifier.md#verified-transition-contract)
+   and proves no equivalence of manifolds or combings. [proved/agent: by construction]
+
+# Not guaranteed
+Completeness and evidence status are caller declarations, not proofs checked
+by this constructor. Supported future positive version numbers are not
+rejected merely for being newer. Parent existence, timestamp validity and
+the truth of supplied capability metadata are not checked. No database row
+is inserted.
+
+# Examples
+```jldoctest
+julia> p = OGraphRelationProfile("presentation"; moves_complete=true, evidence_status="identity-only", created_at_utc="2026-09-04T00:00:00Z");
+
+julia> c = OGraphRelationProfile("combed"; parent_profile_id=p.profile_id, created_at_utc="2026-09-04T00:00:00Z");
+
+julia> m = OGraphRelationProfile("manifold"; parent_profile_id=c.profile_id, created_at_utc="2026-09-04T00:00:00Z");
+
+julia> length(unique([p.profile_id, c.profile_id, m.profile_id]))
+3
+```
+
+See also [`register_ograph_profile!`](@ref), `ograph_move_capabilities`.
+
+Role: construct
+"""
 function OGraphRelationProfile(profile_name::AbstractString;
         profile_version::Integer=1, parent_profile_id=nothing,
         moves_complete::Bool=false, evidence_status::AbstractString="unimplemented",
@@ -682,6 +1139,57 @@ function _assert_profile_row(store::MoveGraphStoreDB, row,
     true
 end
 
+"""
+    register_ograph_profile!(store::MoveGraphStoreDB, profile::OGraphRelationProfile) -> OGraphRelationProfile
+
+Register a relation profile and its allowed o-graph move kinds.
+
+# Arguments
+`store` must have the o-graph extension installed by `migrate_ograph_store!`.
+`profile` must have the canonical identity produced by `OGraphRelationProfile`.
+Its required parent must already be registered, and existing move-kind metadata
+must agree. Checks throw `ArgumentError` identifying schema, identity, parent,
+move-set or metadata disagreement; database constraints can fail first.
+Re-registration requires exact metadata, including `created_at_utc`.
+
+# Returns
+The supplied `OGraphRelationProfile` object.
+
+# Guarantees
+1. Successful return leaves matching profile and move-membership rows;
+   previously absent move kinds required by the profile are registered.
+   Repeating an identical registration leaves the records intact.
+   [proved/agent: by construction]
+2. The profile records which presentation relations a subsequent campaign
+   is permitted to use. Registration does not prove the declared move
+   completeness or the equivalence of any spaces. The profile is unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Evidence-status and completeness declarations are not independent mathematical
+certificates. No campaign, transition or source provenance is inserted. See
+the [relation-profile specification](../specs/ograph-relation-db.md#relation-profiles)
+for metadata identity and its evidence boundary.
+
+# Sources
+cf: lib/topology.jl/db/ograph_relation_schema.sql — relation profiles, parent links and allowed move-kind memberships.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store);
+
+julia> p = OGraphRelationProfile("presentation"; moves_complete=true, evidence_status="identity-only", created_at_utc="2026-11-25T00:00:00Z");
+
+julia> register_ograph_profile!(store, p) == p
+true
+
+julia> close_store!(store);
+```
+
+See also [`OGraphRelationProfile`](@ref), [`register_ograph_campaign!`](@ref).
+
+Role: other
+"""
 function register_ograph_profile!(store::MoveGraphStoreDB,
                                   profile::OGraphRelationProfile)
     _assert_ograph_schema(store)
@@ -756,7 +1264,62 @@ function _assert_campaign_row(store::MoveGraphStoreDB, row, expected, ids)
     true
 end
 
-"""Register a bounded campaign.  N_input and B_path are true-vertex bounds."""
+"""
+    register_ograph_campaign!(store::MoveGraphStoreDB, campaign_id::AbstractString, profile::OGraphRelationProfile, input_states::AbstractVector{<:CanonicalState}; n_input::Integer, b_path::Integer, caps, engine_version::AbstractString, verifier_version::AbstractString, status::AbstractString, stop_reason::AbstractString, counts, created_at_utc::AbstractString) -> NamedTuple
+
+Register a finite-scope o-graph relation-search campaign and return its identifier, campaign fingerprint and input fingerprint.
+
+# Arguments
+- `store`, `profile`: the current o-graph schema and an exactly registered
+  profile are required; schema/profile mismatches throw `ArgumentError`.
+- `campaign_id`: nonempty after stripping whitespace, otherwise `ArgumentError`.
+- `input_states`: distinct persisted Area-3 o-graph states. Complexity must
+  be a finite integer at most `n_input`; mismatches throw `ArgumentError`.
+- `n_input`, `b_path`: true-vertex bounds convertible to `Int`, with
+  `0 <= n_input <= b_path`; violations throw `ArgumentError`.
+- `caps`, `counts`: canonical-JSON-compatible metadata; conversion errors propagate.
+- Version, status, stop-reason and timestamp strings are supplied metadata;
+  the caller is responsible for their factual accuracy. Database constraints
+  can reject unsupported values.
+
+# Returns
+`(campaign_id, campaign_fingerprint, input_fingerprint)`, all strings. The
+fingerprints identify the
+[campaign metadata and input set](../specs/ograph-relation-db.md#finite-campaign-metadata).
+
+# Guarantees
+1. Successful registration stores the campaign and its ordered input associations transactionally. [proved/agent: by construction]
+2. Repeating identical registration returns the same identifiers; conflicting stored metadata throw `ArgumentError`. [proved/agent: by construction]
+3. The database changes, while the supplied profile and states are not modified. The record concerns a declared bounded computation on presentations. [proved/agent: by construction]
+
+# Not guaranteed
+Registration does not execute a search, enforce future exploration bounds,
+verify reported counts, or prove completeness of a manifold-equivalence search.
+The relation-profile theorem is not established by storing a campaign.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — scope of source-bound relations between certified presentations.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store); stamp = "2026-09-04T00:00:00Z";
+
+julia> profile = OGraphRelationProfile("presentation"; moves_complete=true, evidence_status="identity-only", created_at_utc=stamp);
+
+julia> register_ograph_profile!(store, profile);
+
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]); s = put_closed_ograph!(store, certify_closed_ograph(v));
+
+julia> args = (n_input=4, b_path=4, caps=Dict("max_depth"=>0), engine_version="test", verifier_version="test", status="completed", stop_reason="identity-only", counts=Dict("transitions"=>0), created_at_utc=stamp);
+
+julia> a = register_ograph_campaign!(store, "identity-example", profile, [s]; args...); a == register_ograph_campaign!(store, "identity-example", profile, [s]; args...)
+true
+
+julia> close_store!(store);
+```
+
+Role: other
+"""
 function register_ograph_campaign!(store::MoveGraphStoreDB, campaign_id::AbstractString,
         profile::OGraphRelationProfile, input_states::AbstractVector{<:CanonicalState};
         n_input::Integer, b_path::Integer, caps,
@@ -860,13 +1423,66 @@ function _decode_ograph_state_payload(raw)
                 convention_id=String(payload["convention_id"]))
 end
 
-"""Recompute every v1 o-graph pilot identity and finite evidence record.
+"""
+    verify_ograph_store(store::MoveGraphStoreDB) -> NamedTuple
 
-Schema v1 deliberately has no public Area-3 transition writer.  Until a typed,
-source-bound MP/PS/CP verifier can replay each step (including Method-B evidence
-for nonlocal PS), this verifier rejects every stored o-graph transition or
-relation certificate instead of treating a generic callback as mathematical
-evidence.
+Verify stored closed o-graph identities and the evidence for their recorded relations.
+
+# Arguments
+`store` must be an open database with the current o-graph extension and base
+schema v2. Schema mismatches, failed SQLite integrity or foreign-key checks,
+inconsistent state or evidence records, unsupported transition schemas and
+failed move replay throw `ArgumentError` identifying the failed check.
+Database, payload-decoding and underlying certification errors propagate.
+Without the typed transition extension, any o-graph transition or relation
+certificate is rejected. With that extension, its current schema is required.
+
+# Returns
+A named tuple with `base_schema_version`, `ograph_schema_version`, `integrity`,
+`states`, `sources`, `profiles`, `campaigns`, `transitions` and `certificates`.
+The counts refer to the o-graph records checked; `integrity` is `"ok"` on success.
+
+# Guarantees
+1. Success means stored o-graph states agree with their recertified payloads
+   and canonical identities, including their closedness evidence. The
+   mathematical scope remains that of [`certify_closed_ograph`](@ref).
+   [proved/agent: by construction]
+2. With the typed transition extension, each counted transition has matching
+   typed evidence and a successful fresh `replay_ograph_move` result bound to
+   its stored endpoints and operation. [proved/agent: by construction]
+3. Accepted relation certificates describe contiguous paths between their
+   stated endpoints using those verified transitions and the same relation
+   profile. Their meaning is the move relation of the
+   [verified-transition contract](../specs/ograph-move-verifier.md#verified-transition-contract).
+   [proved/agent: by construction]
+4. Verification leaves the database unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Success does not prove that the search was exhaustive, that a profile's
+claimed move completeness is a theorem, or that unrelated representations
+in the same database have been verified. Provenance records do not establish
+the truth of their cited sources. Derived group and H1 rows require
+`verify_ograph_invariant_store`. The
+[relation-store specification](../specs/ograph-relation-db.md)
+defines schema, metadata identity and compatibility.
+
+# Sources
+cf:docs/specs/ograph-move-verifier.md — semantic witness replay and accepted local move relations.
+cf:lib/topology.jl/src/ograph_move_db.jl — o-graph extension identity and evidence validation scope.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_store!(store);
+
+julia> verify_ograph_store(store).states
+0
+
+julia> close_store!(store);
+```
+
+See also [`verify_ograph_invariant_store`](@ref), [`replay_ograph_move`](@ref).
+
+Role: condition
 """
 function verify_ograph_store(store::MoveGraphStoreDB)
     _assert_ograph_schema(store)

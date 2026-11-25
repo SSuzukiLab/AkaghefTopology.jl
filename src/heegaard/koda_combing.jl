@@ -2,14 +2,52 @@
 # p1 and theta stay uncomputed here. Nothing is not the number zero.
 # The Lescop evaluator is a consumer of this type and is not called from here.
 
-"""A combing on a closed oriented 3-manifold with b1 = 0, plus an optional second field.
+"""
+    CombingFraming(b1, presentation, combing, euler_representative, framing_status, second_field, mod2_status, spin_c, p1, theta, certificate) -> CombingFraming
 
-`presentation` is `:cmr3`. The combing state is one of `:combed`,
-`:framing_extendable`, and `:euler_obstructed`. A mod-2 solution is
-`mod2_status`, not a framing. `framing_status` is `:unjudged`, `:extendable`,
-`:framed`, or `:obstructed`. `:framed` means an integer second field for
-`δx = -c_P` is stored. `spin_c` is `nothing` because the Euler class does not
-identify a Spin^c structure. `p1` and `theta` are `nothing` while uncomputed.
+Store a combing classification with optional framing and invariant data.
+
+# Arguments
+The fields accept `Int`, `Symbol`, `CMR3State`, optional integer Euler vector,
+`Symbol`, optional `Vector{BigInt}` second field, `Symbol`, `nothing`,
+optional `Rational{BigInt}` p1, optional four-tuple of `Rational{BigInt}` theta,
+and `Dict{String,Any}` certificate, respectively. Convertible values are
+accepted and conversion errors propagate. The raw constructor does not
+check Betti number, state consistency or any equation.
+
+# Returns
+A `CombingFraming` retaining the supplied classification, optional fields
+and certificate annotations.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed containers and
+   the state are retained without modification. [proved/agent: by construction]
+2. The record can carry the combing and additional-structure data associated
+   with a closed oriented 3-manifold; it does not construct vector fields.
+   [proved/agent: by construction]
+
+# Conventions
+CMR3 framing records: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-koda-conversion.md#cmr3-euler-framing).
+
+# Not guaranteed
+Arbitrary fields do not certify a framing, Spin-c structure, p1 or theta.
+The [CMR3 interpretation](../specs/heegaard-koda-conversion.md#cmr3-euler-framing)
+states the status and second-field convention. Use `combing_framing_from_cmr3` for its checked domain.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §10.3 — distinction between manifold and additional-structure claims.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> c = CombingFraming(0, :cmr3, CMR3State(:combed,nothing,nothing), nothing, :unjudged, nothing, :unjudged, nothing, nothing, nothing, Dict{String,Any}()); (c.b1, c.second_field, c.p1)
+(0, nothing, nothing)
+```
+
+See also [`combing_framing_from_cmr3`](@ref).
+
+Role: convert
 """
 struct CombingFraming
     b1::Int
@@ -46,11 +84,52 @@ function _combing_framing_fields(state::CMR3State, solution::Union{Nothing,Abstr
     end
 end
 
-"""Build the b1 = 0 combing record from one CMR3 state.
+"""
+    combing_framing_from_cmr3(state::CMR3State; b1, c_p=nothing, solution=nothing, mod2=nothing) -> CombingFraming
 
-Pass `b1` explicitly. This constructor rejects every other first Betti number.
-`solution` is the integer vector of `δx = -c_P` when the class vanishes.
-`mod2` is stored separately and never becomes the second field.
+Build a zero-Betti combing record from a classification state and optional second-field data.
+
+# Arguments
+`b1` is an integer required to equal zero. `state` must be a combing or integer
+obstruction classification; `mod2`, when supplied, must be a modular
+classification. Checked failures raise `ArgumentError` naming the unsupported
+Betti number or state. A framed result requires a supplied Euler vector and
+nonempty solution; failures raise `ArgumentError`. Vector conversions can fail.
+The caller guarantees that a supplied solution solves the intended equation;
+this operation receives no matrix and cannot check it.
+
+# Returns
+A `CombingFraming` with the state, optional copied Euler/second-field vectors,
+separate mod-two status and certificate annotations. Spin-c, p1 and theta
+are absent.
+
+# Guarantees
+1. The record reflects the supplied integer classification and keeps
+   mod-two evidence separate from the second field.
+   [proved/agent: by construction]
+2. Inputs are not modified; the optional vectors are converted into new
+   arrays. [proved/agent: by construction]
+
+# Conventions
+CMR3 framing records: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-koda-conversion.md#cmr3-euler-framing).
+
+# Not guaranteed
+This does not independently certify a vector field, solve the integer
+equation, identify a Spin-c structure or evaluate p1/theta. The [CMR3 interpretation](../specs/heegaard-koda-conversion.md#cmr3-euler-framing)
+states the geometric compatibility obligations.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §10.3 — additional structures require compatible geometric correspondence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> c = combing_framing_from_cmr3(cmr3_combed(); b1=0); (c.framing_status, c.second_field, c.spin_c)
+(:unjudged, nothing, nothing)
+```
+
+Role: convert
 """
 function combing_framing_from_cmr3(state::CMR3State;
         b1::Integer,
@@ -81,6 +160,48 @@ function combing_framing_from_cmr3(state::CMR3State;
     )
 end
 
+"""
+    combing_framing_from_cmr3(reading::CMR3Reading, c_p::AbstractVector{<:Integer}; b1, mod2=nothing) -> CombingFraming
+
+Build a zero-Betti combing record from an Euler-class reading and representative.
+
+# Arguments
+`reading` is a compatible result of `classify_euler_class`, and `c_p` is the
+same Euler representative. Compatibility is the caller's responsibility.
+`b1` and optional `mod2` follow the state overload; its `ArgumentError` and
+conversion failures propagate.
+
+# Returns
+The `CombingFraming` obtained from the reading's state and integer solution,
+with the supplied Euler vector and separate modular status.
+
+# Guarantees
+1. The supplied reading's state and solution determine the resulting record
+   under the state overload's checks. [proved/agent: by construction]
+2. The reading and representative are not modified.
+   [proved/agent: by construction]
+
+# Conventions
+CMR3 framing records: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-koda-conversion.md#cmr3-euler-framing).
+
+# Not guaranteed
+The reading's modular-witness residue fields are not retained as a geometric
+certificate. This wrapper does not recheck the integer equation or certify
+the manifold/field correspondence.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§6.5, 10.3 — cellular coordinates and additional-structure scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> r = classify_euler_class(reshape([1],1,1), [0]); c = combing_framing_from_cmr3(r, [0]; b1=0); (c.framing_status, Tuple(c.second_field))
+(:framed, (0,))
+```
+
+Role: convert
+"""
 function combing_framing_from_cmr3(reading::CMR3Reading, c_p::AbstractVector{<:Integer};
         b1::Integer, mod2::Union{Nothing,CMR3State}=nothing)
     combing_framing_from_cmr3(reading.state; b1=b1, c_p=c_p,

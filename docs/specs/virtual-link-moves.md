@@ -321,6 +321,8 @@ During replacement:
 MP-L, MP-R,
 02-L, 02-R,
 CP-L, CP-R,
+RCP-L, RCP-R,
+S-L, S-R,
 PS-L, PS-R,
 BMP-L, BMP-R,
 B02-L, B02-R
@@ -328,6 +330,12 @@ B02-L, B02-R
 
 `H` is an edge-weight operation and has no local Gauss replacement table.
 R1/R2/R3 have no executable catalogue in the current contract.
+
+`RCP` and `S` retain the rooted reduced-CP (§15.1) and insertion-S pattern data
+in the current catalogue. Catalogue membership does not imply an executable weighted rule.
+The sixteen-key inventory and both sixteen-entry MP vectors are asserted in
+[the core tests](../../test/topology_core.jl). The returned catalogue is fresh
+mutable data on each call; it is not a serialized file.
 
 ### 5.4 MP catalogue
 
@@ -369,6 +377,7 @@ struct MoveCandidate
     before::Union{Nothing,MovePattern}
     after::Union{Nothing,MovePattern}
     locations::Vector{Tuple{Int,Int}}
+    ps_split_k::Union{Nothing,BigInt}
 end
 ```
 
@@ -382,9 +391,15 @@ end
 | `before` | Source template, or `nothing` for a non-template operation. |
 | `after` | Target template, or `nothing` for a non-template operation. |
 | `locations` | One `(component,start)` pair per source Gauss fragment. |
+| `ps_split_k` | Optional forward integral-PS edge-portion choice of §12.5. |
 
 A candidate is an applicability witness, not merely a user request. Every
 location MUST refer to the exact real-Gauss view used during search.
+
+The eight-argument constructor supplies `ps_split_k=nothing`. Constructors
+perform field conversion, not applicability validation; manually constructed
+records are requests until the source-specific checks succeed. Correctly typed
+vectors and templates can share storage with their constructor arguments.
 
 ### 6.2 Vertex arguments
 
@@ -608,6 +623,31 @@ Component order is presentation data, not a canonical virtual-link invariant.
 
 ### 12.0 Initial integer weights and diagnostic compatibility
 
+The following condition identifiers name the existing API boundaries; they do
+not identify a new geometric structure.
+
+| Condition | Meaning | Enforcement |
+|---|---|---|
+| W1 | Assigned integer-mode weights are finite integer-valued real-edge entries in the real-edge traversal coordinates. | Integral validators reject absent assignments, the wrong mode, nonfinite or noninteger entries. |
+| W2 | Relative targets obey the directed open-path target format of §12.1, cover every open path once and leave closed targets fixed. | Target resolution checks coverage, identity, shape and exact-integer values. |
+| W3 | A coherent input passes the repository's `is_closed` criteria and the disk/H matrices obey `delta*H=0`. | `first_betti_number` checks that predicate and the matrix equation; coherent data and the source-circuit identification remain caller responsibilities. |
+| W4 | A matrix problem has one-based indexing, exact integer coefficients and one right-hand-side entry per row. | Exact matrix solvers check these conditions; Bool coefficients are accepted as integers. |
+| W5 | The selected integral result lies in the safe storage range of §12.1. | Assignment checks this separately from solvability. |
+
+For W3, the returned number is the dimension of the cohomology of the
+displayed disk/H complex over the rationals. Identifying that complex with a
+specific geometric cellular model additionally requires the circuit and
+H-incidence correspondence used by the input's construction; the rank check
+does not establish that correspondence.
+
+question: open — The expected geometric interpretation of this rational
+disk/H cohomology is the first cohomology of the represented spine, because
+the two maps are its intended disk and gauge incidences. A checked cellular
+identification of both maps is still needed; a counterexample to that
+identification would change this interpretation, not the algebraic rank formula.
+The finite closed examples and independence from Euler feasibility are checked
+in [weight moves](../../test/weight_moves.jl).
+
 `solve_integer_weights(v; assign=false, parity=nothing)` solves the actual
 `2*delta*w+cp2=0` over `BigInt` using Smith transformations. It returns
 `:integer_solution`, `:rational_only`, or `:inconsistent`, an exact particular
@@ -628,6 +668,26 @@ weights. On a nonclosed presentation, success asserts only the disk equation.
 edge parity. It solves `(4delta)*t=-cp2-2delta*z` and returns `w=z+2t`.
 Its kernel spans the fixed-parity lattice, and its nested Smith certificate
 belongs to t. This is not a CP spin transport implementation.
+
+For the matrix overload the substitution is `(2A)*t=b-A*z`, `w=z+2t`.
+The returned translation lattice is `2*t_solution.kernel`, generally smaller
+than the unrestricted kernel lattice. Integer and Bool parity coordinates 0/1
+are accepted; floating coordinates are not. `:rational_only` excludes this
+integral parity lift, not all parities. The nested obstruction concerns the
+transformed equation. The ordinary result stores exact `BigInt` matrices,
+an integer `particular` only when feasible, a rational `rational_particular`
+whenever rationally feasible, kernel columns in every case, and the certificate
+fields `S`, `U`, `V`, `transformed_rhs`, `rank`. Lift records replace that direct
+certificate by `t_solution` and include `parity`.
+
+Assignment outcomes are `:not_requested`, `:assigned`,
+`:not_integer_feasible`, `:outside_safe_integer_range`, or
+`:not_float64_representable`. An assignment refusal concerns the returned
+particular, not every point of its lattice. The presentation record is a
+snapshot of raw and real Gauss data and the reported closed-normal conditions;
+the certificate verifier checks the matrix and lift data, not that snapshot
+or assignment history. Evidence: [integer solver tests](../../test/integer_weight_solver.jl)
+including its fixed-parity lift cases.
 
 The old `calculate_weight(v)` tuple remains a MATLAB-compatible diagnostic:
 its base may be rational, its integer-valued kernel ROWS span the rational
@@ -787,6 +847,35 @@ The current contract rejects:
 
 ### 12.7 Weighted evidence
 
+The following identifiers distinguish raw-data checks from geometric claims.
+
+| Condition | Current check |
+|---|---|
+| E1 | Assigned integer mode, valid raw Gauss data and crossing orientations, aligned component/real-edge metadata, and finite exact integral weights in the consecutive safe range. Evidence rejects Bool weights. |
+| E2 | A frozen candidate for the current source, including its local templates and selected occurrences. Executor verification authenticates it against the current catalogue. |
+| E3 | Source and target boundary prescriptions are resolved separately; a pair `(source=..., target=...)`, a dictionary with those string keys, or a two-tuple gives two prescriptions. One prescription otherwise applies to both. |
+| E4 | Executor verification supports MP, H, 02 and PS, with no edge-selector metadata and a split only for forward PS; versions and required packet fields must agree. Requested framed validation requires zero residuals, plus explicit targets when the presentation fails the recorded closed-normal test. |
+| E5 | Assigned-result verification supports CP, BMP and B02 and requires equality of the raw unweighted target with the geometry executed from the supplied candidate. It does not perform the executor's fresh catalogue-template authentication. It measures supplied integer weights but does not require zero residuals. |
+
+Raw hashes are SHA-256 of the versioned canonical-JSON raw packet. The packet
+contains the complete Gauss and orientation data, weights, real-only flag,
+strand types, assigned flag, cut flags and boundary weights. This is a raw
+presentation digest, not a cyclic or relabeling canonicalization.
+
+Endpoint lineage consists of records with `source` and `target`, each a
+`(strand,side)` endpoint identity. Incoming and outgoing ends of one target
+strand may originate on different source strands; circuit lanes are retained.
+The executor checks source/target endpoint coverage and agreement with its
+geometric target. `move_boundary_transport` returns the target with these
+records and does not by itself choose boundary weights.
+
+Status: **proved/agent** for these API boundaries by inspection of
+[weighted_move_verifier.jl](../../src/weighted_move_verifier.jl) and
+[moves.jl](../../src/moves.jl). Finite regression evidence is in
+[weighted verifier tests](../../test/weighted_move_verifier.jl),
+[multi-cut evidence tests](../../test/multi_cut_evidence.jl), and
+[spin evidence boundaries](../../test/spin_evidence_boundaries.jl).
+
 `verify_weighted_move(source,candidate; framed=false,boundary=nothing)` applies a frozen candidate
 on a copy and returns a `WeightedMoveVerification`. Successful evidence binds
 the full raw source and target, integer weights, catalogue rule version, vertex
@@ -814,6 +903,20 @@ map in `transport_detail.boundary_transport.endpoints`; replay authenticates
 this map as part of the envelope. Assigned results use
 `akaghef.weighted-relative-result/2`. An older executor packet must be regenerated
 under the current executor rather than relabelled with the new version.
+
+### 12.8 Spin boundary interpretation
+
+The definitions of closed condition S, canonical Z2 weights, relative Z4
+targets and the parity condition before division belong to
+[spin-weights.md](spin-weights.md#definitions), conditions S1–S5.
+The directed endpoint identities and their transport are those of §12.1;
+spin targets are attached to those identities, not inferred from a cut marker.
+
+The closed source interpretation and the `open` geometric interpretation of
+relative boundary targets are distinguished in
+[the spin evidence boundary](spin-weights.md#coordinate-choices-and-evidence).
+That page owns the source locators, missing geometric data and comparison
+needed before interpreting relative transport as boundary spin extension.
 
 ## 13. Mutation and output contract
 

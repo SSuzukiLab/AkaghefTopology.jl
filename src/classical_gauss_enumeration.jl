@@ -36,7 +36,49 @@ The implementation is self-contained apart from the optional
 
 const CLASSICAL_GAUSS_ENUMERATION_VERSION = 1
 
-"""Summary of one direct rooted unsigned-word enumeration."""
+"""    ClassicalGaussEnumerationResult(n, unsigned_words, rotations_checked, spherical_immersions, generated_decorations, raw_duplicates, raw_keys) -> ClassicalGaussEnumerationResult
+
+Store the finite counts and signed-word keys of a direct Gauss enumeration.
+
+# Arguments
+The counters are `Int` fields and `raw_keys` is a `Set{UInt64}` with the meanings
+in [Enumeration records](../specs/knot-gauss.md#enumeration-records).
+K7 ([conditions](../specs/knot-gauss.md#numbered-conditions)) is the caller's
+responsibility; no run-consistency checks are performed. Incompatible field
+conversions raise Julia conversion errors.
+
+# Returns
+A `ClassicalGaussEnumerationResult` storing `n`, `unsigned_words`,
+`rotations_checked`, `spherical_immersions`, `generated_decorations`,
+`raw_duplicates` and `raw_keys` as defined in the linked record entry.
+
+# Guarantees
+1. Each field equals its supplied value after conversion; under K7 these are counts and keys of the stated finite rooted signed-diagram population. [proved/agent: by construction]
+2. The input set is not modified; a `Set{UInt64}` is retained by reference. [proved/agent: by construction]
+
+# Conventions
+[Enumeration keys](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+Construction does not enumerate anything, certify the counters, or classify
+knot isotopy types. The general literature comparison for classicality is
+unverified as recorded in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration records — local finite-population and key definitions.
+
+# Examples
+```jldoctest
+julia> r = direct_classical_gauss_enumeration(1);
+
+julia> (r.unsigned_words, r.rotations_checked, r.spherical_immersions, length(r.raw_keys))
+(1, 2, 2, 4)
+```
+
+See also [`direct_classical_gauss_enumeration`](@ref).
+
+Role: construct
+"""
 struct ClassicalGaussEnumerationResult
     n::Int
     unsigned_words::Int
@@ -54,7 +96,38 @@ function _cge_validate_n(n::Integer)
     value
 end
 
-"""Number `(2n-1)!!` of rooted first-occurrence restricted-growth words."""
+"""    rooted_unsigned_gauss_count(n::Integer) -> Int
+
+Return the number of rooted unsigned Gauss words with the requested crossing count.
+
+# Arguments
+`n` satisfies K4 ([conditions](../specs/knot-gauss.md#numbered-conditions)).
+The range is checked with `ArgumentError`; integer conversion failures
+propagate.
+
+# Returns
+An `Int` giving the size of the
+[rooted unsigned population](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Guarantees
+1. The result equals `length(enumerate_rooted_unsigned_gauss_words(n))` in the supported range, including the single empty word at zero crossings. [proved/agent: by construction]
+2. The input is unchanged and no word collection is returned. [proved/agent: by construction]
+
+# Not guaranteed
+This count includes nonplanar words. It is neither a count of canonical
+cyclic-root classes nor a count of knot types.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses — finite rooted unsigned population.
+
+# Examples
+```jldoctest
+julia> Tuple(rooted_unsigned_gauss_count(n) for n in 0:4)
+(1, 1, 3, 15, 105)
+```
+
+Role: access
+"""
 function rooted_unsigned_gauss_count(n::Integer)
     value = _cge_validate_n(n)
     result = big(1)
@@ -64,12 +137,44 @@ function rooted_unsigned_gauss_count(n::Integer)
     Int(result)
 end
 
-"""Call `f` once for every rooted unsigned double-occurrence word.
+"""    foreach_rooted_unsigned_gauss_word(f::Function, n::Integer) -> Nothing
 
-The recursion keeps labels in first-occurrence restricted-growth order.  At a
-position it closes each currently open label in increasing label order, then
-opens the next fresh label.  Hence each word is reached by one and only one
-branch and no all-pairing superset is constructed.
+Visit every rooted unsigned Gauss word with the requested crossing count.
+
+# Arguments
+`n` satisfies K4 and `f` satisfies K10
+([conditions](../specs/knot-gauss.md#numbered-conditions)) for one word vector.
+The reversed positional order `(n, f)` is also supported. An invalid range
+raises `ArgumentError`; integer conversion and callback failures propagate.
+
+# Returns
+`nothing` after all callbacks return normally.
+
+# Guarantees
+1. Each word of the specified rooted unsigned population is passed to `f` exactly once, in the same order as `enumerate_rooted_unsigned_gauss_words(n)`. [proved/agent: by construction]
+2. Callback words are independently allocated vectors; a callback can retain or modify its vector without changing later words. No input container is modified by the enumerator. [proved/agent: by construction]
+
+# Not guaranteed
+Callback results are discarded and do not stop enumeration. Callback side
+effects are not undone after an exception. Words are not certified planar
+and do not carry crossing-sign or over/under data.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses — rooted unsigned population and ordering.
+
+# Examples
+```jldoctest
+julia> words = Vector{Int}[];
+
+julia> foreach_rooted_unsigned_gauss_word(w -> push!(words, w), 2)
+
+julia> length(words)
+3
+```
+
+See also [`enumerate_rooted_unsigned_gauss_words`](@ref).
+
+Role: other
 """
 function foreach_rooted_unsigned_gauss_word(f::Function, n::Integer)
     crossings = _cge_validate_n(n)
@@ -115,10 +220,83 @@ function foreach_rooted_unsigned_gauss_word(f::Function, n::Integer)
     nothing
 end
 
+"""
+    foreach_rooted_unsigned_gauss_word(n::Integer, f::Function) -> Nothing
+
+Visit every rooted unsigned Gauss word with the requested crossing count.
+
+# Arguments
+`n` satisfies K4 and `f` satisfies K10
+([conditions](../specs/knot-gauss.md#numbered-conditions)) for one word vector.
+The reversed positional order `(n, f)` is also supported. An invalid range
+raises `ArgumentError`; integer conversion and callback failures propagate.
+
+# Returns
+`nothing` after all callbacks return normally.
+
+# Guarantees
+1. Each word of the specified rooted unsigned population is passed to `f` exactly once, in the same order as `enumerate_rooted_unsigned_gauss_words(n)`. [proved/agent: by construction]
+2. Callback words are independently allocated vectors; a callback can retain or modify its vector without changing later words. No input container is modified by the enumerator. [proved/agent: by construction]
+
+# Not guaranteed
+Callback results are discarded and do not stop enumeration. Callback side
+effects are not undone after an exception. Words are not certified planar
+and do not carry crossing-sign or over/under data.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses — rooted unsigned population and ordering.
+
+# Examples
+```jldoctest
+julia> words = Vector{Int}[];
+
+julia> foreach_rooted_unsigned_gauss_word(2, w -> push!(words, w))
+
+julia> length(words)
+3
+```
+
+See also [`enumerate_rooted_unsigned_gauss_words`](@ref).
+
+Role: other
+"""
 foreach_rooted_unsigned_gauss_word(n::Integer, f::Function) =
     foreach_rooted_unsigned_gauss_word(f, n)
 
-"""Materialized convenience view of the rooted unsigned word stream."""
+"""    enumerate_rooted_unsigned_gauss_words(n::Integer) -> Vector{Vector{Int}}
+
+Return all rooted unsigned Gauss words with the requested crossing count.
+
+# Arguments
+`n` satisfies K4 ([conditions](../specs/knot-gauss.md#numbered-conditions)).
+The range is checked with `ArgumentError`; integer conversion failures
+propagate. No classical-realizability restriction is imposed.
+
+# Returns
+A `Vector{Vector{Int}}` of the rooted unsigned words defined in
+[Enumeration and move witnesses](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Guarantees
+1. Every word in that finite population occurs once, in the specified order; its size is `rooted_unsigned_gauss_count(n)`. [proved/agent: by construction]
+2. Each word has its own mutable vector; modifying one result word does not modify another. No input is changed. [proved/agent: by construction]
+
+# Not guaranteed
+Unsigned words need not be realizable by plane curves. Root changes remain
+distinct here; no over/under choices or crossing signs are supplied.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses — rooted unsigned population.
+
+# Examples
+```jldoctest
+julia> length(enumerate_rooted_unsigned_gauss_words(2))
+3
+```
+
+See also [`foreach_rooted_unsigned_gauss_word`](@ref).
+
+Role: construct
+"""
 function enumerate_rooted_unsigned_gauss_words(n::Integer)
     words = Vector{Vector{Int}}()
     foreach_rooted_unsigned_gauss_word(n) do word
@@ -227,7 +405,48 @@ function _cge_pack_signed(code, orientation)
     key
 end
 
-"""Decode a compact key into mutable signed code and orientation vectors."""
+"""
+    classical_gauss_key_to_code(key::UInt64, n::Integer) -> Tuple{Vector{Int},Vector{Int}}
+
+Decode a packed signed-Gauss key into its visit and crossing-sign vectors.
+
+# Arguments
+`n` must satisfy K4 and `key` must satisfy K9
+([conditions](../specs/knot-gauss.md#numbered-conditions)). The crossing-count
+range, packed prefix and label ranges are checked, with `ArgumentError`
+identifying the failed check; conversion of `n` to `Int` may fail.
+Full decoded K1 validity is the caller's responsibility: this vector decoder does not check the signed occurrence counts.
+
+# Returns
+A pair of new `Vector{Int}` values `(code, orientation)` in the signed Gauss representation.
+
+# Guarantees
+1. The output has exactly the signed coordinates encoded by a K9 input key in the specified packed format. [proved/agent: by construction]
+2. Input arguments are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Packed-key format](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No classicality or knot-type decision is made. A structurally valid packed
+key need not have arisen from a classical census. Cross-version format
+compatibility is not certified by these routines.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration records and K9 — local packed-coordinate representation.
+
+# Examples
+```jldoctest
+julia> r = direct_classical_gauss_enumeration(0); key = only(r.raw_keys);
+
+julia> code, signs = classical_gauss_key_to_code(key, 0);
+
+julia> (Tuple(code), Tuple(signs))
+((), ())
+```
+
+Role: construct
+"""
 function classical_gauss_key_to_code(key::UInt64, n::Integer)
     crossings = _cge_validate_n(n)
     remainder = key
@@ -250,7 +469,48 @@ function classical_gauss_key_to_code(key::UInt64, n::Integer)
     code, orientation
 end
 
-"""Return a repository diagram when available, otherwise a two-field tuple."""
+"""
+    classical_gauss_key_to_diagram(key::UInt64, n::Integer) -> KnotGaussDiagram
+
+Decode a packed signed-Gauss key into a knot-diagram record.
+
+# Arguments
+`n` must satisfy K4 and `key` must satisfy K9
+([conditions](../specs/knot-gauss.md#numbered-conditions)). The crossing-count
+range, packed prefix and label ranges are checked, with `ArgumentError`
+identifying the failed check; conversion of `n` to `Int` may fail.
+Decoded K1 validity is also checked by `KnotGaussDiagram`; invalid signed pairing raises `ArgumentError`.
+
+# Returns
+A `KnotGaussDiagram` with the decoded `gauss` and `orientation` fields in the loaded library.
+
+# Guarantees
+1. The output has exactly the signed coordinates encoded by a K9 input key in the specified packed format. [proved/agent: by construction]
+2. Input arguments are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Packed-key format](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+No classicality or knot-type decision is made. A structurally valid packed
+key need not have arisen from a classical census. Cross-version format
+compatibility is not certified by these routines.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration records and K9 — local packed-coordinate representation.
+
+# Examples
+```jldoctest
+julia> r = direct_classical_gauss_enumeration(0); key = only(r.raw_keys);
+
+julia> d = classical_gauss_key_to_diagram(key, 0);
+
+julia> (d.gauss, d.orientation)
+((), ())
+```
+
+Role: construct
+"""
 function classical_gauss_key_to_diagram(key::UInt64, n::Integer)
     code, orientation = classical_gauss_key_to_code(key, n)
     if isdefined(@__MODULE__, :KnotGaussDiagram)
@@ -259,7 +519,53 @@ function classical_gauss_key_to_diagram(key::UInt64, n::Integer)
     (gauss=code, orientation=orientation)
 end
 
-"""Enumerate the complete direct classical raw set for one crossing number."""
+"""    direct_classical_gauss_enumeration(n::Integer; progress=nothing) -> ClassicalGaussEnumerationResult
+
+Enumerate the rooted signed Gauss data obtained from spherical admissible rotations.
+
+# Arguments
+`n` must satisfy K4 ([conditions](../specs/knot-gauss.md#numbered-conditions));
+the checked range failure raises `ArgumentError`, and `Int` conversion errors
+propagate. An optional `progress` callback satisfies K10 for three cumulative
+integer counts `(unsigned_words, spherical_immersions, generated_decorations)`;
+it is called once per unsigned word. Unsupported calls and callback errors
+propagate; callback side effects are the caller's responsibility.
+
+# Returns
+A `ClassicalGaussEnumerationResult` with counters and `raw_keys` as defined in
+[Enumeration records](../specs/knot-gauss.md#enumeration-records).
+
+# Guarantees
+1. `raw_keys` is exactly the set of encoded signed decorations from all spherical admissible rotations of the rooted unsigned words with `n` crossings. Each key decodes to K1 data. [proved/agent: by construction]
+2. The counters refer to that finite enumeration, and `generated_decorations == length(raw_keys) + raw_duplicates`. [proved/agent: by construction]
+3. The routine creates a new result and key set and changes no input container; a supplied callback may perform its own side effects. [proved/agent: by construction]
+
+# Conventions
+[Rooted population](../specs/knot-gauss.md#enumeration-and-move-witnesses),
+[ribbon choices](../specs/knot-gauss.md#ribbon-records) and
+[packed keys](../specs/knot-gauss.md#enumeration-records).
+
+# Not guaranteed
+This is neither a canonical-root quotient nor a knot-isotopy census.
+The general source identification with all classically realizable diagrams
+retains the specification's unverified literature comparison. Memory and
+run time can grow rapidly toward the supported upper crossing bound.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and ribbon records — finite rotation/decorated-word population.
+
+# Examples
+```jldoctest
+julia> r = direct_classical_gauss_enumeration(1);
+
+julia> (r.spherical_immersions, r.generated_decorations, r.raw_duplicates, length(r.raw_keys))
+(2, 4, 0, 4)
+```
+
+See also [`classical_gauss_key_to_diagram`](@ref).
+
+Role: construct
+"""
 function direct_classical_gauss_enumeration(n::Integer; progress=nothing)
     crossings = _cge_validate_n(n)
     masks = 1 << crossings

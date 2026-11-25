@@ -1,18 +1,37 @@
 """
-    lickorish_reference(g)
+    lickorish_reference(g::Integer) -> Dict{String,Any}
 
-Named oriented disk decomposition.
-cf:[[AS13#^anonnd60-sec-0740]] Fig. 12.3, printed p.244 / PDF p.251 — linked OCR
-crop references/derived/n8n-jobs/01d1e1652c07435ea1f51e46a2933bfc/assets/p0251-0001.jpeg.
-The crop was visually inspected; the mathematical transcription is agent-owned.
-The curves l/m/n are REFERENCE curves, never the input alpha/beta families.
-The surface is the oriented ribbon neighbourhood capped by its named face disks.
-Returns the reference crossings and K curves only. The surface check is
-V - E + F = 2 - 2g on the traced ribbon faces (E = 2V for 4-valent crossings).
+Construct the named oriented reference-curve record for genus g.
 
-Conventions: l_i follows the arrow in the figure; m_i crosses l_i positively.
-n_i is oriented with signs +(l_i,n_i), -(l_{i+1},n_i). The n_i orientations
-are our choice (the figure does not assign arrows to them).
+# Arguments
+`g` must be a non-Boolean integer from 1 through 16; otherwise `ArgumentError` with `REFERENCE_GENUS` is thrown. Internal face-orbit, genus or face-size inconsistencies also raise `ArgumentError`.
+
+# Returns
+A dictionary with `genus`, `curves`, `crossings` and `metadata`. The curve records have auxiliary roles; this is reference data, not an assigned alpha/beta diagram or a `LickorishCode`.
+
+# Guarantees
+1. The returned curve arrangement carries a connected oriented ribbon surface whose capped face decomposition has genus `g`. [proved/agent: connected reference graph and the checked Euler characteristic]
+2. The record contains only the reference-curve arrangement and source metadata, without assigning a Heegaard splitting. [proved/agent: by construction]
+
+# Conventions
+Historical reference-record translation: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/lickorish-code.md#historical-reference-records).
+
+# Not guaranteed
+The historical record's port words are not asserted to be the modern LC interchange format. The source figure's geometric identification and the translation of its auxiliary orientation choices to every modern LC consumer are not independently certified by this constructor.
+
+# Sources
+cf: lib/topology.jl/docs/specs/lickorish-code.md — reference curves and the distinction from input curves.
+cf: [[AS13#^anonnd60-sec-0740]] Fig. 12.3 — source of the reference arrangement.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> r = H.lickorish_reference(1); (length(r["curves"]), length(r["crossings"]))
+(2, 1)
+```
+
+Role: construct
 """
 function lickorish_reference(g::Integer)
     !(g isa Bool) && 1<=g<=16 || throw(ArgumentError("REFERENCE_GENUS: 1 <= genus <= 16"))

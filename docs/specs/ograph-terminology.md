@@ -466,3 +466,58 @@ The question "ID function test check" is saved as
 before an answer was captured, and the Answer section is empty. It was not
 sent again. The item-by-item check of these rows against the named functions
 and tests is therefore still the lane's own check.
+
+## Presentation canonicalization and serialization
+
+Status: fixed 2026-11-25 Codex (rule a), recording the choices in
+[`ograph_state.jl`](../../src/ograph_state.jl) and the replay identity in
+[`ograph_move_verifier.jl`](../../src/ograph_move_verifier.jl).
+
+For each cyclic root of an `OGraphState` word, assign crossing labels in order
+of first encounter, preserving occurrence signs and carrying each vertex sign
+to its new label. Compare the integer tuples consisting of the relabelled
+word, a zero separator, and the relabelled vertex signs. The least tuple is
+the representative; equal candidates use the first root in the original word.
+The empty word is copied, with its separate [MST meaning](#mst-crossing-free-circuit).
+The convention identifier is retained. This quotients cyclic roots and
+crossing labels, not direction reversal, reflection or moves.
+
+With the ordinary default integer version `1`, canonical serialization is
+exactly the following concatenation, with no spaces or trailing newline:
+
+```text
+OGraphState;schema=akaghef.ograph/1;canonicalization=ograph-presentation/1;canon=v1;convention-bytes=<b>:<convention>;n=<n>;gauss=<word>;vertex_signs=<signs>
+```
+
+`<word>` and `<signs>` are comma-separated signed decimal integers (empty
+sequences give empty text), `<n>` is the vertex count, and `<b>` is the UTF-8
+byte length of the convention identifier. The identifier is inserted literally,
+without escaping; its length, rather than a semicolon split, determines its
+end. `OGraphState` strips the identifier's outer whitespace and rejects an
+empty identifier. The canonical hash is lowercase hexadecimal SHA-256 of the
+UTF-8 serialization. Hash equality is a fingerprint comparison, not a
+collision-free equality proof or a manifold identification.
+
+The ordered raw replay identity replaces the prefix through `canon=v1;` by
+`OGraphRaw;schema=akaghef.ograph/1;` and uses the original word and signs.
+The `VirtualLink` raw-hash overload uses its real-Gauss projection, separates
+component words by semicolons, and uses the default o-graph convention. Thus
+raw identity retains root and label choices; it is not the canonical identity.
+
+Compatibility policy: the current serializer accepts `canon_version` only when
+it compares equal to `1`; no public inverse parser or future-version migration
+is supplied. The keyword is an `Integer`, so Julia's `true` also passes that
+comparison and is interpolated as `canon=vtrue`. Callers requiring the format
+above must use ordinary integer `1`; the implementation does not normalize
+this Boolean edge case. This is an observed API boundary, not an additional
+format version. Future schemas and byte compatibility across changed serializers
+remain unverified; new compatibility tests would be needed to establish them.
+
+The [state tests](../../test/ograph_state.jl) compare rotations, consistent
+relabellings, idempotence, metadata/sign sensitivity and the serialized prefix.
+The [move replay tests](../../test/ograph_move_verifier.jl) distinguish raw
+from canonical endpoints. The representative rule and byte grammar above are
+[proved/agent: by construction]; exact escaping of arbitrary identifiers and
+the Boolean keyword branch have no dedicated regression assertion in those
+tests. The canonicalization witness's coordinate translation is specified in
+[Witness coordinates and serialization](ograph-move-verifier.md#witness-coordinates-and-serialization).

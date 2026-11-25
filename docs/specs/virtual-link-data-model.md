@@ -1,6 +1,6 @@
 # VirtualLink multi-representation data-model rationale
 
-Status: design rationale and provisional Julia target; not yet a normative API specification<br>
+Status: §2.1–§2.6 specify current Julia behaviour; the other sections retain the design rationale and provisional target<br>
 Scope: mathematical state, representation conversion, caching, and mutation semantics of MATLAB and Julia `VirtualLink`<br>
 Audience: maintainers, port authors, reviewers, and computation authors<br>
 Owner context: 東京科学大学 情報理工学院 数理・計算科学系 鈴木咲衣研究室<br>
@@ -73,6 +73,153 @@ boundary is preserved as a trailing marker when the conversion is defined.
 A mathematical virtual link is not identified by a unique Gauss or PD normal
 form in the current implementation. “Source” therefore means an adopted
 presentation, not a canonical representative of an equivalence class.
+
+### 2.2 Current Julia storage and coherence
+
+The current [`VirtualLink`](../../src/virtual_link.jl) stores mutable Gauss
+components, crossing orientations, `Float64` weight vectors, `real_only` and
+`is_weighted` flags, strand-type characters, and a weight-mode symbol. The
+positional constructor converts these fields but does not validate their mutual
+consistency; correctly typed mutable arrays can remain shared with the caller.
+The keyword empty constructor validates the mode (`:integer` or `:z2`).
+
+A coherent crossing representation uses labels `1:length(orientation)`, with
+one positive and one negative occurrence of each crossing. Orientations are
+`-1` or `1` for real crossings and `0` for explicit virtual crossings; a
+real-only representation has no virtual crossings. Cut markers obey §2.1.
+There is one strand type and one weight vector per component; the weight-vector
+length is the real-arc count of §2.1 (the real-visit count for a closed component).
+An empty closed component has zero stored weights, an empty cut component one.
+These are caller coherence requirements, not a claim that every constructor
+or reader enforces them. In particular, the Gauss ingress validator counts
+absolute labels twice but does not require opposite signs, and its empty-label
+branch accepts even an unused orientation vector. Direct field mutation can
+invalidate any of these relationships.
+
+`head_map` has one row per orientation entry and two columns: column 1 is the
+successor of the negative occurrence and column 2 the successor of the positive
+occurrence. Successors are signed entries of the raw Gauss code, including
+virtual crossings. Closed components wrap; cut endpoints have successor `0`.
+Unfilled cells remain zero; repeated occurrences of the same sign overwrite
+the same cell. This array is a presentation coordinate, not a validity test.
+
+### 2.3 Ingress precedence
+
+The current `set_data!` routing is fixed here rather than inferred from the
+order of keyword arguments. `odata` first supplies real Gauss data, orientation
+and, for a three-entry payload, weights; otherwise `table=(3,1)` supplies the
+supported trefoil PD data and orientation. Other table values are rejected.
+The resulting non-`nothing` `pd` then takes precedence over Gauss data. Without
+PD, `gauss` supplies the word when present, otherwise `rgauss` does; the
+`real_only` flag records whether `rgauss` is non-`nothing`. Thus supplying both
+Gauss keywords does not mean that the real word wins. `odata` suppresses the
+table branch, but does not suppress an explicit PD payload.
+
+After geometry assignment the assigned-weight flag is cleared, supplied cuts
+are applied, strand types are assigned (default `'o'`), and weights from a
+three-entry o-data payload are assigned or zero arc-weight vectors are built.
+The operation is not transactional: a later error can leave earlier field
+changes in place. Use one ingress representation when a mixed-input precedence
+is not intended. The implementation does not preserve a separate immutable
+ingress record of the kind proposed in §2's design table.
+
+### 2.4 Weight assignment and endpoint coordinates
+
+`set_weight!` accepts a flat numeric vector, a numeric matrix flattened in
+Julia column-major order, or one iterable per component. Flat values are split
+in component order using the real-arc counts. Shape mismatches are rejected.
+Integer mode stores converted `Float64` values; this assignment does not itself
+check integrality or finiteness and need not preserve large integers exactly.
+Z2 mode requires finite integral real inputs and reduces them modulo two before
+storage as `0.0` or `1.0`.
+
+Changing an unweighted link's mode changes its tag. Changing assigned integer
+weights to Z2 reduces their values. Changing assigned Z2 weights to integer
+mode is rejected because no lift is selected. Setting the already selected
+mode is a no-op, not a revalidation. Explicit `set_weight!` can assign new
+integer weights with `mode=:integer`.
+
+Real-edge IDs run through components and their arcs in order. On a closed
+component the weight at visit `i` belongs to the arc from its cyclic predecessor
+to that visit. On a cut component the order starts with the incoming boundary
+arc, continues between visits, and ends with the outgoing boundary arc.
+`set_weight_by_crossing!` uses ordered signed endpoint pairs in these coordinates.
+Repeated assignment keys retain the last supplied value; every edge with a
+matching pair receives it, and unmatched keys change no edge. Consequently a
+pair is not an edge-occurrence identifier when several edges have that pair.
+Other arc weights are retained. Pair assignment is followed by ordinary
+weight assignment and its checks.
+
+### 2.5 Evidence and compatibility of the current conventions
+
+Status: fixed 2026-11-25 Codex (rule a). These entries record the existing
+implementation's choices rather than the future storage redesign. The
+comparison cases are in [core tests](../../test/topology_core.jl),
+[cut-weight tests](../../test/cut_weights.jl),
+[closed-boundary tests](../../test/cut_closed_boundaries.jl), and
+[spin-weight tests](../../test/spin_weights.jl). They exercise closed versus cut
+arcs, endpoint assignment, Z2 reduction and rejection of a canonical integer
+lift. The translation from endpoint-pair coordinates to occurrence coordinates
+is the matching row set of `real_edge_table`; it is one-to-many when pairs repeat.
+Raw Gauss head coordinates retain virtual visits, whereas real-edge coordinates
+omit them; these coordinate systems must not be substituted for each other.
+
+The branch behaviour above is supported by inspection of `set_data!`,
+`head_map`, `set_weight!` and `set_weight_by_crossing!` [proved/agent: by
+construction]. A comprehensive regression check of mixed ingress, duplicate
+endpoint keys and deliberately incoherent raw constructors remains unverified:
+the existing tests do not establish that coverage. Expected behaviour is the
+branch behaviour recorded above; a test reaching a different branch/output
+would require correction of this entry. No compatibility promise for a future
+immutable redesign follows from this snapshot.
+
+### 2.6 Circuit endpoint selection
+
+These conditions specify `circuit_b_at`'s selection of a directed Method-B
+path endpoint. They use the [cut markers](#21-open-strands-and-cut-markers),
+[Method-B path model](ograph-move-verifier.md#ps-gate), and
+[boundary lanes](spin-weights.md#relative-boundary-data).
+
+1. **E1 — Coherent circuit data (caller).** The presentation has coherent
+   real-edge, cut-marker and Method-B path data as required by `disk_table`.
+   Marker and incidence checks can reject malformed data; geometric validity
+   is not certified by selecting an endpoint.
+2. **E2 — Strand and side (checked).** A non-Boolean `strand::Integer` indexes a component of
+   `v.gauss` and that component is cut. Its `side::Symbol` is `:in` for the
+   component's incoming cut endpoint or `:out` for its outgoing cut endpoint.
+   An out-of-range strand raises `BoundsError`; an unsupported side or uncut
+   strand raises `ArgumentError`. `false` fails the range check with
+   `BoundsError`; `true` fails with `BoundsError` when there is no component,
+   and otherwise reaches Julia's scalar-array-index rejection (`ArgumentError`).
+3. **E3 — Lane selection (checked).** `lane=nothing` selects lanes `1,2,3`, in
+   that order. Otherwise `lane` is an `Integer` in `1:3` and selects one lane.
+   `true` therefore selects lane 1; `false` and noninteger values are rejected.
+   An invalid selector raises `ArgumentError` naming the accepted lanes.
+4. **E4 — Unique directed incidence (checked).** Each selected endpoint
+   `(strand=Int(strand), side=side, lane=Int(lane))` occurs at the start or stop
+   of exactly one open Method-B path. Zero or multiple matches raise
+   `ErrorException` stating that a boundary lane must belong to exactly one
+   directed B path. A successful query returns one record per selected lane.
+
+The returned record extends the corresponding `circuit_b_boundary` record by
+`endpoint`, `direction`, and `other`. `direction=:outgoing` means the selected
+endpoint is the path's `start`; otherwise it is `:incoming` and the endpoint is
+its `stop`. `other` is the opposite end of that same directed path. Strand side
+and path direction are distinct: at the incoming endpoint of a crossing-free
+interval, lanes 1 and 2 are outgoing paths and lane 3 is incoming. No strand is
+cut by this query, and the input presentation is unchanged.
+
+Status: fixed 2026-11-25 Codex (rule a), recording
+[`circuit_b_at`](../../src/circuit_b.jl) and
+[endpoint-selection tests](../../test/circuit_b.jl). The latter specify the
+crossing-free interval's lane order, directions, signed edges `[1,1,-1]`,
+opposite endpoint, single-lane query, and invalid side/lane/uncut selections.
+The selection and error statements above are proved/agent by construction.
+The Boolean lane acceptance and Boolean strand rejection follow the existing
+integer predicate and Julia indexing, respectively; they are not a claim of
+dedicated library-test coverage. There is no translation from these endpoint
+coordinates to a boundary trivialization supplied by this query; the relative
+framing/spin interpretation retains the boundary model's evidence limits.
 
 ## 3. Current MATLAB model
 

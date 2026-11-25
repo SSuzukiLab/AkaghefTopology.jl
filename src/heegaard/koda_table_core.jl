@@ -1335,7 +1335,39 @@ function _koda_attach_sectors!(spine::FlowSpine, forgot::ForgottenHeegaard, regi
     _koda_record_complex!(spine, forgot, region)
 end
 
-"""Read the §6.3 2-complex. Vertices, singular edges, and sectors after gluing along ∂J."""
+"""
+    spine_topology(spine::FlowSpine) -> Dict{String,Any}
+
+Read the recorded vertices, singular edges and sectors of a flow-spine complex.
+
+# Arguments
+`spine.complex.checks` supplies the topology records of [Koda conversion §6.3](../specs/heegaard-koda-conversion.md#63-特異辺と-sector). Their correctness is the caller's responsibility; this accessor does not validate them.
+
+# Returns
+A dictionary with `vertices`, `edges`, `sectors`, `singular_components`, `vertex_free`, `artificial_vertices`, `true_vertices` and `gluing_locus`. Missing stored entries use empty defaults or vertex-sign-derived defaults.
+
+# Guarantees
+1. Existing topology records are returned without reinterpretation and retain their stored values. [proved/agent: by construction]
+2. The input is not modified, but stored nested records are shared with the returned dictionary. [proved/agent: by construction]
+
+# Not guaranteed
+Empty defaults do not establish that the geometric complex has no cells. The accessor does not compute homology, verify manifold links or establish a spine identification.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §6.3 — topology of the glued complex.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> cert = H.ConversionCertificate(:test,"",Dict(),Any[],"",Dict(),nothing,Dict(),:unverified); checks = Dict{String,Any}("vertices"=>[Dict("id"=>1)], "edges"=>[Dict("id"=>1,"from"=>1,"to"=>1)]); c = H.BranchedSpineComplex(H.SpineRegion[],Dict{String,Any}[],Vector{Tuple{Int,Int}}[],checks); s = H.FlowSpine(0,H.SpineEdge[],Dict{Int,Int}(),nothing,cert,c);
+
+julia> t = H.spine_topology(s); (length(t["vertices"]), length(t["edges"]))
+(1, 1)
+```
+
+Role: access
+"""
 function spine_topology(spine::FlowSpine)
     c = spine.complex.checks
     Dict{String, Any}(
@@ -1350,12 +1382,38 @@ function spine_topology(spine::FlowSpine)
     )
 end
 
-"""π₁ from the §6.3 complex via a relative cellulation of each sector.
+"""
+    spine_pi1_presentation(spine::FlowSpine) -> GroupPresentation
 
-An oriented genus-g sector with b boundaries contributes 2g handles and b-1
-boundary connectors. The spanning forest includes these connectors; each sector
-then contributes one surface relator. Boundary walks must have a coherent
-induced orientation, or supply `boundary_orientation_signs` explicitly.
+Present the fundamental group of the recorded connected sector complex.
+
+# Arguments
+The stored topology must describe the connected oriented sector complex of [Koda conversion §6.3](../specs/heegaard-koda-conversion.md#63-特異辺と-sector). Sector boundaries must have coherent induced orientations or explicit orientation signs. Duplicate edges, invalid boundaries, invalid sector data and a disconnected full 1-skeleton raise `KodaImplementationError` at `:spine_pi1_presentation`; missing fields and conversion errors can propagate. The caller establishes the recorded complex's geometric interpretation.
+
+# Returns
+A `GroupPresentation` with cell generators and relators, no distinguished generators, and metadata identifying the sector-complex source.
+
+# Guarantees
+1. For the stated connected oriented complex, the presentation gives its fundamental group, including the sector topology and all attaching walks. [proved/agent: relative surface cellulation and contraction of a spanning tree]
+2. The input spine and stored topology records are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a proof that arbitrary stored topology is the spine of a claimed 3-manifold. Missing topology fields receive empty defaults through `spine_topology`; an empty/default record must not be mistaken for a validated complex. Boundaryless sectors are unsupported.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §6.3 — glued sector complex.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> cert = H.ConversionCertificate(:test,"",Dict(),Any[],"",Dict(),nothing,Dict(),:unverified); checks = Dict{String,Any}("vertices"=>[Dict("id"=>1)], "edges"=>[Dict("id"=>1,"from"=>1,"to"=>1)]); c = H.BranchedSpineComplex(H.SpineRegion[],Dict{String,Any}[],Vector{Tuple{Int,Int}}[],checks); s = H.FlowSpine(0,H.SpineEdge[],Dict{Int,Int}(),nothing,cert,c);
+
+julia> g = H.spine_pi1_presentation(s); (length(g.generators), length(g.relators))
+(1, 0)
+```
+
+Role: invariant
 """
 function spine_pi1_presentation(spine::FlowSpine)
     topo = spine_topology(spine)

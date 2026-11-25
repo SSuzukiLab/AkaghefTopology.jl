@@ -51,6 +51,47 @@ const OGRAPH_COLOUR_CONVENTION_ID = "bp97-fig2.5-rl-tau/draft1"
 const OGRAPH_FACE_CYCLE_STATUS = "prop321-calibration-b/draft"
 const _COLOUR_CANON_MAX_VERTICES = 6
 
+"""
+    DiscGerm(halfedge::Integer, leg::Integer) -> DiscGerm
+
+Construct a numbered disc-germ label at a half-edge.
+
+# Arguments
+- `halfedge`: a positive integer representable as `Int`; a nonpositive value
+  throws `ArgumentError` identifying the half-edge, and an out-of-range
+  conversion can throw `InexactError`.
+- `leg`: one of `1:3`; otherwise `ArgumentError` identifies the leg range.
+  The numbered leg is interpreted by the
+  [edge chart](../specs/ograph-colours.md#chart).
+
+# Returns
+`DiscGerm` with `halfedge::Int` and `leg::Int` equal to the supplied indices.
+
+# Guarantees
+1. `halfedge > 0` and `leg in 1:3` for every returned value. [proved/agent: by construction]
+2. The value labels a local disc germ in the Figure 2.5 chart when its
+   half-edge belongs to the intended coloured graph. It does not select
+   a global disc without that graph and its gluing data. [proved/agent: by construction]
+
+# Conventions
+Use the [numbered-leg convention](../conventions/OGraphColours.md).
+
+# Not guaranteed
+The constructor has no graph argument and does not check that the half-edge
+exists. It does not settle the leg-to-slot calibration.
+
+# Examples
+```jldoctest
+julia> germs = edge_disc_germs(1, 4, (2, 1, 4, 3));
+
+julia> germs[1] == (DiscGerm(4, 1), DiscGerm(3, 2))
+true
+```
+
+See also [`edge_disc_germs`](@ref), [`face_cycles`](@ref).
+
+Role: construct
+"""
 struct DiscGerm
     halfedge::Int
     leg::Int
@@ -62,17 +103,164 @@ struct DiscGerm
     end
 end
 
+"""
+    EdgeColour(halfedge, colour) -> EdgeColour
+
+Store an integer colour representative at a half-edge.
+
+# Arguments
+- `halfedge::Int` and `colour::Int`, or values convertible to `Int`.
+  Failed conversions propagate their Julia exceptions, including
+  `InexactError` for an unrepresentable integer.
+- Edge membership and colour consistency are checked by O3 in
+  [`validate_coloured_ograph`](@ref), not by this constructor.
+
+# Returns
+`EdgeColour` with `halfedge` the supplied edge-end index and `colour` the
+supplied integer representative. The mathematical colour belongs to the
+undirected edge under [O3](../specs/ograph-colours.md#condition-identifiers).
+
+# Guarantees
+1. Fields equal the supplied integers after conversion to `Int`. [proved/agent: by construction]
+2. In a graph satisfying O3, this record contributes its colour to the
+   coloured o-graph of Definition 2.1.4 under the
+   [stored-colour convention](../specs/ograph-colours.md#chart).
+   [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not check positivity or existence of the half-edge,
+normalize the colour, or validate the containing graph.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> records = [EdgeColour(r.halfedge, r.colour) for r in g.edge_colours];
+
+julia> Tuple(sort([r.colour for r in records]))
+(-1, 1)
+```
+
+See also [`ColouredOGraph`](@ref), [`validate_coloured_ograph`](@ref).
+
+Role: construct
+"""
 struct EdgeColour
     halfedge::Int
     colour::Int
 end
 
+"""
+    OGraphColourCheck(id, passed, message) -> OGraphColourCheck
+
+Store the reported outcome of one coloured-o-graph condition.
+
+# Arguments
+`id::String`, `passed::Bool`, and `message::String`, or values convertible
+to those types. Failed conversions propagate their Julia exceptions.
+No consistency check is made between these arguments.
+
+# Returns
+`OGraphColourCheck` with `id` the condition label, `passed` its supplied
+truth value and `message` the supplied explanation. Condition meanings
+are owned by the [condition table](../specs/ograph-colours.md#condition-identifiers).
+
+# Guarantees
+1. Fields equal the supplied values after conversion. [proved/agent: by construction]
+2. A record returned by `validate_coloured_ograph` reports one of O0–O3
+   for the input graph; one returned by `validate_normal_colouring` reports
+   one of N1, N2, C1–C3, P1 or P2 within that validator's stated scope.
+   [proved/agent: by construction]
+
+# Not guaranteed
+An arbitrary `id` is accepted. Constructing a record with `passed=true`
+does not prove a graph condition or certify a spine or manifold.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> c = first(validate_coloured_ograph(g)); d = OGraphColourCheck(c.id, c.passed, c.message);
+
+julia> (d.id, d.passed, occursin(d.id, d.message))
+("O0", true, true)
+```
+
+See also [`validate_coloured_ograph`](@ref), [`validate_normal_colouring`](@ref).
+
+Role: construct
+"""
 struct OGraphColourCheck
     id::String
     passed::Bool
     message::String
 end
 
+"""
+    ColouredOGraph(vertex_halfedges, mate, over_positions, edge_colours; convention_id=OGRAPH_COLOUR_CONVENTION_ID) -> ColouredOGraph
+
+Store a half-edge presentation of a coloured o-graph for subsequent validation.
+
+# Arguments
+- `vertex_halfedges`, `mate`, `over_positions`: iterable integer data for the
+  fields below; entries are converted to `Int`. There must be one
+  `over_positions` entry per vertex, otherwise `ArgumentError` identifies
+  that mismatch. Unrepresentable integer conversions can throw `InexactError`.
+- `edge_colours`: iterable of `EdgeColour` values or two-integer tuples.
+  Other record shapes throw `ArgumentError` describing the accepted forms.
+- `convention_id::AbstractString`: must be nonempty after stripping surrounding
+  whitespace; otherwise `ArgumentError` identifies the empty identifier.
+  An unfamiliar nonempty identifier is stored without checking its meaning.
+
+# Returns
+`ColouredOGraph` with `vertex_halfedges` the tuple of cyclic half-edge tuples,
+`mate` the partner tuple, `over_positions` the tuple of marked-position tuples,
+`edge_colours` a tuple of `EdgeColour` records, and `convention_id` the stripped
+string. Their mathematical interpretation is owned by the
+[coloured o-graph specification](../specs/ograph-colours.md#condition-identifiers).
+
+# Guarantees
+1. The input sequences are stored as tuples with the declared integer or
+   record element types; the input containers are not mutated. [proved/agent: by construction]
+2. Integer colours are retained as supplied. Validation interprets them using
+   O3; construction does not normalize them. [proved/agent: by construction]
+3. If O0–O3 pass, the data constitute a coloured o-graph of Definition 2.1.4.
+   The associated oriented standard spine uses the
+   [specified reconstruction](../specs/ograph-colours.md#face-cycles).
+   [proved/agent: by construction]
+
+# Conventions
+The edge chart and colour interpretation are in
+[OGraphColours](../conventions/OGraphColours.md).
+
+# Not guaranteed
+Construction does not enforce O0–O3, closedness, or the existence of a
+compatible normal orientation. It does not remove the reconstruction
+dependencies recorded on the convention page.
+
+# Sources
+cf:[[BP97#^bp97-sec-0551]] Proposition 2.1.6 and Remark 2.1.7 — correspondence with oriented standard spines and validity of the reconstruction for one vertex.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> h = ColouredOGraph(g.vertex_halfedges, g.mate, g.over_positions, g.edge_colours; convention_id=g.convention_id);
+
+julia> all(check.passed for check in validate_coloured_ograph(h))
+true
+```
+
+See also [`validate_coloured_ograph`](@ref), [`canonical_coloured_ograph`](@ref).
+
+Role: convert
+"""
 struct ColouredOGraph
     vertex_halfedges::Tuple{Vararg{Tuple{Vararg{Int}}}}
     mate::Tuple{Vararg{Int}}
@@ -109,7 +297,36 @@ function _colour_mod3(value::Integer)
     reduced == 2 ? -1 : reduced
 end
 
-"""Return τ^α(leg), where τ = (1 2 3) and τ(1) = 2, τ(2) = 3, τ(3) = 1."""
+"""
+    fig25_tau(alpha::Integer, leg::Integer) -> Int
+
+Return the image of a numbered leg under the Figure 2.5 cyclic permutation.
+
+# Arguments
+- `alpha`: an integer exponent convertible to `Int`; conversion can throw
+  `InexactError`. It is interpreted modulo three.
+- `leg`: a leg in the [edge chart](../specs/ograph-colours.md#chart).
+  Checked: an index outside `1:3` throws `ArgumentError` naming the leg range.
+
+# Returns
+The resulting leg number as an `Int`.
+
+# Guarantees
+1. The result is the image under the chart's permutation with exponent `alpha`. [proved/agent: by construction]
+2. Congruent exponents give identical images. [proved/agent: by construction]
+3. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+Use the [Figure 2.5 leg numbering](../conventions/OGraphColours.md).
+
+# Examples
+```jldoctest
+julia> Tuple(fig25_tau(1, leg) for leg in 1:3)
+(2, 3, 1)
+```
+
+Role: convert
+"""
 function fig25_tau(alpha::Integer, leg::Integer)
     leg in 1:3 || throw(ArgumentError("leg must be 1, 2, or 3"))
     shift = mod(Int(alpha), 3)
@@ -118,10 +335,37 @@ function fig25_tau(alpha::Integer, leg::Integer)
     return leg == 1 ? 3 : Int(leg) - 1
 end
 
-"""Direction of one numbered leg. `true` is right-way-up; `false` is upside-down.
+"""
+    fig25_leg_direction(upright::Bool, leg::Integer) -> Tuple{Int,Int}
 
-The components are `(1, 1)` upper-right, `(0, 1)` up, `(-1, -1)` lower-left,
-and `(0, -1)` down. This is the locked Fig. 2.5 (right) chart, still draft.
+Return the planar direction of one numbered leg in the Figure 2.5 drawing.
+
+# Arguments
+- `upright`: selects the upright (`true`) or upside-down (`false`) chart.
+- `leg`: a leg in the [edge chart](../specs/ograph-colours.md#chart).
+  Checked: an index outside `1:3` throws `ArgumentError` naming the leg range.
+
+# Returns
+The pair of integer direction coordinates assigned to that leg by the chart.
+
+# Guarantees
+1. The coordinates agree with the selected chart's leg direction. [proved/agent: by construction]
+2. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+The [Figure 2.5 coordinate chart](../conventions/OGraphColours.md) fixes the
+drawing directions and has draft geometric status.
+
+# Not guaranteed
+The pair is a direction label, not a unit vector or a three-dimensional embedding.
+
+# Examples
+```jldoctest
+julia> fig25_leg_direction(false, 2)
+(0, -1)
+```
+
+Role: access
 """
 function fig25_leg_direction(upright::Bool, leg::Integer)
     leg in 1:3 || throw(ArgumentError("leg must be 1, 2, or 3"))
@@ -129,11 +373,39 @@ function fig25_leg_direction(upright::Bool, leg::Integer)
     return ((-1, -1), (0, -1), (1, 1))[leg]
 end
 
-"""Three physical leg pairs for one drawing, ordered by the right leg 1, 2, 3.
+"""
+    fig25_leg_pairing(left_up::Bool, right_up::Bool, alpha::Integer) -> NTuple{3,Tuple{Tuple{Int,Int},Tuple{Int,Int}}}
 
-Each pair is `(direction of the right leg, direction of the left leg it meets)`.
-The left leg number is τ^α of the right leg number. `left_up` and `right_up`
-say whether those T's are right-way-up in this drawing.
+Return the three pairs of planar leg directions in a coloured edge drawing.
+
+# Arguments
+- `left_up`, `right_up`: choose the two upright or upside-down charts.
+- `alpha`: an integer colour in the [edge chart](../specs/ograph-colours.md#chart),
+  convertible to `Int`; conversion can throw `InexactError`.
+
+# Returns
+Three `(right_direction, left_direction)` pairs in right leg order. Each
+direction is the coordinate pair returned by [`fig25_leg_direction`](@ref).
+
+# Guarantees
+1. The pairs realize the linked chart's gluing for the supplied colour and drawing frames. [proved/agent: by construction]
+2. Congruent integer colours give identical pairings. [proved/agent: by construction]
+3. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+Use the [Figure 2.5 pairing table](../conventions/OGraphColours.md), whose
+geometric reading remains draft.
+
+# Not guaranteed
+These direction pairs alone do not reconstruct an entire polyhedron.
+
+# Examples
+```jldoctest
+julia> fig25_leg_pairing(true, true, 0)
+(((1, 1), (1, 1)), ((0, 1), (0, 1)), ((-1, -1), (-1, -1)))
+```
+
+Role: construct
 """
 function fig25_leg_pairing(left_up::Bool, right_up::Bool, alpha::Integer)
     colour = _colour_mod3(alpha)
@@ -141,13 +413,78 @@ function fig25_leg_pairing(left_up::Bool, right_up::Bool, alpha::Integer)
                    fig25_leg_direction(left_up, fig25_tau(colour, leg))), 3)
 end
 
-"""Left leg numbers glued to right legs 1, 2, 3 in one drawing of colour `alpha`."""
+"""
+    edge_gluing_from_colour(alpha::Integer) -> NTuple{3,Int}
+
+Return the leg permutation of a colour in the Figure 2.5 edge chart.
+
+# Arguments
+- `alpha`: a colour in the [edge chart](../specs/ograph-colours.md#chart).
+  Conversion to `Int` is required and can throw `InexactError`; the colour
+  is then read modulo three.
+
+# Returns
+`NTuple{3,Int}` giving the left leg paired with each numbered right leg.
+
+# Guarantees
+1. The tuple is the gluing assigned to `alpha` by the linked chart. [proved/agent: by construction]
+2. Congruent integer colours give the same tuple. [proved/agent: by construction]
+3. The argument is not modified. [proved/agent: by construction]
+
+# Conventions
+The [Figure 2.5 chart](../conventions/OGraphColours.md) fixes the leg numbering
+and drawing direction; its geometric reading remains draft.
+
+# Not guaranteed
+This permutation alone does not specify an entire coloured o-graph or certify
+its reconstruction.
+
+# Examples
+```jldoctest
+julia> edge_gluing_from_colour(1)
+(2, 3, 1)
+```
+
+See also [`colour_from_gluing`](@ref).
+
+Role: convert
+"""
 function edge_gluing_from_colour(alpha::Integer)
     colour = _colour_mod3(alpha)
     ntuple(leg -> fig25_tau(colour, leg), 3)
 end
 
-"""Recover the representative in `{-1, 0, 1}` from left legs glued to right legs 1, 2, 3."""
+"""
+    colour_from_gluing(left_legs::NTuple{3,Integer}) -> Int
+
+Return the colour represented by a leg permutation in the Figure 2.5 chart.
+
+# Arguments
+- `left_legs`: the images of the numbered right legs in the
+  [edge chart](../specs/ograph-colours.md#chart). Each entry must convert to
+  `Int`; conversion can throw `InexactError`. Checked: a tuple outside the
+  chart's cyclic permutation subgroup throws `ArgumentError` naming that chart.
+
+# Returns
+`Int`, the normalized colour representative of the supplied gluing.
+
+# Guarantees
+1. `edge_gluing_from_colour(result) == left_legs`. [proved/agent: by construction]
+2. For a normalized colour `a`, `colour_from_gluing(edge_gluing_from_colour(a)) == a`. [proved/agent: by construction]
+3. The argument is not modified. [proved/agent: by construction]
+
+# Conventions
+Use the [Figure 2.5 chart](../conventions/OGraphColours.md), including its
+draft geometric interpretation.
+
+# Examples
+```jldoctest
+julia> colour_from_gluing(edge_gluing_from_colour(-1))
+-1
+```
+
+Role: convert
+"""
 function colour_from_gluing(left_legs::NTuple{3,Integer})
     images = ntuple(leg -> Int(left_legs[leg]), 3)
     for alpha in (-1, 0, 1)
@@ -156,26 +493,121 @@ function colour_from_gluing(left_legs::NTuple{3,Integer})
     throw(ArgumentError("gluing is not a power of (1 2 3) under the Fig. 2.5 chart"))
 end
 
-"""Colour read after numbering shifts τ^u on the right and τ^v on the left.
+"""
+    fig25_gauged_colour(alpha::Integer, right_shift::Integer, left_shift::Integer) -> Int
 
-The new label of the physical leg whose old label was `i` is τ^u(i) on the right
-and τ^v(i) on the left. The resulting colour is α + v − u, reduced into {-1, 0, 1}.
-The stored colour of an o-graph uses the unshifted chart.
+Return the colour read after cyclic changes of the two edge-leg numberings.
+
+# Arguments
+- `alpha`, `right_shift`, `left_shift`: the colour and numbering shifts in the
+  [chart's gauge convention](../specs/ograph-colours.md#chart). Conversion to
+  `Int` is required and can throw `InexactError`. The caller must ensure the
+  intermediate sum and difference fit `Int`; overflow is not checked and can
+  invalidate the gauge interpretation.
+
+# Returns
+`Int`, the normalized representative of the colour in the shifted chart.
+
+# Guarantees
+1. Under the arithmetic precondition, the result represents the same physical gluing in the shifted leg numberings. [proved/agent: by construction]
+2. Zero shifts preserve a normalized input colour. [proved/agent: by construction]
+3. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+Use the [Figure 2.5 gauge convention](../conventions/OGraphColours.md).
+
+# Not guaranteed
+This does not apply a move or a gauge quotient to a stored coloured graph.
+
+# Examples
+```jldoctest
+julia> Tuple(fig25_gauged_colour(a, 0, 0) for a in -1:1)
+(-1, 0, 1)
+```
+
+Role: convert
 """
 function fig25_gauged_colour(alpha::Integer, right_shift::Integer, left_shift::Integer)
     _colour_mod3(Int(alpha) + Int(left_shift) - Int(right_shift))
 end
 
-"""Transverse frame reversal ρ = (1 3). Leg 2, the stem, stays put."""
+"""
+    fig25_frame_reversal(leg::Integer) -> Int
+
+Return the leg number in the reversed transverse frame of an edge drawing.
+
+# Arguments
+- `leg`: a leg in the [edge chart](../specs/ograph-colours.md#chart).
+  Checked: an index outside `1:3` throws `ArgumentError` naming the leg range.
+
+# Returns
+The leg number after the chart's transverse frame reversal, as an `Int`.
+
+# Guarantees
+1. The returned label is the image under the frame reversal fixed by the linked chart. [proved/agent: by construction]
+2. Applying the function twice returns the original leg. [proved/agent: by construction]
+3. The argument is not modified. [proved/agent: by construction]
+
+# Conventions
+Use the [Figure 2.5 frame transport](../conventions/OGraphColours.md), whose
+geometric interpretation remains draft.
+
+# Not guaranteed
+Reversing this label alone does not reverse a graph or alter its stored colour.
+
+# Examples
+```jldoctest
+julia> all(fig25_frame_reversal(fig25_tau(-a, fig25_frame_reversal(i))) == fig25_tau(a, i) for a in -1:1 for i in 1:3)
+true
+```
+
+Role: convert
+"""
 function fig25_frame_reversal(leg::Integer)
     leg in 1:3 || throw(ArgumentError("leg must be 1, 2, or 3"))
     leg == 2 ? 2 : 4 - Int(leg)
 end
 
-"""Disc-germ pairs for one drawing that places `right_halfedge` on the right.
+"""
+    edge_disc_germs(colour::Integer, right_halfedge::Integer, mate::Tuple{Vararg{Int}}) -> NTuple{3,Tuple{DiscGerm,DiscGerm}}
 
-Legs use that drawing's printed numbers. The opposite drawing reverses both
-frames by `fig25_frame_reversal` and keeps the same colour.
+Return the three paired disc germs of one coloured edge drawing.
+
+# Arguments
+- `colour`: an integer colour in the [edge chart](../specs/ograph-colours.md#chart),
+  convertible to `Int`; conversion can throw `InexactError`.
+- `right_halfedge`: checked to index `mate`; `ArgumentError` identifies an
+  endpoint outside the half-edge set.
+- `mate`: the caller supplies the edge involution of the same graph.
+  The involution and the range of the left endpoint are not validated here;
+  a nonpositive left endpoint fails the `DiscGerm` constructor with
+  `ArgumentError`. Without valid edge data the result is only a list of labels.
+
+# Returns
+Three `(right_germ, left_germ)` pairs, ordered by right leg number, with each
+germ represented by a `DiscGerm`.
+
+# Guarantees
+1. The pairs describe the gluing of the chosen edge in the linked chart. [proved/agent: by construction]
+2. Every right germ has the supplied half-edge and every left germ has its mate. [proved/agent: by construction]
+3. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+The [Figure 2.5 drawing and frame transport](../conventions/OGraphColours.md)
+apply; the geometric interpretation remains draft.
+
+# Not guaranteed
+The rest of the graph and O0–O3 are not certified.
+
+# Examples
+```jldoctest
+julia> pairs = edge_disc_germs(1, 4, (2, 1, 4, 3));
+
+julia> Tuple((a.leg, b.leg) for (a, b) in pairs)
+((1, 2), (2, 3), (3, 1))
+```
+
+Role: construct
 """
 function edge_disc_germs(colour::Integer, right_halfedge::Integer, mate::Tuple{Vararg{Int}})
     1 <= right_halfedge <= length(mate) || throw(ArgumentError(
@@ -324,13 +756,53 @@ function _check_o3(graph::ColouredOGraph)
     _colour_check("O3", false, join(reasons, "; "))
 end
 
-"""Return the O0, O1, O2, and O3 checks, in that order.
+"""
+    validate_coloured_ograph(graph::ColouredOGraph) -> NTuple{4,OGraphColourCheck}
 
-O0 is the preamble of Definition 2.1.4: a connected finite quadrivalent graph.
-O1, O2, and O3 are items 1, 2, and 3. A colour may be written as any integer;
-it is read in Z_3. Two records on one edge that reduce to the same value are
-one colour. Two records that reduce to different values fail O3. A failing
-`message` contains its condition id.
+Report the O0–O3 conditions for a stored coloured-o-graph presentation.
+
+# Arguments
+`graph` is a value made by the `ColouredOGraph` constructor. It need not
+satisfy O0–O3: those failures are returned as checks, not raised as exceptions.
+The condition meanings are owned by the
+[condition table](../specs/ograph-colours.md#condition-identifiers).
+
+# Returns
+Four `OGraphColourCheck` records in order `("O0", "O1", "O2", "O3")`.
+Each has `id::String` the condition label, `passed::Bool` its outcome,
+and `message::String` an explanation containing that label.
+
+# Guarantees
+1. Every record reports its named condition on the input data. Failure of
+   one condition does not suppress the other three checks. [proved/agent: by construction]
+2. All four passing means the data meet the repository's Definition 2.1.4
+   coloured-o-graph conditions. This is a check of that combinatorial
+   structure, not of a normal branching or closed manifold. [proved/agent: by construction]
+3. The input, including its stored integer colours, is unchanged. [proved/agent: by construction]
+
+# Conventions
+The stored-colour interpretation is owned by
+[the chart specification](../specs/ograph-colours.md#chart).
+
+# Not guaranteed
+This does not check N1–N2, C1–C3 or P1–P2, validate `convention_id` against
+a known registry, or certify the face-cycle reconstruction or boundary flags.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> checks = validate_coloured_ograph(g);
+
+julia> (map(c -> c.id, checks), all(c.passed for c in checks))
+(("O0", "O1", "O2", "O3"), true)
+```
+
+See also [`ColouredOGraph`](@ref), [`validate_normal_colouring`](@ref).
+
+Role: condition
 """
 function validate_coloured_ograph(graph::ColouredOGraph)
     (_check_o0(graph), _check_o1(graph), _check_o2(graph), _check_o3(graph))
@@ -426,13 +898,58 @@ function _canonical_candidate(graph::ColouredOGraph, permutation::Vector{Int},
     (graph.convention_id, Tuple(new_over), Tuple(mate), Tuple(ordered_colours))
 end
 
-"""Relabel vertices and cyclic origins. Do not quotient by C or MP.
+"""
+    canonical_coloured_ograph(graph::ColouredOGraph) -> ColouredOGraph
 
-The representative stores vertices `1:n` and half-edges `4(v - 1) + 1:4v`.
-Each colour is the representative in `{-1, 0, 1}` and is written on the
-smaller half-edge id. Exchanging the ends does not change the colour.
-Graphs above the search bound are rejected rather than given a partial
-representative. Cyclic order may be rotated. It is not reversed.
+Return a canonical representative of the coloured graph under relabelling and cyclic-origin changes.
+
+# Arguments
+`graph` must satisfy O0–O3 in the
+[condition table](../specs/ograph-colours.md#condition-identifiers) and have
+at most six vertices. A failed condition throws `ArgumentError` listing
+the condition failures; exceeding the bound throws `ArgumentError` naming
+the six-vertex search limit.
+
+# Returns
+`ColouredOGraph` with the same field meanings as its constructor, representing
+the same coloured graph with canonical labels and normalized colour records.
+
+# Guarantees
+1. The result satisfies O0–O3 and has the same vertex and edge counts and
+   `convention_id` as the input. [proved/agent: by construction]
+2. Applying this function again gives an equal result. Relabelling half-edges
+   or vertices, rotating cyclic origins with their over marks, changing
+   which endpoint stores a colour, and replacing a colour by a congruent
+   integer give equal results when the other data are transported consistently.
+   [proved/agent: by construction]
+3. The result represents the same coloured graph, hence the same selected
+   polyhedron under the [reconstruction conventions](../conventions/OGraphColours.md).
+   The input is unchanged. [proved/agent: by construction]
+
+# Conventions
+Representative selection and the permitted changes are specified in
+[Canonical form and serialization](../specs/ograph-colours.md#canonical-form-and-serialization).
+
+# Not guaranteed
+This does not classify spines or manifolds up to C- or MP-moves, quotient
+colour gauge, or identify reflected cyclic orders. Exact canonical labels
+are not a version-independent serialization contract.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> g = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> c = canonical_coloured_ograph(g);
+
+julia> canonical_coloured_ograph(c) == c
+true
+```
+
+See also [`coloured_ograph_hash`](@ref), [`coloured_ograph_serialization`](@ref).
+
+Role: convert
 """
 function canonical_coloured_ograph(graph::ColouredOGraph)
     _require_coloured_ograph(graph)
@@ -460,6 +977,53 @@ function canonical_coloured_ograph(graph::ColouredOGraph)
     ColouredOGraph(vertices, mate, overs, records; convention_id=convention)
 end
 
+"""
+    coloured_ograph_serialization(graph::ColouredOGraph) -> String
+
+Return the canonical text serialization of a coloured-graph presentation.
+
+# Arguments
+`graph` must meet the O0–O3 and six-vertex preconditions of
+[`canonical_coloured_ograph`](@ref). Their failures propagate as `ArgumentError`
+identifying the condition failures or search bound.
+
+# Returns
+A `String` encoding the convention identifier, vertex count, over positions,
+mate data and colour records of the canonical coloured graph.
+The grammar, escaping scope and compatibility policy are in
+[Canonical form and serialization](../specs/ograph-colours.md#canonical-form-and-serialization).
+
+# Guarantees
+1. Equal canonical representatives have equal serialization strings. [proved/agent: by construction]
+2. Serializing a graph and its canonical representative gives the same text;
+   repeated calls on the same input give the same text and leave the input unchanged.
+   [proved/agent: by construction]
+3. The encoded mathematical object is the coloured graph under the
+   [chart conventions](../specs/ograph-colours.md#chart), with the quotient
+   scope of `canonical_coloured_ograph`; it is not a manifold classification.
+   [proved/agent: by construction]
+
+# Not guaranteed
+There is no public inverse parser or version-independent wire-format promise.
+Arbitrary convention identifiers are not escaped, so this contract does not
+promise unambiguous decoding for every user-supplied identifier.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> a = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> b = canonical_coloured_ograph(a);
+
+julia> coloured_ograph_serialization(a) == coloured_ograph_serialization(b)
+true
+```
+
+See also [`canonical_coloured_ograph`](@ref), [`coloured_ograph_hash`](@ref).
+
+Role: convert
+"""
 function coloured_ograph_serialization(graph::ColouredOGraph)
     canonical = canonical_coloured_ograph(graph)
     colours = join((string(record.halfedge, ":", record.colour) for record in canonical.edge_colours), ",")
@@ -469,6 +1033,51 @@ function coloured_ograph_serialization(graph::ColouredOGraph)
         "over_positions=$overs;mate=$mates;colours=$colours"
 end
 
+"""
+    coloured_ograph_hash(graph::ColouredOGraph) -> String
+
+Return a SHA-256 fingerprint of the canonical coloured-graph presentation.
+
+# Arguments
+`graph` must meet the O0–O3 and six-vertex preconditions of
+[`canonical_coloured_ograph`](@ref). Their failures propagate as `ArgumentError`
+identifying the condition failures or search bound.
+
+# Returns
+A 64-character lowercase hexadecimal `String`, the SHA-256 digest of the
+UTF-8 code units of [`coloured_ograph_serialization`](@ref).
+Its compatibility scope is specified in
+[Canonical form and serialization](../specs/ograph-colours.md#canonical-form-and-serialization).
+
+# Guarantees
+1. Equal serializations have equal fingerprints. Repeated calls are
+   deterministic and leave the input unchanged. [proved/agent: by construction]
+2. The fingerprint is invariant under the relabellings and cyclic-origin
+   changes identified by `canonical_coloured_ograph`. It refers to the
+   coloured graph, with the [chart scope](../specs/ograph-colours.md#chart).
+   [proved/agent: by construction]
+
+# Not guaranteed
+Hash equality is not a collision-free proof of graph equality or a test of
+homeomorphism of spines or manifolds. This does not quotient C- or MP-moves
+or colour gauge. Changes to the serialization can change the fingerprint.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> a = normal_coloured_ograph(ograph_state(vl_example("s3_abalone"))).graph;
+
+julia> b = canonical_coloured_ograph(a);
+
+julia> coloured_ograph_hash(a) == coloured_ograph_hash(b)
+true
+```
+
+See also [`coloured_ograph_serialization`](@ref), [`canonical_coloured_ograph`](@ref).
+
+Role: invariant
+"""
 function coloured_ograph_hash(graph::ColouredOGraph)
     bytes2hex(SHA.sha256(codeunits(coloured_ograph_serialization(graph))))
 end

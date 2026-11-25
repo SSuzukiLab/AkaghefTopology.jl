@@ -141,13 +141,52 @@ function _lescop_visits(word, ab, id_of)
 end
 
 """
-    hc_to_cellular(hc::HeegaardCode) -> HCLescopView
+    hc_to_cellular(hc::HeegaardCode) -> Topology.HeegaardCodes.HCLescopView
 
-Carry crossings, cyclic order, Lescop signs, a matching's labels, and
-complement regions from a resolved HC to the cellular diagram read by
-`lescop_theta`. Roleless K arcs are deleted and the LC faces they separate
-are one complement region. A K curve with an alpha or beta role stays.
-`face_region` sends an LC face id to that complement-region index.
+Return the cellular Heegaard view used by the HC Lescop calculations.
+
+# Arguments
+`hc` satisfies the [HC and reference-surface conditions](../specs/heegaard-code.md).
+Input and surface validation run. Both curve families must exist and every
+role curve must meet the other family; reference-word, passage, region and
+cellular certification failures raise `ArgumentError` or their existing
+validation exceptions. These checks do not certify complete cut systems.
+
+# Returns
+A `Topology.HeegaardCodes.HCLescopView` with the legacy `diagram`, an LC-face-to-
+complement-region `face_region` map, and cellular-crossing-to-LC-label `label_of_id`.
+
+# Guarantees
+1. The view retains alpha/beta crossing order and converts signs under
+   [the ordered-pairing translation](../specs/heegaard-code.md#intersection-sign-translation).
+   [proved/agent: by construction]
+2. Its region map groups LC faces across forgotten roleless reference arcs;
+   K curves carrying an alpha/beta role remain. [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+The view does not by itself certify a rational homology sphere, a complete
+cut system, or the Lescop infinity-combing normalization. An LC face ID is
+not its complement-region number.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §§5, 9.1 — LC faces, complement regions and exterior data.
+cf: lib/topology.jl/docs/specs/heegaard-code.md#intersection-sign-translation — Lescop ordered signs.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1,Dict("l1"=>[-1,-4],"m1"=>[1,-2,-3],"b"=>[4,2,3]),Dict(),Dict(),Dict(),Dict(),nothing); v = H.hc_to_cellular(H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta)));
+
+julia> Tuple(sort!(collect(values(v.label_of_id))))
+(2, 3)
+```
+
+Role: convert
 """
 function hc_to_cellular(hc::HeegaardCode)
     validate_hc_input(hc)
@@ -227,13 +266,55 @@ function _lescop_exterior_face(hc::HeegaardCode, exterior)
 end
 
 """
-    hc_lescop_theta(hc, matching_labels, exterior_face)
+    hc_lescop_theta(hc::HeegaardCode, matching_labels, exterior) -> NamedTuple
 
-Evaluate `(ell2, sl, e, theta)` from a resolved HC. `matching_labels` are the
-LC labels of one crossing on each alpha and each beta. `exterior_face` is the
-id of an LC face in the complement region of the exterior point, or the name
-of an HC point supported on such a face. The LC face number is mapped to the
-complement region and is not passed through.
+Return Lescop's matching- and exterior-dependent theta calculation on a resolved HC.
+
+# Arguments
+`hc` must be accepted by `hc_to_cellular`. LC crossing labels specify a
+[matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語);
+repeated labels are collapsed by this entry. `exterior` names an LC face or
+an HC point supported on one; integer complement-region indices are rejected.
+Unknown labels or faces, incomplete cut systems, a singular intersection
+matrix and invalid rotation data raise `ArgumentError`. Cellular-conversion
+and exact-arithmetic errors propagate.
+
+# Returns
+A named tuple of exact rational `ell2`, `sl`, `e` and `theta` values for
+the converted cellular diagram, matching and exterior region.
+
+# Guarantees
+1. The calculation uses the complement region containing the specified
+   LC face; `theta == ell2 + sl - e`. [proved/agent: by construction]
+2. On the registered Lescop D1 HC fixture the result is
+   `(ell2=0, sl=0, e=-1//4, theta=1//4)`.
+   [verified-computationally: test/heegaard/lescop_theta.jl, D1 HC conversion]
+3. Neither input nor matching labels are modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+This value depends on the matching and exterior choice and is not an
+unqualified manifold invariant. The [Lescop coordinate specification](../specs/heegaard-terminology.md#lescop-coordinates)
+states the combing interpretation; a general comparison with the geometric
+Lescop normalization is not established by finite examples.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — Lescop theta and the exterior region.
+cf: [[Les14]] §§1.3–1.5 — intended diagram formula.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1,-4], "m1"=>[1,-2,-3], "b"=>[4,2,3]), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta));
+
+julia> H.hc_lescop_theta(hc,[2],"F3")
+(ell2 = 0//1, sl = 0//1, e = -1//4, theta = 1//4)
+```
+
+Role: invariant
 """
 function hc_lescop_theta(hc::HeegaardCode, matching_labels, exterior)
     view = hc_to_cellular(hc)
@@ -248,12 +329,51 @@ function hc_lescop_theta(hc::HeegaardCode, matching_labels, exterior)
 end
 
 """
-    hc_lescop_p1_difference(hc, matching_labels, from_label, to_label)
+    hc_lescop_p1_difference(hc::HeegaardCode, matching_labels, from_label, to_label) -> NamedTuple
 
-Return `(lk, delta_p1)` for the oriented beta edge from `from_label` to
-`to_label` on the cellular diagram of a resolved HC. `delta_p1` is the
-difference of p₁ between the two sides of that edge. The labels are LC
-labels of alpha-beta crossings. Theta is not consulted.
+Return the linking-number and p₁-difference calculation across an oriented beta edge.
+
+# Arguments
+`hc` must be accepted by `hc_to_cellular`; labels refer to LC crossings.
+`matching_labels` specifies a [matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語).
+Checked: labels are alpha–beta crossings, endpoints are successive along one
+oriented beta curve, both cut systems are complete and the intersection
+matrix is invertible. Violations raise `ArgumentError` describing the failed
+condition; cellular-conversion and arithmetic errors propagate.
+
+# Returns
+A named tuple `lk` and `delta_p1`, both exact rational values, for the
+transported cellular diagram, matching and edge.
+
+# Guarantees
+1. The output is the cellular beta-edge calculation with the specified
+   LC labels, and `delta_p1 == 8lk`. [proved/agent: by construction]
+2. Neither the HC nor the matching list is modified.
+   [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+An absolute p₁ is not returned. The [Lescop coordinate specification](../specs/heegaard-terminology.md#lescop-coordinates)
+states the side correspondence and combing interpretation.
+This wrapper does not establish the general geometric p₁ identification.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — matching-dependent diagram invariants.
+cf: [[Les14]] Theorem 3.4 and Proposition 5.1 — intended p₁ difference and linking relation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1,-4], "m1"=>[1,-2,-3], "b"=>[4,2,3]), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta));
+
+julia> r = H.hc_lescop_p1_difference(hc,[2],2,3); r.delta_p1 == 8r.lk
+true
+```
+
+Role: invariant
 """
 function hc_lescop_p1_difference(hc::HeegaardCode, matching_labels, from_label, to_label)
     view = hc_to_cellular(hc)
@@ -280,11 +400,53 @@ function _lescop_matching_ids(hc::HeegaardCode, matching_labels)
 end
 
 """
-    hc_lescop_epsilon(hc, matching_labels, other_labels)
+    hc_lescop_epsilon(hc::HeegaardCode, matching_labels, other_labels) -> Vector{Int}
 
-Return ε of two matchings on the cellular diagram of a resolved HC. The
-labels are LC labels of one alpha-beta crossing on each curve. Θ and p₁
-are not consulted.
+Return the homology-coordinate difference of two matchings on an HC's cellular diagram.
+
+# Arguments
+`hc` must be accepted by `hc_to_cellular`. The two label lists specify
+[matchings](../specs/heegaard-terminology.md#91-群と不変量で使う用語) using LC crossing labels.
+Unknown or non-alpha–beta labels, invalid matchings, singular intersection
+matrices and oversized homology-coordinate searches raise `ArgumentError`.
+Other cellular-conversion errors propagate. The caller supplies a valid
+rational-homology-sphere Heegaard diagram for a manifold interpretation.
+
+# Returns
+An integer coordinate vector for the difference class on the converted
+cellular diagram.
+
+# Guarantees
+1. The result equals the cellular matching-difference calculation after
+   transporting LC crossing labels. [proved/agent: by construction]
+2. Equal matchings give the zero class on the tested genus-one diagrams.
+   [verified-computationally: test/heegaard/lescop_theta.jl, genus-one matching comparisons]
+3. The input and label lists are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+The [Lescop coordinate specification](../specs/heegaard-terminology.md#lescop-coordinates)
+states the representative and affine reference choices. Equality of this vector across unrelated
+coordinate bases is not asserted. This wrapper does not prove a general
+geometric identification with the corresponding manifold class.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — matchings and diagram invariants.
+cf: [[OS04a]] subsection subsec:Disks — intended matching-difference class.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1,-4], "m1"=>[1,-2,-3], "b"=>[4,2,3]), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta));
+
+julia> Tuple(H.hc_lescop_epsilon(hc,[2],[2]))
+(0,)
+```
+
+Role: invariant
 """
 function hc_lescop_epsilon(hc::HeegaardCode, matching_labels, other_labels)
     view, first = _lescop_matching_ids(hc, matching_labels)
@@ -293,11 +455,55 @@ function hc_lescop_epsilon(hc::HeegaardCode, matching_labels, other_labels)
 end
 
 """
-    hc_lescop_spinc_label(hc, matching_labels, exterior)
+    hc_lescop_spinc_label(hc::HeegaardCode, matching_labels, exterior) -> Vector{Int}
 
-Return the Spin^c label of one matching and one exterior point on the
-cellular diagram of a resolved HC. `exterior` is an LC face id or an HC
-point supported on such a face. Θ and p₁ are not consulted.
+Return the cellular Spinᶜ-coordinate label associated with a matching and exterior point.
+
+# Arguments
+`hc` must be accepted by `hc_to_cellular`. LC crossing labels specify a
+[matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語).
+`exterior` names an LC face or an HC point supported on an LC face; integer
+region indices are rejected with `ArgumentError`. Unknown labels, invalid
+matchings or faces, singular intersection data, oversized homology searches
+and nonunique basepoint shifts raise `ArgumentError`; other conversion
+errors propagate. A valid manifold diagram is the caller's responsibility.
+
+# Returns
+A vector of integer coordinates for the converted cellular matching and
+exterior complement region.
+
+# Guarantees
+1. The exterior face is transported to its actual cellular complement
+   region, and matching labels to cellular crossings.
+   [proved/agent: by construction]
+2. The result is that cellular record's Spinᶜ-label calculation.
+   [proved/agent: by construction]
+3. Neither input data nor the matching list is modified.
+   [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+The [Lescop coordinate specification](../specs/heegaard-terminology.md#lescop-coordinates)
+states the affine origin and basepoint transport. A vector alone is not an absolute,
+basis-independent Spinᶜ structure or a general geometric certification.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — exterior region versus LC face.
+cf: [[OS04a]] subsection subsec:SpinCStructures, lemma VarySpinC — intended basepoint-dependent Spinᶜ interpretation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1,-4], "m1"=>[1,-2,-3], "b"=>[4,2,3]), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"b"=>:beta));
+
+julia> try H.hc_lescop_spinc_label(hc,[2],3) catch e; e isa ArgumentError end
+true
+```
+
+Role: invariant
 """
 function hc_lescop_spinc_label(hc::HeegaardCode, matching_labels, exterior)
     view, ids = _lescop_matching_ids(hc, matching_labels)

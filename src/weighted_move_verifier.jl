@@ -10,10 +10,95 @@ const WEIGHTED_MOVE_SOURCE_RULE_VERSION = "integer-mp-h-02-ps-runtime-cut/2"
 const WEIGHTED_RELATIVE_RESULT_SCHEMA = "akaghef.weighted-relative-result/2"
 const WEIGHTED_BOUNDARY_TRANSPORT_VERSION = 1
 
+"""
+    WeightedMoveEvidence(data) -> WeightedMoveEvidence
+
+Wrap the data of an integer-weighted move evidence packet.
+
+# Arguments
+`data` must be or convert to `Dict{String,Any}`; conversion errors propagate.
+This constructor does not validate the schema or the packet's contents.
+The caller supplies evidence conforming to
+[weighted evidence §12.7](../specs/virtual-link-moves.md#127-weighted-evidence)
+when validated replay is intended.
+
+# Returns
+`WeightedMoveEvidence` with a `data::Dict{String,Any}` field containing the
+supplied packet data.
+
+# Guarantees
+1. The dictionary is retained after conversion, without replaying the packet.
+   [proved/agent: by construction]
+2. Input data are not modified; a correctly typed dictionary is shared.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The wrapper alone is not validated evidence. The executor-replay boundary
+of §12.7 applies: no independent framing-preservation proof or canonical
+manifold identity is conferred by the packet or its raw hashes.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §12.7 — weighted evidence and the executor-replay boundary.
+
+# Examples
+```jldoctest
+julia> source = lens_space_link(2,1); set_weight!(source, [1,-1,-1,0]); candidate = only(movable(source, "H"; param=1, vertices=[1])); r = verify_weighted_move(source, candidate; framed=true);
+
+julia> packet = WeightedMoveEvidence(weighted_move_evidence_data(r.evidence));
+
+julia> replay_weighted_move(packet).valid
+true
+```
+
+Role: construct
+"""
 struct WeightedMoveEvidence
     data::Dict{String,Any}
 end
 
+"""
+    WeightedMoveVerification(valid, reason, evidence, target, error) -> WeightedMoveVerification
+
+Store the outcome and optional artifacts of a weighted move verification.
+
+# Arguments
+Fields must have or convert to `Bool`, `Symbol`, optional
+`WeightedMoveEvidence`, optional `VirtualLink`, and optional `String`,
+respectively. Conversion errors propagate. No consistency check between
+the flag, reason, packet and target is performed by this constructor.
+Verification semantics are owned by
+[weighted evidence §12.7](../specs/virtual-link-moves.md#127-weighted-evidence).
+
+# Returns
+`WeightedMoveVerification` with a validity flag, reason, optional evidence,
+optional target diagram and optional explanatory error text.
+
+# Guarantees
+1. Fields retain the supplied values after conversion. Evidence and target
+   objects are shared, not independently verified or copied.
+   [proved/agent: by construction]
+2. The constructor does not modify any input. [proved/agent: by construction]
+
+# Not guaranteed
+Manually setting `valid=true` does not establish successful replay or a
+mathematical theorem. Even a verified executor result has the framing and
+canonical-identity limits of §12.7.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §12.7 — results of weighted executor verification.
+
+# Examples
+```jldoctest
+julia> source = lens_space_link(2,1); set_weight!(source, [1,-1,-1,0]); candidate = only(movable(source, "H"; param=1, vertices=[1])); r = verify_weighted_move(source, candidate; framed=true);
+
+julia> stored = WeightedMoveVerification(r.valid, r.reason, r.evidence, r.target, r.error);
+
+julia> stored.valid && stored.target.weights == [[1.0,-2.0,-1.0,1.0]]
+true
+```
+
+Role: convert
+"""
 struct WeightedMoveVerification
     valid::Bool
     reason::Symbol
@@ -60,7 +145,41 @@ function _weighted_raw_data(v::VirtualLink)
          for (index,word) in enumerate(v.gauss)])
 end
 
-"Hash a raw weighted presentation, without cyclic/relabeling canonicalization."
+"""
+    weighted_raw_hash(v::VirtualLink) -> String
+
+Hash the complete raw integer-weighted presentation in the weighted evidence schema.
+
+# Arguments
+Checked: E1 of [weighted evidence](../specs/virtual-link-moves.md#127-weighted-evidence),
+including assigned integer mode, Gauss/orientation validity, component metadata
+and safely representable integer weights. Invalid values raise `ArgumentError`,
+misalignment `DimensionMismatch`; conversion or encoding errors propagate.
+Caller: retain the exact raw presentation when using the digest for replay.
+
+# Returns
+A lowercase hexadecimal SHA-256 digest string of the versioned raw packet.
+
+# Guarantees
+1. The same validated raw packet under this schema has the same digest,
+   including its weight and cut metadata. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a cyclic/relabeling canonical ID, an injective encoding, or a
+manifold invariant. Hash equality alone is not authenticated evidence.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — raw weighted identity scope.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); length(weighted_raw_hash(v))
+64
+```
+
+Role: invariant
+"""
 weighted_raw_hash(v::VirtualLink) = _weighted_digest((
     schema="akaghef.raw-integer-weighted-virtual-link/2",state=_weighted_raw_data(v)))
 
@@ -275,11 +394,55 @@ function _weighted_boundary_pair(boundary)
     (boundary,boundary)
 end
 
-"""Apply a frozen weighted candidate on a copy, check it, and produce raw evidence.
+"""
+    verify_weighted_move(source::VirtualLink, candidate::MoveCandidate; framed=false, expected_raw_target=nothing, boundary=nothing) -> WeightedMoveVerification
 
-`framed=true` checks closed-normal source and target plus the exact framing
-equation. Residual zero alone does not prove preservation of the same framing.
-Unsupported/unmatched moves return an invalid report without modifying source.
+Return a verification report with the executed integer-weighted move's target, raw-state evidence and equation checks.
+
+# Arguments
+Checked: E1–E4 of [weighted evidence](../specs/virtual-link-moves.md#127-weighted-evidence),
+including integer mode, supported candidate, raw storage, Boolean `framed`,
+and source/target equations when requested. Unsupported or mismatched data
+return an invalid report; ordinary execution or encoding errors become its
+reason/error fields. Interruption propagates.
+Caller: choose `boundary` as the source/target prescription of §12.7, and
+supply any geometric interpretation beyond executor evidence.
+`expected_raw_target` is optional raw data or a `VirtualLink` to compare.
+
+# Returns
+A verification record; success has `valid=true`, `reason=:verified`,
+the executed target and a versioned evidence packet. Failure has no target
+or evidence and may contain error text.
+
+# Guarantees
+1. Success binds the current catalogue candidate, raw source and target,
+   measured equations, boundary lineage and any requested target comparison.
+   [proved/agent: by construction]
+2. With `framed=true`, both source and target have zero supported equation
+   residuals. Existing unweighted verification is included only within its
+   documented scope. [proved/agent: by construction]
+3. The source, candidate and expected target are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The report does not independently prove preservation of a framing. In
+particular, a supplied boundary target does not turn a nonclosed presentation
+into a closed-normal one; the recorded closed-normal flag must be read.
+Raw hashes are not manifold identities. Measurement-only cut evidence
+does not assert prescribed relative targets.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — executor verification and its geometric boundary.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); c = only(movable(v, "H"; param=1, vertices=[1]));
+
+julia> r = verify_weighted_move(v, c; framed=true); (r.valid, r.reason)
+(true, :verified)
+```
+
+Role: condition
 """
 function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
                               framed=false,expected_raw_target=nothing,boundary=nothing)
@@ -344,11 +507,48 @@ function verify_weighted_move(source::VirtualLink,candidate::MoveCandidate;
     end
 end
 
-"""Record an externally assigned CP/BMP/B02 result with raw boundary evidence.
+"""
+    verify_weighted_relative_result(source::VirtualLink, target::VirtualLink, candidate::MoveCandidate; boundary=nothing) -> WeightedMoveVerification
 
-This interface deliberately does not claim a generic weighted transport rule:
-the caller supplies the target produced by its experiment, while this envelope
-binds both raw states, the frozen move witness, and the measured boundary data.
+Return a verification report for an externally assigned weighted CP, BMP or B02 target and its boundary data.
+
+# Arguments
+Checked: E1, E3 and E5 of [weighted evidence](../specs/virtual-link-moves.md#127-weighted-evidence),
+including assigned integer-mode source and target, supported move family,
+raw data and equality to the unweighted geometric target.
+Ordinary validation/execution failures return invalid reports; interruption
+propagates. Caller: supply a genuine current geometric candidate, independently
+chosen target weights and, if desired, source/target `boundary` prescriptions;
+this interface does not choose them or freshly authenticate the catalogue templates.
+
+# Returns
+A verification record with `reason=:assigned_result`, evidence and a copied
+target on success; otherwise an invalid report without target or evidence.
+
+# Guarantees
+1. Success binds the actual geometric target, assigned raw weights, directed
+   endpoint lineage and equation measurements. [proved/agent: by construction]
+2. Source, target, candidate and boundary data are not modified; the successful
+   returned target is copied. [proved/agent: by construction]
+
+# Not guaranteed
+No generic integer-weight transport rule for these move families is asserted.
+Raw replay of supplied candidate data does not authenticate a hand-built template.
+Prescribed targets are recorded but residuals need not vanish; success is not
+a framing-preservation or geometric boundary-extension theorem.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — assigned-result evidence.
+
+# Examples
+```jldoctest
+julia> spin = VirtualLink(; weight_mode=:z2); integer = VirtualLink(); c = MoveCandidate("CP", "dir", Int[], NTuple{2,Int}[], :forward, nothing, nothing, Tuple{Int,Int}[]);
+
+julia> verify_weighted_relative_result(spin, integer, c).reason
+:unsupported_weight_mode
+```
+
+Role: condition
 """
 function verify_weighted_relative_result(source::VirtualLink,target::VirtualLink,
                                          candidate::MoveCandidate;boundary=nothing)
@@ -383,6 +583,53 @@ function verify_weighted_relative_result(source::VirtualLink,target::VirtualLink
     end
 end
 
+"""
+    replay_weighted_relative_result(value) -> WeightedMoveVerification
+
+Return a verification report comparing an assigned weighted move result with its saved boundary evidence.
+
+# Arguments
+`value` is a `WeightedMoveEvidence` or dictionary-like packet in the
+assigned-result schema of
+[weighted evidence §12.7](../specs/virtual-link-moves.md#127-weighted-evidence).
+Schema, raw hashes, candidate, target, boundary data and reconstructed envelope
+are checked. Ordinary malformed-input and verification failures return an
+invalid result; `InterruptException` propagates.
+
+# Returns
+`WeightedMoveVerification` with `valid`, `reason`, optional recomputed
+evidence, optional reconstructed target and optional error text. A successful
+result has the assigned-result semantics of [`verify_weighted_relative_result`](@ref).
+
+# Guarantees
+1. Success means the raw hashes and complete saved envelope agree with
+   the current assigned-result verification for the reconstructed source,
+   target and candidate. [proved/agent: by construction]
+2. The supplied packet is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This validates the assigned target and boundary record, not an integer-weight
+transport law for CP/BMP/B02. It is not an independent proof of framing
+preservation or a canonical manifold identity. An invalid result can mean
+malformed or obsolete evidence rather than mathematical inequivalence.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §12.7 — assigned-result replay and its distinct evidence scope.
+
+# Examples
+```jldoctest
+julia> source = VirtualLink(); set_data!(source; rgauss=[[1,2,0],[-1,0],[-2,0]], orientation=[-1,1]); set_weight!(source, [[10,20,30],[40,50],[60,70]]);
+
+julia> geometric = Topology._weighted_unweight(source); candidate = only(movable(geometric, "BMP"; param=0, vertices=[1,2], strict=true)); target = move_boundary_transport(geometric, candidate).target; set_weight!(target, [zeros(length(word)) for word in target.gauss]);
+
+julia> result = verify_weighted_relative_result(source, target, candidate);
+
+julia> replay_weighted_relative_result(weighted_move_evidence_data(result.evidence)).valid
+true
+```
+
+Role: condition
+"""
 function replay_weighted_relative_result(value)
     try
         data=value isa WeightedMoveEvidence ? value.data : value
@@ -409,10 +656,83 @@ function replay_weighted_relative_result(value)
     end
 end
 
-"Return a detached JSON-compatible envelope; no unweighted certificate is changed."
+"""
+    weighted_move_evidence_data(evidence::WeightedMoveEvidence) -> Dict{String,Any}
+
+Return a detached copy of a weighted evidence envelope.
+
+# Arguments
+Checked: only the `WeightedMoveEvidence` argument type; no schema or validity
+check is performed. Caller: a valid
+[weighted packet](../specs/virtual-link-moves.md#127-weighted-evidence)
+is required for the returned data to have evidence semantics.
+
+# Returns
+A deep copy of the wrapper's data dictionary.
+
+# Guarantees
+1. Stored contents are retained without adding a verification claim.
+   [proved/agent: by construction]
+2. The input is unchanged and ordinary nested packet containers are detached.
+   [proved/agent: by construction]
+
+# Not guaranteed
+An arbitrary manually wrapped dictionary need not be valid or JSON-compatible.
+This function does not replay the evidence.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — packet copying versus verification.
+
+# Examples
+```jldoctest
+julia> d = Dict{String,Any}("sample" => [1]); e = WeightedMoveEvidence(d); c = weighted_move_evidence_data(e); c["sample"][1] = 2;
+
+julia> d["sample"] == [1]
+true
+```
+
+Role: convert
+"""
 weighted_move_evidence_data(evidence::WeightedMoveEvidence)=deepcopy(evidence.data)
 
-"Decode the separate versioned envelope. Replay is required before trusting it."
+"""
+    weighted_move_evidence_from_data(value) -> WeightedMoveEvidence
+
+Decode a current integer-weighted executor evidence envelope without replaying it.
+
+# Arguments
+Checked: required packet fields, schema and executor/rule versions, raw state
+and candidate decoding under E1–E4 of
+[weighted evidence](../specs/virtual-link-moves.md#127-weighted-evidence).
+Unsupported versions or invalid fields raise `ArgumentError`; malformed
+containers and encoding failures may propagate other exceptions.
+Caller: provide dictionary-like packet data, not an assigned-result envelope.
+
+# Returns
+A `WeightedMoveEvidence` containing detached JSON-compatible packet data.
+
+# Guarantees
+1. Successful decoding establishes the current envelope shape and decodability
+   of its raw states and candidate. [proved/agent: by construction]
+2. The supplied value is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Hashes, equations and saved outputs are not authenticated by decoding;
+call `replay_weighted_move` before treating the packet as verified evidence.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — versioned decoding and replay.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); c = only(movable(v, "H"; param=1, vertices=[1])); r = verify_weighted_move(v, c; framed=true);
+
+julia> e = weighted_move_evidence_from_data(weighted_move_evidence_data(r.evidence)); replay_weighted_move(e).valid
+true
+```
+
+Role: construct
+"""
 function weighted_move_evidence_from_data(value)
     _move_data_object(value,("schema","verifier_version","source_rule_version","evidence_kind",
         "identity","source_raw","target_raw","source_raw_sha256","target_raw_sha256",
@@ -427,11 +747,45 @@ function weighted_move_evidence_from_data(value)
     WeightedMoveEvidence(_weighted_json_copy(value))
 end
 
-"""Recompute all evidence from its raw source and compare the entire envelope.
+"""
+    replay_weighted_move(value) -> WeightedMoveVerification
 
-Saved target, residuals, PS totals, template rules, and topological witnesses are
-never used as trusted computed inputs. Old unweighted witnesses keep their own
-parser and replay path. This is executor replay, not a second transport proof.
+Return a verification report from replaying a weighted move packet's candidate from its saved raw source.
+
+# Arguments
+Checked: current schema and versions, decoded raw data, hashes, candidate,
+requested equations, target and full envelope agreement. Ordinary failures
+return an invalid result; interruption propagates.
+Caller: `value` is a `WeightedMoveEvidence` or packet dictionary in the
+[executor schema](../specs/virtual-link-moves.md#127-weighted-evidence).
+
+# Returns
+A verification record with validity, reason, and optional reconstructed target,
+evidence and error text; success has reason `:verified`.
+
+# Guarantees
+1. Success means the current executor's result agrees with the entire packet,
+   including raw states and requested equation checks.
+   [proved/agent: by construction and envelope comparison]
+2. The supplied packet is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Replay is not an independent proof of framing preservation or canonical
+manifold identity. Invalid evidence may be malformed or obsolete rather than
+mathematically incorrect. Assigned-result packets use `replay_weighted_relative_result`.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — executor evidence and version scope.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); c = only(movable(v, "H"; param=1, vertices=[1])); r = verify_weighted_move(v, c; framed=true);
+
+julia> replay_weighted_move(r.evidence).valid
+true
+```
+
+Role: condition
 """
 function replay_weighted_move(value)
     try

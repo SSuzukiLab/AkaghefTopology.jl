@@ -168,11 +168,46 @@ function _update_face!(graph::_FaceGraph,boundary,face1,face2,new_face,new_edge)
     graph
 end
 
-"""Insert virtual crossings so a real-Gauss/o-data diagram becomes planar.
+"""
+    planarize_virtual_gauss(real_gauss, real_orientation; DEBUG_MODE::Bool=false, debug_io::IO=stderr) -> Tuple
 
-With `DEBUG_MODE=true`, emit the MATLAB-style region/edge/face state at stable
-checkpoints and validate the face-graph and Gauss-code invariants. Plotting is
-not a hot path, so this route favors diagnostic clarity over minimal overhead.
+Return Gauss components and crossing signs with virtual visits inserted for drawing a closed real Gauss presentation.
+
+# Arguments
+Checked: integer conversion must succeed; nonempty visits with empty orientation
+raise `ArgumentError`. Debug mode checks the checkpoint invariants of
+[virtual planarisation](../specs/virtual-link-plot.md#61-virtual-planarisation);
+conversion, indexing and invariant errors propagate.
+Caller: use the valid closed real-Gauss input L1 of the
+[layout input conditions](../specs/virtual-link-plot.md#6-layout-stage-contracts); malformed
+occurrence data are not comprehensively rejected at entry. `debug_io` must be
+writable when `DEBUG_MODE=true`.
+
+# Returns
+`(gauss, orientation)` with the input real visits retained and additional
+virtual-crossing data in the specification's representation.
+
+# Guarantees
+1. The real visit order and orientation prefix are retained, and inserted
+   crossing orientations are zero. [proved/agent: by construction]
+2. Input arrays are not modified. Debug mode writes diagnostics to `debug_io`.
+   [proved/agent: by construction]
+
+# Not guaranteed
+No minimum number of virtual crossings or canonical drawing is promised.
+The accepted comparison fixtures do not establish correctness for every valid
+Gauss presentation; this routine supplies no independent planarity certificate.
+
+# Sources
+cf: [plot specification §6.1](../specs/virtual-link-plot.md#61-virtual-planarisation) — planarisation semantics and retained MATLAB comparison fixtures.
+
+# Examples
+```jldoctest
+julia> g, o = planarize_virtual_gauss([Int[]], Int[]); (length(g), isempty(only(g)), isempty(o))
+(1, true, true)
+```
+
+Role: construct
 """
 function planarize_virtual_gauss(real_gauss,real_orientation;
                                  DEBUG_MODE::Bool=false,debug_io::IO=stderr)

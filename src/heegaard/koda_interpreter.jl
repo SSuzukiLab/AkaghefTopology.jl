@@ -21,6 +21,59 @@ function _koda_pushgroup!(groups::Dict, key, val)
     push!(get!(groups, key, Any[]), val)
 end
 
+"""
+    koda_table_decode(words::Vector{Vector{Int}}, sigma::Dict{Int,Int}; tables=nothing) -> Dict{String,Any}
+
+Decode normal o-data into the finite spine and boundary records of the Koda local tables.
+
+# Arguments
+`words` and `sigma` must satisfy the normal o-data domain of
+[§7.1](../specs/heegaard-koda-conversion.md#71-保持するデータ).
+The caller supplies nonempty component words and complete valid vertex signs;
+this low-level decoder does not perform the public o-data domain validation.
+Malformed words or absent models can raise `BoundsError` or `KeyError`.
+`tables=nothing` loads the installed local tables; custom tables must have the
+schema of `load_koda_local_tables`. Inconsistent sector, face or boundary
+incidence checks raise `KodaImplementationError` naming the mismatch.
+
+# Returns
+A dictionary containing `input_vertices`, `input_edges`, `sector_count`,
+`spine_chi`, `sector_cycles`, `sector_flags`, `edges`, `boundary`, `BW`,
+`e_cycles` and `boundary_ribbon_face_lengths`: cell counts, sector and edge
+incidences, boundary components, coloured boundary regions and suture cycles.
+
+# Guarantees
+1. The result is the finite incidence interpretation of the supplied local
+   tables, with the decoder's sector and boundary consistency checks passed.
+   [proved/agent: by construction]
+2. Interpreting it as the branched spine and thickening of the o-graph has
+   the source-alignment scope stated in §§7.0 and 13.3.
+   [unverified: the P1 source discrepancy and general source alignment remain unresolved]
+3. Input words, signs and tables are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The table result is not an independent manifold-recognition certificate.
+In particular, the reported coloured-region boundary counts are not a
+replacement for the independent common-edge checks of `hc_flow_certificate`.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§7.0–8, 13.3 — table interpretation and finite source-alignment scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> d = koda_table_decode([[1,-1]], Dict(1=>1));
+
+julia> (d["input_vertices"], d["input_edges"], d["sector_count"])
+(1, 2, 2)
+```
+
+See also [`koda_hc_from_boundary`](@ref), [`load_koda_local_tables`](@ref).
+
+Role: convert
+"""
 function koda_table_decode(words::Vector{Vector{Int}}, sigma::Dict{Int, Int}; tables=nothing)
     pack = _koda_tables_pack(tables)
     V, EG, BW, C = pack.V, pack.EG, pack.BW, pack.C
@@ -276,6 +329,59 @@ function _koda_polyline_crossings(polyline, source::Rational, target::Rational)
     out
 end
 
+"""
+    koda_hc_from_boundary(spine::Dict{String,Any}, sigma::Dict{Int,Int}; tables=nothing) -> Dict{String,Any}
+
+Construct Koda curve and joining data from a decoded coloured spine boundary.
+
+# Arguments
+`spine` is the dictionary returned by `koda_table_decode`, and `sigma` is
+the same vertex-sign map. The caller supplies matching data and tables in
+[the inverse domain, §8](../specs/heegaard-koda-conversion.md).
+`tables=nothing` loads the installed tables. Missing keys or invalid model
+records can raise native lookup/conversion errors. A suture component without
+supported corner data raises `KodaNotComputed`; inconsistent local signs,
+curve incidence, joining-face selection or Euler characteristic raise
+`KodaImplementationError` with the stage and reason.
+
+# Returns
+A string-keyed record with `genus`, `chi`, `alpha`, `beta`, `epsilon`,
+`intersections`, `true_intersections`, `joining_intersections`, `joining`,
+`J_vertices`, `C_choices`, `corner_local_models` and `face_lengths`.
+These describe the reconstructed parameter curves, signs, joining data and
+the choices of the inverse construction, without a fixed LC reference.
+
+# Guarantees
+1. The returned curve and joining record satisfies the local sign, curve-count
+   and Euler-characteristic consistency checks of the table construction.
+   [proved/agent: by construction]
+2. The intended surface and curves are the inverse Koda construction for
+   the thickened input spine. [unverified: general geometric identification is limited by the source-alignment issues of §13.3]
+3. The input records and tables are not modified; nested joining data can
+   be shared with the returned record. [proved/agent: by construction]
+
+# Not guaranteed
+This record is not a resolved LC-bound HC, nor a certification that a
+general input has a sphere/one-suture flow domain. Source alignment for P1
+and a general manifold-identification certificate remain outside the result.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§8, 13.3 — inverse Koda curves, joining data and the table audit boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> s = OData([[1,-1]], [1], Dict{String,Any}()); d = koda_table_decode(s.gauss, Dict(1=>1));
+
+julia> h = koda_hc_from_boundary(d, Dict(1=>1)); h["true_intersections"]
+1
+```
+
+See also [`koda_table_decode`](@ref), [`spine_to_heegaard_koda`](@ref).
+
+Role: convert
+"""
 function koda_hc_from_boundary(spine::Dict{String, Any}, sigma::Dict{Int, Int}; tables=nothing)
     pack = _koda_tables_pack(tables)
     V, C, CHART = pack.V, pack.C, pack.CHART
@@ -484,6 +590,53 @@ function _koda_select_joining_region(h::HeegaardDiagram, hc::Dict{String, Any})
     return region
 end
 
+"""
+    koda_forward_gauss_from_hc(hc::Dict{String,Any}, sigma::Dict{Int,Int}) -> Tuple{Vector{Vector{Int}},Dict{Int,Int}}
+
+Return diagnostic forward Gauss words from a reconstructed Koda curve record.
+
+# Arguments
+`hc` is the output of `koda_hc_from_boundary` for the same `sigma`, within
+[the Koda forward domain, §§5–7](../specs/heegaard-koda-conversion.md).
+Legacy full certification and joining-disk selection are checked; their
+`ValidationError`, `ArgumentError` and Koda input/implementation errors
+propagate. Malformed dictionary fields can raise native lookup errors.
+The caller supplies compatible parameter words and source vertex labels.
+
+# Returns
+A pair `(words, signs)`. `words` is a vector of signed cyclic Gauss words.
+In the current implementation the returned sign dictionary is empty even
+when true vertices occur; it is therefore not a complete `OData` result.
+
+# Guarantees
+1. On successful input, the words retain the nonjoining crossings of the
+   supported forward strand construction. [proved/agent: by construction]
+2. The input dictionaries are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The function currently loses the vertex-sign correspondence; see the
+[recorded sign-map loss](../specs/heegaard-koda-conversion.md#forward-sign-map-loss). Do not infer
+an oriented o-graph or its 3-manifold from this pair. Use the checked public
+`hc_to_odata` path for a full encoding; general geometric source alignment
+remains subject to the Koda specification's limits.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§6–7.3 — forward strand encoding; lib/topology.jl/src/heegaard/hc_triangulation_surface.jl — diagnostic sign-map loss and the public forward path.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> signs = Dict(1=>1); d = koda_table_decode([[1,-1]], signs); h = koda_hc_from_boundary(d, signs);
+
+julia> words, returned_signs = koda_forward_gauss_from_hc(h, signs); (length(words), isempty(returned_signs))
+(1, true)
+```
+
+See also [`hc_to_odata`](@ref), [`koda_hc_from_boundary`](@ref).
+
+Role: convert
+"""
 function koda_forward_gauss_from_hc(hc::Dict{String, Any}, sigma::Dict{Int, Int})
     # Curve words in the reverse HC are parameter words, not strand words.
     # §7.3: strand = dγ × parameter word, and σ = −ε dα dβ. Do not assume dγ = +1.

@@ -852,7 +852,49 @@ function _l8_virtual_gauss(real_gauss,real_orientation,result::Layer8FringeResul
     output,vcat(Int.(real_orientation),zeros(Int,event_count))
 end
 
-"""Layer8/Braid fringe planarisation for a real Gauss presentation."""
+"""
+    planarize_virtual_gauss_layer8(real_gauss, real_orientation; DEBUG_MODE::Bool=false, debug_io::IO=stderr) -> Tuple
+
+Return the Gauss components and crossing signs assigned to a closed real Gauss presentation by the Layer8 route.
+
+# Arguments
+Checked: integer conversion and, for nonempty orientation, the L1 occurrence and
+fringe checks of [Layer8 planarisation](../specs/virtual-link-plot.md#layer8-route-and-its-evidence-boundary).
+Invalid data or failed reconstruction can raise `ArgumentError`; other errors
+propagate. Empty orientation bypasses occurrence validation.
+Caller: provide valid closed real-Gauss input and a writable `debug_io` when
+`DEBUG_MODE=true`.
+
+# Returns
+`(gauss, orientation)` in the peer-derived virtual-Gauss representation, with
+new crossing labels and possibly changed cyclic origins. With empty
+orientation, the converted input components are copied through.
+
+# Guarantees
+1. The result's Gauss components and crossing orientations are the signed
+   traversal and real/virtual labels of the reconstructed peer diagram.
+   Inserted virtual crossings have orientation zero.
+   [proved/agent: by construction]
+2. Input arrays are not modified; debug mode writes its result diagnostics
+   to `debug_io`. [proved/agent: by construction]
+
+# Not guaranteed
+The route is not a minimum-virtual-crossing algorithm. Original crossing labels
+and orientation prefix are not retained. The general correspondence with the
+input oriented virtual link, including the deferred diametric-event case,
+is not established by the available checks; see the specification's evidence boundary.
+
+# Sources
+cf: [plot specification](../specs/virtual-link-plot.md#layer8-route-and-its-evidence-boundary) — peer representation and the Layer8/Braid route.
+
+# Examples
+```jldoctest
+julia> g, o = planarize_virtual_gauss_layer8([Int[]], Int[]); (length(g), isempty(only(g)), isempty(o))
+(1, true, true)
+```
+
+Role: construct
+"""
 function planarize_virtual_gauss_layer8(real_gauss,real_orientation;
                                         DEBUG_MODE::Bool=false,
                                         debug_io::IO=stderr)

@@ -71,7 +71,53 @@ struct KnotN6ComponentInvariant
     jones::ExactKnotLaurentPolynomial
 end
 
-"Result of one bounded N<=6 classification run." 
+"""
+    KnotN6Classification(max_n, barrier, state_counts, raw_rooted_classical_counts_by_n, raw_rooted_total, raw_rooted_classical_total, states, state_index, edges, adjacency, components, component_roots, component_type_labels, canonical_knot_type_counts, raw_rooted_classical_type_counts, raw_rooted_classical_unresolved_count, component_invariants, known_representatives, unresolved_components, direct_transition_count, duplicate_edge_transition_count, nonclassical_target_count, spanning_tree_edge_replay_count, spanning_tree_replay_failures, edge_invariant_sample_count, edge_invariant_failures, fingerprint, elapsed_seconds) -> KnotN6Classification
+
+Store a bounded signed-Gauss classification graph with replay and polynomial diagnostics.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN6Classification` with fields `max_n`, `barrier`, `state_counts`, `raw_rooted_classical_counts_by_n`, `raw_rooted_total`, `raw_rooted_classical_total`, `states`, `state_index`, `edges`, `adjacency`, `components`, `component_roots`, `component_type_labels`, `canonical_knot_type_counts`, `raw_rooted_classical_type_counts`, `raw_rooted_classical_unresolved_count`, `component_invariants`, `known_representatives`, `unresolved_components`, `direct_transition_count`, `duplicate_edge_transition_count`, `nonclassical_target_count`, `spanning_tree_edge_replay_count`, `spanning_tree_replay_failures`, `edge_invariant_sample_count`, `edge_invariant_failures`, `fingerprint`, `elapsed_seconds`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n6_classification(0; progress=false);
+
+julia> Tuple(r.state_counts)
+(1,)
+
+```
+
+Role: convert
+""" 
 struct KnotN6Classification
     max_n::Int
     barrier::Int
@@ -551,7 +597,55 @@ function _n6_validate_known_invariants(result::KnotN6Classification)
     true
 end
 
-"""Build the complete direct-classical barrier-6 graph in memory."""
+"""    build_knot_n6_classification(max_n::Integer=6; barrier::Integer=max_n, snapshot_path=_n6_default_snapshot(), progress=true) -> KnotN6Classification
+
+Construct the finite move graph of signed Gauss diagrams accepted by the Carter genus-zero test.
+
+# Arguments
+`max_n` and `barrier` must satisfy Q8 ([conditions](../specs/knot-classification.md#numbered-conditions)); the range is checked and `ArgumentError` names the violated bound. Integer conversion errors can propagate.
+`snapshot_path` must satisfy Q9 on that page. It defaults to the repository's
+`threads/PJ260830/data/knotinfo-n6.json`. Missing files, invalid JSON and PD
+conversion failures propagate; missing names or columns raise `ArgumentError`.
+Consistency, witness, polynomial or replay failures raise `ErrorException`
+with the failed audit identified. Snapshot name identification is the caller's
+responsibility; without it a connected label is only a snapshot label.
+
+`progress` is a Boolean controlling progress messages on standard error.
+
+# Returns
+A `KnotN6Classification` with the fields described individually in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+
+# Guarantees
+1. States form the canonical population through `max_n` retained by the Carter test; edges are replay-verified transitions between those states and components describe connectivity in that finite graph. [proved/agent: by construction]
+2. Resolved labels are attached through known representatives in the same component. Components with no such representative remain unresolved. [proved/agent: by construction]
+3. Successful return reports no failures in the spanning-tree replay and sampled edge-polynomial checks. [proved/agent: by construction]
+4. Inputs and the snapshot file are not modified. The result is in memory; no database is written. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+A larger `barrier` alone does not enumerate states above `max_n`. Distinct
+bounded components need not be distinct knot types; no unrestricted isotopy
+decision follows. Classicality, polynomial and seed-name source identifications
+retain the specification's evidence boundaries. The finite graph does not
+retain complete paths or certify the external snapshot's naming convention.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Bounded graph and Classification record — finite population and connectivity meanings.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n6_classification(0);
+
+julia> Tuple(r.state_counts)
+(1,)
+```
+
+Role: construct
+"""
 function build_knot_n6_classification(max_n::Integer=6;
                                       barrier::Integer=max_n,
                                       snapshot_path::AbstractString=_n6_default_snapshot(),
@@ -614,10 +708,110 @@ function build_knot_n6_classification(max_n::Integer=6;
         tree_failures, sample_count, invariant_failures, fingerprint, elapsed)
 end
 
+"""
+    classify_knot_n6(max_n::Integer=6; barrier::Integer=max_n, snapshot_path=_n6_default_snapshot(), progress=true) -> KnotN6Classification
+
+Return a bounded verified-move classification of directly enumerated classical Gauss representations.
+
+# Arguments
+`max_n` and `barrier` must convert to `Int` and satisfy `0 <= max_n <= barrier <= 6`;
+otherwise `ArgumentError` identifies the invalid bound. `snapshot_path`
+supplies the local KnotInfo JSON snapshot used by
+[`build_knot_n6_classification`](@ref). `progress` controls messages.
+Snapshot errors and failed graph, replay, invariant or known-representative
+consistency checks propagate. Unsupported argument forms fail by dispatch
+in that entry point.
+
+# Returns
+`KnotN6Classification` with canonical states and their index, verified edges,
+adjacency, components, known representatives and labels, raw and canonical
+counts, unresolved components, representative invariants, verification
+statistics, graph fingerprint and elapsed time.
+
+# Guarantees
+1. The result has the same semantics as `build_knot_n6_classification`:
+   finite move-connectivity among the generated classical representations
+   with at most `max_n` crossings. [proved/agent: by construction]
+2. A reported known label is supported by a connected known representative.
+   Unresolved components are retained without inventing a knot type. [proved/agent: by construction]
+3. Successful return reports zero nonclassical retained targets and
+   spanning-tree replay failures, and no sampled edge-invariant failures. [proved/agent: by construction]
+4. Arguments and the input snapshot are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+`barrier > max_n` does not extend the state set beyond `max_n`. The polynomial
+audit samples edges rather than checking every edge. Distinct components
+need not be distinct knots, and paths are not stored. Completeness beyond
+the finite graph and the snapshot's knot-name conventions are not certified
+by the [module-scope specification](../specs/knot-classification.md#definitions).
+
+# Sources
+cf: lib/topology.jl/src/reidemeister.jl verify_reidemeister_transition — local edge evidence for the finite graph.
+cf: lib/topology.jl/src/classical_gauss_enumeration.jl direct_classical_gauss_enumeration — the finite classical input enumeration used here.
+
+# Examples
+```jldoctest
+julia> r = classify_knot_n6(3; barrier=3, progress=false);
+
+julia> (Tuple(r.state_counts), length(r.states), isempty(r.unresolved_components))
+((1, 2, 10, 60), 73, true)
+```
+
+See also [`build_knot_n6_classification`](@ref), [`knot_n6_summary`](@ref).
+
+Role: construct
+"""
 classify_knot_n6(args...; kwargs...) =
     build_knot_n6_classification(args...; kwargs...)
 
-"Return a compact summary; no Carter data, paths, or state invariants." 
+"""
+    knot_n6_summary(result::KnotN6Classification) -> Dict{String,Any}
+
+Return a compact dictionary summary of a finite knot-move result.
+
+# Arguments
+`result` satisfies Q6 ([conditions](../specs/knot-classification.md#numbered-conditions))
+for the intended interpretation. This is the caller's responsibility; the
+summary does not replay or validate a run. Inconsistent manually constructed
+records can produce inconsistent counts rather than a validation error.
+
+# Returns
+A new `Dict{String,Any}` with keys
+`version`, `max_n`, `barrier`, `state_counts`, `raw_rooted_classical_counts_by_n`, `raw_rooted_total`, `raw_rooted_classical_total`, `total_states`, `edge_count`, `direct_transition_count`, `duplicate_edge_transition_count`, `nonclassical_target_count`, `component_count`, `component_type_labels`, `canonical_knot_type_counts`, `raw_rooted_classical_type_counts`, `raw_rooted_classical_unresolved_count`, `known_representative_count`, `known_component_count`, `known_reachable_state_count`, `unresolved_state_count`, `unresolved_component_count`, `unresolved_components`, `spanning_tree_edge_replay_count`, `spanning_tree_replay_failures`, `edge_invariant_sample_count`, `edge_invariant_failures`, `fingerprint_sha256`, `elapsed_seconds`.
+Same-named result fields have their meanings in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+`version` identifies the summary's implementation schema;
+`fingerprint_sha256` is the stored `fingerprint`. Where present,
+`total_states`, `edge_count`, `component_count`, `known_representative_count`,
+`known_component_count` and `unresolved_component_count` count the corresponding
+collections. Unresolved state count counts states in listed unresolved
+components; known-reachable state count is its complement in the population.
+Component-keyed output dictionaries use decimal string keys.
+
+# Guarantees
+1. The summary reports the supplied finite result's data and derived collection counts; it performs no new mathematical classification. [proved/agent: by construction]
+2. The input is unchanged. Returned vectors and dictionaries are copied, including the nested label lists and closure groups when present. [proved/agent: by construction]
+
+# Not guaranteed
+The dictionary is not a self-contained replay certificate and contains no
+full path or Carter surface data. It does not strengthen the source result's
+classicality, knot-type or completeness evidence. No cross-version schema
+compatibility is promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Result field meanings — finite-run summary interpretation.
+
+# Examples
+```jldoctest
+julia> r = build_knot_n6_classification(0; progress=false);
+
+julia> knot_n6_summary(r)["unresolved_state_count"]
+0
+
+```
+
+Role: convert
+""" 
 function knot_n6_summary(result::KnotN6Classification)
     known_components = sort!(unique(rep.component for rep in result.known_representatives))
     unresolved_state_count = sum(count(==(component), result.components)

@@ -35,7 +35,46 @@ if !isdefined(@__MODULE__, :KnotGaussDiagram)
     include(joinpath(@__DIR__, "knot_gauss.jl"))
 end
 
-"""A sparse exact Laurent polynomial with integer coefficients."""
+"""    ExactKnotLaurentPolynomial(variable::Symbol, terms::AbstractDict) -> ExactKnotLaurentPolynomial
+
+Construct an exact integer Laurent-polynomial record.
+
+# Arguments
+`terms` supplies exponent/coefficient pairs convertible to `Int`/`BigInt`;
+conversion failures propagate (`InexactError`, `MethodError` or other numeric
+conversion errors). `variable` is a `Symbol`. The one-dictionary overload accepts keyword `variable=:t`. The representation is defined
+in [Exact polynomial records](../specs/knot-classical-invariants.md#exact-polynomial-records).
+For a normalized record the caller must omit zero coefficients when passing
+an already typed `Dict{Int,BigInt}`: that field constructor does not clean it.
+
+# Returns
+An `ExactKnotLaurentPolynomial` with the supplied `variable` and a `terms`
+dictionary denoting the linked integer Laurent polynomial.
+
+# Guarantees
+1. For the general dictionary conversion, coefficients are converted exactly to `BigInt`, exponents to `Int`, coincident converted exponents are combined, and zero coefficients are omitted. [proved/agent: by construction]
+2. The `Dict{Int,BigInt}` field-constructor method retains the supplied dictionary unchanged; other dictionary inputs are converted to a new dictionary. Inputs are not modified during construction. [proved/agent: by construction]
+
+# Not guaranteed
+No knot, Alexander or Jones interpretation is assigned by construction. A
+variable symbol is not checked for a printable mathematical name. The typed
+field constructor does not promise a canonical zero-free representation.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, Exact polynomial records — local coefficient-ring representation.
+
+# Examples
+```jldoctest
+julia> p = ExactKnotLaurentPolynomial(Dict(0 => 1));
+
+julia> p == alexander_polynomial(pd_to_gauss(Int[]))
+true
+```
+
+See also [`polynomial_terms`](@ref), [`knot_polynomial_string`](@ref).
+
+Role: construct
+"""
 struct ExactKnotLaurentPolynomial
     variable::Symbol
     terms::Dict{Int,BigInt}
@@ -64,6 +103,48 @@ Base.:(==)(a::ExactKnotLaurentPolynomial, b::ExactKnotLaurentPolynomial) =
 Base.hash(p::ExactKnotLaurentPolynomial, h::UInt) = hash((p.variable, p.terms), h)
 Base.iszero(p::ExactKnotLaurentPolynomial) = isempty(p.terms)
 
+"""
+    knot_polynomial_string(p::ExactKnotLaurentPolynomial) -> String
+
+Return a readable expression for an exact integer Laurent polynomial.
+
+# Arguments
+`p` is an `ExactKnotLaurentPolynomial`. For the usual polynomial display,
+its terms should omit zero coefficients; this function does not normalize
+manually assembled data or validate the variable name.
+
+# Returns
+A `String` expressing the stored coefficients and exponents in `p.variable`.
+The polynomial interface belongs to
+[KnotGauss](../specs/knot-classical-invariants.md#definitions).
+
+# Guarantees
+1. Nonzero stored terms are rendered with their exact integer coefficients
+   and exponents, ordered by increasing exponent. The empty dictionary
+   renders as `"0"`. [proved/agent: by construction]
+2. The expression denotes the stored Laurent polynomial when its variable
+   name has an unambiguous mathematical interpretation. The input is unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+No Alexander or Jones normalization is performed here. Text output is not
+a versioned interchange format or an identity/classification certificate;
+no escaping or parser round trip is promised for arbitrary variable names.
+
+# Sources
+cf:lib/topology.jl/src/knot_classical_invariants.jl, knot_polynomial_string — stored polynomial and PD data access; no independent knot classification.
+
+# Examples
+```jldoctest
+julia> p = alexander_polynomial(pd_to_gauss(Int[]));
+
+julia> knot_polynomial_string(p)
+"1"
+```
+
+See also [`polynomial_terms`](@ref).
+
+Role: convert
+"""
 function knot_polynomial_string(p::ExactKnotLaurentPolynomial)
     isempty(p.terms) && return "0"
     variable = String(p.variable)
@@ -92,6 +173,43 @@ end
 Base.show(io::IO, p::ExactKnotLaurentPolynomial) =
     print(io, knot_polynomial_string(p))
 
+"""
+    polynomial_terms(p::ExactKnotLaurentPolynomial) -> Dict{Int,BigInt}
+
+Return a copy of the exponent-to-coefficient data of an integer Laurent polynomial.
+
+# Arguments
+`p` is an `ExactKnotLaurentPolynomial`; no additional validation is performed.
+
+# Returns
+A new `Dict{Int,BigInt}` with the stored exponents as keys and exact integer
+coefficients as values, in the [KnotGauss API](../specs/knot-classical-invariants.md#definitions).
+
+# Guarantees
+1. The result equals `p.terms` and describes the same stored Laurent polynomial. [proved/agent: by construction]
+2. Adding, replacing or deleting dictionary entries in the result does not
+   alter the input dictionary. The call itself leaves `p` unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Dictionary iteration order is not a term ordering. Stored zero coefficients
+are not removed, and no normalization or invariant computation is performed.
+The type of `p` alone does not establish an Alexander or Jones interpretation.
+
+# Sources
+cf:lib/topology.jl/src/knot_classical_invariants.jl, polynomial_terms — stored polynomial and PD data access; no independent knot classification.
+
+# Examples
+```jldoctest
+julia> p = alexander_polynomial(pd_to_gauss(Int[]));
+
+julia> polynomial_terms(p) == Dict(0=>big(1))
+true
+```
+
+See also [`knot_polynomial_string`](@ref).
+
+Role: access
+"""
 polynomial_terms(p::ExactKnotLaurentPolynomial) = copy(p.terms)
 
 _lp_zero() = Dict{Int,BigInt}()
@@ -183,7 +301,50 @@ function _knot_gauss_arcs(d::KnotGaussDiagram)
     over, under_in, under_out
 end
 
-"""Compute the normalized Alexander polynomial by a Wirtinger/Fox minor."""
+"""    alexander_polynomial(d::KnotGaussDiagram) -> ExactKnotLaurentPolynomial
+
+Return the repository-normalized Alexander minor polynomial of a signed knot diagram.
+
+# Arguments
+`d` satisfies K1 ([Gauss conditions](../specs/knot-gauss.md#numbered-conditions))
+by its checked constructor. P3 ([polynomial conditions](../specs/knot-classical-invariants.md#numbered-conditions))
+is the caller's responsibility for a classical knot interpretation; this
+function does not check classicality. A zero determinant raises `ArgumentError`
+with message `Alexander determinant is zero`; invalid visit/sign data detected
+by the calculation also raise `ArgumentError` describing that data.
+
+# Returns
+An `ExactKnotLaurentPolynomial` with variable `:t` and exact integer terms,
+in [Alexander coordinates](../specs/knot-classical-invariants.md#alexander-coordinates).
+
+# Guarantees
+1. The polynomial is the normalized minor defined by the linked Alexander coordinates; the crossing-free circle returns one. [proved/agent: by construction]
+2. The input diagram is unchanged. [proved/agent: by construction]
+
+# Conventions
+[Alexander normalization](../specs/knot-classical-invariants.md#alexander-coordinates).
+
+# Not guaranteed
+The general identification with the Alexander polynomial of a classical knot
+is unverified at the repository source-comparison level; the specification
+records the tested fixtures and missing source/convention bridge. No knot-type
+classification follows from equality. This normalization is not the symmetric
+surgery normalization: use the [surgery derivative translation](../specs/knot-classical-invariants.md#surgery-derivative)
+before supplying a second derivative to the Casson–Walker surgery API.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, Alexander coordinates and Surgery derivative — local polynomial and normalization meanings.
+
+# Examples
+```jldoctest
+julia> knot_polynomial_string(alexander_polynomial(pd_to_gauss(Int[])))
+"1"
+```
+
+See also [`polynomial_terms`](@ref), [`jones_polynomial`](@ref).
+
+Role: invariant
+"""
 function alexander_polynomial(d::KnotGaussDiagram)
     n = length(d.orientation)
     n == 0 && return ExactKnotLaurentPolynomial(:t, _lp_one())
@@ -211,7 +372,51 @@ function alexander_polynomial(d::KnotGaussDiagram)
     _normalized_alexander(_lp_det(minor))
 end
 
-"""PD rows and their independently reconstructed oriented crossing signs."""
+"""    KnotPD(rows, crossing_signs::AbstractVector{<:Integer}, component_count::Integer=1) -> KnotPD
+
+Construct a record of oriented planar-diagram crossing coordinates.
+
+# Arguments
+`rows`, `crossing_signs` and `component_count` use
+[PD coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+P1–P2 ([conditions](../specs/knot-classical-invariants.md#numbered-conditions))
+are the caller's responsibility for a knot diagram; construction is not full
+validation. The general converting method checks row width, sign-count
+agreement and positive component count, raising `ArgumentError` naming the
+failure; integer conversion errors propagate. The more specific three-field
+method with `Vector{NTuple{4,Int}}`, `Vector{Int}`, `Int` bypasses these checks.
+
+# Returns
+A `KnotPD` with `rows`, `crossing_signs` and `component_count` as defined in
+the PD coordinate entry. Use `verify_pd` before relying on P1–P2 for raw data.
+
+# Guarantees
+1. Successful conversion retains the supplied coordinate values in the declared field types. With P1–P2 these are the crossing coordinates of the specified one-component traversal. [proved/agent: by construction]
+2. The general converting method copies row/sign data; the typed field constructor shares its arrays. Neither changes an input array during construction. [proved/agent: by construction]
+
+# Conventions
+[PD slot and sign coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Not guaranteed
+A successful constructor does not certify planarity, component connectivity,
+local-frame signs or a knot type. The general literature identification of
+the coordinate convention remains unverified as stated in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, PD coordinates — repository crossing representation.
+
+# Examples
+```jldoctest
+julia> pd = KnotPD(NTuple{4,Int}[], Int[], 1);
+
+julia> verify_pd(pd)
+true
+```
+
+See also [`verify_pd`](@ref), [`pd_to_gauss`](@ref).
+
+Role: construct
+"""
 struct KnotPD
     rows::Vector{NTuple{4,Int}}
     crossing_signs::Vector{Int}
@@ -240,6 +445,46 @@ end
 
 Base.length(pd::KnotPD) = length(pd.rows)
 
+"""
+    pd_matrix(pd::KnotPD) -> Matrix{Int}
+
+Return the crossing rows of a planar-diagram record as an integer matrix.
+
+# Arguments
+`pd` is a `KnotPD`. No edge-incidence, crossing-sign, component or planarity
+validation is performed by this accessor.
+
+# Returns
+A newly allocated `Matrix{Int}` with one row per entry of `pd.rows` and
+four columns, preserving the record's row and slot orders. This belongs to
+the [KnotGauss API](../specs/knot-classical-invariants.md#definitions).
+
+# Guarantees
+1. Matrix row `i` contains the four entries of `pd.rows[i]` in order. [proved/agent: by construction]
+2. The result carries the same PD incidence rows as the input. Changes to
+   the matrix do not change `pd.rows`, and the input is unchanged by the call. [proved/agent: by construction]
+3. An empty row list returns a matrix with zero rows and four columns. [proved/agent: by construction]
+
+# Not guaranteed
+The matrix omits `crossing_signs` and `component_count` as separate fields.
+This operation does not certify a planar embedding or a knot type, choose
+a PD convention, or relabel the edges.
+
+# Sources
+cf:lib/topology.jl/src/knot_classical_invariants.jl, pd_matrix — stored polynomial and PD data access; no independent knot classification.
+
+# Examples
+```jldoctest
+julia> pd = pd_from_gauss(pd_to_gauss(Int[]));
+
+julia> size(pd_matrix(pd), 1)
+0
+```
+
+See also [`pd_from_matrix`](@ref), [`verify_pd`](@ref).
+
+Role: access
+"""
 function pd_matrix(pd::KnotPD)
     matrix = zeros(Int, length(pd.rows), 4)
     for (row_index, row) in enumerate(pd.rows)
@@ -326,7 +571,51 @@ function _pd_code_and_signs(pd::KnotPD, occurrences, cycle)
     code, signs
 end
 
-"""Validate a PD/rotation representation; links are rejected by default."""
+"""
+    verify_pd(pd::KnotPD; require_one_component::Bool=true, check_signs::Bool=true) -> Bool
+
+Check the combinatorial incidence, traversal and optional local signs of a PD record.
+
+# Arguments
+`pd` is a raw [PD record](../specs/knot-classical-invariants.md#pd-coordinates).
+P1–P2 ([conditions](../specs/knot-classical-invariants.md#numbered-conditions))
+are checked in the supported one-component domain. Invalid sign count or
+values, labels, occurrences, traversal cycles or component count raise
+`ArgumentError` identifying the failure. `check_signs=false` omits comparison
+with reconstructed local signs, but still checks that stored signs are `±1`.
+`require_one_component=false` omits the explicit one-component guard; other
+traversal-length checks remain active.
+
+# Returns
+`true` when the enabled checks succeed. Invalid supported data raise an
+exception rather than returning `false`.
+
+# Guarantees
+1. Successful return certifies the checked combinatorial PD conditions; with default options, the reconstructed local signs agree with the stored signs and the component count is one. [proved/agent: by construction]
+2. The input record and its arrays are unchanged. [proved/agent: by construction]
+
+# Conventions
+[PD frame](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Not guaranteed
+This does not certify a plane embedding, P3 or a knot type. Disabling the
+one-component guard is not a general link-validation API: traversal checks
+still impose the current knot-oriented restrictions. Disabling sign comparison
+does not make the stored signs the reconstructed signs.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, PD coordinates and P1–P3 — checked representation versus classical interpretation.
+
+# Examples
+```jldoctest
+julia> verify_pd(pd_from_gauss(pd_to_gauss(Int[])))
+true
+```
+
+See also [`pd_to_gauss`](@ref).
+
+Role: condition
+"""
 function verify_pd(pd::KnotPD; require_one_component::Bool=true,
                    check_signs::Bool=true)
     n = length(pd.rows)
@@ -355,7 +644,50 @@ function verify_pd(pd::KnotPD; require_one_component::Bool=true,
     true
 end
 
-"""Convert a signed Gauss diagram to the explicit local PD convention above."""
+"""    pd_from_gauss(d::KnotGaussDiagram) -> KnotPD
+
+Convert signed Gauss data to the repository's oriented PD crossing coordinates.
+
+# Arguments
+`d` satisfies K1 ([Gauss conditions](../specs/knot-gauss.md#numbered-conditions)).
+The result is checked by `verify_pd` under P1–P2
+([PD conditions](../specs/knot-classical-invariants.md#numbered-conditions));
+failed incidence, traversal or local-sign checks raise `ArgumentError` naming
+the failure. A planar-knot interpretation additionally requires caller-supplied
+P3; no independent classicality check is performed here.
+
+# Returns
+A `KnotPD` with converted rows and crossing signs, with component count one,
+in [PD coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Guarantees
+1. Successful return satisfies `verify_pd(result)` and represents the local crossing/arc data of the input in the specified PD frame. [proved/agent: by construction]
+2. The output owns new row and sign arrays; the input is unchanged. [proved/agent: by construction]
+
+# Conventions
+[PD coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Not guaranteed
+A checked combinatorial conversion does not supply a plane embedding or
+identify a knot type. The general source comparison for the PD frame remains
+unverified as recorded in the specification. Conversion back from raw rows
+need not preserve the original traversal root or direction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, PD coordinates — local Gauss/PD dictionary.
+
+# Examples
+```jldoctest
+julia> d = pd_to_gauss([[1,5,2,4], [3,1,4,6], [5,3,6,2]]);
+
+julia> verify_pd(pd_from_gauss(d))
+true
+```
+
+See also [`pd_matrix`](@ref), [`pd_to_gauss`](@ref).
+
+Role: convert
+"""
 function pd_from_gauss(d::KnotGaussDiagram)
     n = length(d.orientation)
     n == 0 && return KnotPD(NTuple{4,Int}[], Int[], 1)
@@ -382,11 +714,49 @@ function pd_from_gauss(d::KnotGaussDiagram)
     pd
 end
 
-"""Reconstruct one signed one-component Gauss diagram from PD notation.
+"""
+    pd_to_gauss(rows) -> KnotGaussDiagram
 
-The selected orientation starts at row 1, slot 1.  Its reversal is equivalent
-and is identified later by the Gauss canonicalizer; no invariant value is used
-to choose the signed decoration.
+Convert raw PD crossing rows to a signed one-component Gauss diagram.
+
+# Arguments
+`rows` uses the raw-row interface in
+[PD coordinates](../specs/knot-classical-invariants.md#pd-coordinates): pass
+`eachrow(M)` for a Julia matrix, or `.rows` for a `KnotPD`. Row entries must
+convert to `Int`; conversion errors propagate. P1–P2
+([conditions](../specs/knot-classical-invariants.md#numbered-conditions)) are
+checked, with `ArgumentError` describing invalid row width, labels, incidence,
+traversal or component structure. P3 for a classical-knot interpretation is
+the caller's responsibility, not independently checked here.
+
+# Returns
+A `KnotGaussDiagram` with visit and orientation tuples reconstructed from the PD traversal.
+
+# Guarantees
+1. On successful return, the converted data use the specified PD/Gauss local crossing correspondence; empty input represents the crossing-free circle. [proved/agent: by construction]
+2. The result satisfies K1. [proved/agent: by construction]
+3. The input rows are unchanged and output data are newly allocated. [proved/agent: by construction]
+
+# Conventions
+[PD frame and traversal coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Not guaranteed
+No plane embedding, classicality proof or knot-type identification is supplied.
+The general literature convention comparison remains unverified as stated in
+the specification. Input row order and local traversal choice can affect the
+returned representative; no canonical-root or traversal-reversal quotient
+is promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, PD coordinates — one-component coordinate conversion and source boundary.
+
+# Examples
+```jldoctest
+julia> crossing_count(pd_to_gauss(Int[]))
+0
+```
+
+Role: construct
 """
 function pd_to_gauss(rows)
     pd = pd_from_matrix(rows)
@@ -398,7 +768,50 @@ function pd_to_gauss(rows)
     KnotGaussDiagram(code, signs)
 end
 
-"""Normalize and independently sign-check a raw PD matrix."""
+"""
+    pd_from_matrix(rows) -> KnotPD
+
+Convert raw crossing rows to a sign-checked one-component PD record.
+
+# Arguments
+`rows` uses the raw-row interface in
+[PD coordinates](../specs/knot-classical-invariants.md#pd-coordinates): pass
+`eachrow(M)` for a Julia matrix, or `.rows` for a `KnotPD`. Row entries must
+convert to `Int`; conversion errors propagate. P1–P2
+([conditions](../specs/knot-classical-invariants.md#numbered-conditions)) are
+checked, with `ArgumentError` describing invalid row width, labels, incidence,
+traversal or component structure. P3 for a classical-knot interpretation is
+the caller's responsibility, not independently checked here.
+
+# Returns
+A `KnotPD` with normalized rows, crossing signs reconstructed from the local frame and component count one.
+
+# Guarantees
+1. On successful return, the converted data use the specified PD/Gauss local crossing correspondence; empty input represents the crossing-free circle. [proved/agent: by construction]
+2. `verify_pd(result)` is true. [proved/agent: by construction]
+3. The input rows are unchanged and output data are newly allocated. [proved/agent: by construction]
+
+# Conventions
+[PD frame and traversal coordinates](../specs/knot-classical-invariants.md#pd-coordinates).
+
+# Not guaranteed
+No plane embedding, classicality proof or knot-type identification is supplied.
+The general literature convention comparison remains unverified as stated in
+the specification. Input row order and local traversal choice can affect the
+returned representative; no canonical-root or traversal-reversal quotient
+is promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, PD coordinates — one-component coordinate conversion and source boundary.
+
+# Examples
+```jldoctest
+julia> verify_pd(pd_from_matrix(Int[]))
+true
+```
+
+Role: construct
+"""
 function pd_from_matrix(rows)
     normalized = _normalize_pd_rows(rows)
     n = length(normalized)
@@ -497,7 +910,49 @@ function _jones_t_terms(normalized_a::AbstractDict{Int,BigInt})
          for (exponent, coefficient) in normalized_a)
 end
 
-"""Compute the normalized Jones polynomial by an exact bracket state sum."""
+"""    jones_polynomial(d::KnotGaussDiagram) -> ExactKnotLaurentPolynomial
+
+Return the repository-normalized Jones bracket polynomial of a signed knot diagram.
+
+# Arguments
+`d` satisfies K1 ([Gauss conditions](../specs/knot-gauss.md#numbered-conditions)).
+P3 ([polynomial conditions](../specs/knot-classical-invariants.md#numbered-conditions))
+is the caller's responsibility for a classical-knot interpretation. The
+PD conversion checks its combinatorial conditions; invalid data raise
+`ArgumentError` describing the failed check. P4 is checked: too many crossings
+or residual nonintegral powers of the Jones variable raise `ArgumentError`.
+
+# Returns
+An `ExactKnotLaurentPolynomial` with variable `:t` and integer terms in the
+[Jones coordinates](../specs/knot-classical-invariants.md#jones-coordinates).
+
+# Guarantees
+1. The result is the exact state-sum polynomial with the writhe and variable normalization defined by those coordinates; the crossing-free circle returns one. [proved/agent: by construction]
+2. The input diagram is unchanged. [proved/agent: by construction]
+
+# Conventions
+[Jones smoothing and variable normalization](../specs/knot-classical-invariants.md#jones-coordinates).
+
+# Not guaranteed
+The general identification with the Jones polynomial of a classical knot is
+unverified at the repository source-comparison level; the specification states
+the tested fixtures and missing convention bridge. The crossing guard is not
+a practical runtime bound: the state sum grows exponentially. Polynomial
+equality does not classify knots, and no classicality certificate is returned.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, Jones coordinates — exact local bracket definition and evidence boundary.
+
+# Examples
+```jldoctest
+julia> knot_polynomial_string(jones_polynomial(pd_to_gauss(Int[])))
+"1"
+```
+
+See also [`invert_knot_variable`](@ref), [`alexander_polynomial`](@ref).
+
+Role: invariant
+"""
 function jones_polynomial(d::KnotGaussDiagram)
     pd = pd_from_gauss(d)
     verify_pd(pd)
@@ -510,7 +965,43 @@ function jones_polynomial(d::KnotGaussDiagram)
     ExactKnotLaurentPolynomial(:t, _jones_t_terms(normalized))
 end
 
-"""Substitute `t -> t^-1`, used for the mirror cross-check."""
+"""    invert_knot_variable(p::ExactKnotLaurentPolynomial) -> ExactKnotLaurentPolynomial
+
+Return the Laurent polynomial obtained by inverting its formal variable.
+
+# Arguments
+`p` is an [exact polynomial record](../specs/knot-classical-invariants.md#exact-polynomial-records).
+Its exponent negations must fit `Int` (P5 in the
+[conditions](../specs/knot-classical-invariants.md#numbered-conditions)); this
+is the caller's responsibility and overflow is not detected. Invalid raw
+record data are outside the normalized-polynomial interpretation.
+
+# Returns
+An `ExactKnotLaurentPolynomial` with the same variable symbol and a new term
+dictionary representing `p(t^-1)`.
+
+# Guarantees
+1. Under P5, the coefficient at exponent `k` in the result is the input coefficient at `-k`; no coefficient conjugation is performed. [proved/agent: by construction]
+2. The input record and its dictionary are unchanged; the result owns a new dictionary. [proved/agent: by construction]
+
+# Not guaranteed
+No knot is constructed or checked. The mirror interpretation for Jones data
+has the fixture scope and missing general source comparison stated in the
+polynomial specification. The operation does not impose Alexander normalization.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classical-invariants.md, Exact polynomial records and Coordinate choices — variable inversion and its finite mirror checks.
+
+# Examples
+```jldoctest
+julia> d = pd_to_gauss([[1,5,2,4], [3,1,4,6], [5,3,6,2]]);
+
+julia> jones_polynomial(mirror(d)) == invert_knot_variable(jones_polynomial(d))
+true
+```
+
+Role: move
+"""
 function invert_knot_variable(p::ExactKnotLaurentPolynomial)
     ExactKnotLaurentPolynomial(p.variable,
                                Dict(-exponent => coefficient

@@ -6,6 +6,51 @@ function _surface_partition(object)
     throw(ArgumentError("surface reconstruction requires explicit region decoration"))
 end
 
+"""
+    complement_regions(object) -> Vector{ComplementRegion}
+
+Return the planar complement-region records specified by a legacy ribbon decoration.
+
+# Arguments
+`object` is a `DecoratedHeegaardCode` or `CellularHeegaardDiagram`, with
+[legacy region data](../specs/heegaard-terminology.md#legacy-cellular-records).
+An object without an explicit decoration throws `ArgumentError` explaining
+that requirement. Ribbon-construction errors propagate. The caller must
+supply a valid boundary partition; partition validity is not checked here.
+
+# Returns
+A vector of `ComplementRegion` records, with region `id`, copied
+`boundary_cycles` from the corresponding decoration block, and `genus == 0`.
+
+# Guarantees
+1. For a valid decorated surface with planar complementary regions, the
+   records give its complement components and their boundary cycles.
+   [proved/agent: by construction]
+2. The input is unchanged and the returned boundary lists are independent
+   copies. [proved/agent: by construction]
+
+# Not guaranteed
+This does not infer a missing decoration or discover positive-genus
+complement regions. Invalid or overlapping blocks can be returned unchanged
+in content; use `validate` to check the decorated input.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §legacy cellular 記録 — boundary partitions and planar complement records.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> d = certify_heegaard(decorate(heegaard_code([[1]], [[1]], [Intersection(1,1,1,1)]), [[1]]));
+
+julia> complement_regions(d)[1].boundary_cycles == [1]
+true
+```
+
+See also [`boundary_cycles`](@ref), [`RegionPartition`](@ref), [`validate`](@ref).
+
+Role: access
+"""
 function complement_regions(object)
     partition = _surface_partition(object)
     cycles = boundary_cycles(object)
@@ -13,6 +58,52 @@ function complement_regions(object)
      for (index, block) in enumerate(partition.boundary_cycle_blocks)]
 end
 
+"""
+    euler_characteristic(object) -> Int
+
+Return the Euler characteristic of a decorated legacy ribbon surface with planar complements.
+
+# Arguments
+`object` is a `DecoratedHeegaardCode` or `CellularHeegaardDiagram` with valid
+[legacy region data](../specs/heegaard-terminology.md#legacy-cellular-records).
+Explicit decoration is required; otherwise `ArgumentError` explains that
+requirement. A code with no intersections or any empty curve word throws
+`ArgumentError` with `MARKED_INPUT_REQUIRED`, since the marked placement is
+missing. Other ribbon errors propagate. The caller must supply a valid
+partition and planar complement interpretation; these are not checked here.
+
+# Returns
+An `Int` equal to the Euler characteristic of that decorated surface on the
+stated domain.
+
+# Guarantees
+1. The result is the Euler characteristic of the ribbon neighbourhood with
+   the declared planar complementary regions attached.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not establish connectedness, surface validity, a complete cut
+system or a Heegaard splitting. Invalid decorations can yield an integer
+without representing the intended surface.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §legacy cellular 記録 — ribbon surface and planar complementary regions.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> H.euler_characteristic(d)
+0
+```
+
+See also [`surface_genus`](@ref), [`complement_regions`](@ref), [`validate`](@ref).
+
+Role: invariant
+"""
 function euler_characteristic(object)
     code = _undecorated(object)
     partition = _surface_partition(object)
@@ -24,6 +115,47 @@ function euler_characteristic(object)
     (length(graph.vertices) - length(graph.edges)) + region_euler
 end
 
+"""
+    surface_genus(object) -> Int
+
+Return the genus of the connected closed surface reconstructed from legacy region data.
+
+# Arguments
+`object` supplies a decorated legacy diagram, or a code whose surface
+partition is otherwise available under [legacy records](../specs/heegaard-terminology.md#legacy-cellular-records).
+Missing decoration, zero-intersection curves without marked surface data,
+disconnected reconstruction, nonintegral genus or negative genus raise
+`ArgumentError` identifying the obstruction. Incidence and ribbon errors
+propagate; the caller supplies valid surface data.
+
+# Returns
+The nonnegative integer genus of the reconstructed surface.
+
+# Guarantees
+1. On valid connected orientable surface data, the result satisfies
+   `2 - 2g == euler_characteristic(object)`.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is the genus of the represented surface, not the minimal Heegaard genus
+of a 3-manifold. It does not locate unspecified empty curves.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §legacy-cellular-records — complementary regions of the decorated ribbon surface.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]); H.surface_genus(d)
+1
+```
+
+See also [`euler_characteristic`](@ref).
+
+Role: invariant
+"""
 function surface_genus(object)
     code = _undecorated(object)
     χ = euler_characteristic(object)
@@ -41,6 +173,48 @@ function surface_genus(object)
     genus
 end
 
+"""
+    is_cellular(object) -> Bool
+
+Test whether every region in a legacy planar decoration is a disk region.
+
+# Arguments
+`object` is a `DecoratedHeegaardCode` or `CellularHeegaardDiagram` in the
+[legacy planar-region domain](../specs/heegaard-terminology.md#legacy-cellular-records).
+An unsupported undecorated object raises `ArgumentError` requiring explicit
+decoration. The caller guarantees a valid boundary partition; this function
+does not check incidence, partition coverage or embeddedness.
+
+# Returns
+`Bool`, testing the disk-region condition for every stored block. An empty
+list of blocks satisfies this universal test.
+
+# Guarantees
+1. On a valid planar complement decoration, the result states that all
+   complementary regions are disks. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+A positive result does not certify the decoration or a closed Heegaard
+splitting; arbitrary or incomplete partitions can satisfy the local test.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md, legacy cellular records — planar complement interpretation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> H = Topology.HeegaardCodes; d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> H.is_cellular(d)
+true
+```
+
+See also [`complement_regions`](@ref), [`is_closed_heegaard`](@ref).
+
+Role: condition
+"""
 function is_cellular(object)
     partition = _surface_partition(object)
     all(length(block) == 1 for block in partition.boundary_cycle_blocks)
@@ -97,12 +271,49 @@ function _ribbon_family_compression(object,role::Symbol)
     end
 end
 
-"""Compute compression boundary components from the decorated ribbon surface.
+"""
+    compression_boundary_report(object) -> NamedTuple
 
-Zero-intersection components require a full marked embedding. Redundant systems
-are distinguished from complete minimal cut systems; either may compress to a
-collection of spheres. Consumer algorithms requiring a basis must check the
-separate alpha_complete/beta_complete predicates.
+Return the boundary surfaces obtained by compressing a decorated legacy surface along each curve family.
+
+# Arguments
+`object` supplies valid [legacy decorated surface data](../specs/heegaard-terminology.md#legacy-cellular-records).
+Surface reconstruction, incidence and compression failures propagate as
+`ArgumentError` or native lookup errors. Zero-intersection components without
+marked embedding data are rejected. The caller supplies the valid orientable
+surface and curve embedding required for the geometric interpretation.
+
+# Returns
+A named tuple with surface genus, alpha/beta component counts and genus
+lists, separate completeness flags, a `closed` flag, detailed alpha/beta
+component records and a method description.
+
+# Guarantees
+1. On the supported embedded-surface domain, the report describes the two
+   compressed boundary surfaces of [the Heegaard construction](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+   [proved/agent: by construction]
+2. The completeness flags distinguish the required minimal systems from
+   merely spherical compression boundaries. [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The report does not locate empty curves or identify the resulting closed
+3-manifold. A true `closed` flag alone does not imply both completeness flags.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1 and lib/topology.jl/docs/specs/heegaard-terminology.md §legacy-cellular-records — compression boundaries and planar complementary regions.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]); r = H.compression_boundary_report(d); (r.surface_genus, r.alpha_complete, r.beta_complete, r.closed)
+(1, true, true, true)
+```
+
+See also [`certify_heegaard`](@ref).
+
+Role: access
 """
 function compression_boundary_report(object)
     code = _undecorated(object)

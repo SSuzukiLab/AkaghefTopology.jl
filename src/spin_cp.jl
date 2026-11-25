@@ -103,25 +103,55 @@ function _spin_cp_transport_boundary(source,target,endpoint_trace,source_boundar
      explicit_target=explicit_target)
 end
 
-"""Transport a closed-normal Z2-weighted graph by the two published spin CP rules.
+"""
+    spin_cp_transport(v::VirtualLink, candidate::MoveCandidate; normalize::Bool=true, boundary=nothing) -> NamedTuple
 
-The source is Mih23, managed Work w-f2194518-7624-4b07-9eb5-3e04e0a7d036,
-anchors ^m23-fig-0094 (CP) and ^m23-fig-0093 (H).
-`normalize=false` accepts exactly the displayed internal edge weights; the
-external edge weights remain arbitrary and unchanged. `normalize=true` first
-tries explicit local H moves (in deterministic bit-mask order). This is H*CP,
-not an arbitrary solution of the target spin equations. The returned record
-names every H vertex; it is not a durable independent replay certificate.
+Return a spin CP target with its local H normalization and directed boundary transport.
 
-The exact displayed rules are mutually inverse after aligning cyclic edge
-occurrences (the existing move engine may change the cycle's starting point).
-`target_vertices` gives the output CP roles, including newly allocated labels.
-With H normalization a reverse
-CP returns an H-equivalent representative, not necessarily the original weights.
-For an uncut source, both source and target must pass closed-normal C1-C3
-and the spin equation.
-For a cut source, `boundary=nothing` captures the measured open-path residues
-as directed endpoint targets; an explicit map is validated before transport.
+# Arguments
+Checked: S6–S9 of [spin CP transport](../specs/spin-weights.md#spin-cp-transport):
+canonical Z2 assignment, a current CP site, the appropriate closed or cut
+validation, and a matching local rule. Violations raise `ArgumentError`;
+metadata, target-length and row-key errors may raise `DimensionMismatch`
+or `BoundsError`. Unsupported geometry errors propagate.
+Caller: the geometric interpretation requires the source's circuit and CP
+identification. `normalize` and `boundary` have the meanings in that section.
+
+# Returns
+A record with `target`, local `case`, `direction`, target vertex roles and
+occurrences, `source_h_vertices`, `normalized_source`, source figure,
+normalization flag, coefficient moduli and source/target boundary records,
+as specified under [spin CP transport](../specs/spin-weights.md#spin-cp-transport).
+
+# Guarantees
+1. The target has canonical Z2 weights satisfying the supported spin equation;
+   uncut source and target additionally pass closed-normal certification.
+   [proved/agent: by construction]
+2. The recorded H normalization followed by the selected CP rule determines
+   the target. For cut inputs, the source targets agree with the target
+   measurements through the recorded directed endpoint map.
+   [proved/agent: by construction]
+3. The source, candidate and supplied boundary data are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The record is not an independent replay certificate or an integer-framing
+transport. With H normalization, reversing CP need not restore the original
+raw weights. Relative target preservation does not yet establish geometric
+boundary spin extension.
+
+# Sources
+cf:[[Mih23#^m23-fig-0094]] CP rule; [[Mih23#^m23-fig-0093]] H rule; [spin specification](../specs/spin-weights.md#spin-cp-transport) — implemented coordinate and evidence scope.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[1,-2,2,-3,3,-1], orientation=[-1,-1,-1]); set_weight!(v, [1,0,1,0,1,0]); c = only(movable(v, "CP"; vertices=[1,2,3], strict=true));
+
+julia> r = spin_cp_transport(v, c; normalize=false); (r.case, isempty(r.source_h_vertices), is_spin_weight(r.target))
+(0, true, true)
+```
+
+Role: move
 """
 function spin_cp_transport(v::VirtualLink,candidate::MoveCandidate;
                            normalize::Bool=true,boundary=nothing)
@@ -206,7 +236,45 @@ function spin_cp_transport(v::VirtualLink,candidate::MoveCandidate;
         (normalize ? " by local H moves" : "; enable normalize for explicit local H moves")))
 end
 
-"Return the target of `spin_cp_transport`; see it for normalization and inverse semantics."
+"""
+    spin_cp_move(v::VirtualLink, candidate::MoveCandidate; normalize::Bool=true, boundary=nothing) -> VirtualLink
+
+Return the Z2-weighted target of a spin CP move with optional local H normalization.
+
+# Arguments
+Checked: S6–S9 and the exceptions of `spin_cp_transport`, as specified in
+[spin CP transport](../specs/spin-weights.md#spin-cp-transport).
+Caller: supply the geometric source identification required there; otherwise
+the result has only the stated coordinate-equation meaning.
+
+# Returns
+The target diagram of `spin_cp_transport` with the same arguments.
+
+# Guarantees
+1. The target has the validated closed or relative spin weights of the
+   selected local CP rule, following any requested H normalization.
+   [proved/agent: by construction]
+2. The supplied diagram and candidate are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The normalization and boundary trace are not returned; use
+`spin_cp_transport` to retain them. No integral framing or unproved geometric
+relative spin-extension claim follows from this coordinate calculation.
+
+# Sources
+cf:[[Mih23#^m23-fig-0094]] CP and [[Mih23#^m23-fig-0093]] H; [spin specification](../specs/spin-weights.md#spin-cp-transport).
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[1,-2,2,-3,3,-1], orientation=[-1,-1,-1]); set_weight!(v, [1,0,1,0,1,0]); c = only(movable(v, "CP"; vertices=[1,2,3], strict=true));
+
+julia> is_spin_weight(spin_cp_move(v, c; normalize=false))
+true
+```
+
+Role: move
+"""
 spin_cp_move(v::VirtualLink,candidate::MoveCandidate;
              normalize::Bool=true,boundary=nothing)=
     spin_cp_transport(v,candidate;normalize=normalize,boundary=boundary).target

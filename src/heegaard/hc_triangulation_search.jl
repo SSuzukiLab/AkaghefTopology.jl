@@ -1,15 +1,98 @@
 # cf: docs/specs/heegaard-snappy.md — fixed bounded inverse search and evidence boundaries.
 
-"""Return safe native 2->3 neighbors with inverse replay certificates (unoriented)."""
+"""
+    hc_pachner_neighbors(input; kwargs...) -> Dict{String,Any}
+
+Return backend-certified positive Pachner neighbors of a finite triangulation.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or explicit face-pairing dictionary in
+[the bridge domain](../specs/heegaard-snappy.md). Keywords include an existing
+Python `runner::Cmd` and positive `timeout`; invalid runner or timeout raises
+`ArgumentError`. Backend availability, execution and malformed replies raise
+`SnapPyUnavailable` or `SnapPyExecutionError`.
+
+# Returns
+The bridge reply dictionary, including source `isosig` and neighbor `states`
+with triangulations, topology data and inverse-replay move certificates.
+
+# Guarantees
+1. A successful return is a successful bridge reply for the unchanged
+   input's native positive 2→3 moves. [proved/agent: by construction]
+2. Registered backend fixtures have one additional tetrahedron per neighbor,
+   unchanged vertex count and inverse replay restoring the source isoSig.
+   [verified-computationally: test/heegaard/hc_triangulation.jl, native Pachner-neighbor checks]
+3. The input is not modified; temporary files and a child process are used.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Returned identities are unoriented. This entry does not enumerate all
+Pachner move kinds, construct a branching or produce a resolved HC. An
+unavailable backend is not evidence that no neighbor exists.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — native Pachner moves and inverse-replay boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.hc_pachner_neighbors(Dict{String,Any}(); timeout=0) catch e; e isa ArgumentError end
+true
+```
+
+Role: move
+"""
 hc_pachner_neighbors(input;kwargs...) = _hc_snappy_call(
     input isa HCClosedTriangulation ? hc_triangulation_data(input) : input;
     extra_args=["--pachner-neighbors"],kwargs...)
 
-"""Search safe positive 2->3 moves and full branchings, retaining the best intermediate.
+"""
+    hc_prepare_inverse(input; max_depth::Int=2, max_states::Int=64, max_extra_tetrahedra::Int=2, max_nodes::Int=100_000, max_solutions::Int=1024, runner=nothing, timeout::Real=120) -> Dict{String,Any}
 
-No resolved HC is claimed: a successful Koda stage returns its checked surface
-cut certificate and the explicit remaining PL-identification/overlay stop.
-The current native move set preserves vertex count; multiple vertices stop.
+Search a bounded set of triangulations and branchings for a checked Koda reconstruction.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or explicit face-pairing dictionary in
+[the inverse-search domain](../specs/heegaard-snappy.md).
+Nonnegative depth and extra-tetrahedron limits and positive state count are
+checked with `ArgumentError`. Branching budgets, runner and timeout have the
+domains of `hc_find_branching` and `hc_pachner_neighbors`. Initial malformed
+triangulation and backend errors can propagate.
+
+# Returns
+A dictionary with `status`, `stop`, `hc`, `limits`, `attempts`, `moves` and
+current `triangulation`; a successful Koda stage adds flow, o-data, branching,
+joining-region and surface-cut certificates.
+
+# Guarantees
+1. A `koda_only` result contains the checked flow reconstruction and surface
+   cut of its reported triangulation. `hc` remains `nothing`.
+   [proved/agent: by construction]
+2. Multiple finite vertices stop with `multiple_finite_vertices_unreduced`.
+   Search stops distinguish resource bounds and certificate failure.
+   [proved/agent: by construction]
+3. The input is not modified; backend calls can launch child processes and
+   use temporary files. [proved/agent: by construction]
+
+# Not guaranteed
+No resolved LC-bound HC or general PL identification is produced. A bounded
+search stop is not nonexistence of a suitable diagram. The timeout applies
+to backend calls, not the entire search, and returned diagnostic data may
+share the original input dictionary.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — bounded inverse search and unresolved reference overlay.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.hc_prepare_inverse(Dict{String,Any}(); max_depth=-1) catch e; e isa ArgumentError end
+true
+```
+
+Role: convert
 """
 function hc_prepare_inverse(input;max_depth::Int=2,max_states::Int=64,max_extra_tetrahedra::Int=2,
                             max_nodes::Int=100_000,max_solutions::Int=1024,

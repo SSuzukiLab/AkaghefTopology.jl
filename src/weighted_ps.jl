@@ -2,11 +2,45 @@
 # Taguchi23 framing.tex definition IPS-move, original IPS.jpg and Ci.png.
 # Internal API: candidate remains the frozen unweighted catalogue witness.
 
-"""Freeze a choice of the paper's edge-portion weight `k` for a forward PS.
+"""
+    weighted_ps_candidate(candidate::MoveCandidate; k) -> MoveCandidate
 
-When both selected portions belong to one real edge of weight `W`, the other
-portion has weight `l=W-k`. Applicability and exact integer bounds are checked
-again against the actual weighted source on application.
+Return a forward PS candidate carrying the chosen integral edge-portion weight.
+
+# Arguments
+Checked: the candidate must be a forward PS; otherwise `ArgumentError`.
+The value `k` must satisfy the exact safe-integer conversion rule of
+[integral PS](../specs/virtual-link-moves.md#125-integral-ps); invalid values
+raise `ArgumentError`.
+Caller: apply the resulting candidate only to a source satisfying the
+shared-edge and PS applicability conditions of that section.
+
+# Returns
+A `MoveCandidate` with the same geometric site and templates, and a
+`BigInt` split value in `ps_split_k`.
+
+# Guarantees
+1. The selected portion is retained for subsequent source-specific integral
+   PS transport. [proved/agent: by construction]
+2. The input is unchanged; vertex, edge and location vectors are copied,
+   while the before/after templates are shared. [proved/agent: by construction]
+
+# Not guaranteed
+This call does not test the actual source, the complementary portion,
+applicability or framing equation. Those checks occur on application.
+
+# Sources
+cf: [virtual-link moves §12.5](../specs/virtual-link-moves.md#125-integral-ps) — integral edge portions and application checks.
+
+# Examples
+```jldoctest
+julia> c = MoveCandidate("PS", "1", Int[], NTuple{2,Int}[], :forward, nothing, nothing, Tuple{Int,Int}[]);
+
+julia> weighted_ps_candidate(c; k=3).ps_split_k == 3 && c.ps_split_k === nothing
+true
+```
+
+Role: convert
 """
 function weighted_ps_candidate(candidate::MoveCandidate;k)
     candidate.type=="PS" && candidate.direction==:forward ||

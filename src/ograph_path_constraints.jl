@@ -41,13 +41,62 @@ function _opath_candidate(v,data)
     only(matching)
 end
 
-"""Extract C*x=d and y=T*x+b for an authenticated closed MP/02 edge.
+"""
+    ograph_move_weight_relation(store, edge) -> NamedTuple
 
-The source code uses only addition/subtraction of edge portions after checking
-fixed internal coordinates. Evaluating one admissible origin and each FREE
-coordinate basis vector therefore extracts the exact affine map, not an
-empirical guess from arbitrary samples. Fixed-coordinate columns are zero;
-their effect is included in b. Public weighted replay checks solved witnesses.
+Return the integer affine weight relation of one stored geometric move.
+
+# Arguments
+- `store`: an open writable search store. Existing cached relations must be
+  authentic; cache hits are decoded without fresh move authentication.
+- `edge`: a successful closed MP or literal-02 path row. Other kinds throw
+  `ArgumentError`. On a cache miss, the candidate must match the source and
+  target; `ArgumentError` identifies unauthentic candidates, incompatible
+  fixed coordinates, open fragments or target geometry mismatch. Database,
+  malformed-row and numeric conversion errors propagate.
+  See [exact path-weight scope](../specs/ograph-search-db.md#exact-h-insertion-feasibility)
+  and [cache/coordinate requirements](../specs/ograph-search-db.md#affine-caches-and-endpoint-coordinates).
+
+# Returns
+Big-integer matrices `C`, `T` and vectors `d`, `b`. `C*x == d` describes the
+fixed-coordinate admissibility conditions and `T*x + b` gives the destination
+weights in edge-occurrence order. Matrix columns refer to source edges;
+rows of `T` and entries of `b` refer to target edges.
+
+# Guarantees
+1. For authentic rows and cache entries, the result describes the integer affine extension of the move's weight transport under the linked path specification. [proved/agent: by construction]
+2. Repeated calls can reuse the stored relation for the operation and algorithm version. [proved/agent: by construction]
+3. The database may gain the relation table and a cached row; `edge` is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The relation alone does not verify disk equations, a framing, or a geometric
+path's endpoint identification. Arbitrarily large integer solutions need not
+be faithfully represented by the `Float64` weights of a `VirtualLink`;
+replay through the public weighted API is required before claiming a move word.
+Manually altered cached rows are not independently certified here.
+
+# Sources
+cf:docs/specs/ograph-search-db.md#exact-h-insertion-feasibility — affine integer transport and required weighted replay.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_search_store!(store);
+
+julia> run = begin_ograph_search_run!(store, joinpath(pkgdir(Topology), "test", "ograph_path_constraints.jl"); label="affine relation smoke");
+
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,-2,3,4,-4,-3,2,1]], orientation=ones(Int,4)); sid = put_ograph_search_state!(store, v).state_id;
+
+julia> rows = expand_ograph_search_state!(store, run, v, "02"; selector=Dict("direction" => "forward"));
+
+julia> edge = only(query_ograph_search_path(store, sid; target_state_id=String(first(rows).target_state_id), kinds=("02",), max_depth=1));
+
+julia> relation = ograph_move_weight_relation(store, edge); relation == ograph_move_weight_relation(store, edge)
+true
+
+julia> close_store!(store);
+```
+
+Role: access
 """
 function ograph_move_weight_relation(store,edge)
     edge.move_kind in ("MP","02") || throw(ArgumentError("MP and literal 02 only"))
@@ -132,12 +181,75 @@ function ograph_move_weight_relation(store,edge)
     (C=C,d=d,T=T,b=b)
 end
 
-"""Solve all integer H insertions on a DB-selected path at once.
+"""
+    solve_ograph_path_weights(store, weighted_source, path; target_weights=nothing, target_generator=nothing, target_permutation=nothing, relation_cache=Dict()) -> NamedTuple
 
-H variables are present at EVERY stage, including the source and the target.
-If target_generator is supplied, solve for a shift s as an additional integer
-variable instead of fixing the final weight. shift_lattice=(offset,step)
-describes every attainable s for this path and the given source weights.
+Solve the integer H-insertion constraints along a fixed geometric o-graph path.
+
+# Arguments
+`store` is an open search store; `path` is a nonempty composable sequence of
+stored step records starting at the geometry of `weighted_source`.
+Empty paths, mismatched source geometry and noncomposable paths throw
+`ArgumentError`. Supply a coherent closed `VirtualLink` with finite integral
+weights in the [integer framing domain](../specs/ograph-search-db.md#exact-h-insertion-feasibility).
+This function does not enforce that domain: source weights are rounded to
+integers. `target_weights` defaults to those source weights.
+`target_generator`, when present, supplies an integral endpoint shift direction.
+Wrong target or generator length throws `DimensionMismatch`.
+`target_permutation` must be the caller's valid endpoint coordinate permutation;
+bijectivity is not checked. A supplied cache must contain the correct affine
+relations for its operation IDs. Conversion, indexing, database and relation
+errors propagate; an H coefficient outside `Int` can throw `InexactError`.
+
+# Returns
+A named tuple with `solution`, `h_moves`, `shift`, `shift_lattice`,
+`target_weights`, `target_generator` and `target_permutation`.
+The integer-system result determines feasibility. Successful solutions include
+nonzero H insertions; a requested shift additionally has its chosen value and
+integer lattice. Without an integer solution the insertions are empty and
+both shift fields are `nothing`.
+
+# Guarantees
+1. Under the stated domain and relation preconditions, the equations express
+   the linked exact H-insertion problem on this path, including insertions
+   at its source and target. [proved/agent: by construction]
+2. For an integer solution with a shift direction, `shift_lattice` describes
+   all shifts admitted by that integer system; step zero means a singleton.
+   [proved/agent: by construction]
+3. The source and path are unchanged. Relation caching can write to the store
+   and to `relation_cache`; returned generator and permutation values can
+   alias the supplied values. [proved/agent: by construction]
+
+# Not guaranteed
+Feasibility concerns this path, not all move paths or a manifold classification.
+The result is not independently replayed through the public weighted moves.
+Use `record_weighted_ograph_path_trial!` to check that replay. Incorrect cached
+relations, nonintegral source weights, invalid endpoint correspondences and
+loss of integer precision in floating-point weight storage are outside the
+mathematical guarantee.
+
+# Sources
+cf:docs/specs/ograph-search-db.md#exact-h-insertion-feasibility — the fixed-path integer problem and its separate replay check.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> store = open_store(); migrate_ograph_search_store!(store); v = vl_example("s2xs1"); set_weight!(v, [1,-1,-1,0,1,0,-1,0]); s = put_ograph_search_state!(store, v);
+
+julia> r = begin_ograph_search_run!(store, joinpath(pkgdir(Topology), "test", "ograph_path_constraints.jl"); label="affine relation smoke"); edges = expand_ograph_search_state!(store, r, v, "02"; selector=Dict("direction" => "forward"));
+
+julia> path = query_ograph_search_path(store, s.state_id; target_state_id=String(first(edges).target_state_id), kinds=("02",), max_depth=1); target = replay_weighted_ograph_path(store, v, path).target; move!(target, "H"; vertices=[1], param=3);
+
+julia> solve_ograph_path_weights(store, v, path; target_weights=BigInt.(vcat(target.weights...))).solution.status
+:integer_solution
+
+julia> close_store!(store);
+```
+
+See also [`replay_weighted_ograph_path`](@ref), [`ograph_move_weight_relation`](@ref).
+
+Role: convert
 """
 function solve_ograph_path_weights(store,weighted_source,path;
         target_weights=nothing,target_generator=nothing,target_permutation=nothing,
@@ -200,6 +312,65 @@ function solve_ograph_path_weights(store,weighted_source,path;
      target_permutation=target_permutation)
 end
 
+"""
+    record_ograph_path_constraint_trial!(store, run_id, source, path, result) -> String
+
+Store an exact H-insertion feasibility result for a geometric move path and return its trial identifier.
+
+# Arguments
+`store` must be an open search store and `run_id` an existing run. `source`
+is the weighted `VirtualLink` and `path` the ordered step records used to
+compute `result` with [`solve_ograph_path_weights`](@ref). Their mutual
+consistency is the caller's responsibility: this function does not solve or
+replay them. Missing result fields, nonintegral source weights, serialization
+errors and database constraints propagate errors.
+
+# Returns
+A `String` trial identifier, derived from the run, ordered operation IDs,
+source/target settings and current constraint-algorithm version.
+
+# Guarantees
+1. Successful return stores the result's integer system, status and solution
+   certificate or obstruction, together with its path and endpoint settings.
+   Source, path and result values are unchanged. [proved/agent: by construction]
+2. Repeating the same identity replaces the trial payload. The stored claim
+   concerns [exact H-insertion feasibility](../specs/ograph-search-db.md#exact-h-insertion-feasibility)
+   on that geometric path, with the scope of the supplied solver result.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The supplied result is not checked against the equations, path or source.
+A stored positive solution is not a replayed weighted move word; use
+`record_weighted_ograph_path_trial!` for that independent check. A negative
+result on one path does not exclude other geometric paths.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-search-db.md §Exact H-insertion feasibility — persisted equations, witnesses and obstructions, followed by weighted replay.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> store = open_store(); migrate_ograph_search_store!(store); v = vl_example("s2xs1"); set_weight!(v, [1,-1,-1,0,1,0,-1,0]); s = put_ograph_search_state!(store, v);
+
+julia> r = begin_ograph_search_run!(store, joinpath(pkgdir(Topology), "test", "ograph_path_constraints.jl"); label="affine relation smoke"); edges = expand_ograph_search_state!(store, r, v, "02"; selector=Dict("direction" => "forward"));
+
+julia> path = query_ograph_search_path(store, s.state_id; target_state_id=String(first(edges).target_state_id), kinds=("02",), max_depth=1); target = replay_weighted_ograph_path(store, v, path).target;
+
+julia> move!(target, "H"; vertices=[1], param=3); weights = BigInt[e.weight for e in real_edge_table(target)]; result = solve_ograph_path_weights(store, v, path; target_weights=weights);
+
+julia> record_ograph_path_constraint_trial!(store, r, v, path, result);
+
+julia> length(query_ograph_path_constraint_trials(store; source_state_id=s.state_id, target_weights=weights, status=:integer_solution))
+1
+
+julia> close_store!(store);
+```
+
+See also [`solve_ograph_path_weights`](@ref), [`query_ograph_path_constraint_trials`](@ref).
+
+Role: other
+"""
 function record_ograph_path_constraint_trial!(store,run_id,source,path,result)
     MoveGraphStore._dbexec(store.db,"""
         CREATE TABLE IF NOT EXISTS ograph_search_constraint_trials (
@@ -246,11 +417,62 @@ function record_ograph_path_constraint_trial!(store,run_id,source,path,result)
     id
 end
 
-"""Recover stored path/H witnesses or obstructions, including composed walks.
+"""
+    query_ograph_path_constraint_trials(store; source_state_id=nothing, target_weights=nothing, status=nothing, limit::Integer=100) -> Vector{NamedTuple}
 
-status is an equation-system status, not a proof of closed-normal semantics.
-replay_outcome reports whether this exact path/source/H recipe was separately
-replayed. target_weights filters a fixed target, excluding variable-shift trials.
+Read stored integer path-weight solutions or obstructions and their separate replay outcomes.
+
+# Arguments
+- `store`: an open store containing constraint-trial and weighted-trial tables;
+  absent tables or malformed stored data propagate database/decoding errors.
+- `source_state_id`: optional exact source filter.
+- `target_weights`: optional fixed integer target; conversion to `BigInt` must
+  succeed. Variable-shift trials are excluded when this filter is supplied.
+- `status`: `nothing`, `:integer_solution`, `:rational_only` or `:inconsistent`
+  (the corresponding strings are also accepted). Unknown status throws
+  `ArgumentError`. This is an equation-system status.
+- `limit`: positive and representable as `Int`; nonpositive limits throw
+  `ArgumentError`. Stored source weights and H data must also convert to `Int`.
+
+# Returns
+Rows ordered by trial ID, with `trial_id`, `run_id`, decoded `path`, `h_moves`,
+stored solver `result`, and optional `replay_outcome` for the same run, path,
+source weights and H recipe.
+
+# Guarantees
+1. Returned records satisfy the supplied filters and their count is at most `limit`. [proved/agent: by construction]
+2. Results retain the fixed-path integer-equation meaning of the linked specification; composed walks are not excluded merely for repeated states. [proved/agent: by construction]
+3. The database and arguments are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Reading a stored solution does not recompute its certificate or replay its
+weighted move word. A missing replay outcome is not a failed replay, and a
+stored equation obstruction does not exclude other geometric paths.
+
+# Sources
+cf:docs/specs/ograph-search-db.md#exact-h-insertion-feasibility — trial retrieval, composed paths and independent weighted replay.
+
+# Examples
+```jldoctest
+julia> store = open_store(); migrate_ograph_search_store!(store);
+
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,-2,3,4,-4,-3,2,1]], orientation=ones(Int,4)); set_weight!(v, [1,-1,-1,0,1,0,-1,0]); sid = put_ograph_search_state!(store, v).state_id;
+
+julia> run = begin_ograph_search_run!(store, joinpath(pkgdir(Topology), "test", "ograph_path_constraints.jl"); label="affine relation smoke"); rows = expand_ograph_search_state!(store, run, v, "02"; selector=Dict("direction" => "forward"));
+
+julia> path = query_ograph_search_path(store, sid; target_state_id=String(first(rows).target_state_id), kinds=("02",), max_depth=1); target = replay_weighted_ograph_path(store, v, path).target;
+
+julia> move!(target, "H"; vertices=[1], param=3); weights = BigInt[e.weight for e in real_edge_table(target)]; solution = solve_ograph_path_weights(store, v, path; target_weights=weights);
+
+julia> record_ograph_path_constraint_trial!(store, run, v, path, solution); record_weighted_ograph_path_trial!(store, run, v, path; h_moves=solution.h_moves);
+
+julia> saved = query_ograph_path_constraint_trials(store; source_state_id=sid, target_weights=weights, status=:integer_solution); (length(saved), only(saved).replay_outcome)
+(1, "admissible")
+
+julia> close_store!(store);
+```
+
+Role: access
 """
 function query_ograph_path_constraint_trials(store;source_state_id=nothing,
         target_weights=nothing,status=nothing,limit::Integer=100)

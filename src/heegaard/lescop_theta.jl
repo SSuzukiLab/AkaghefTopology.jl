@@ -81,11 +81,40 @@ function _lescop_intersections(data)
 end
 
 """
-    lescop_intersection_terms(H::HeegaardDiagram, matching)
+    lescop_intersection_terms(H::CellularHeegaardDiagram, matching) -> NamedTuple
 
-Return the exact intersection terms (ell2, sl) for a certified rational
-homology sphere diagram. The matching gives the crossing IDs of a perfect
-matching between the alpha and beta systems.
+Compute the exact intersection terms of the implemented Lescop diagram formula.
+
+# Arguments
+`H` is a legacy cellular diagram for a rational homology sphere and `matching` is a [matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語) of crossing IDs. Both complete cut systems, the matching and nonsingularity are checked; failed checks raise `ArgumentError`. Incidence and exact-linear-algebra errors propagate.
+
+# Returns
+A named tuple `(ell2, sl)` of exact rational numbers.
+
+# Guarantees
+1. The result is the pair of diagram-and-matching intersection terms used by `lescop_theta`. [proved/agent: by construction]
+2. Inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+A general identification with the geometric invariant requires the matching, homology-coordinate and combing conventions to agree with the source. The current specification does not establish that full identification; the result is the implemented diagram quantity, not an independently certified manifold invariant.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — Lescop's diagram-dependent quantity and matching.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> D = H.certify_heegaard(H.decorate(H.heegaard_code([[1,2]], [[1,2]], [H.Intersection(i,1,1,1) for i in 1:2]); cellular=true));
+
+julia> r = H.lescop_intersection_terms(D, [1]); (r.ell2, r.sl)
+(0//1, 0//1)
+```
+
+Role: invariant
 """
 function lescop_intersection_terms(H::HeegaardDiagram, matching)
     terms = _lescop_intersections(_lescop_data(H, matching))
@@ -176,14 +205,40 @@ function _lescop_rotation(H, data, terms, exterior_region)
 end
 
 """
-    lescop_theta(H::HeegaardDiagram, matching, exterior_region::Integer)
+    lescop_theta(H::CellularHeegaardDiagram, matching, exterior_region::Integer) -> NamedTuple
 
-Evaluate (ell2, sl, e, theta) exactly from a rational homology sphere
-Heegaard diagram, a matching of crossing IDs, and the index of the
-complement region containing the exterior point. The rotation term is
-recovered from planar face turning numbers and a dual potential. The
-result uses Lescop's infinity combing convention, with the Heegaard
-surface oriented as the boundary of the alpha handlebody.
+Evaluate the exact implemented Lescop diagram expression at an exterior region.
+
+# Arguments
+`H` is a legacy cellular diagram for a rational homology sphere and `matching` is a [matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語) of crossing IDs. Both complete cut systems, the matching and nonsingularity are checked; failed checks raise `ArgumentError`. Incidence and exact-linear-algebra errors propagate. `exterior_region` indexes a complement region; an invalid index or inconsistent face-turn equations raises `ArgumentError`.
+
+# Returns
+A named tuple `(ell2, sl, e, theta)` of exact rational numbers.
+
+# Guarantees
+1. The intersection terms agree with `lescop_intersection_terms` and `theta == ell2 + sl - e`; `e` is the implemented exterior-region rotation correction. [proved/agent: by construction]
+2. The value retains its diagram, matching and exterior-region dependence. Inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+A general identification with the geometric invariant requires the matching, homology-coordinate and combing conventions to agree with the source. The current specification does not establish that full identification; the result is the implemented diagram quantity, not an independently certified manifold invariant. Independence of the exterior region or matching is not asserted.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — Lescop's Θ and its selected diagram data.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> D = H.certify_heegaard(H.decorate(H.heegaard_code([[1,2]], [[1,2]], [H.Intersection(i,1,1,1) for i in 1:2]); cellular=true));
+
+julia> r = H.lescop_theta(D, [1], 2); (r.ell2, r.sl, r.e, r.theta)
+(0//1, 0//1, -1//4, 1//4)
+```
+
+Role: invariant
 """
 function lescop_theta(H::HeegaardDiagram, matching, exterior_region::Integer)
     data = _lescop_data(H, matching)
@@ -220,14 +275,40 @@ function _lescop_half_arc(visits, base, target)
 end
 
 """
-    lescop_p1_difference(H, matching, from_id, to_id)
+    lescop_p1_difference(H::CellularHeegaardDiagram, matching, from_id::Integer, to_id::Integer) -> NamedTuple
 
-Return the linking number and the p₁ difference across one oriented beta
-edge. The path meets that edge once with intersection +1 and meets no alpha
-curve, so it runs from the geometric left of the edge to the geometric
-right. The returned `delta_p1` is p₁ at the right region minus p₁ at the
-left region, equal to eight times the linking number. The matching is a
-crossing id on each alpha and each beta. Theta is not consulted.
+Compute the implemented linking term and p₁ change across an oriented beta edge.
+
+# Arguments
+`H` is a legacy cellular diagram for a rational homology sphere and `matching` is a [matching](../specs/heegaard-terminology.md#91-群と不変量で使う用語) of crossing IDs. Both complete cut systems, the matching and nonsingularity are checked; failed checks raise `ArgumentError`. Incidence and exact-linear-algebra errors propagate. `from_id` and `to_id` must be consecutive crossing IDs in the directed beta word; absence, different beta curves or a wrong successor raises `ArgumentError`.
+
+# Returns
+A named tuple `(lk, delta_p1)` of exact rational numbers.
+
+# Guarantees
+1. The returned `delta_p1` is eight times the returned `lk`, for the specified directed edge and matching. [proved/agent: by construction]
+2. The quantity is the implemented edge-crossing contribution intended for the infinity-combing p₁ difference; inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+A general identification with the geometric invariant requires the matching, homology-coordinate and combing conventions to agree with the source. The current specification does not establish that full identification; the result is the implemented diagram quantity, not an independently certified manifold invariant. The edge-side translation to a geometric left-to-right basepoint motion is not separately certified by this call.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — diagram and matching dependence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> D = H.certify_heegaard(H.decorate(H.heegaard_code([[1,2]], [[1,2]], [H.Intersection(i,1,1,1) for i in 1:2]); cellular=true));
+
+julia> r = H.lescop_p1_difference(D, [1], 1, 2); (r.lk, r.delta_p1)
+(-1//4, -2//1)
+```
+
+Role: invariant
 """
 function lescop_p1_difference(H::HeegaardDiagram, matching, from_id::Integer, to_id::Integer)
     data = _lescop_data(H, matching)
@@ -401,13 +482,40 @@ function _lescop_arrival_vector(code, first_matching, second_matching)
 end
 
 """
-    lescop_epsilon(H, matching, other)
+    lescop_epsilon(H::CellularHeegaardDiagram, matching, other) -> Vector{Int}
 
-Return the coordinates of ε(matching, other) in H₁. The cycle is the one in
-[[OS04a]] subsection `subsec:Disks`: along alpha from the first matching to
-the second, then along beta back. Coordinates are α · γ, stored as the
-lexicographically smallest representative with entries in `0:|det|−1`. An
-empty beta arc contributes 0. Θ and p₁ are not read.
+Compute the implemented homology-class difference of two matchings.
+
+# Arguments
+`matching` and `other` are matchings of crossing IDs in the [legacy diagram](../specs/heegaard-terminology.md#legacy-cellular-records). The caller supplies a rational homology sphere diagram. Matching validity, a nonzero determinant and the finite homology-label search bound are checked, with `ArgumentError` on failure. Arithmetic and incidence errors propagate.
+
+# Returns
+An integer coordinate vector for the class difference in the implemented intersection-matrix quotient.
+
+# Guarantees
+1. Equal matchings return the zero class whenever the call succeeds; the vector represents the matching-cycle class in the implemented lattice coordinates. [proved/agent: by construction]
+2. The diagram and matching inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+A general identification with the geometric invariant requires the matching, homology-coordinate and combing conventions to agree with the source. The current specification does not establish that full identification; the result is the implemented diagram quantity, not an independently certified manifold invariant.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — matching and diagram-dependent invariant inputs.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> D = H.certify_heegaard(H.decorate(H.heegaard_code([[1,2]], [[1,2]], [H.Intersection(i,1,1,1) for i in 1:2]); cellular=true));
+
+julia> Tuple(H.lescop_epsilon(D, [1], [1]))
+(0,)
+```
+
+Role: invariant
 """
 function lescop_epsilon(H::HeegaardDiagram, matching, other)
     code = _undecorated(H)
@@ -486,14 +594,40 @@ function _lescop_region_shifts(H::HeegaardDiagram)
 end
 
 """
-    lescop_spinc_label(H, matching, region)
+    lescop_spinc_label(H::CellularHeegaardDiagram, matching, region::Integer) -> Vector{Int}
 
-Return coordinates in H₁ for the Spin^c structure s_region(matching). The
-reference is the lexicographically smallest matching and complement region 1.
-At a fixed region the difference of two labels is ε. Moving across an alpha
-edge from its odd-dart side to its even-dart side adds −e_i, by
-[[OS04a]] lemma `lemma:VarySpinC`. The beta class is the unique coboundary
-compatible with those alpha classes. Θ and p₁ are not read.
+Compute the implemented affine homology label of a matching and exterior region.
+
+# Arguments
+`H` is a legacy cellular rational homology sphere diagram; `matching` uses crossing IDs and `region` indexes its complement partition. Invalid region or matching, singular homology data, exceeded finite-label bounds, or a nonunique basepoint coboundary raises `ArgumentError`. The caller establishes the complete Heegaard interpretation; this routine does not independently check it.
+
+# Returns
+An integer vector in the implemented finite homology quotient, with the routine's affine reference choices.
+
+# Guarantees
+1. The result combines the matching-class difference with the selected region's computed basepoint shift in the same homology quotient. [proved/agent: by construction]
+2. Inputs are not modified. [proved/agent: by construction]
+
+# Conventions
+Lescop and affine homology coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-terminology.md#lescop-coordinates).
+
+# Not guaranteed
+A general identification with the geometric invariant requires the matching, homology-coordinate and combing conventions to agree with the source. The current specification does not establish that full identification; the result is the implemented diagram quantity, not an independently certified manifold invariant. A coordinate label alone does not identify Spinᶜ structures across different diagrams or reference choices.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — matching and exterior-region inputs.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> D = H.certify_heegaard(H.decorate(H.heegaard_code([[1,2]], [[1,2]], [H.Intersection(i,1,1,1) for i in 1:2]); cellular=true));
+
+julia> Tuple(H.lescop_spinc_label(D, [1], 2))
+(1,)
+```
+
+Role: invariant
 """
 function lescop_spinc_label(H::HeegaardDiagram, matching, region::Integer)
     code = _undecorated(H)

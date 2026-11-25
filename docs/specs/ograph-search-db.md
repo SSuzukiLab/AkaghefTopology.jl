@@ -102,3 +102,104 @@ reads/writes; applications can override `busy_timeout_ms`.
 Use `finish_ograph_search_run!` with `completed-found`, `completed-none`,
 `budget-exhausted`, or `failed`. These statuses describe only the explicit
 finite scope stored in `scope_json`; they are not nonexistence proofs.
+
+## Selectors and query boundaries
+
+Status: fixed 2026-11-25 Codex (rule a), recording
+[`ograph_search_db.jl`](../../src/ograph_search_db.jl). Move names are
+case-sensitive strings. Selector keys are converted to strings; unrecognized
+keys are retained in expansion identity but ignored by candidate generation.
+
+| Kind | Recognized selector | Default and domain |
+|---|---|---|
+| `MP` | `vertex_arities` | `[2,3]`; sorted distinct integer-converted entries must belong to `{2,3}`. Ordered distinct vertex tuples are considered. |
+| `02` | `direction` | `"both"`; one of `"forward"`, `"inverse"`, `"both"`. Forward candidates use consecutive real-Gauss entries; inverse candidates use ordered distinct vertices. |
+| `PS` | `parameters`, `direction` | Parameters `"1"`–`"4"`, default all four; direction as for `02`. Forward candidates use distinct ordered edge-occurrence locations, inverse candidates ordered distinct vertices. |
+
+Candidate generation works on the unweighted projection and deduplicates
+candidate descriptors. This is the enumerator's finite neighbourhood; a
+completeness theorem for the mathematical calculus does not follow from it.
+Unknown move names, including `H`, are rejected. Literal `02` and `PS` retain
+their separate selector vocabularies.
+
+Path queries require exactly one target: an exact `state_id` or an exact
+real-Gauss `geometry_hash`. Default allowed kinds are `("MP","02")`, minimum
+depth `1`, maximum depth `12`, and result limit `1000`. Depth bounds must be
+nonnegative and ordered, and the limit positive. A non-`nothing` `kind_pattern`
+supplies the exact sequence of `MP`, `02`, `PS` kinds and overrides both depths
+with its length after validating the originally supplied bounds. Without a
+pattern, `kinds` is the allowed set.
+
+Queries use stored successful edges, sort by depth and then the serialized
+operation-ID sequence, and return at most `limit` paths. Repeated states are
+excluded except for a final return to the source, which is not expanded again.
+With `min_depth=0`, a matching stored source can yield a zero-step path. This
+does not enumerate every walk with repeated intermediate states.
+
+The empty-input cases are not uniform: an ordinary no-match plural query gives
+an empty vector and the singular query gives `nothing`; an empty allowed-kind
+set with no pattern makes the plural query return `nothing`, and the singular
+wrapper then errors at `isempty(nothing)`. An empty explicit pattern produces
+an invalid SQL `CASE` expression and errors. These are current implementation
+boundaries, not additional supported zero-step query forms. To request a
+zero-step match, use ordinary nonempty kinds and `min_depth=0`.
+
+## Storage checks and semantic replay
+
+`verify_ograph_search_store` checks the supported search schema version and
+SQLite foreign-key consistency, then counts states, runs, expansions,
+operations, successful edges and weighted trials. It does not reconstruct
+states, authenticate hashes, rerun moves, check enumerator completeness, or
+replay weighted trials. Those stronger checks must not be inferred from its
+name or from positive counts.
+
+`replay_weighted_ograph_path` requires assigned source weights and, for a
+nonempty path, checks its first source identity. H insertions are indexed by
+`after_step=0:length(path)` and preserve caller order at each stage. It applies
+the candidate descriptors and actual weighted moves to a copy, retaining
+intermediate states. It does not authenticate each supplied row against the
+database or compare every recorded target ID with the resulting presentation.
+Thus callers supply an authentic composable path, and check the final target,
+framed residuals and endpoint marking separately. A successful replay is
+evidence for the applied word, not for all possible paths.
+
+## Affine caches and endpoint coordinates
+
+The affine edge relation uses real-edge occurrence order, flattened by
+component: `C*w=d` is the internal-weight condition and `T*w+b` the transported
+target weights. The current relation extractor supports closed MP/literal-02
+paths. Integer-path callers must supply finite integral coefficients in the
+integer mode; the solver's rounding/conversion operations do not constitute
+a framed-weight or coefficient-domain validator.
+
+The database relation cache is keyed by `(operation_id, algorithm_version)`.
+A cached JSON relation is decoded without recomputing or proving it. The
+optional in-memory `relation_cache` is keyed only by operation ID and trusted
+as supplied; callers must keep its store, version and coordinate meanings
+consistent. A cache hit is reuse of evidence, not independent verification.
+
+For `ograph_path_endpoint_permutations(target, reference)`, a returned vector
+`p` lists target occurrences in reference order: `target_weights[p]` are the
+coordinates to compare with reference weights. It represents a cyclic root
+and a crossing-label bijection preserving signed passages and vertex signs.
+All matching roots are returned in increasing order; two empty words produce
+no permutations. Reversal, arbitrary homeomorphisms and an induced homology
+marking are outside this identification.
+
+`solve_ograph_path_weights` uses `target_permutation` as a row selection and
+does not check that it is a bijection or one of these identifications. The
+caller supplies that proof, and a target vector/generator in the selected
+coordinates. In contrast, `lift_ograph_search_path!` checks its initial source
+permutation against the returned set, then transports vertex roles through
+the geometric word. Lifting persists edges incrementally; a later failure can
+leave an earlier prefix stored.
+
+These implementation facts are [proved/agent: by construction]. The
+[search tests](../../test/ograph_search_db.jl) cover weight-free identities,
+literal-02 expansion/reuse, no-match queries and weighted replay; the
+[constraint tests](../../test/ograph_path_constraints.jl) compare the affine
+result with a weighted move and exercise endpoint permutation, lifting and
+cache reuse. The empty-kind/empty-pattern failures and hostile cache contents
+lack dedicated regression assertions in those tests; their general handling
+remains unverified. The expected failures and trust boundary above follow the
+current branches and would be overturned by contrary execution evidence.

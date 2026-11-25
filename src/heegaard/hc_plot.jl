@@ -14,17 +14,38 @@ include("hc_plot_reference_chart.jl")
 include("hc_plot_reference.jl")
 include("hc_plot_marks.jl")
 
-"""Draw a resolved Heegaard diagram through Julia placement and smoothing.
+"""
+    plot(hc::HeegaardCode; crossing_labels=false, show=:both, DEBUG_MODE=false, rounds=24, local_steps=20, log=devnull, reference_alpha=:auto, mark_style=:filled, infinity_face=nothing) -> NamedTuple
 
-Local intersection and obstacle checks reject broken proposals. Production
-compares the complete signed input Gauss code once, at the end. DEBUG_MODE
-adds the independent full audit after each accepted motion and remesh.
+Produce an audited planar SVG rendering of a resolved Heegaard diagram.
 
-`crossing_labels=true` writes `V<label>` at every crossing of an alpha curve
-with a beta curve, where `<label>` is the label of that crossing in the
-Lickorish Code. When alpha is a reference curve that the chart cuts open, the
-crossing lies on the cut and the label is written at both of its copies. The
-result then also carries `crossing_labels`, the list of labels and points.
+# Arguments
+`hc` must pass `validate_diagram`. Options use the [plot domain and acceptance conditions](../specs/heegaard-plot.md). Invalid `show`, nonpositive smoothing counts or invalid `mark_style` raises `ArgumentError`; chart, mark, placement and audit errors propagate. `crossing_labels` requests alpha–beta crossing labels.
+
+# Returns
+A named tuple containing `svg`, `placement`, `audit`, `success` and path-dependent layout data. Labelled output also contains `crossing_labels`; marked and reference-chart outputs retain their corresponding mark and contact records.
+
+# Guarantees
+1. The SVG and placement depict the supplied diagram in the selected planar chart; `success` records the drawing path's acceptance checks. It must be inspected before treating the rendering as accepted. [proved/agent: by construction]
+2. Input HC data are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Success is not a manifold classification or a guarantee that `drawing(hc)` succeeds; the [single-crossing defect](../specs/heegaard-plot.md#single-crossing-drawing-failure) remains. This function returns data and does not save a file or open a viewer.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-plot.md — planar rendering and acceptance.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta, "m1"=>:alpha));
+
+julia> try H.plot(h; rounds=0) catch e; e isa ArgumentError end
+true
+```
+
+Role: draw
 """
 function plot(hc::HeegaardCode;crossing_labels::Bool=false,kwargs...)
     result=_hp_plot(hc;kwargs...)

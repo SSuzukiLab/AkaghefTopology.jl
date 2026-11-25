@@ -1,17 +1,53 @@
-"""Gauss-code representation of a virtual link or o-graph.
+"""
+    VirtualLink(gauss, orientation, weights, real_only, is_weighted, strand_types, weight_mode) -> VirtualLink
 
-`orientation[i]` has two distinct roles that must not be conflated:
+Create mutable storage for a virtual-link or o-graph presentation.
 
-- `+1` / `-1`: crossing `i` is real, with the corresponding signed local
-  crossing convention;
-- `0`: crossing `i` is virtual. It has no over/under topological information,
-  is removed by `real_gauss_code`, and is not drawn as a real vertex.
+# Arguments
+The keyword constructor checks `weight_mode` against `:integer` and `:z2`,
+throwing `ArgumentError` for another mode. Positional construction converts
+fields to the types listed below but performs no coherence or mode validation;
+the caller must ensure the [storage coherence requirements](../specs/virtual-link-data-model.md#22-current-julia-storage-and-coherence).
+Conversion errors propagate. The six-argument form selects integer mode.
 
-A virtual crossing still needs a cyclic order when converted to PD slots and
-routed geometrically. For that representation-only local frame, this library
-uses the same slot convention as `+1`, matching Sage/MATLAB. This does **not**
-turn the virtual crossing into a positive real crossing; the stored value
-remains `0` and continues to control topology and rendering.
+# Returns
+A `VirtualLink` with `gauss::Vector{Vector{Int}}`, `orientation::Vector{Int}`,
+`weights::Vector{Vector{Float64}}`, `real_only::Bool`, `is_weighted::Bool`,
+`strand_types::Vector{Char}` and `weight_mode::Symbol`. Field meanings, including
+the distinction between passage signs, real vertex signs and virtual crossings,
+are owned by [Roles of stored data](../specs/virtual-link-data-model.md#2-roles-of-stored-data).
+
+# Guarantees
+1. Keyword construction returns independent empty arrays, false `real_only`
+   and `is_weighted` flags and the selected mode. [proved/agent: by construction]
+2. Positional fields retain supplied values after conversion; arrays already
+   of the declared types are shared without copying. [proved/agent: by construction]
+3. Coherent data represent the supplied diagram presentation. Construction
+   itself neither identifies a link equivalence class nor certifies an
+   o-graph's represented 3-manifold. [proved/agent: by construction]
+
+# Conventions
+Use the [Gauss/real-Gauss data model](../specs/virtual-link-data-model.md) and
+[o-graph terminology](../specs/ograph-terminology.md), including their separate
+roles for vertex signs, virtual status and local PD frame.
+
+# Not guaranteed
+Raw positional construction and subsequent field mutation can violate every
+representation constraint. Assigned weights need not solve any geometric
+equation. Empty storage is not a certified MST crossing-free circuit.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-data-model.md §2 — storage roles and the representation boundary.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); weight_mode(v)
+:integer
+```
+
+See also [`set_data!`](@ref), [`real_gauss_code`](@ref), [`certify_closed_ograph`](@ref).
+
+Role: construct
 """
 mutable struct VirtualLink
     gauss::Vector{Vector{Int}}
@@ -23,6 +59,55 @@ mutable struct VirtualLink
     weight_mode::Symbol
 end
 
+"""
+    RealEdge(id, crossing, weight, strand, arc) -> RealEdge
+
+Store the traversal data of one directed real arc in a virtual-link presentation.
+
+# Arguments
+`id::Int`, `crossing::NTuple{2,Int}`, `weight::Float64`, `strand::Int` and
+`arc::Vector{Int}`, or values convertible to those field types. Conversion
+errors propagate. The constructor has no link argument and validates no
+membership, labels or weight constraint.
+
+# Returns
+`RealEdge` with the supplied row identifier, pair of signed endpoint labels,
+weight, strand index and raw arc visits. For computed records the interpretation
+is that of [`real_edge_table`](@ref), [Edges and weights](../specs/ograph-terminology.md#5-edges-and-weights)
+and [Open strands and cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+
+# Guarantees
+1. Fields equal the supplied values after conversion; an input `Vector{Int}`
+   for `arc` is retained without copying. [proved/agent: by construction]
+2. Records returned by `real_edge_table` describe arcs of that input
+   presentation, including its boundary arcs when present. They do not
+   identify arcs across different presentations or classify a space.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not check consistency between `crossing` and `arc`,
+verify integer or spin weights, or distinguish a supplied real edge from
+malformed data. Its identifiers are not closed PD edge identifiers.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-data-model.md §2.1 — real-arc and boundary-arc interpretation at the VirtualLink boundary.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> rows = real_edge_table(vl_example("s3_abalone"));
+
+julia> copies = [RealEdge(e.id, e.crossing, e.weight, e.strand, e.arc) for e in rows];
+
+julia> Tuple(e.crossing for e in copies)
+((-1, 1), (1, -1))
+```
+
+See also [`real_edge_table`](@ref).
+
+Role: construct
+"""
 struct RealEdge
     id::Int
     crossing::NTuple{2,Int}
@@ -35,11 +120,161 @@ function _check_weight_mode(mode)
     mode in (:integer,:z2) || throw(ArgumentError("weight mode must be :integer or :z2"))
     mode
 end
+"""
+    VirtualLink(; weight_mode=:integer) -> VirtualLink
+
+Create empty mutable storage for a virtual-link presentation.
+
+# Arguments
+`weight_mode` must be `:integer` or `:z2`; another value throws `ArgumentError`
+naming the accepted modes. See the [data model](../specs/virtual-link-data-model.md).
+
+# Returns
+A `VirtualLink` with independent empty Gauss, sign, weight and strand-type
+arrays, `real_only == false`, `is_weighted == false`, and the selected mode.
+
+# Guarantees
+1. The returned object is empty representation storage ready for `set_data!`. [proved/agent: by construction]
+2. Repeated construction allocates independent mutable arrays. [proved/agent: by construction]
+
+# Not guaranteed
+Empty storage is not a certified link, closed normal o-graph or MST circuit.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — representation storage and initialization boundary.
+
+# Examples
+```jldoctest
+julia> weight_mode(VirtualLink())
+:integer
+```
+
+Role: construct
+"""
 VirtualLink(;weight_mode=:integer) = VirtualLink(Vector{Vector{Int}}(), Int[], Vector{Vector{Float64}}(), false, false, Char[], _check_weight_mode(weight_mode))
 # Preserve the historical positional constructor as integral mode.
+"""
+    VirtualLink(g, o, w, r, i, s) -> VirtualLink
+
+Construct integer-mode presentation storage from the six historical fields.
+
+# Arguments
+`g`, `o`, `w`, `r`, `i`, `s` supply Gauss data, vertex signs, weights,
+real-only and assigned-weight flags, and strand types. They must convert to
+the field types of `VirtualLink`; conversion errors propagate. The caller
+must satisfy the [data model](../specs/virtual-link-data-model.md), which this
+raw constructor does not check.
+
+# Returns
+A `VirtualLink` with those fields and integer coefficient mode.
+
+# Guarantees
+1. The result has the same field values as the seven-argument constructor with mode `:integer`. [proved/agent: by construction]
+2. Already correctly typed arrays are shared without copying; they are not modified by construction. [proved/agent: by construction]
+
+# Not guaranteed
+No incidence, closedness, weight equation or framing is validated.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — raw fields and their representation meaning.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); w = VirtualLink(v.gauss, v.orientation, v.weights, v.real_only, v.is_weighted, v.strand_types); weight_mode(w)
+:integer
+```
+
+Role: construct
+"""
 VirtualLink(g,o,w,r,i,s) = VirtualLink(g,o,w,r,i,s,:integer)
+"""
+    weight_mode(v::VirtualLink) -> Symbol
+
+Return the stored coefficient-mode tag of a virtual-link presentation.
+
+# Arguments
+`v` is a `VirtualLink`. No validation is performed; callers who construct or
+modify fields directly are responsible for a coherent mode and weight payload.
+
+# Returns
+The stored `Symbol`, normally `:integer` or `:z2` after a validated constructor
+or setter.
+
+# Guarantees
+1. The result equals `v.weight_mode`; the link is unchanged.
+   [proved/agent: by construction]
+2. The tag concerns storage of the presentation's
+   [edge weights](../specs/ograph-terminology.md#5-edges-and-weights), not a
+   certification of a framing, spin structure or weight equation.
+   [proved/agent: by construction]
+
+# Not guaranteed
+A valid tag does not imply assigned or valid weights. Direct field mutation
+can create unsupported tags, which this accessor returns unchanged. See the
+[coefficient-mode storage policy](../specs/virtual-link-data-model.md#24-weight-assignment-and-endpoint-coordinates).
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §5 and §10 — weights attached to the presentation and their geometric scope.
+
+# Examples
+```jldoctest
+julia> weight_mode(VirtualLink())
+:integer
+```
+
+See also [`set_weight_mode!`](@ref), [`set_weight!`](@ref), [`validate_weight`](@ref).
+
+Role: access
+"""
 weight_mode(v::VirtualLink)=v.weight_mode
 
+"""
+    set_weight_mode!(v::VirtualLink, mode::Symbol) -> VirtualLink
+
+Set the coefficient mode of a virtual-link weight assignment.
+
+# Arguments
+`mode` must be `:integer` or `:z2`, otherwise `ArgumentError` names the allowed
+modes. Changing a weighted Z2 value to integer mode throws `ArgumentError`
+explaining that no canonical lift is supplied. Reducing assigned integer-mode
+weights invokes the finite-integral checks of [`set_weight!`](@ref), whose
+errors propagate. Coherent input storage is the caller's responsibility.
+
+# Returns
+The same `VirtualLink` object.
+
+# Guarantees
+1. An unchanged mode is a no-op. An unweighted value changes only its mode;
+   a weighted value switched to Z2 receives the reductions of its weights.
+   [proved/agent: by construction]
+2. Gauss data and vertex signs are unchanged. This changes coefficient storage
+   for the [edge weights](../specs/ograph-terminology.md#5-edges-and-weights),
+   not a certified framing or spin structure. [proved/agent: by construction]
+
+# Not guaranteed
+No weight equation or spin admissibility is checked. The mode tag alone does
+not establish validity, and unchanged-mode calls do not revalidate weights.
+Use an explicit `set_weight!(...; mode=:integer)` assignment for a chosen lift.
+The [coefficient-mode storage policy](../specs/virtual-link-data-model.md#24-weight-assignment-and-endpoint-coordinates)
+defines the assignment boundary.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §5 and §10 — edge weights and the distinction between equations and geometric structures.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_weight!(v, [3,-2]); set_weight_mode!(v, :z2);
+
+julia> (weight_mode(v), Tuple(only(v.weights)))
+(:z2, (1.0, 0.0))
+```
+
+See also [`set_weight!`](@ref), [`weight_mode`](@ref), [`validate_weight`](@ref).
+
+Role: convert
+"""
 function set_weight_mode!(v::VirtualLink, mode::Symbol)
     _check_weight_mode(mode)
     mode==v.weight_mode && return v
@@ -47,11 +282,52 @@ function set_weight_mode!(v::VirtualLink, mode::Symbol)
     v.is_weighted ? set_weight!(v,v.weights;mode=mode) : (v.weight_mode=mode; v)
 end
 
-"""Return the real-Gauss input for the lens space `L(s,t)`.
+"""
+    lens_space_rgauss(s::Integer, t::Integer) -> NamedTuple
 
-This is the `RGauss` family used in MATLAB `VLExample.mlx` and
-`C260220LensSpaces.mlx`. Crossing labels are reduced modulo `s`; `s` and `t`
-must be coprime.
+Return the real-Gauss data of the repository's parameterized lens-space presentation.
+
+# Arguments
+- `s`, `t`: lens parameters; `s >= 2` and `gcd(s,t) == 1` are checked with
+  `ArgumentError` identifying the failed requirement. The caller must ensure
+  all intermediate integer arithmetic and output labels are representable;
+  fixed-width overflow is not checked, and conversion to `Int` can fail.
+  See [example routing](../specs/virtual-link-examples.md#parameterized-unweighted-or-combed-lens-space).
+
+# Returns
+A named tuple with one real-Gauss component `rgauss::Vector{Vector{Int}}`
+and its `orientation::Vector{Int}` vertex-sign vector.
+
+# Guarantees
+1. The result is the input data for `lens_space_link(s,t)`, the family named by the linked lens-space convention. [proved/agent: by construction]
+2. Under the arithmetic precondition, it has `s` true vertices, all with positive vertex sign, and one component of length `2s`. [proved/agent: by construction]
+3. Arguments are not modified and fresh vectors are returned. [proved/agent: by construction]
+
+# Conventions
+Use [LensSpaceNames](../conventions/LensSpaceNames.md) for oriented names and
+translation to other conventions, and the
+[real-Gauss data model](../specs/virtual-link-data-model.md) for coordinates.
+
+# Not guaranteed
+No integer framing is provided. The external surgery/quotient identification
+retains the D1 and D2 dependencies stated in LensSpaceNames; this constructor
+does not prove that identification for arbitrary parameters.
+
+# Sources
+cf:docs/specs/virtual-link-examples.md — parameterized lens-space family and framing boundary.
+cf:docs/conventions/LensSpaceNames.md — naming rule and conditional comparison with surgery and quotient conventions.
+
+# Examples
+```jldoctest
+julia> input = lens_space_rgauss(2, 1); v = VirtualLink(); set_data!(v; input...);
+
+julia> is_closed(v)
+(true, (true, true, true))
+```
+
+See also [`lens_space_link`](@ref).
+
+Role: construct
 """
 function lens_space_rgauss(s::Integer,t::Integer)
     s>=2 || throw(ArgumentError("s must be at least 2"))
@@ -60,7 +336,48 @@ function lens_space_rgauss(s::Integer,t::Integer)
     (rgauss=[Int.(code)],orientation=ones(Int,s))
 end
 
-"""Construct the real-Gauss `VirtualLink` presentation of `L(s,t)`."""
+"""
+    lens_space_link(s::Integer, t::Integer) -> VirtualLink
+
+Construct the repository's unweighted normal o-graph presentation named L(s,t).
+
+# Arguments
+- `s`, `t`: parameters accepted by [`lens_space_rgauss`](@ref); its checked
+  lower-bound and coprimality failures throw `ArgumentError`. Its caller
+  precondition on representable integer arithmetic also applies here.
+
+# Returns
+A fresh unweighted integer-mode `VirtualLink` with the returned family's
+real-Gauss data and vertex signs.
+
+# Guarantees
+1. `real_gauss_code(result)` agrees with `lens_space_rgauss(s,t)`. [proved/agent: by construction]
+2. The presentation is the lens-space family of the linked example specification; its oriented name is fixed by LensSpaceNames. [proved/agent: by construction]
+3. Arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+Use [LensSpaceNames](../conventions/LensSpaceNames.md) for the orientation
+and its dictionary of alternative lens-space names.
+
+# Not guaranteed
+No framing is assigned or C1–C3 witness returned. Identification with an
+externally oriented surgery or quotient retains the convention page's D1 and
+D2 dependencies; the constructor does not establish a general comparison proof.
+
+# Sources
+cf:docs/specs/virtual-link-examples.md — unweighted lens-space entrypoint.
+cf:docs/conventions/LensSpaceNames.md — repository name and orientation comparison.
+
+# Examples
+```jldoctest
+julia> is_closed(lens_space_link(2, 1))
+(true, (true, true, true))
+```
+
+See also [`certify_closed_ograph`](@ref), [`framed_lens_space_link`](@ref).
+
+Role: construct
+"""
 function lens_space_link(s::Integer,t::Integer)
     input=lens_space_rgauss(s,t)
     link=VirtualLink()
@@ -96,7 +413,43 @@ function _validate_cut_flags(flags, strand_count::Integer)
     Bool[flags...]
 end
 
-"""Return one cut flag per strand, derived from its trailing zero marker."""
+"""
+    strand_cuts(v::VirtualLink) -> Vector{Bool}
+
+Return the open-strand flags of a link presentation.
+
+# Arguments
+`v` must have valid [cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+Malformed cut markers throw `ArgumentError`. The remaining link data are not
+validated by this query.
+
+# Returns
+A fresh Boolean vector in strand order, with `true` for an open strand and
+`false` for a closed strand.
+
+# Guarantees
+1. The flags record exactly the boundary status in the linked data model,
+   with one entry per stored strand. [proved/agent: by construction]
+2. The link is unchanged and the result can be modified independently.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Closed strands alone do not certify a closed normal o-graph or a closed
+3-manifold. Crossing coherence and framing admissibility are not tested.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md#21-open-strands-and-cut-markers — open and closed strand status.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2, 1); set_cuts!(v, [true]); Tuple(strand_cuts(v))
+(true,)
+```
+
+See also [`set_cuts!`](@ref), [`is_closed`](@ref).
+
+Role: access
+"""
 function strand_cuts(v::VirtualLink)
     _validate_cut_markers(v.gauss)
     Bool[_is_cut_component(component) for component in v.gauss]
@@ -110,11 +463,44 @@ function _strand_arc_count(v::VirtualLink, strand::Integer)
     real_count + (_is_cut_component(v.gauss[strand]) ? 1 : 0)
 end
 
-"""Set trailing-zero cut markers on an unweighted link.
+"""
+    set_cuts!(v::VirtualLink, flags) -> VirtualLink
 
-Existing arc-vector prefixes are retained while the derived vector shape is
-resized. A weighted link must be cleared and assigned explicit new arc weights
-before its cut status is changed.
+Set the open or closed boundary status of each strand in a link presentation.
+
+# Arguments
+- `v`: a coherent presentation with valid
+  [cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+  Invalid markers throw `ArgumentError`. Changing flags on a weighted link
+  throws `ArgumentError`; requesting its existing flags is accepted.
+- `flags`: a vector of actual Boolean values, one per strand. Invalid
+  container/elements throw `ArgumentError`; wrong length throws `DimensionMismatch`.
+
+# Returns
+The same `VirtualLink` with the requested boundary status.
+
+# Guarantees
+1. On successful return `strand_cuts(v) == flags`, and the nonboundary Gauss visits and vertex signs are retained. [proved/agent: by construction]
+2. When flags change, each weight array has the new real-arc length, retaining the available old prefix and filling additional entries with zeros. [proved/agent: by construction]
+3. Changed flags modify `v` in place; identical flags return it unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Changing a boundary is not an equivalence move or a framing transport.
+Retained unassigned weight entries are storage values, not a solution of
+the new relative boundary equations.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md#21-open-strands-and-cut-markers — strand boundaries and real-arc counts.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2, 1); set_cuts!(v, [true]);
+
+julia> last(only(reverse_strands(v).gauss))
+0
+```
+
+Role: move
 """
 function set_cuts!(v::VirtualLink, flags)
     new_flags = _validate_cut_flags(flags, length(v.gauss))
@@ -156,12 +542,60 @@ function _validate_gauss(code::Vector{Vector{Int}}, ori::Vector{Int}; real_only=
     true
 end
 
-"""Set Gauss, real-Gauss, O-data, PD-code, or tabular-knot input.
+"""
+    set_data!(v::VirtualLink; gauss=nothing, rgauss=nothing, orientation=nothing, odata=nothing, pd=nothing, table=nothing, cut=Bool[], strand_types=nothing) -> VirtualLink
 
-A `pd` matrix does not round-trip: it is rebuilt through `_pd_to_gauss` and
-then re-derived by `pd_code`, which may relabel every edge. Per-edge data
-carried alongside a PD matrix -- bending numbers, replay positions -- must be
-indexed to what `pd_code` returns. See `PLOT_PIPELINE.md` IS4.
+Replace a link's stored presentation from one supported input representation.
+
+# Arguments
+- The caller supplies one of `gauss`, `rgauss`, `odata`, `pd` or `table` in
+  the [input formats](../specs/virtual-link-data-model.md#31-broad-ingress).
+  Supplying no representation throws `ArgumentError`; exclusivity is not checked.
+  Multiple representations follow the specified
+  [ingress precedence](../specs/virtual-link-data-model.md#23-ingress-precedence).
+- Gauss inputs require `orientation`; missing signs, invalid crossing counts,
+  missing crossing labels, malformed cut markers or virtual status in real-only
+  data throw `ArgumentError`. Entries must convert to `Int`. Full mathematical
+  incidence and valid sign values remain the caller's responsibility.
+- Nonempty PD inputs require one sign per crossing when signs are supplied;
+  mismatch throws `DimensionMismatch`, and invalid PD sign values throw
+  `ArgumentError`. The caller supplies coherent PD incidence.
+- `table` supports the trefoil table entry only; others throw `ArgumentError`.
+- `cut`: optional Boolean flags checked by [`set_cuts!`](@ref).
+- `strand_types`: optional values convertible to the strand-type field;
+  default o-graph types are assigned. The caller supplies a coherent count.
+- Three-part `odata` supplies weights accepted by [`set_weight!`](@ref);
+  its domain and shape errors propagate. The existing coefficient mode is used.
+
+# Returns
+The same `VirtualLink`, containing the selected representation's data.
+
+# Guarantees
+1. A successful single-representation call stores the selected input's Gauss presentation with the requested boundary and strand-type data. [proved/agent: by construction]
+2. Three-part O-data assigns its supplied weights; other forms clear assigned-weight status and create zero-valued real-arc storage. [proved/agent: by construction]
+3. The coefficient mode is retained and `v` is modified in place. [proved/agent: by construction]
+
+# Conventions
+Use the [Gauss and PD data model](../specs/virtual-link-data-model.md) and
+[PD pipeline](../../../PLOT_PIPELINE.md) for representation-local edge identities.
+
+# Not guaranteed
+PD edge IDs need not round-trip; attach edge-indexed auxiliary data to the
+result of `pd_code(v)`. This is not a link-isotopy, normal closedness or framing
+certificate. Failure can leave `v` partly changed; replacement is not transactional.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — input formats, stored data roles and representation-local identity.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; gauss=[[1,-2],[-1,2]], orientation=[1,1]);
+
+julia> size(pd_code(v))
+(2, 4)
+```
+
+Role: convert
 """
 function set_data!(v::VirtualLink; gauss=nothing, rgauss=nothing, orientation=nothing,
                    odata=nothing, pd=nothing, table=nothing, cut=Bool[], strand_types=nothing)
@@ -249,10 +683,100 @@ function _pd_to_gauss(pd::Matrix{Int}; orientation=nothing)
     result
 end
 
+"""
+    gauss_code(v::VirtualLink) -> Vector{Vector{Int}}
+
+Return a detached copy of the stored Gauss components of a virtual-link presentation.
+
+# Arguments
+`v` must have valid [cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+A malformed marker throws `ArgumentError` identifying its placement.
+Other fields are not validated by this accessor.
+
+# Returns
+A fresh `Vector{Vector{Int}}` containing the stored component words.
+
+# Guarantees
+1. The result equals `v.gauss`, including its order, virtual visits and cut
+   markers. Neither the outer vector nor its component vectors alias `v.gauss`.
+   [proved/agent: by construction]
+2. This is the stored [presentation view](../specs/virtual-link-data-model.md#2-roles-of-stored-data),
+   not a canonical representative of a virtual-link equivalence class.
+   [proved/agent: by construction]
+3. The input is unchanged. Mutating the returned vectors does not mutate it.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The returned words do not include vertex signs, weights or strand types and
+are not a complete `VirtualLink` by themselves. Use `real_gauss_code` to
+project out virtual crossings. This call checks no realizability or closedness.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-data-model.md §2 — the stored Gauss view and cut-marker retention.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_cuts!(v, [true]);
+
+julia> Tuple(only(gauss_code(v)))
+(1, -1, 0)
+```
+
+See also [`real_gauss_code`](@ref), [`ograph_state`](@ref).
+
+Role: access
+"""
 function gauss_code(v::VirtualLink)
     _validate_cut_markers(v.gauss)
     deepcopy(v.gauss)
 end
+"""
+    real_gauss_code(v::VirtualLink) -> Tuple{Vector{Vector{Int}},Vector{Int}}
+
+Return the real-crossing Gauss presentation and its vertex signs.
+
+# Arguments
+`v` must have coherent data under the
+[VirtualLink data model](../specs/virtual-link-data-model.md).
+Malformed cut markers throw `ArgumentError`. Complete consistency of visits
+with the orientation array is the caller's responsibility; absent labels can
+be omitted instead of diagnosed.
+
+# Returns
+`(code, signs)`: newly allocated component words and the corresponding real
+vertex signs in the [real-Gauss view](../specs/virtual-link-data-model.md#2-roles-of-stored-data).
+
+# Guarantees
+1. Virtual visits are omitted; real crossing labels are consecutive in
+   increasing original-label order. Component order and surviving traversal
+   order are retained, including a trailing marker on each cut component.
+   [proved/agent: by construction]
+2. The result represents the real-crossing projection of the input diagram,
+   with its passage signs. The input and its weights are unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The projection does not encode virtual-crossing locations, weights or strand
+types, and is not invertible to the full stored diagram. It neither certifies
+closed-normality nor canonicalizes cyclic roots or manifold equivalence.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-data-model.md §2 — raw Gauss storage and the real-Gauss view.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> code, signs = real_gauss_code(vl_example("s3_abalone")); (Tuple(only(code)), Tuple(signs))
+((1, -1), (1,))
+```
+
+See also [`gauss_code`](@ref), [`ograph_state`](@ref).
+
+Role: convert
+"""
 function real_gauss_code(v::VirtualLink)
     _validate_cut_markers(v.gauss)
     real = findall(!=(0), v.orientation); mapping = Dict(x=>i for (i,x) in enumerate(real))
@@ -267,7 +791,51 @@ function real_gauss_code(v::VirtualLink)
     code, v.orientation[real]
 end
 
-"""Return the stable fields of MATLAB `REdgeTable` in traversal order."""
+"""
+    real_edge_table(v::VirtualLink) -> Vector{RealEdge}
+
+Return the directed real arcs of a virtual-link presentation in traversal order.
+
+# Arguments
+`v` must contain coherent raw Gauss data under the
+[data model](../specs/virtual-link-data-model.md). Malformed cut markers are
+checked with `ArgumentError`; other coherence is the caller's responsibility.
+Weights may be assigned or unassigned and are not validated here.
+
+# Returns
+`Vector{RealEdge}` with consecutive `id`, signed endpoint pair `crossing`,
+stored `weight::Float64`, strand index `strand`, and raw-visit vector `arc`.
+Endpoint labels use the real-Gauss projection; arc labels retain raw visits.
+Boundary endpoints use the linked cut convention. An absent weight entry
+is represented by `NaN`.
+
+# Guarantees
+1. Every cut component contributes one more arc than its number of real visits; a closed component with real visits contributes one per visit. [proved/agent: by construction]
+2. The records describe the real arcs of the supplied presentation, including virtual visits between real endpoints. [proved/agent: by construction]
+3. The input is not modified and the returned arc vectors are independent. [proved/agent: by construction]
+
+# Conventions
+Use [open strands and cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers)
+and [Gauss presentation coordinates](../specs/ograph-terminology.md).
+
+# Not guaranteed
+A closed component without real visits contributes no record. The table does
+not certify a framing, a normal o-graph, or any represented manifold; stored
+zero weights are returned even when `is_weighted` is false.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — raw presentation and real-arc boundary semantics.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2, 1); set_cuts!(v, [true]); edges = real_edge_table(v);
+
+julia> (first(edges).crossing[1], last(edges).crossing[2])
+(0, 0)
+```
+
+Role: access
+"""
 function real_edge_table(v::VirtualLink)
     _validate_cut_markers(v.gauss)
     real_indices=findall(!=(0),v.orientation)
@@ -320,6 +888,57 @@ function real_edge_table(v::VirtualLink)
     result
 end
 
+"""
+    head_map(v::VirtualLink) -> Matrix{Int}
+
+Return the signed successor visits of the stored Gauss presentation.
+
+# Arguments
+`v` must contain coherent raw crossing labels and valid
+[cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+Malformed markers throw `ArgumentError`; a visit outside the orientation
+array can throw `BoundsError`. Repeated or missing signed visits are not
+independently validated.
+
+# Returns
+A `Matrix{Int}` in the specified
+[`head_map` coordinates](../specs/virtual-link-data-model.md#22-current-julia-storage-and-coherence).
+The raw view includes virtual crossings.
+
+# Guarantees
+1. The result has size `(length(v.orientation), 2)` and does not alias input
+   storage. Its nonzero successors come from the input component order.
+   [proved/agent: by construction]
+2. A closed component includes its cyclic last-to-first successor. A cut
+   component's final visit has no successor through its boundary.
+   [proved/agent: by construction]
+3. This is adjacency data of the supplied
+   [Gauss presentation](../specs/ograph-terminology.md#2-standard-gauss-code-displays),
+   not a graph or manifold classification. The input is unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The call does not check that each signed visit occurs exactly once, identify
+which zeros arose from missing visits, or remove virtual crossings. It is
+not the real-edge table and does not return a closedness certificate.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-data-model.md §2.1 — raw component order and cut boundaries.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_cuts!(v, [true]);
+
+julia> (head_map(v)[1, 2], head_map(v)[1, 1])
+(-1, 0)
+```
+
+See also [`real_edge_table`](@ref), [`pd_code`](@ref).
+
+Role: access
+"""
 function head_map(v::VirtualLink)
     _validate_cut_markers(v.gauss)
     n = length(v.orientation); hm = fill(0, n, 2)
@@ -335,6 +954,58 @@ function head_map(v::VirtualLink)
     hm
 end
 
+"""
+    pd_code(v::VirtualLink) -> Matrix{Int}
+
+Return the four-slot PD presentation of the stored virtual-link diagram.
+
+# Arguments
+`v` must be coherent under the
+[data model](../specs/virtual-link-data-model.md) and its
+[cut-marker convention](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+Cut-marker errors throw `ArgumentError`; missing signed crossing visits can
+raise `KeyError`. Complete crossing-incidence validation is the caller's
+responsibility.
+
+# Returns
+A four-column integer matrix, one row per stored crossing when visits are
+present, or a `0 × 4` matrix for an empty presentation. Entries are edge IDs
+in the [PD port convention](../specs/ograph-terminology.md#6-local-ports).
+
+# Guarantees
+1. Closed component ends are joined and cut component ends remain distinct.
+   Virtual crossings have rows as well as real crossings. The input is unchanged.
+   [proved/agent: by construction]
+2. The matrix encodes incidence and local cyclic order of the supplied
+   diagram; it adds no assertion of planar realizability or a represented
+   closed 3-manifold. [proved/agent: by construction]
+
+# Conventions
+Use the [PD and Gauss conventions](../specs/virtual-link-data-model.md) and
+[local ports](../specs/ograph-terminology.md#6-local-ports).
+
+# Not guaranteed
+Virtual status is not recoverable from the PD matrix alone; retain the
+orientation vector. Weights, strand labels and empty crossing-free components
+are not encoded. The result is not canonical under diagram moves.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §6 — the four-port PD interpretation.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = VirtualLink(); set_data!(v; gauss=[[1,-2],[-1,2]], orientation=[1,1]);
+
+julia> size(pd_code(v))
+(2, 4)
+```
+
+See also [`real_gauss_code`](@ref), [`edge_directions`](@ref).
+
+Role: convert
+"""
 function pd_code(v::VirtualLink)
     # Sage 10.1+ convention: start at the entering under-strand and walk
     # counter-clockwise. This is the convention used by the MATLAB oracle.
@@ -389,6 +1060,54 @@ function _pd_has_boundary(pd::AbstractMatrix{<:Integer})
     any(count(==(edge),values)==1 for edge in unique(values))
 end
 
+"""
+    edge_directions(pd::AbstractMatrix{<:Integer}) -> Tuple{Dict{Int,Int},Dict{Int,Int}}
+
+Return endpoint directions for the edges of a closed PD presentation.
+
+# Arguments
+`pd` must be a closed four-slot PD matrix in the
+[repository port convention](../specs/ograph-terminology.md#6-local-ports),
+with integer edge labels convertible to `Int`. An edge label occurring only
+once is rejected with `ArgumentError` identifying boundary IDs. Other malformed
+matrices may raise indexing, conversion or `ArgumentError` failures instead;
+this is not a complete PD validator.
+
+# Returns
+`(tails, heads)`, two `Dict{Int,Int}` values mapping edge labels to the row
+indices of their tail and head crossings. A loop can have equal endpoint rows.
+
+# Guarantees
+1. For a valid closed PD input, every edge label has a tail and head, both
+   incident to that edge. The input matrix is unchanged. [proved/agent: by construction]
+2. The directions concern the strands of the supplied PD presentation, with
+   opposite slots continued according to the linked port convention.
+   [proved/agent: by construction]
+3. An empty matrix returns two empty dictionaries. [proved/agent: by construction]
+
+# Not guaranteed
+PD data alone need not fix an orientation for a component with no seeded
+undercrossing. No canonical choice across reordered PD presentations is
+promised for such components. The result does not establish classical
+realizability, a spine, or a 3-manifold.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §6 — the Sage/MATLAB four-slot PD port convention.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); tails, heads = edge_directions(pd_code(v));
+
+julia> Tuple((tails[e.id], heads[e.id]) for e in real_edge_table(v))
+((1, 1), (1, 1))
+```
+
+See also [`pd_code`](@ref), [`real_edge_table`](@ref).
+
+Role: convert
+"""
 function edge_directions(pd::AbstractMatrix{<:Integer})
     _pd_has_boundary(pd) &&
         throw(ArgumentError("edge directions require a closed PD code; boundary edge IDs are present"))
@@ -439,11 +1158,48 @@ function edge_directions(pd::AbstractMatrix{<:Integer})
     tails,heads
 end
 
-"""Return signed, left-turning region boundaries of a PD code.
+"""
+    regions(pd::AbstractMatrix{<:Integer}) -> Vector{Vector{Int}}
 
-Output and ordering match Sage `Link.regions()`, which the minimum-bend MILP
-consumes after a stable sort by length. Verified on the hopf link; see
-`PLOT_PIPELINE.md` section 4.
+Return the signed face-boundary walks of a closed PD rotation system.
+
+# Arguments
+`pd` must be coherent closed PD data in the
+[PD convention](../specs/virtual-link-data-model.md).
+Boundary edge IDs are checked and rejected with `ArgumentError`. The caller
+supplies four entries per crossing and valid paired edge occurrences;
+invalid data can raise `ArgumentError`, indexing or key errors, and are not
+covered by a total validation guarantee. Integers must convert to `Int`.
+
+# Returns
+Vectors of signed edge labels, one per face-boundary walk. Empty PD data
+give an empty vector.
+
+# Guarantees
+1. For valid input the walks are the left-turning face boundaries of the PD rotation system, with edge signs indicating traversal relative to its directed edges. [proved/agent: by construction]
+2. Each directed edge side occurs in the returned boundaries; loops and repeated edge incidence are retained. [proved/agent: by construction]
+3. `pd` is not modified. [proved/agent: by construction]
+
+# Conventions
+Use [rotation-system faces](../specs/lickorish-code.md)
+and the repository PD frame. The historical planar ordering is used by the
+[plot pipeline](../../../PLOT_PIPELINE.md).
+
+# Not guaranteed
+The function does not establish planarity. On a positive-genus rotation
+system these walks are not regions of a sphere diagram. No general equivalence
+of ordering with every Sage input is asserted.
+
+# Sources
+cf:docs/specs/lickorish-code.md §4 — faces of the PD rotation system.
+
+# Examples
+```jldoctest
+julia> Tuple(Tuple(r) for r in regions([3 2 4 1; 2 3 1 4]))
+((4, 1), (3, -1), (2, -4), (-2, -3))
+```
+
+Role: access
 """
 function regions(pd::AbstractMatrix{<:Integer})
     _pd_has_boundary(pd) &&
@@ -541,6 +1297,55 @@ function regions(pd::AbstractMatrix{<:Integer})
     result
 end
 
+"""
+    hmove_matrix(v::VirtualLink) -> Matrix{Int}
+
+Return the real-edge weight changes of unit H moves at the real vertices.
+
+# Arguments
+`v` must have coherent Gauss and vertex data with defined real-edge and
+real-Gauss views. Cut markers must obey the
+[data model](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+An incomplete real-edge table throws `ArgumentError`; malformed input may
+propagate marker, indexing or conversion errors. Assigned weights are not
+required for obtaining this matrix.
+
+# Returns
+A `Matrix{Int}` whose rows follow `real_edge_table(v)` and whose columns
+follow the real vertices in `real_gauss_code(v)`. Column `j` is the additive
+weight change for a unit H move at that real vertex.
+
+# Guarantees
+1. The matrix has one row per real edge and one column per real vertex.
+   [proved/agent: by construction]
+2. Its columns express the local weight change specified by the
+   [H-move rule](../specs/virtual-link-moves.md#124-h-move), with repeated
+   incidences contributing to the same edge entry. The graph presentation
+   and any assigned weights remain unchanged. [proved/agent: by construction]
+3. The result depends on the real-edge incidences, not the values of the
+   supplied weight vectors. [proved/agent: by construction]
+
+# Not guaranteed
+Obtaining the matrix does not establish that assigned weights satisfy a
+framing equation, choose a solution, or apply an H move. Application has
+the additional weighted-input and parameter requirements on the linked page.
+The matrix is presentation-dependent and is not a 3-manifold identifier.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-moves.md §12.4 — the H-move weight update represented by each column.
+
+# Examples
+```jldoctest
+julia> h = hmove_matrix(lens_space_link(2, 1));
+
+julia> (Tuple(h[:, 1]), Tuple(h[:, 2]))
+((0, -1, 0, 1), (0, 1, 0, -1))
+```
+
+See also [`calculate_weight`](@ref), [`move!`](@ref).
+
+Role: convert
+"""
 function hmove_matrix(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
@@ -650,6 +1455,70 @@ function _empty_disk_table()
      open_path_rows=Int[])
 end
 
+"""
+    disk_table(v::VirtualLink) -> NamedTuple
+
+Return the Method-B circuit and open-path data of a virtual-link presentation.
+
+# Arguments
+`v` must have coherent Gauss visits, vertex signs and
+[cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+The real-Gauss and real-edge views must be defined. Malformed markers or
+branching, missing, repeated or uncovered path incidences throw `ArgumentError`
+identifying the failed check. Invalid indices and unsupported vertex signs
+can instead propagate `BoundsError` or `KeyError`.
+
+# Returns
+A `NamedTuple` with one row per circuit or open path:
+- `ID`, `paths`, `edges_s`, `Ndots`, `isCycle`: row identifiers, ordered node
+  paths, signed edge traversals, dot counts and cycle flags.
+- `delta::Matrix{Int}`: signed edge-incidence totals, with columns in
+  `real_edge_table` order; `cp` and `cp2` are rational and integer-scaled
+  obstruction data; `path_lengths` gives the node-path lengths.
+- `boundary_start`, `boundary_end`: optional boundary endpoint records per row.
+- `boundary_nodes`, `boundary_lanes`: boundary-end and individual lane records.
+- `open_paths`, `open_path_rows`: the open rows and their indices.
+The local Method-B model is owned by the
+[move-verifier specification](../specs/ograph-move-verifier.md#ps-gate), and the
+closedness use by [Enforcement](../specs/ograph-terminology.md#enforcement).
+
+# Guarantees
+1. Row-valued fields have the same length as `ID`, and `delta` has that many
+   rows and one column per returned real edge. Each row's `delta` entries
+   equal the signed occurrence totals in its `edges_s`. [proved/agent: by construction]
+2. `path_lengths == length.(paths)`, `cp2 == 2 .* cp`, and `open_paths`
+   selects exactly the rows whose `isCycle` flag is false. [proved/agent: by construction]
+3. The paths describe the repository's Method-B local model of this
+   presentation. Its use as the C3 circuit count has the evidence scope of
+   the linked specification. The input is unchanged. [proved/agent: by construction]
+4. An input with no real vertices and no real edges returns an empty table.
+   Cut boundary arcs can still produce open rows with no real vertices.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is not a closed-normal certificate. Open rows are not closed disc
+boundaries, and their obstruction data alone do not certify a closed framing.
+The general identification with BP97 Figure 1.3 is not re-derived here;
+the specification records that dependency. Node labels and row order are
+presentation coordinates, not manifold invariants.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-move-verifier.md §PS gate — Method-B local-node and lane model, including the source locators and index correspondence.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> d = disk_table(vl_example("s3_abalone"));
+
+julia> Tuple(d.path_lengths)
+(5, 1)
+```
+
+See also [`closedness_witness`](@ref), [`compare_disc_partition`](@ref).
+
+Role: convert
+"""
 function disk_table(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     vertex_count=length(orientation)
@@ -883,14 +1752,54 @@ function _minimize_weight_solution(weight::AbstractVector{<:Number},kernel::Matr
     current
 end
 
-"""Legacy MATLAB-compatible `(base, kernel, hperp)` diagnostic tuple.
+"""
+    calculate_weight(v::VirtualLink; assign=false) -> Tuple{Vector,Matrix{Int},Matrix{Int}}
 
-`base` may be rational when `assign=false`. `kernel` contains integer-valued
-rows spanning the rational nullspace, NOT necessarily the full integer lattice;
-`hperp` is a heuristic rational complement, not an integer quotient certificate.
-Use `solve_integer_weights` for a complete certified integer solution lattice.
-`assign=true` refuses rational-only systems and inexact/out-of-range storage.
-The historical small representative is retained for existing invariant callers.
+Return the legacy particular weight solution, nullspace rows and H-move complement diagnostic.
+
+# Arguments
+`v` must be coherent, in integer mode and have closed strands. Z2 mode and
+cuts throw `ArgumentError` identifying the unsupported domain. `assign` is a
+Boolean; when true, the exact integer solver must report a solution and the
+legacy representative must pass exact equation and safe-storage checks, or
+`ArgumentError` reports the obstruction or storage failure. Disk-table, linear
+algebra and solver errors propagate.
+
+# Returns
+`(base, kernel, hperp)`: a particular solution vector, integer-valued rows
+spanning the rational nullspace, and a heuristic complement to H moves, with
+the scope in [the legacy diagnostic specification](../specs/virtual-link-moves.md).
+The base may be rational when `assign=false`.
+
+# Guarantees
+1. With `assign=false`, the link is unchanged. With `assign=true`, successful
+   return assigns the returned base to real arcs, marks the link weighted,
+   and preserves the diagram data. [proved/agent: by construction]
+2. An assigned base satisfies the current exact integer weight equation.
+   The returned tuple concerns this presentation's weight system, not an
+   identification of framing or spin equivalence classes.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The kernel rows need not generate the full integer lattice; `hperp` is not a
+certified integral quotient basis, and representative minimization is not a
+global optimum guarantee. Rational-only systems may return diagnostics but
+cannot be assigned. Use `solve_integer_weights` for certified lattice data.
+
+# Sources
+cf: lib/topology.jl/docs/specs/virtual-link-moves.md §12 — the legacy diagnostic tuple distinguished from exact integer-weight certificates.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2, 1); base, kernel, hperp = calculate_weight(v); d = disk_table(v);
+
+julia> all(iszero, 2d.delta * base + d.cp2)
+true
+```
+
+See also [`solve_integer_weights`](@ref), [`set_weight!`](@ref), [`validate_weight`](@ref).
+
+Role: invariant
 """
 function calculate_weight(v::VirtualLink; assign=false)
     v.weight_mode==:integer || throw(ArgumentError("calculate_weight requires integer mode; use solve_spin_weights for Z2"))
@@ -956,6 +1865,57 @@ function calculate_weight(v::VirtualLink; assign=false)
     base,kernel,selected
 end
 
+"""
+    set_weight!(v::VirtualLink, weight; mode=v.weight_mode) -> VirtualLink
+
+Assign real-arc weights to a virtual-link presentation in the chosen coefficient mode.
+
+# Arguments
+`v` must have coherent [real-arc data](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+`weight` is a numeric vector or matrix in real-arc order, or one vector per
+Gauss component. Wrong component or arc counts throw `DimensionMismatch`
+identifying the required count. `mode` must be `:integer` or `:z2`, otherwise
+`ArgumentError` identifies the mode. Z2 input values must be finite integral
+reals, checked with `ArgumentError`; integer mode only requires conversion to
+`Float64`. Representation and conversion errors propagate.
+
+# Returns
+The same `VirtualLink`, with newly allocated per-component `Float64` weight
+vectors, the selected mode and `is_weighted == true`.
+
+# Guarantees
+1. Successful assignment preserves Gauss data, signs and strand metadata.
+   Shape and value checks finish before replacement of the weight fields.
+   [proved/agent: by construction]
+2. The weights label the real arcs of this presentation. In Z2 mode their
+   stored representatives are 0 or 1; integer mode retains the converted input
+   values. The call does not assert a framing or a spin structure.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Integer mode does not check integrality, finiteness or the weight equation,
+and conversion to `Float64` can lose precision. Z2 reduction also does not
+check spin admissibility. The
+[weight assignment policy](../specs/virtual-link-data-model.md#24-weight-assignment-and-endpoint-coordinates)
+specifies storage and flattening, rather than a mathematical equivalence rule.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §5 and §10 — edge weights and the scope of integer-weight equations.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_weight!(v, [3,-2]; mode=:z2);
+
+julia> Tuple(only(v.weights))
+(1.0, 0.0)
+```
+
+See also [`set_weight_mode!`](@ref), [`real_edge_table`](@ref), [`validate_weight`](@ref).
+
+Role: move
+"""
 function set_weight!(v::VirtualLink, weight; mode=v.weight_mode)
     _check_weight_mode(mode)
     real_counts=[_strand_arc_count(v,strand) for strand in eachindex(v.gauss)]
@@ -981,7 +1941,54 @@ function set_weight!(v::VirtualLink, weight; mode=v.weight_mode)
     v.weights=weights; v.weight_mode=mode; v.is_weighted=true; v
 end
 
-"""Assign selected MATLAB `REdgeTable.Crossing` weights without relying on row order."""
+"""
+    set_weight_by_crossing!(v::VirtualLink, crossings, weights) -> VirtualLink
+
+Assign real-arc weights selected by their signed crossing endpoints.
+
+# Arguments
+- `v`: a coherent link accepted by [`real_edge_table`](@ref) and
+  [`set_weight!`](@ref); their domain and shape errors propagate.
+- `crossings`: a matrix whose rows are signed endpoint pairs in the real-edge
+  table's coordinates. Entries must convert to `Int`; the caller supplies
+  two columns and intended pair identities, which are not separately checked.
+- `weights`: one value per row, otherwise `DimensionMismatch`. Integer mode
+  converts values to `Float64`; Z2 mode requires finite integer-valued real
+  values, otherwise `ArgumentError`, and uses the mode's normalized values.
+
+# Returns
+The same `VirtualLink` with assigned weights in its existing coefficient mode.
+
+# Guarantees
+1. Every real edge with a selected endpoint pair receives the associated value; the last repeated assignment to that pair wins. [proved/agent: by construction]
+2. Unselected edges retain their real-edge-table weights, subject to the selected mode's conversion; `is_weighted` is true on successful return. [proved/agent: by construction]
+3. The link's geometry is retained and its weights are modified in place. [proved/agent: by construction]
+
+# Conventions
+Use [real arcs and their weights](../specs/ograph-terminology.md#5-edges-and-weights)
+and the [weight-assignment coordinates](../specs/virtual-link-data-model.md#24-weight-assignment-and-endpoint-coordinates).
+
+# Not guaranteed
+Unmatched endpoint pairs are ignored. Several arcs with the same endpoint
+pair receive the same assignment; the pair need not select a unique occurrence.
+No integer framing equation, spin condition or finiteness check in integer
+mode is supplied by assignment alone.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — real-arc weight storage and the distinction between data assignment and mathematical validity.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]); knot_complement!(v);
+
+julia> set_weight_by_crossing!(v, [2 -2; -3 1; 3 4; 4 -4], [1,-1,-1,1]);
+
+julia> Tuple(e.weight for e in real_edge_table(v))
+(-1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, -1.0)
+```
+
+Role: move
+"""
 function set_weight_by_crossing!(v::VirtualLink,crossings,weights)
     pairs=[Tuple(Int.(pair)) for pair in eachrow(Int.(crossings))]
     length(pairs) == length(weights) || throw(DimensionMismatch("one weight per crossing pair is required"))
@@ -1007,6 +2014,55 @@ function _graph_a_connected(v::VirtualLink)
     length(connected_components(ograph_graph_a(v))) == 1
 end
 
+"""
+    is_closed(v::VirtualLink) -> Tuple{Bool,NTuple{3,Bool}}
+
+Report the C1–C3 closed-normal checks at the mutable VirtualLink boundary.
+
+# Arguments
+`v` must have coherent stored Gauss and vertex data. Virtual crossings, cut
+markers and empty components with real vertices are outside the supported
+closed branch and return failed checks. Malformed cut markers, graph data
+or disk paths can propagate the errors of `real_gauss_code`, `ograph_graph_a`
+or `disk_table` instead of a Boolean result.
+
+# Returns
+`(closed, criteria)` with `closed::Bool` and `criteria::NTuple{3,Bool}` in
+C1, C2, C3 order, using [the enforcement specification](../specs/ograph-terminology.md#enforcement).
+
+# Guarantees
+1. On return, `closed == all(criteria)`. The input is unchanged.
+   [proved/agent: by construction]
+2. For coherent supported nonempty presentations these are the repository's
+   closed-normal criteria; their geometric scope and the C3 correspondence
+   dependency are stated on the linked specification page. [proved/agent: by construction]
+3. Unsupported virtual or cut inputs report false C2 and C3 flags. The
+   empty single circuit reports `(false, (true, true, false))`, consistently
+   with the [MST boundary distinction](../specs/ograph-terminology.md#mst-crossing-free-circuit).
+   [proved/agent: by construction]
+
+# Not guaranteed
+False C2 or C3 on an unsupported input is a domain rejection, not a computation
+of that condition for a different mathematical class. This predicate does not
+validate arbitrary manually corrupted `VirtualLink` data, certify weights,
+or return a replayable `ClosedNormalOGraph`. Its empty-input behavior differs
+from the MST closedness-witness extension.
+
+# Sources
+cf:[[BP97#^bp97-sec-0536]] §1.4, C1–C3 — closed-normal conditions; the repository enforcement and MST boundary are specified separately.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> is_closed(vl_example("s3_abalone"))
+(true, (true, true, true))
+```
+
+See also [`certify_closed_ograph`](@ref), [`closedness_witness`](@ref).
+
+Role: condition
+"""
 function is_closed(v::VirtualLink)
     code,orientation=real_gauss_code(v)
     # C1, C2, C3 at the VirtualLink boundary ([BP97, §1.4]).
@@ -1023,6 +2079,55 @@ function is_closed(v::VirtualLink)
 end
 
 include("virtual_link_symmetries.jl")
+"""
+    cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer) -> VirtualLink
+
+Change the cyclic origin of one stored closed Gauss component in place.
+
+# Arguments
+`strand` must index an existing component of `v.gauss`; otherwise `BoundsError`
+propagates. Cut markers must obey
+[the data model](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers),
+otherwise `ArgumentError` identifies the malformed marker. For a cut component
+only `amount == 0` is accepted; any nonzero amount throws `ArgumentError`
+identifying the undefined cyclic shift. `amount` is an integer shift.
+
+# Returns
+The same `VirtualLink` object `v`, with the selected Gauss component shifted.
+
+# Guarantees
+1. The new selected word equals `circshift` of its old value by `amount`.
+   Other components and every field other than `gauss` are unchanged.
+   [proved/agent: by construction]
+2. On a closed unweighted presentation this changes a word's origin, not
+   its oriented cyclic word, under the
+   [Gauss-code interpretation](../specs/ograph-terminology.md#2-standard-gauss-code-displays).
+   [proved/agent: by construction]
+3. A zero shift of a valid cut component is accepted and returns `v`.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Weights are not rotated with the word. This operation therefore does not
+promise to preserve the weighted presentation. It does not canonicalize,
+relabel crossings, certify closedness or change the cyclic direction.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-terminology.md §2 — cyclic component words and their origins; cut components use the separate data-model boundary rule.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_cuts!(v, [true]);
+
+julia> cyclic_shift!(v, 1, 0) === v
+true
+```
+
+See also [`gauss_code`](@ref).
+
+Role: move
+"""
 function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
     _validate_cut_markers(v.gauss)
     _is_cut_component(v.gauss[strand]) && amount != 0 &&
@@ -1030,6 +2135,62 @@ function cyclic_shift!(v::VirtualLink, strand::Integer, amount::Integer)
     v.gauss[strand] = circshift(v.gauss[strand], amount); v
 end
 
+"""
+    disjoint_sum!(a::VirtualLink, b::VirtualLink; preserve_weights=true) -> VirtualLink
+
+Append a disjoint virtual-link presentation to the first operand in place.
+
+# Arguments
+`a` and `b` must contain coherent presentations with valid
+[cut markers](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+Malformed markers throw `ArgumentError`. `preserve_weights` must be an actual
+`Bool`, otherwise `ArgumentError` names that requirement. When preservation
+is requested and both operands are weighted, their weight modes must agree;
+otherwise `ArgumentError` identifies the mismatch. Use independent operands
+if the second must remain unchanged through aliasing.
+
+# Returns
+The same object `a`, containing the first operand's components followed by
+the second operand's relabelled components.
+
+# Guarantees
+1. The appended presentation uses fresh crossing labels and preserves its
+   passage signs, vertex signs, strand types and cut markers. The result
+   represents the disjoint union of the two presented virtual-link diagrams.
+   [proved/agent: by construction]
+2. Weight preservation follows the
+   [disjoint-sum rule](../specs/ograph-connected-sum.md#preconditions-and-postconditions).
+   If preservation is disabled or either operand is unweighted, the result
+   is marked unweighted with zero-filled arc weight vectors. [proved/agent: by construction]
+3. The first operand's weight mode is retained. `real_only` is true exactly
+   when it was true on both inputs. An independent `b` is unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is not a connected sum and does not produce a closed-normal o-graph
+certificate. It does not validate supplied weights or claim that a disjoint
+diagram union is the connected sum of represented 3-manifolds. Aliased inputs
+are not isolated by a copy of the whole operand.
+
+# Sources
+cf: lib/topology.jl/docs/specs/ograph-connected-sum.md §Preconditions and postconditions — disjoint-sum weight retention before the separate connected-sum operation.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> a = vl_example("s3_abalone"); set_cuts!(a, [true]); b = deepcopy(a);
+
+julia> disjoint_sum!(a, b);
+
+julia> Tuple(strand_cuts(a))
+(true, true)
+```
+
+See also [`connected_sum!`](@ref).
+
+Role: convert
+"""
 function disjoint_sum!(a::VirtualLink, b::VirtualLink; preserve_weights=true)
     _validate_cut_markers(a.gauss); _validate_cut_markers(b.gauss)
     preserve_weights isa Bool || throw(ArgumentError("preserve_weights must be an explicit Boolean"))
@@ -1119,17 +2280,65 @@ function _connected_sum_lift(first_weights::Vector{Float64},second_weights::Vect
          second_weights[2:end],v,0.0,1.0,-1.0)
 end
 
-"""Join two closed real-Gauss components by the normal-o-graph connected sum.
+"""
+    connected_sum!(v::VirtualLink, selection=(1,2); transport_weights=true) -> VirtualLink
 
-`selection` may be a two-element strand-index iterable, a `1×2` matrix of
-strand indices, or a `2×2` matrix whose second row gives the signed crossing
-at which each component traversal starts.  Anchor selection is performed on the
-real-Gauss code.  The four-vertex splice and labels are specified in
-`docs/specs/ograph-connected-sum.md`.
+Replace two selected normal o-graph summands by their connected-sum presentation.
 
-If the input has assigned integral weights, the default `transport_weights=true`
-uses the specification's fixed-exterior integer lift and validates the resulting
-disk equations.  Use `transport_weights=false` to discard assigned weights.
+# Arguments
+- `v`: the caller supplies disjoint closed normal summands satisfying the
+  [connected-sum preconditions](../specs/ograph-connected-sum.md#preconditions-and-postconditions).
+  These topological preconditions are not independently certified here; without
+  them the manifold interpretation is not guaranteed. Open strands are rejected
+  with `ArgumentError` explaining that open boundaries would be discarded.
+- `selection`: two distinct strand indices, optionally with anchors, in the
+  [selection convention](../specs/ograph-connected-sum.md#real-gauss-splice).
+  Accepted containers are a two-element iterable, a `1×2` matrix, or a `2×2`
+  matrix with anchors in its second row. `ArgumentError` reports invalid shape,
+  noninteger entries, equal indices or a nonunique/missing anchor;
+  out-of-range strand indices throw `BoundsError`.
+- `transport_weights`: must be `Bool`, otherwise `ArgumentError`.
+  Transport of assigned weights requires integer mode and framed-valid weights;
+  `ArgumentError` identifies unsupported Z2 transport or invalid weights.
+  Input and output weight validation is delegated to [`validate_weight`](@ref).
+
+# Returns
+The same `VirtualLink` object after replacement of its data.
+
+# Guarantees
+1. On successful return the strand count decreases by one and the true vertex count increases by four. [proved/agent: by construction]
+2. For two summands meeting the linked preconditions, the specified local operation represents their oriented connected sum. [proved/literature: [[K10#^k10-sec-0033]] Figure 6 and Theorem 1.1]
+3. When assigned weights are transported, the result passes framed weight validation and follows the specification's fixed-exterior integer lift. [proved/agent: by construction]
+4. `transport_weights=false` returns an unweighted presentation; `v` is modified in place. [proved/agent: by construction]
+
+# Conventions
+The [real-Gauss splice](../specs/ograph-connected-sum.md#real-gauss-splice)
+and [integer-weight lift](../specs/ograph-connected-sum.md#fixed-exterior-integer-weight-lift)
+fix the labels, seams and weight representative.
+
+# Not guaranteed
+The weight lift is not established as a canonical connected sum of geometric
+framing classes. Arbitrary pairs of strands need not be separate manifold
+summands. No independent C1–C3 certification is performed on the result.
+
+# Sources
+cf:[[K10#^k10-sec-0033]] Figure 6 and Theorem 1.1 — oriented connected sum, under the linked local-operation specification.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]);
+
+julia> solve_integer_weights(v; assign=true); other = deepcopy(v);
+
+julia> disjoint_sum!(v, other); connected_sum!(v);
+
+julia> (v.is_weighted, is_framed_weight(v), is_closed(v))
+(true, true, (true, (true, true, true)))
+```
+
+See also [`disjoint_sum!`](@ref), [`certify_closed_ograph`](@ref).
+
+Role: move
 """
 function connected_sum!(v::VirtualLink, selection=(1,2);transport_weights=true)
     transport_weights isa Bool ||
@@ -1188,7 +2397,47 @@ function connected_sum!(v::VirtualLink, selection=(1,2);transport_weights=true)
     v
 end
 
-"""Convert a knot diagram to the version-2 knot-complement o-graph."""
+"""
+    knot_complement!(v::VirtualLink) -> VirtualLink
+
+Return the version-2 combinatorial expansion associated with the knot-complement construction.
+
+# Arguments
+- `v`: a coherent closed-strand presentation in the
+  [VirtualLink data model](../specs/virtual-link-data-model.md).
+  Open strands are checked and rejected with `ArgumentError`. The caller
+  supplies valid real-Gauss incidence and vertex signs; no knot recognition,
+  planarity or single-component certification is performed.
+
+# Returns
+The same `VirtualLink` with expanded real-Gauss data, unassigned zero weights,
+and o-graph strand types. Its coefficient mode is retained.
+
+# Guarantees
+1. The output has four times the input's true vertex count and twice its number of real-Gauss components. [proved/agent: by construction]
+2. The result is unweighted and `real_only` is `true`. [proved/agent: by construction]
+3. `v` is modified in place. [proved/agent: by construction]
+
+# Not guaranteed
+The [knot-complement word specification](../specs/ur-diagrams.md#knot-complement-word)
+records the unverified identification with a spine of the input knot exterior,
+its peripheral marking and its applicability beyond knots. This function does
+not certify a knot-complement homeomorphism or C1–C3. Assigned weights and
+their framing interpretation are discarded.
+
+# Sources
+cf:docs/specs/virtual-link-data-model.md — meaning of the input and output presentation data; no knot-exterior identification is supplied there.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[1,-1]], orientation=[1]); knot_complement!(v);
+
+julia> Tuple(v.orientation)
+(-1, 1, -1, 1)
+```
+
+Role: convert
+"""
 function knot_complement!(v::VirtualLink)
     any(strand_cuts(v)) &&
         throw(ArgumentError("knot_complement! currently requires closed strands"))
@@ -1210,7 +2459,54 @@ function knot_complement!(v::VirtualLink)
     v
 end
 
-"""Convert a VirtualLink to the URDiagram ordering used by MATLAB `VL2URD`."""
+"""
+    vl_to_urdiagram(v::VirtualLink) -> URDiagram
+
+Return the legacy U(R) diagram associated with a link's real-Gauss projection.
+
+# Arguments
+`v` must have integer weight mode and closed strands; Z2 mode and open
+strands throw `ArgumentError` identifying the unsupported domain. The caller
+supplies coherent [link data](../specs/virtual-link-data-model.md).
+Malformed cut markers throw `ArgumentError`; inconsistent crossing data can
+raise indexing or conversion errors. Assigned edge weights are not required.
+
+# Returns
+A new `URDiagram` in the legacy `VL2URD` ordering, with coefficient one and
+the formal perturbations supplied by [`set_data_cvs!`](@ref).
+
+# Guarantees
+1. The result represents the real-crossing data in the legacy UR-diagram
+   interface; explicit virtual crossings and assigned edge weights do not
+   enter that result. [proved/agent: by construction]
+2. The source link is unchanged, and the returned diagram has independent
+   mutable containers. [proved/agent: by construction]
+
+# Not guaranteed
+This conversion does not certify a closed normal o-graph, identify a
+3-manifold invariant, take a regulator limit or return a trace value.
+The [U(R) specification](../specs/ur-diagrams.md#weighted-endpoint-data) owns
+the endpoint data and links their ordering convention. This contract does not
+assert a correspondence with the distinct exact U(R) MST backend. Multi-component input is permitted but no
+general manifold interpretation is established here.
+
+# Sources
+cf:lib/topology.jl/src/virtual_link.jl vl_to_urdiagram; lib/topology.jl/src/ur_diagram.jl set_data_cvs! — the legacy conversion and formal-perturbation interfaces.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_weight!(v, [3,-2]); set_weight_mode!(v, :z2);
+
+julia> try vl_to_urdiagram(v); false catch e; e isa ArgumentError end
+true
+```
+
+See also [`ur_invariant`](@ref), [`ur_prime_invariant`](@ref).
+
+Role: convert
+"""
 function vl_to_urdiagram(v::VirtualLink)
     v.weight_mode==:integer || throw(ArgumentError("UR invariants require integer mode; Z2 weights are not integer lifts"))
     any(strand_cuts(v)) &&
@@ -1225,9 +2521,102 @@ function vl_to_urdiagram(v::VirtualLink)
     set_data_cvs!(diagram,1,vertices,orientation)
 end
 
+"""
+    ur_invariant(v::VirtualLink) -> Any
+
+Return the legacy symbolic trace of the link's UR-diagram projection.
+
+# Arguments
+`v` must have integer mode and closed strands; Z2 mode or cuts throw
+`ArgumentError` naming the unsupported domain. Its real-Gauss data must be
+coherent under the [data model](../specs/virtual-link-data-model.md).
+Conversion, symbolic simplification and trace errors propagate. The function
+does not require or check assigned framing weights or closed-normality.
+
+# Returns
+The scalar or symbolic expression produced by `trace_value` for
+`vl_to_urdiagram(v)`. Its concrete type depends on the algebraic result;
+`Any` describes that polymorphic return, not a certified numeric value.
+
+# Guarantees
+1. The result is the trace expression of the converted UR diagram, with the
+   same meaning as [`vl_to_urdiagram`](@ref) and `trace_value`. The input link
+   is unchanged. [proved/agent: by construction]
+2. The input's assigned edge weights do not enter this expression.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This legacy entry is not the exact MST backend exposed by `ur_prime_invariant`.
+The [legacy trace specification](../specs/ur-diagrams.md#legacy-trace-expressions)
+does not establish general move invariance or identify this expression with
+an invariant of a closed 3-manifold. It does
+not promise a finite numeric value, removal of regulators, or a framed invariant.
+
+# Sources
+cf: lib/topology.jl/src/ur_diagram.jl trace_value — the legacy UR trace operation; this is an implementation reference, not a manifold-invariance theorem.
+
+# Examples
+```jldoctest
+julia> Base.include(@__MODULE__, joinpath(pkgdir(Topology), "examples", "VLExample.jl"));
+
+julia> v = vl_example("s3_abalone"); set_weight!(v, [3,-2]); set_weight_mode!(v, :z2);
+
+julia> try ur_invariant(v); false catch e; e isa ArgumentError end
+true
+```
+
+See also [`vl_to_urdiagram`](@ref), [`ur_prime_invariant`](@ref).
+
+Role: invariant
+"""
 function ur_invariant(v::VirtualLink)
     trace_value(vl_to_urdiagram(v))
 end
 
-"""Compatibility entry for the exact U(R) MST backend (corrected word order)."""
+"""
+    ur_prime_invariant(v::VirtualLink) -> Rational{BigInt}
+
+Return the exact U(R) MST trace value of a link's real-Gauss presentation.
+
+# Arguments
+`v` must have closed strands and one nonempty real-Gauss component, with
+coherent signed visits under the [link data model](../specs/virtual-link-data-model.md).
+Cuts, an empty or multiple-component real projection, and invalid visit
+multiplicities throw `ArgumentError`. Incoherent underlying link data can
+raise indexing errors. A singular defining trace matrix throws `DomainError`.
+Assigned edge weights and their mode do not enter this evaluator.
+
+# Returns
+An exact rational scalar from `Z_MST(v, URAlgebra())`.
+
+# Guarantees
+1. The result is the U(R) specialization of the library's MST trace on the
+   supplied real-Gauss presentation, with precisely the semantics of that
+   `Z_MST` overload. [proved/agent: by construction]
+2. The input's Gauss data and weights are unchanged, and assigned weights
+   do not affect the value. [proved/agent: by construction]
+
+# Not guaranteed
+This entry does not certify closed-normality. The
+[exact MST specification](../specs/ur-diagrams.md#exact-mst-expression) owns
+the trace convention and records the absent general identification of this
+scalar with an invariant of the represented 3-manifold.
+The tested finite examples do not establish that theorem. No finite value
+is supplied for singular trace data, and no framing dependence is asserted.
+
+# Sources
+cf:lib/topology.jl/src/ur_mst_link.jl invariant_expression and Z_MST; lib/topology.jl/src/ur_mst.jl evaluate_invariant — the exact U(R) trace interface, not a general manifold-invariance theorem.
+
+# Examples
+```jldoctest
+julia> positive = VirtualLink(); set_data!(positive; rgauss=[[1,-1]], orientation=[1]); negative = VirtualLink(); set_data!(negative; rgauss=[[1,-1]], orientation=[-1]);
+
+julia> (ur_prime_invariant(positive) == -1, ur_prime_invariant(negative) == 1)
+(true, true)
+```
+
+See also [`Z_MST`](@ref), [`ur_invariant`](@ref).
+
+Role: invariant
+"""
 ur_prime_invariant(v::VirtualLink) = Z_MST(v, URAlgebra())

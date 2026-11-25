@@ -15,6 +15,58 @@ Candidates are source-bound witnesses.  `apply_reidemeister` does not search
 again, and refuses a candidate whose source diagram or local witness is stale.
 """
 
+"""
+    ReidemeisterCandidate(type, direction, vertices, edge_positions, before, after, variant, source::KnotGaussDiagram) -> ReidemeisterCandidate
+
+Store a source-bound candidate for a local Reidemeister move on a signed Gauss representation.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/knot-gauss.md).
+
+`type` converts to `String`; `direction` and `variant` convert to `Symbol`.
+`vertices`, `before` and `after` supply integer sequences. Every element of
+`edge_positions` must expose at least two entries convertible to `Int`;
+additional entries are ignored. `source` is a `KnotGaussDiagram`.
+Conversion and indexing errors propagate. No local-move validity check is
+performed by this constructor.
+
+# Returns
+`ReidemeisterCandidate` with the supplied move `type`, `direction`, crossing
+`vertices`, `edge_positions`, local `before` and `after` data, `variant`, and
+`source`. Sequence fields are stored as tuples. Compatibility properties
+`edges`, `local_before`, `local_after` and `diagram` expose the corresponding
+fields. The operation belongs to [MoveAPI](../specs/module-structure.md#31-moveapi).
+
+# Guarantees
+1. The fields preserve the converted inputs, with edge entries restricted
+   to their first two coordinates. Input containers are unchanged. [proved/agent: by construction]
+2. Candidates obtained from `movable` name proposed local transformations
+   of their stored source representation. The record itself is a witness
+   container, not a proof that its data define a valid move. [proved/agent: by construction]
+
+# Not guaranteed
+Manually assembled records may be stale or forged. Use
+[`verify_reidemeister_transition`](@ref) on a proposed target; the constructor
+does not establish move equivalence or classical realizability.
+
+# Sources
+cf:lib/topology.jl/src/reidemeister.jl, ReidemeisterCandidate — the local-move candidate record; transition validity is checked separately.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-1], [1]); c = first(movable(d, "R1"; param=:delete));
+
+julia> stored = ReidemeisterCandidate(c.type, c.direction, c.vertices, c.edge_positions, c.before, c.after, c.variant, d);
+
+julia> verify_reidemeister_transition(d, KnotGaussDiagram(Int[], Int[]), stored)
+true
+```
+
+See also [`apply_reidemeister`](@ref), `movable`.
+
+Role: convert
+"""
 struct ReidemeisterCandidate
     type::String
     direction::Symbol
@@ -367,7 +419,54 @@ function _rm_variant_matches(d::KnotGaussDiagram, c::ReidemeisterCandidate)
     end
 end
 
-"""Return all source-bound R1/R2/R3 witnesses matching the selectors."""
+"""
+    movable(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges=nothing, strict=false) -> Vector{ReidemeisterCandidate}
+
+Return the source-bound local Reidemeister witnesses matching the selected knot data.
+
+# Arguments
+`d` satisfies K1; the selector domain and coordinate meanings are K13 and
+[move selectors](../specs/knot-gauss.md#move-selectors).
+Unknown move families and unsupported direction parameters raise
+`ArgumentError` naming the invalid family or parameter. Selector entries
+convert to `Int`; malformed edge pairs can raise `DimensionMismatch`.
+A well-formed selector with no matching witness returns an empty vector.
+The compatibility keyword `strict` is accepted but has no effect.
+Classicality K2 is not checked.
+
+# Returns
+A `Vector{ReidemeisterCandidate}`. Its elements carry the source, local
+replacement and selected positions with the
+[witness meaning](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+Distinct cyclic locations can give distinct witnesses for the same target.
+
+# Guarantees
+1. Each result is a local R1, R2 or R3 candidate bound to `d` and matching the supplied selectors in their specified order. [proved/agent: by construction]
+2. The output is the finite candidate population for the supported local rules and selectors; omitting a selector imposes no restriction of that kind. [proved/agent: by construction]
+3. The diagram and selectors are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Witnesses are not deduplicated by target knot or canonical representation.
+No planar-realizability test or knot classification is performed. The general
+identification of every local rule with the cited literature convention
+remains unverified as recorded in the specification; apply and verify a
+selected transition before retaining it as evidence.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses, Move selectors — supported local witness population and source-comparison boundary.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram(Int[], Int[]);
+
+julia> length(movable(d, "R1"; param=:insert))
+4
+```
+
+See also [`apply_reidemeister`](@ref), [`verify_reidemeister_transition`](@ref).
+
+Role: access
+"""
 function movable(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges=nothing, strict=false)
     t = _rm_type(type)
     candidates = if t == "R1"
@@ -390,6 +489,43 @@ function movable(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges
     filter(c -> _rm_selector_match(c, vertices, edges), candidates)
 end
 
+"""
+    movable(d::KnotGaussDiagram, type, arg::NamedTuple) -> Vector{ReidemeisterCandidate}
+
+Return local Reidemeister witnesses using a named selector record.
+
+# Arguments
+K1 and K13 and the alias precedence in
+[move selectors](../specs/knot-gauss.md#move-selectors) apply.
+The extracted selections have exactly the domain of the keyword overload;
+its `ArgumentError`, conversion and malformed-pair failures propagate.
+Unrecognized record fields are ignored, and `strict` has no effect.
+
+# Returns
+The keyword overload's vector of `ReidemeisterCandidate` records, with
+source binding and local data as defined by the [witness specification](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Guarantees
+1. The result equals the keyword query selected by the record's recognized fields. [proved/agent: by construction]
+2. The diagram and record are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a validation of all fields in an arbitrary record. It adds no
+classicality or topological guarantee beyond the keyword query.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Move selectors — compatibility record and positional selector meaning.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-1], [1]);
+
+julia> length(movable(d, "R1", (p=:delete, v=[1], e=[(1,2)])))
+1
+```
+
+Role: access
+"""
 function movable(d::KnotGaussDiagram, type, arg::NamedTuple)
     param = haskey(arg, :param) ? arg.param : haskey(arg, :p) ? arg.p : nothing
     vertices = haskey(arg, :vertices) ? arg.vertices : haskey(arg, :v) ? arg.v : Int[]
@@ -553,7 +689,52 @@ function _rm_verify_insert(d::KnotGaussDiagram, inserts::Dict{Int,Vector{Int}}, 
     KnotGaussDiagram(code, vcat(collect(d.orientation), Int.(new_signs)))
 end
 
-"""Apply a previously returned witness to exactly its source diagram."""
+"""    apply_reidemeister(d::KnotGaussDiagram, c::ReidemeisterCandidate) -> KnotGaussDiagram
+
+Return the signed Gauss diagram obtained by a verified local Reidemeister witness.
+
+# Arguments
+`d` satisfies K1 and `c` must satisfy K3
+([Gauss conditions](../specs/knot-gauss.md#numbered-conditions)). Obtain `c`
+from `movable(d, ...)`. Source equality, supported move/direction, local
+witness data and resulting transition are checked. `ArgumentError` identifies
+a stale source, invalid local witness or failed structural verification.
+Malformed manually constructed indices can also raise `BoundsError`; this
+is not a total validator for arbitrary forged records.
+
+# Returns
+A new `KnotGaussDiagram` for the witnessed local move. The output is a
+representative, not necessarily the canonical representative.
+
+# Guarantees
+1. On successful return, `verify_reidemeister_transition(d, result, c)` is true and the result satisfies K1. [proved/agent: by construction]
+2. The result is related to the source by the repository's witnessed local replacement; no other move is selected. [proved/agent: by construction]
+3. Neither the source diagram nor the candidate is modified. [proved/agent: by construction]
+
+# Conventions
+[Signed Gauss coordinates and move witnesses](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Not guaranteed
+No canonicalization, classical-realizability decision or minimality claim is
+made. The general identification of the local Gauss rules with literature
+Reidemeister moves requires the source/convention comparison recorded in the
+specification; a successful replay is the finite witness supplied here.
+
+# Sources
+cf:lib/topology.jl/src/reidemeister.jl, local witness verification — source-bound signed-Gauss replacement and independent replay check.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -1], [1]); c = first(movable(d, "R1"; param=:delete));
+
+julia> apply_reidemeister(d, c) == KnotGaussDiagram(Int[], Int[])
+true
+```
+
+See also `movable`, [`verify_reidemeister_transition`](@ref).
+
+Role: move
+"""
 function apply_reidemeister(d::KnotGaussDiagram, c::ReidemeisterCandidate)
     _rm_check_source(c,d)
     result = _rm_apply_raw(d,c)
@@ -561,7 +742,47 @@ function apply_reidemeister(d::KnotGaussDiagram, c::ReidemeisterCandidate)
     result
 end
 
-"""Apply the unique selected move (or reject ambiguity in strict mode)."""
+"""
+    move(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges=nothing, strict=true) -> KnotGaussDiagram
+
+Apply a selected local Reidemeister move to a knot Gauss representation.
+
+# Arguments
+K1 and K13 in [the knot specification](../specs/knot-gauss.md#numbered-conditions)
+and the selector domain of `movable(d,type;...)` apply. The selector query's
+errors propagate. An empty candidate population raises `ArgumentError`
+with `No valid Reidemeister moves found`. With `strict=true`, more than one
+candidate raises `ArgumentError` with `Reidemeister move is ambiguous`.
+With `strict=false`, the first returned candidate is selected.
+The selected application must pass `apply_reidemeister`'s structural checks;
+its failures propagate. Classicality K2 is not checked.
+
+# Returns
+A `KnotGaussDiagram` carrying the local replacement of the selected witness.
+
+# Guarantees
+1. The result equals `apply_reidemeister(d,c)` for the selected witness `c`; successful return has passed the corresponding structural transition verification. [proved/agent: by construction]
+2. The source diagram and selector containers are unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+The result is not canonicalized. Non-strict selection does not identify a
+canonical move or eliminate dependence on enumeration order. The source
+comparison and general classical-knot interpretation retain the unverified
+boundary in the specification; this call does not classify the knot.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses — local replacement and its evidence boundary.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-1], [1]);
+
+julia> move(d, "R1"; param=:delete, vertices=[1], edges=[(1,2)]) == KnotGaussDiagram(Int[], Int[])
+true
+```
+
+Role: move
+"""
 function move(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges=nothing, strict=true)
     candidates=movable(d,type;param=param,vertices=vertices,edges=edges,strict=strict)
     isempty(candidates) && throw(ArgumentError("No valid Reidemeister moves found"))
@@ -569,6 +790,42 @@ function move(d::KnotGaussDiagram, type; param=nothing, vertices=Int[], edges=no
     apply_reidemeister(d,first(candidates))
 end
 
+"""
+    move(d::KnotGaussDiagram, type, arg::NamedTuple) -> KnotGaussDiagram
+
+Apply a local Reidemeister move selected by a named argument record.
+
+# Arguments
+K1, K13 and the named-record coordinates of
+[move selectors](../specs/knot-gauss.md#move-selectors) apply.
+This overload uses the keyword `move` requirements, including default
+`strict=true`. Missing candidates and strict ambiguity raise `ArgumentError`;
+selector and application failures propagate. Unrecognized fields are ignored.
+
+# Returns
+The `KnotGaussDiagram` returned by the corresponding keyword query.
+
+# Guarantees
+1. The output has the selected local-replacement meaning and structural verification guarantee of the keyword overload. [proved/agent: by construction]
+2. The diagram and supplied record are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not validate all fields of an arbitrary record, canonicalize the
+result, or add a topological identification beyond the keyword overload.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Move selectors — ordered selections and compatibility fields.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-1], [1]);
+
+julia> move(d, "R1", (p=:delete, v=[1], e=[(2,1)], strict=true)) == KnotGaussDiagram(Int[], Int[])
+true
+```
+
+Role: move
+"""
 move(d::KnotGaussDiagram, type, arg::NamedTuple) = begin
     param=haskey(arg,:param) ? arg.param : haskey(arg,:p) ? arg.p : nothing
     vertices=haskey(arg,:vertices) ? arg.vertices : haskey(arg,:v) ? arg.v : Int[]
@@ -679,7 +936,52 @@ function _rm_verify_expected(d::KnotGaussDiagram,c::ReidemeisterCandidate)
     nothing
 end
 
-"""Independently certify a transition modulo cyclic shift and relabelling."""
+"""
+    verify_reidemeister_transition(before::KnotGaussDiagram, after::KnotGaussDiagram, c::ReidemeisterCandidate) -> Bool
+
+Check a source-bound local Reidemeister transition modulo the canonical coordinate relation.
+
+# Arguments
+`before` and `after` satisfy K1; `c` is a candidate subject to K3
+([conditions](../specs/knot-gauss.md#numbered-conditions)). The supported local
+witness, source and target correspondence are checked. A stale or structurally
+rejected witness returns `false`; arbitrary malformed manually assembled
+records can still raise conversion or indexing errors. Obtain candidates
+from `movable` for the supported input domain.
+
+# Returns
+`Bool` for agreement of the candidate's independently reconstructed local
+target with `after` under the canonical coordinate relation.
+
+# Guarantees
+1. A true result means the candidate's checked local replacement has the same canonical representative as `after`, with `c.source == before`. [proved/agent: by construction]
+2. Input diagrams and the candidate are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Canonical relation](../specs/knot-gauss.md#canonical-coordinates) and
+[local witnesses](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Not guaranteed
+This does not search for a different move when the supplied one fails, or
+certify an arbitrary multi-step isotopy. A true result does not assert literal
+equality of rooted targets. The general literature correspondence of the
+local rules retains the unverified source comparison in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses and Coordinate choices — local transition relation and source boundary.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -1], [1]); c = first(movable(d, "R1"; param=:delete));
+
+julia> verify_reidemeister_transition(d, KnotGaussDiagram(Int[], Int[]), c)
+true
+```
+
+See also [`apply_reidemeister`](@ref).
+
+Role: condition
+"""
 function verify_reidemeister_transition(before::KnotGaussDiagram,
                                         after::KnotGaussDiagram,
                                         c::ReidemeisterCandidate)
@@ -700,6 +1002,52 @@ function verify_reidemeister_transition(before::KnotGaussDiagram,
     end
 end
 
+"""
+    verify_reidemeister_transition(c::ReidemeisterCandidate, before::KnotGaussDiagram, after::KnotGaussDiagram) -> Bool
+
+Check a source-bound local Reidemeister transition modulo the canonical coordinate relation.
+
+# Arguments
+`before` and `after` satisfy K1; `c` is a candidate subject to K3
+([conditions](../specs/knot-gauss.md#numbered-conditions)). The supported local
+witness, source and target correspondence are checked. A stale or structurally
+rejected witness returns `false`; arbitrary malformed manually assembled
+records can still raise conversion or indexing errors. Obtain candidates
+from `movable` for the supported input domain.
+
+# Returns
+`Bool` for agreement of the candidate's independently reconstructed local
+target with `after` under the canonical coordinate relation.
+
+# Guarantees
+1. A true result means the candidate's checked local replacement has the same canonical representative as `after`, with `c.source == before`. [proved/agent: by construction]
+2. Input diagrams and the candidate are unchanged. [proved/agent: by construction]
+
+# Conventions
+[Canonical relation](../specs/knot-gauss.md#canonical-coordinates) and
+[local witnesses](../specs/knot-gauss.md#enumeration-and-move-witnesses).
+
+# Not guaranteed
+This does not search for a different move when the supplied one fails, or
+certify an arbitrary multi-step isotopy. A true result does not assert literal
+equality of rooted targets. The general literature correspondence of the
+local rules retains the unverified source comparison in the specification.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Enumeration and move witnesses and Coordinate choices — local transition relation and source boundary.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -1], [1]); c = first(movable(d, "R1"; param=:delete));
+
+julia> verify_reidemeister_transition(c, d, KnotGaussDiagram(Int[], Int[]))
+true
+```
+
+See also [`apply_reidemeister`](@ref).
+
+Role: condition
+"""
 verify_reidemeister_transition(c::ReidemeisterCandidate,
                                before::KnotGaussDiagram, after::KnotGaussDiagram) =
     verify_reidemeister_transition(before,after,c)

@@ -6,6 +6,47 @@
 
 """計算と比較。入口の引数は HeegaardCode だけである。"""
 
+"""
+    HCClosedDiagramExcluded(condition, witness) -> HCClosedDiagramExcluded
+
+Store a named obstruction to the closed-diagram domain of an HC computation.
+
+# Arguments
+`condition::Symbol` and `witness::Dict{String,Any}`, or values convertible to
+those types. Conversion errors propagate. Construction does not throw the
+result or evaluate the named condition.
+
+# Returns
+`HCClosedDiagramExcluded` with the supplied condition tag and diagnostic
+data. `showerror` displays the condition tag.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; a typed witness
+   dictionary is retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. When thrown by `hc_first_homology`, the record identifies that operation's
+   rejected domain check. The distinction between curve data and a valid
+   manifold diagram is owned by
+   [the Heegaard conditions](../specs/heegaard-koda-conversion.md#51-曲線系と多様体). [proved/agent: by construction]
+
+# Not guaranteed
+Arbitrary conditions and witnesses are accepted. A count mismatch is not
+itself a classification of the represented surface or manifold, and the
+absence of this exception is not proof of complete cut systems.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> e = HCClosedDiagramExcluded(:alpha_beta_count_ne_genus, Dict{String,Any}("genus" => 1, "n_alpha" => 2, "n_beta" => 1));
+
+julia> (e.condition, e.witness["genus"], e.witness["n_alpha"], e.witness["n_beta"])
+(:alpha_beta_count_ne_genus, 1, 2, 1)
+```
+
+See also [`hc_first_homology`](@ref).
+
+Role: construct
+"""
 struct HCClosedDiagramExcluded <: Exception
     condition::Symbol
     witness::Dict{String,Any}
@@ -15,6 +56,43 @@ function Base.showerror(io::IO, err::HCClosedDiagramExcluded)
     print(io, "HCClosedDiagramExcluded(", err.condition, ")")
 end
 
+"""
+    HCNotComputed(reason, detail) -> HCNotComputed
+
+Store a reason why an HC comparison computation did not finish its decision.
+
+# Arguments
+`reason::Symbol` and `detail::Dict{String,Any}`, or convertible values.
+Conversion errors propagate. No reason tag or diagnostic content is checked.
+
+# Returns
+`HCNotComputed` with the reason and diagnostic data. `showerror` prints the
+reason tag. Constructing the value does not throw it.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; an already-typed
+   dictionary is retained and not modified. [proved/agent: by construction]
+2. When raised by the canonical comparison search, this is a computation
+   failure rather than a verdict that the diagrams or manifolds differ;
+   see [comparison scope](../specs/heegaard-terminology.md#9-操作比較検証).
+   [proved/agent: by construction]
+
+# Not guaranteed
+The record does not decide any equivalence relation or certify that retrying
+will finish. A caller can construct it without any failed computation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> HCNotComputed(:canonical_tie_group, Dict{String,Any}()).reason
+:canonical_tie_group
+```
+
+See also [`compare_hc`](@ref), [`hc_canonical`](@ref).
+
+Role: construct
+"""
 struct HCNotComputed <: Exception
     reason::Symbol
     detail::Dict{String,Any}
@@ -24,6 +102,56 @@ function Base.showerror(io::IO, err::HCNotComputed)
     print(io, "HCNotComputed(", err.reason, ")")
 end
 
+"""
+    HCIntersection(rows, columns, matrix, row_order, column_order, sign_convention) -> HCIntersection
+
+Store an alpha–beta intersection matrix with curve labels and convention metadata.
+
+# Arguments
+`rows::Vector{String}`, `columns::Vector{String}`, `matrix::Matrix{Int}`,
+`row_order::Symbol`, `column_order::Symbol`, `sign_convention::String`, or
+values convertible to those types. Conversion errors propagate. Dimensions,
+labels and convention metadata are not checked.
+
+# Returns
+`HCIntersection` with supplied row and column curve names, integer matrix,
+ordering tags and sign-convention text. The associated mathematical notion is
+[the intersection pairing](../specs/heegaard-terminology.md#91-群と不変量で使う用語);
+interpret the stored signs and ordering using
+[comparison coordinates](../specs/heegaard-code.md#comparison-records).
+
+# Guarantees
+1. Fields equal the supplied values after conversion; typed vectors and
+   matrix are retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. For output of [`hc_intersection`](@ref), the matrix records the signed
+   alpha–beta intersection data of the input curve arrangement under its
+   recorded sign convention. A closed
+   manifold diagram is not required for this matrix to be returned. [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not compute intersections or establish complete cut
+systems. An arbitrary matrix and convention string need not describe any
+surface arrangement. Agreement with the ordered oriented intersection pairing
+is not guaranteed by this record. This record alone is not manifold homology.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("a" => [1], "b" => [-1]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> h = H.HeegaardCode(lc, Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.hc_intersection(h); s = H.HCIntersection(r.rows, r.columns, r.matrix, r.row_order, r.column_order, r.sign_convention);
+
+julia> (Tuple(s.rows), Tuple(s.columns), s.matrix[1,1], s.row_order)
+(("a",), ("b",), 1, :sorted_component_name)
+```
+
+See also [`hc_intersection`](@ref), [`hc_invariant_factors`](@ref).
+
+Role: construct
+"""
 struct HCIntersection
     rows::Vector{String}
     columns::Vector{String}
@@ -33,12 +161,102 @@ struct HCIntersection
     sign_convention::String
 end
 
+"""
+    HCInvariantFactors(factors, source, manifold_homology) -> HCInvariantFactors
+
+Store Smith invariant factors and their declared interpretation.
+
+# Arguments
+`factors::Vector{Int}`, `source::Symbol`, `manifold_homology::Bool`, or
+values convertible to those types. Conversion errors propagate. Positivity,
+divisibility and the interpretation flag are not validated.
+
+# Returns
+`HCInvariantFactors` with the supplied factor list, source tag and
+manifold-homology flag.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; a typed factor vector
+   is retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. For output of [`hc_invariant_factors`](@ref), these are the nonzero Smith
+   factors of the input HC's intersection matrix, and `manifold_homology`
+   is false. The relevant matrix is the
+   [intersection object](../specs/heegaard-terminology.md#91-群と不変量で使う用語). [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not compute a Smith form. A manually supplied true flag
+does not establish a manifold interpretation. These factors alone omit the
+free rank needed to specify first homology.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("a" => [1,2], "b" => [-1,-2]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> h = H.HeegaardCode(lc, Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.hc_invariant_factors(h); s = H.HCInvariantFactors(r.factors, r.source, r.manifold_homology);
+
+julia> Tuple(s.factors)
+(2,)
+```
+
+See also [`hc_invariant_factors`](@ref), [`hc_first_homology`](@ref).
+
+Role: construct
+"""
 struct HCInvariantFactors
     factors::Vector{Int}
     source::Symbol
     manifold_homology::Bool
 end
 
+"""
+    HCPresentationResult(presentation, generator_family, relator_family, generator_names, relator_names) -> HCPresentationResult
+
+Store an HC group presentation with its generator and relator curve names.
+
+# Arguments
+`presentation::GroupPresentation`, `generator_family::Symbol`,
+`relator_family::Symbol`, and `generator_names, relator_names::Vector{String}`,
+or convertible values. Conversion errors propagate. No correspondence of
+names, families or words is checked.
+
+# Returns
+`HCPresentationResult` with the presentation, the two family tags, and curve
+names in the respective generator and relator orders.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed arguments
+   are retained and not modified. [proved/agent: by construction]
+2. For output of [`hc_presentation`](@ref), the record associates its group
+   presentation with the input's alpha and beta curve data. Its manifold
+   interpretation requires the Heegaard hypotheses of
+   [the presentation specification](../specs/heegaard-terminology.md#91-群と不変量で使う用語).
+   [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not establish complete cut systems, check a presentation,
+or identify an arbitrary supplied group with a 3-manifold group. Matching
+alpha and beta counts alone does not establish those hypotheses.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("a" => [1], "b" => [-1]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing); h = H.HeegaardCode(lc, Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.hc_presentation(h); s = H.HCPresentationResult(r.presentation, r.generator_family, r.relator_family, r.generator_names, r.relator_names);
+
+julia> (s.generator_family, s.relator_family, H.abelianization_matrix(s.presentation) == transpose(H.hc_intersection(h).matrix))
+(:alpha, :beta, true)
+```
+
+See also [`hc_presentation`](@ref), [`hc_first_homology`](@ref).
+
+Role: convert
+"""
 struct HCPresentationResult
     presentation::GroupPresentation
     generator_family::Symbol
@@ -47,6 +265,61 @@ struct HCPresentationResult
     relator_names::Vector{String}
 end
 
+"""
+    HCFirstHomology(free_rank, torsion, invariant_factors, generator_family, relator_family, condition) -> HCFirstHomology
+
+Store the abelianization data of an HC presentation and its domain-check label.
+
+# Arguments
+`free_rank::Int`, `torsion::Vector{Int}`, `invariant_factors::Vector{Int}`,
+`generator_family::Symbol`, `relator_family::Symbol`, `condition::Symbol`,
+or values convertible to those types. Conversion errors propagate. No rank,
+divisibility, family or condition check is performed.
+
+# Returns
+`HCFirstHomology` with the supplied free rank, torsion orders, nonzero Smith
+factors, generator and relator families, and condition tag. The homology
+interpretation is specified in
+[groups and invariants](../specs/heegaard-terminology.md#91-群と不変量で使う用語).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; typed vectors are
+   retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. Data returned by `hc_first_homology` describe the abelianization of
+   `hc_presentation` for that input. If the input `H` is a valid closed Heegaard
+   diagram with the required complete cut systems, the intended manifold
+   interpretation is the first integral homology of `Mhat(H)` from
+   [the Heegaard manifold specification](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+   [unverified: general identification of the computed presentation with the manifold group]
+
+# Not guaranteed
+The constructor does not compute homology. `hc_first_homology` checks curve
+counts but does not establish complete cut systems; its condition tag alone
+does not certify the manifold interpretation. Stored data can be inconsistent.
+The general identification of the computed presentation with the manifold
+group is not certified here.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.1 — the manifold Mhat(H) associated with the input diagram.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("a" => [1,2], "b" => [-1,-2]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> h = H.HeegaardCode(lc, Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.hc_first_homology(h); s = H.HCFirstHomology(r.free_rank, r.torsion, r.invariant_factors, r.generator_family, r.relator_family, r.condition);
+
+julia> (s.free_rank, Tuple(s.torsion))
+(0, (2,))
+```
+
+See also [`hc_first_homology`](@ref), [`hc_presentation`](@ref).
+
+Role: construct
+"""
 struct HCFirstHomology
     free_rank::Int
     torsion::Vector{Int}
@@ -56,6 +329,56 @@ struct HCFirstHomology
     condition::Symbol
 end
 
+"""
+    HCCanonical(genus, k_words, alpha_words, beta_words, other_words, places, lc_disks, hc_disks, lc_points, hc_points, lc_weights, hc_weights) -> HCCanonical
+
+Store the word and annotation data of a canonical HC representation.
+
+# Arguments
+`genus::Int`; `k_words` and `other_words` are
+`Vector{Pair{String,Vector{Int}}}`; `alpha_words` and `beta_words` are
+`Vector{Vector{Int}}`; `places`, `lc_points`, `hc_points` are
+`Vector{Pair{String,String}}`; `lc_disks`, `hc_disks` are
+`Vector{Pair{String,Vector{String}}}`; `lc_weights`, `hc_weights` are
+`Vector{Pair{String,Int}}`. Convertible values are accepted; conversion
+errors propagate. No canonicalization is performed by this constructor.
+
+# Returns
+`HCCanonical` with the supplied genus, reference and other named words,
+alpha and beta word lists, placements and LC/HC annotation lists.
+The underlying data and comparison order belong to
+[HC comparison records](../specs/heegaard-code.md#comparison-records).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; typed vectors are
+   retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. `==` compares all fields by value. For output of [`hc_canonical`](@ref),
+   the record is the representation used by that operation's identity test. [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not establish validity, ordering or canonicality.
+Equality of manually assembled records is not a checked correspondence of
+their source diagrams, an isotopy certificate or a manifold classification.
+Mutating stored containers can change equality and hashing.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1" => [-1,5], "m1" => [1], "alpha1" => [-5,2,-3], "alpha2" => [4,-6], "beta1" => [-2,3], "beta2" => [-4,6]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> h = H.HeegaardCode(lc, Dict("alpha1" => :alpha, "alpha2" => :alpha, "beta1" => :beta, "beta2" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> c = H.hc_canonical(h); d = H.HCCanonical(c.genus, c.k_words, c.alpha_words, c.beta_words, c.other_words, c.places, c.lc_disks, c.hc_disks, c.lc_points, c.hc_points, c.lc_weights, c.hc_weights);
+
+julia> d == H.hc_canonical(h)
+true
+```
+
+See also [`hc_canonical`](@ref), [`hc_canonical_witness`](@ref).
+
+Role: construct
+"""
 struct HCCanonical
     genus::Int
     k_words::Vector{Pair{String,Vector{Int}}}
@@ -82,15 +405,144 @@ function Base.hash(canonical::HCCanonical, h::UInt)
     hash(HCCanonical, h)
 end
 
+"""
+    HCMoveStep(kind, detail) -> HCMoveStep
+
+Store a caller-supplied move tag and accompanying HC comparison data.
+
+# Arguments
+`kind::Symbol` and `detail::Dict{String,Any}`, or convertible values.
+Conversion errors propagate. The constructor accepts every symbol and does
+not check the contents of `detail`.
+
+# Returns
+`HCMoveStep` with the move-kind tag and supplied detail dictionary.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; an already-typed
+   dictionary is retained and not modified. [proved/agent: by construction]
+2. The record can be passed in `HCMoveSearchResult` as an assertion about
+   [comparison move assertions](../specs/heegaard-moves.md#comparison-and-move-witnesses). It carries no computed
+   source or target diagram. [proved/agent: by construction]
+
+# Not guaranteed
+The constructor and `compare_hc` do not replay or validate this move.
+Its presence does not prove isotopy, move equivalence or homeomorphism.
+The caller must supply a valid move witness independently of the tag.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> make(w) = H.HeegaardCode(H.LickorishCode(1, Dict("a" => w, "b" => -w), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing), Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.HCMoveSearchResult([H.HCMoveStep(:isotopy, Dict{String,Any}())]);
+
+julia> H.compare_hc(make([1,-2]), make([1,-2,3,-4]); move_result=r).isotopy.status
+:equal
+```
+
+See also [`HCMoveSearchResult`](@ref), [`compare_hc`](@ref).
+
+Role: construct
+"""
 struct HCMoveStep
     kind::Symbol
     detail::Dict{String,Any}
 end
 
+"""
+    HCMoveSearchResult(steps) -> HCMoveSearchResult
+
+Store a sequence of caller-supplied move assertions for an HC comparison.
+
+# Arguments
+`steps::Vector{HCMoveStep}`, or a value convertible to that type. Conversion
+errors propagate. Empty sequences and arbitrary step tags are accepted.
+The caller is responsible for any claimed geometric witness.
+
+# Returns
+`HCMoveSearchResult` whose `steps` field contains the supplied sequence.
+
+# Guarantees
+1. An already-typed step vector is retained in order and not modified.
+   [proved/agent: by construction]
+2. The record is an input to the move-equivalence part of
+   [comparison move assertions](../specs/heegaard-moves.md#comparison-and-move-witnesses);
+   constructing it performs no search or equivalence check.
+   [proved/agent: by construction]
+
+# Not guaranteed
+No endpoint, consecutive-step compatibility or mathematical validity is
+checked. `compare_hc` can issue a move-based equality verdict from the step
+tags alone; that verdict is conditional on the caller's witness. An empty
+sequence supplies no such evidence to `compare_hc`.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> make(w) = H.HeegaardCode(H.LickorishCode(1, Dict("a" => w, "b" => -w), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing), Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.HCMoveSearchResult([H.HCMoveStep(:handle_slide, Dict{String,Any}("source" => "caller"))]);
+
+julia> c = H.compare_hc(make([1,-2]), make([1,-2,3,-4]); move_result=r); (c.identity.status, c.isotopy.status, c.move_equivalence.status, c.manifold.status, c.manifold.reason)
+(:different, :undetermined, :equal, :equal, :move_sequence)
+```
+
+See also [`HCMoveStep`](@ref), [`compare_hc`](@ref).
+
+Role: convert
+"""
 struct HCMoveSearchResult
     steps::Vector{HCMoveStep}
 end
 
+"""
+    HCVerdict(level, status, reason, evidence) -> HCVerdict
+
+Store a verdict at one HC comparison level with its reason and supporting data.
+
+# Arguments
+`level::Symbol`, `status::Symbol`, `reason::Symbol`, and
+`evidence::Dict{String,Any}`, or convertible values. Conversion errors
+propagate. The constructor does not check any tag or evidence.
+
+# Returns
+`HCVerdict` with the comparison level, status, reason and evidence dictionary.
+The intended levels are distinguished by
+[the comparison specification](../specs/heegaard-terminology.md#9-操作比較検証).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; an already-typed
+   evidence dictionary is retained and not modified.
+   [proved/agent: by construction]
+2. For results of [`compare_hc`](@ref), each verdict addresses its indicated
+   comparison level. Agreement of the selected group invariants alone yields
+   an undetermined manifold verdict. [proved/agent: by construction]
+
+# Not guaranteed
+An arbitrary `:equal` record is not proof of any equivalence. A move-based
+verdict from `compare_hc` relies on the caller's move assertions, which are
+not replayed or validated. Interpretation as a manifold comparison also
+requires valid Heegaard diagrams.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> make(w) = H.HeegaardCode(H.LickorishCode(1, Dict("a" => w, "b" => -w), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing), Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> v = H.compare_hc(make([1,-2]), make([1,-2,3,-4])).manifold; w = H.HCVerdict(v.level, v.status, v.reason, v.evidence);
+
+julia> (w.status, w.reason)
+(:undetermined, :invariants_agree_not_identity)
+```
+
+See also [`HCComparison`](@ref), [`compare_hc`](@ref).
+
+Role: construct
+"""
 struct HCVerdict
     level::Symbol
     status::Symbol
@@ -98,6 +550,50 @@ struct HCVerdict
     evidence::Dict{String,Any}
 end
 
+"""
+    HCComparison(identity, isotopy, move_equivalence, manifold) -> HCComparison
+
+Store the separate identity, isotopy, move and manifold verdicts of an HC comparison.
+
+# Arguments
+Four `HCVerdict` values, or values convertible to that type. Conversion
+errors propagate. The constructor does not check the verdicts or their
+agreement with each other.
+
+# Returns
+`HCComparison` with fields `identity`, `isotopy`, `move_equivalence` and
+`manifold` retaining the supplied verdicts.
+
+# Guarantees
+1. Fields preserve the supplied values after conversion. Already-typed arguments are not modified. [proved/agent: by construction]
+2. A result of [`compare_hc`](@ref) separates these comparison questions
+   rather than treating agreement of selected invariants as manifold
+   identification; see [comparison scope](../specs/heegaard-terminology.md#9-操作比較検証). [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not compare diagrams or verify any evidence.
+In particular, `:equal` in a supplied verdict is not a new proof of isotopy
+or homeomorphism. Caller-supplied move records used by `compare_hc` are not
+replayed by this constructor.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> make(w) = H.HeegaardCode(H.LickorishCode(1, Dict("a" => w, "b" => -w), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing), Dict("a" => :alpha, "b" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> c = H.compare_hc(make([1,-2]), make([1,-2,3,-4]));
+
+julia> d = H.HCComparison(c.identity, c.isotopy, c.move_equivalence, c.manifold);
+
+julia> (d.manifold.status, d.manifold.reason, d.isotopy.status, d.move_equivalence.status)
+(:undetermined, :invariants_agree_not_identity, :undetermined, :undetermined)
+```
+
+See also [`compare_hc`](@ref), [`HCVerdict`](@ref).
+
+Role: convert
+"""
 struct HCComparison
     identity::HCVerdict
     isotopy::HCVerdict
@@ -105,6 +601,50 @@ struct HCComparison
     manifold::HCVerdict
 end
 
+"""
+    HCNamedRelations(identical, orientation_reversal, mirror) -> HCNamedRelations
+
+Store separate identity, orientation-reversal and mirror relation results for HC data.
+
+# Arguments
+`identical::Bool`, `orientation_reversal::Symbol`, `mirror::Symbol`, or
+convertible values. Conversion errors propagate. Relation tags and their
+consistency are not checked.
+
+# Returns
+`HCNamedRelations` with the identity flag and the two named-relation tags.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed arguments
+   are not modified. [proved/agent: by construction]
+2. For output of [`hc_named_relations`](@ref), the relations concern the
+   input codes and their explicitly transformed curve data, in the scope of
+   [diagram comparison](../specs/heegaard-terminology.md#9-操作比較検証).
+   [proved/agent: by construction]
+
+# Not guaranteed
+These fields do not classify underlying 3-manifolds. Arbitrary symbolic
+tags can be constructed; construction does not establish any relation.
+An orientation-reversal search may return `:undetermined`.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> words = Dict("l1" => [-1,5], "m1" => [1], "alpha1" => [-5,2,-3], "alpha2" => [4,-6], "beta1" => [-2,3], "beta2" => [-4,6]);
+
+julia> lc = H.LickorishCode(1, words, Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing); h = H.HeegaardCode(lc, Dict("alpha1" => :alpha, "alpha2" => :alpha, "beta1" => :beta, "beta2" => :beta), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.hc_named_relations(h, H.hc_reverse_orientation(h, ["alpha1"])); s = H.HCNamedRelations(r.identical, r.orientation_reversal, r.mirror);
+
+julia> (s.identical, s.orientation_reversal)
+(false, :yes)
+```
+
+See also [`hc_named_relations`](@ref), [`compare_hc`](@ref).
+
+Role: construct
+"""
 struct HCNamedRelations
     identical::Bool
     orientation_reversal::Symbol
@@ -179,11 +719,46 @@ function _hc_index(names::Vector{String})
 end
 
 """
-α 行、β 列の交点行列を返す。並びは成分名の辞書順で、結果の rows と columns がそのまま行と列である。
+    hc_intersection(hc::HeegaardCode) -> HCIntersection
 
-符号は passage sign から読む。+ が α にあり − が β にある交点は +1、逆は −1。
-これは曲面上の枠 (β, α) が正のとき +1 になる hc_matrix.py の規約であり、接ベクトルの順 (Tα, Tβ) そのものではない。
-K どうし、同族どうしの交点は足さない。種数が曲線本数と違っても行列は返す。これは多様体のホモロジーではない。
+Return the signed alpha–beta intersection matrix in HC coordinates.
+
+# Arguments
+`hc` has valid roles and paired passages under [the HC input convention](../specs/heegaard-code.md).
+Role, word and passage-ownership errors propagate as `KodaInputError`.
+The caller supplies geometrically valid curve data for an intersection-pairing
+interpretation; complete cut systems and count-equals-genus are not checked.
+
+# Returns
+`HCIntersection` with row and column names, an integer `matrix`, order tags
+and the sign-convention string. Coordinates follow
+[comparison records and sign translation](../specs/heegaard-code.md#comparison-records).
+
+# Guarantees
+1. The result is the algebraic alpha–beta intersection array of the encoded
+   curve data in the linked HC sign convention.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The array alone is not manifold homology. Its sign convention must be
+translated before treating it as the ordered tangent intersection pairing;
+no silent identification of these conventions is made.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#intersection-sign-translation — HC sign versus ordered intersection pairing.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> a = H.hc_intersection(hc); (Tuple(a.rows), Tuple(a.columns), a.matrix[1,1])
+(("m1",), ("l1",), 1)
+```
+
+Role: invariant
 """
 function hc_intersection(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
@@ -202,10 +777,43 @@ function hc_intersection(hc::HeegaardCode)
 end
 
 """
-交点行列の Smith 不変因子。1 を含む正の対角成分で、0 は除く。多様体のホモロジーではない。
+    hc_invariant_factors(hc::HeegaardCode) -> HCInvariantFactors
 
-抽出は groups.jl の first_homology と同じ式で、対角化そのものは smith_normal_form を使う。
-行列とその転置の不変因子は一致する。
+Return the nonzero Smith invariant factors of the HC intersection matrix.
+
+# Arguments
+`hc` has the domain of `hc_intersection`; its input errors and Smith-form
+arithmetic errors propagate. The
+[comparison coordinate convention](../specs/heegaard-code.md#comparison-records)
+applies. No closed-manifold or complete-cut-system check is performed.
+
+# Returns
+`HCInvariantFactors` with positive `factors` including units, the
+`:intersection_matrix` source tag and a false manifold-homology flag.
+
+# Guarantees
+1. The factors are those of the integer intersection matrix; zero diagonal
+   entries are absent. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This record omits free rank and is not a certified manifold-homology result.
+Use `hc_first_homology` with its separate domain and interpretation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — matrix factors versus first homology.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> Tuple(H.hc_invariant_factors(hc).factors)
+(1,)
+```
+
+Role: invariant
 """
 function hc_invariant_factors(hc::HeegaardCode)
     matrix = hc_intersection(hc).matrix
@@ -228,12 +836,51 @@ function _hc_relator(word::Vector{Int}, owners, ai)
 end
 
 """
-π₁ の表示を返す。生成元は α、関係式は β である。
+    hc_presentation(hc::HeegaardCode) -> HCPresentationResult
 
-β の語を保存された順に歩き、α との交点だけを文字にする。指数は交点行列と同じで、
-+ が α なら +1、+ が β なら −1。可換化は交点行列の転置になる。
-交点のない β は空語の関係式、交点のない α は関係式に現れない生成元、種数 0 で曲線が無いときは自明群である。
-語の始点は保存された語の先頭であり、巡回で取り替えた表示とはタプルとして違う。群としては共役で同値である。
+Return the group presentation associated with the alpha and beta words of an HC.
+
+# Arguments
+`hc` satisfies the [HC input domain](../specs/heegaard-code.md).
+Invalid roles and passage ownership raise `KodaInputError`; malformed words
+and missing role curves can also raise lookup errors. Complete cut systems
+and a valid manifold diagram are the caller's responsibility under
+[the Heegaard conditions](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+Curve counts equal to genus are not checked here.
+
+# Returns
+`HCPresentationResult` containing a `GroupPresentation`, family tags and
+generator/relator names in [the comparison coordinates](../specs/heegaard-code.md#comparison-records).
+Word encoding is owned by [legacy presentation words](../specs/heegaard-terminology.md#legacy-cellular-records).
+
+# Guarantees
+1. Abelianizing the result gives the transpose of `hc_intersection(hc).matrix`.
+   [proved/agent: by construction]
+2. The result is the presentation attached to the supplied diagram; for a
+   valid complete Heegaard diagram its intended group is that of the
+   represented closed 3-manifold. [unverified: general geometric identification is not certified by this entry]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Successful output does not certify the manifold hypotheses of guarantee 2.
+The stored relator words depend on stored starting points, and no group
+simplification or isomorphism decision is performed.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — Heegaard presentation and applicability.
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — generator, relator and sign coordinates.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha)); p = H.hc_presentation(hc);
+
+julia> (Tuple(p.presentation.generators), Tuple(only(p.presentation.relators)))
+(("m1",), ((1, 1),))
+```
+
+Role: invariant
 """
 function hc_presentation(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
@@ -255,11 +902,48 @@ function hc_presentation(hc::HeegaardCode)
 end
 
 """
-閉じた図式の H₁ を返す。α の本数と β の本数がどちらも種数と一致しないときは
-HCClosedDiagramExcluded(:alpha_beta_count_ne_genus) を投げる。
+    hc_first_homology(hc::HeegaardCode) -> HCFirstHomology
 
-返す群は、α を生成元、β を関係式とした表示の可換化である。完全切断系であることはここでは調べない。
-本数が種数と一致することだけを、閉じた 3 次元多様体の図式として H₁ を返す条件にする。
+Return the abelianization of the presentation associated with a closed-count HC.
+
+# Arguments
+`hc` must satisfy the [HC input conditions](../specs/heegaard-code.md).
+Checked: both curve counts equal genus, or `HCClosedDiagramExcluded` with
+`:alpha_beta_count_ne_genus` is raised. Input, presentation and Smith-form
+errors propagate. To interpret the result as a closed 3-manifold's H₁, the
+caller supplies the complete cut systems of
+[the Heegaard domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+
+# Returns
+`HCFirstHomology` with `free_rank`, torsion factors, nonzero
+`invariant_factors`, generator/relator family tags and the checked-domain tag.
+
+# Guarantees
+1. The returned abelian group is the abelianization of `hc_presentation(hc)`.
+   [proved/agent: by construction]
+2. On the registered genus-one S³ fixture it is the trivial group.
+   [verified-computationally: test/heegaard/hc_search.jl, genus-1 S3 and omitted selections]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The count check does not certify complete cut systems or identify an arbitrary
+input with a closed 3-manifold. The supplied diagram's topological validity
+is required for interpreting this presentation invariant as that manifold's H₁.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — presentation abelianization and manifold scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> h = H.hc_first_homology(hc); (h.free_rank, Tuple(h.torsion))
+(0, ())
+```
+
+Role: invariant
 """
 function hc_first_homology(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
@@ -368,10 +1052,45 @@ function _hc_count_s3(relators, n::Int)
 end
 
 """
-|Hom(π₁, G)| を返す。G は :Z2, :Z3, :Z5, :S3。表示は hc_presentation と同じで、α が生成元、β が関係式。
+    hc_hom_count(presented::HCPresentationResult, group::Symbol) -> BigInt
 
-巡回群への準同型は可換化を通るので、first_homology の自由階数とねじれから数える。S₃ は語をそのまま評価する。
-これは表示された群の準同型の個数であり、本数が種数と違う図式でも返す。多様体の H₁ ではない。
+Count homomorphisms from an HC presentation to a supported finite group.
+
+# Arguments
+`presented.presentation` must contain valid generator indices and integer
+exponents in [the presentation format](../specs/heegaard-terminology.md#legacy-cellular-records).
+The caller supplies a valid presentation, including when there are no generators.
+`group` is `:Z2`, `:Z3`, `:Z5` or `:S3`; other values raise `ArgumentError`.
+Unknown generator references in the S₃ search raise `KodaInputError`, and
+search-budget exhaustion raises `HCNotComputed(:hom_search_budget)`.
+Abelianization and arithmetic errors propagate.
+
+# Returns
+The exact nonnegative number of homomorphisms as a `BigInt`.
+
+# Guarantees
+1. For a valid presentation the result counts homomorphisms of its presented
+   group to the selected target. [proved/agent: by construction]
+2. The presentation is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The count is not a complete group or manifold invariant, and does not require
+curve counts equal to genus or certify a closed-manifold presentation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — group presentation and finite-group comparison.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> p = H.hc_presentation(hc); (H.hc_hom_count(p,:Z2), H.hc_hom_count(p,:S3))
+(1, 1)
+```
+
+Role: invariant
 """
 function hc_hom_count(presented::HCPresentationResult, group::Symbol)
     presentation = presented.presentation
@@ -387,6 +1106,45 @@ function hc_hom_count(presented::HCPresentationResult, group::Symbol)
     end
 end
 
+"""
+    hc_hom_count(hc::HeegaardCode, group::Symbol) -> BigInt
+
+Count homomorphisms from an HC's associated presentation to a supported finite group.
+
+# Arguments
+`hc` satisfies the [HC input conditions](../specs/heegaard-code.md).
+`group` is `:Z2`, `:Z3`, `:Z5` or `:S3`, otherwise `ArgumentError` is raised.
+Presentation errors propagate and bounded S₃ search can raise
+`HCNotComputed(:hom_search_budget)`. Complete cut systems are the caller's
+responsibility for a manifold interpretation.
+
+# Returns
+The homomorphism count as a `BigInt`.
+
+# Guarantees
+1. The result is the count for `hc_presentation(hc)` and the selected target.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Neither equal counts nor successful computation establish manifold or group
+isomorphism. Curve counts need not equal genus.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9.1 — presentation-based comparison.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> (H.hc_hom_count(hc,:Z2), H.hc_hom_count(hc,:S3))
+(1, 1)
+```
+
+Role: invariant
+"""
 hc_hom_count(hc::HeegaardCode, group::Symbol) = hc_hom_count(hc_presentation(hc), group)
 
 function _hc_permutations(items::Vector{String})
@@ -435,6 +1193,54 @@ include(joinpath(@__DIR__, "hc_compare_form.jl"))
 include(joinpath(@__DIR__, "hc_compare_canonical.jl"))
 
 
+"""
+    hc_identical(a::HeegaardCode, b::HeegaardCode) -> Bool
+
+Compare two oriented, marked HC records by their canonical forms.
+
+# Arguments
+`a` and `b` must satisfy the comparison domain in
+[HC comparison](../specs/heegaard-code.md#comparison-records).
+The caller supplies valid arrangements and annotations; this is not full HC
+validation. Canonicalization checks can raise `KodaInputError` for malformed
+incidence or annotations and `HCNotComputed` for a tie group or search budget
+that exceeds the supported limits. Such failures are not returned as `false`.
+
+# Returns
+`Bool`: equality of the two `HCCanonical` records.
+
+# Guarantees
+1. The result is exactly `hc_canonical(a) == hc_canonical(b)` under the
+   named comparison conventions. [proved/agent: by construction]
+2. Relabeling, cyclic rotation and permitted component renaming preserve
+   the comparison in the registered examples.
+   [verified-computationally: test/heegaard/hc_compare.jl, canonical identity examples]
+3. Neither input is modified. [proved/agent: by construction]
+
+# Conventions
+[Canonical correspondence and ordering](../conventions/HeegaardCodes.md#comparison-conventions).
+
+# Not guaranteed
+This is not a test of homeomorphism of the represented 3-manifolds, nor does
+it return a realized curve correspondence. Orientation reversal and mirror
+equivalence are separate comparisons.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("l1" => :beta, "m1" => :alpha), Dict(), Dict(), Dict(), nothing);
+
+julia> hc_identical(h, h)
+true
+```
+
+See also [`hc_identity_correspondence`](@ref), [`hc_named_relations`](@ref).
+
+Role: condition
+"""
 hc_identical(a::HeegaardCode, b::HeegaardCode) = hc_canonical(a) == hc_canonical(b)
 
 function _hc_replace_words(hc::HeegaardCode, words::Dict{String,Vector{Int}})
@@ -444,10 +1250,48 @@ function _hc_replace_words(hc::HeegaardCode, words::Dict{String,Vector{Int}})
 end
 
 """
-指定した曲線の向きを取り替える。語を逆順にし、その曲線上の交点ラベルの両側の符号を反転する。
+    hc_reverse_orientation(hc::HeegaardCode, curves) -> HeegaardCode
 
-両側を反転するのは、passage sign の + 一つと − 一つを保つためである。片方だけ反転すると語が LC の形を離れる。
-向きを取り替えた曲線どうしの交点は、それぞれの曲線で一度だけ反転する。
+Return an HC with selected curve traversals reversed and their incident passage signs changed.
+
+# Arguments
+`curves` is an iterable of names convertible to `String`; every name must
+occur in `hc.lc.words`, checked with `KodaInputError` naming a missing curve.
+The input must satisfy [LC passage conditions](../specs/lickorish-code.md);
+conversion and copying errors propagate. Geometric annotation compatibility
+is the caller's responsibility.
+
+# Returns
+A new HC with changed words, copied roles and annotations, and cleared
+source paths.
+
+# Guarantees
+1. Each selected curve has reversed traversal and negated passages; an
+   unselected curve has its passages negated at labels incident to a selected
+   curve. [proved/agent: by construction]
+2. Paired passage signs remain opposite and the input is not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+At an intersection of two selected curves, both stored passages are negated
+once, not twice. The geometric interpretation as independent simultaneous
+orientation reversals is therefore not established here; see [the simultaneous-reversal question](../specs/heegaard-code.md#simultaneous-curve-reversal). Annotation supports
+are copied rather than geometrically revalidated.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#intersection-sign-translation — passage signs and ordered intersection pairing.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> r = H.hc_reverse_orientation(hc,["m1"]); (Tuple(r.lc.words["l1"]), Tuple(r.lc.words["m1"]))
+((1,), (-1,))
+```
+
+Role: convert
 """
 function hc_reverse_orientation(hc::HeegaardCode, curves)
     names = Set(String.(curves))
@@ -550,9 +1394,47 @@ function _hc_rewrite_face_dict(items, mapping, ambiguous)
     Dict{String,String}(String(name) => _hc_rewrite_face_token(value, mapping, ambiguous) for (name, value) in items)
 end
 
-"""鏡像。全部の passage sign を反転し、語の順序は逆にしない。曲面の向きを反転した枠の取り替えである。
+"""
+    hc_mirror(hc::HeegaardCode) -> HeegaardCode
 
-円板と、面の id そのものである point・place は、交点ラベルの巡回列（回転と逆順を同一視した最小のもの）で運ぶ。その列を二つ以上の面が共有するときは、当たった印を推測で付け替えない。
+Return the passage-sign mirror of an HC with transported face annotations.
+
+# Arguments
+`hc` must have valid paired passages and transportable annotations under
+[the HC surface convention](../specs/heegaard-code.md).
+Ambiguous marked-face transport raises `KodaInputError(:hc_mirror)`;
+malformed word and annotation errors propagate. This entry does not run a
+complete manifold-diagram certification.
+
+# Returns
+A new HC with mirrored words, copied roles and weights, transported places,
+disks and points, and cleared source paths.
+
+# Guarantees
+1. Applying the operation changes the encoded surface orientation while
+   retaining curve traversal order in the LC passage convention.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+General annotations whose support is not a direct face token need not be
+transported geometrically. The output is not a certificate that the input
+represents any particular manifold or that it is amphichiral.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#hc-mirror-convention — passage mirror, annotation transport and invariant-coordinate translation.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> m = H.hc_mirror(hc); (Tuple(m.lc.words["l1"]), Tuple(m.lc.words["m1"]))
+((1,), (-1,))
+```
+
+Role: convert
 """
 function hc_mirror(hc::HeegaardCode)
     words = Dict{String,Vector{Int}}(String(name) => Int[-x for x in word] for (name, word) in hc.lc.words)
@@ -580,7 +1462,47 @@ function _hc_orientation_related(a::HeegaardCode, b::HeegaardCode)
     :no
 end
 
-"""同一性、向きの取り替え、鏡像を別々に判定する。向きの探索は曲線が 12 本を超えると :undetermined である。"""
+"""
+    hc_named_relations(a::HeegaardCode, b::HeegaardCode) -> HCNamedRelations
+
+Compare HC identity, curve-orientation changes and the passage-sign mirror separately.
+
+# Arguments
+`a` and `b` must be accepted by the canonical, orientation-reversal and
+mirror operations in [the comparison domain](../specs/heegaard-code.md#comparison-records).
+Their input, annotation and search-budget errors propagate.
+
+# Returns
+`HCNamedRelations` with a Boolean identity result, an orientation-change
+status and a mirror status.
+
+# Guarantees
+1. The identity field reports canonical diagram identity; the mirror field
+   reports identity after mirroring `a`. [proved/agent: by construction]
+2. The orientation field tests nonempty curve-orientation changes of `a`,
+   and is `:undetermined` when `a` has more than twelve curves.
+   [proved/agent: by construction]
+3. Neither input is modified. [proved/agent: by construction]
+
+# Not guaranteed
+A `:no` orientation result does not negate identity under an empty change,
+and none of these relations is a complete manifold-equivalence test.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#comparison-records — scope of diagram identity.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> H.hc_named_relations(hc,hc).identical
+true
+```
+
+Role: condition
+"""
 function hc_named_relations(a::HeegaardCode, b::HeegaardCode)
     HCNamedRelations(hc_identical(a, b), _hc_orientation_related(a, b), hc_identical(hc_mirror(a), b) ? :yes : :no)
 end
@@ -672,12 +1594,49 @@ function _hc_undetermined(level::Symbol, reason::Symbol, evidence=Dict{String,An
 end
 
 """
-4 つの水準を返す。各水準の status は :equal、:different、:undetermined のいずれか。
+    compare_hc(a::HeegaardCode, b::HeegaardCode; move_result=nothing) -> HCComparison
 
-同一性は hc_canonical で決める。同位と移動同値は、同一なら :equal、不変量が違えば :different、
-それ以外は :undetermined。move_result は探索結果を受け取る形だけで、この関数は move を探さない。
-同一性が決まらないときは HCNotComputed を投げ、:different にはしない。
-表す多様体は、不変量が一致しても :equal にしない。:equal は同一性か、与えられた move の列だけを根拠にする。
+Return HC identity, isotopy, move-equivalence and manifold comparison verdicts with their recorded evidence.
+
+# Arguments
+`a` and `b` must satisfy `hc_identical` and, when distinct, the invariant
+snapshot domain; canonicalization, validation and invariant errors propagate.
+A canonicalization budget failure raises `HCNotComputed` rather than a
+negative identity verdict. Optional `move_result::HCMoveSearchResult` is a
+supplied assertion record under [the comparison-witness boundary](../specs/heegaard-moves.md#comparison-and-move-witnesses);
+its endpoint compatibility and geometric validity are the caller's responsibility.
+
+# Returns
+An `HCComparison` with four `HCVerdict` records carrying status, reason and
+evidence for identity, isotopy, move equivalence and manifold comparison.
+
+# Guarantees
+1. Canonical identity yields equal verdicts at all four levels. Otherwise,
+   the implemented invariant discrepancies and supplied move claims determine
+   the coarse verdicts; invariant agreement alone does not yield manifold
+   equality. [proved/agent: by construction]
+2. The inputs are not modified and no move search or replay is performed.
+   [proved/agent: by construction]
+
+# Not guaranteed
+An unchecked `move_result` can cause an asserted equality without a validated
+geometric witness. An undetermined verdict is not inequivalence. The invariant
+producers' mathematical identification limits apply.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §comparison-and-move-witnesses — comparison assertions and validated moves are distinct.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = HeegaardCode(lc,Dict("m1"=>:alpha,"l1"=>:beta),Dict(),Dict(),Dict(),nothing); compare_hc(h,h).manifold.status
+:equal
+```
+
+See also [`hc_identical`](@ref).
+
+Role: condition
 """
 function compare_hc(a::HeegaardCode, b::HeegaardCode; move_result::Union{Nothing,HCMoveSearchResult}=nothing)
     identical = hc_identical(a, b)

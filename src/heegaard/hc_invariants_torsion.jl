@@ -1,13 +1,47 @@
 # cf: Massuyeau, An introduction to the abelian Reidemeister torsion of three-dimensional manifolds, arXiv:1003.2517, Lemma 5.3 — abelian Reidemeister torsion from the Heegaard Fox matrix. τ_0 is taken to be +1. β^♯ is the surface class meeting that β curve once and the other β curves zero times, pushed to H₁. reconstructed. No registered Work key.
 import AkaghefAlgebra
 
-"""Abelian Reidemeister torsion of a closed HC with b₁ = 0, evaluated at characters of H₁.
+"""
+    HCReidemeisterTorsion(order, invariant_factors, keys, values, acyclic) -> HCReidemeisterTorsion
 
-`order` is the exponent of H₁ and the cyclotomic order. `invariant_factors` is the
-Smith diagonal, including 1s, so a character key has one entry per factor.
-`keys` lists the nontrivial characters. `values[i]` is τ at `keys[i]`, or `nothing`
-when the twisted complex is not acyclic. `acyclic` is true when at least one
-nontrivial character is acyclic.
+Store abelian-character torsion values for a finite-homology Heegaard presentation.
+
+# Arguments
+`order::Int`, `invariant_factors::Vector{Int}`, `keys::Vector{Vector{Int}}`,
+`values::Vector{Union{Nothing,AkaghefAlgebra.TaftExact.Cyclotomic{N}}}` for
+a fixed cyclotomic order `N`, and `acyclic::Bool`. The default constructor
+requires a value-vector type that determines `N`; field-conversion errors
+propagate. The caller supplies the compatible fields of
+[the character-coordinate specification](../specs/heegaard-code.md#reidemeister-character-coordinates).
+Their mathematical consistency is not checked here.
+
+# Returns
+An `HCReidemeisterTorsion` containing the exponent, Smith factors, character
+keys, corresponding optional values and supplied acyclicity flag.
+
+# Guarantees
+1. Fields retain supplied values after field conversion. Typed containers
+   are shared and not modified. [proved/agent: by construction]
+2. The record can carry the finite-character Fox-complex torsion of the
+   linked specification; construction performs no torsion computation.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The record's flag does not independently establish acyclicity or the
+identification with a 3-manifold's Reidemeister torsion. The linked
+normalization and source-alignment limitations apply.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> Z = H.AkaghefAlgebra.TaftExact; v = Union{Nothing,Z.Cyclotomic{2}}[nothing]; t = HCReidemeisterTorsion(2, [2], [[1]], v, false); (t.order, t.values[1], t.acyclic)
+(2, nothing, false)
+```
+
+See also [`hc_reidemeister_torsion`](@ref), [`hc_torsion_character`](@ref).
+
+Role: construct
 """
 struct HCReidemeisterTorsion{N}
     order::Int
@@ -17,6 +51,44 @@ struct HCReidemeisterTorsion{N}
     acyclic::Bool
 end
 
+"""
+    HCTorsionError(reason, detail) -> HCTorsionError
+
+Store a rejected domain or consistency check from an HC Reidemeister-torsion computation.
+
+# Arguments
+`reason::Symbol` and `detail::String`, or convertible values. Conversion
+errors propagate. No reason tag is validated, and construction does not
+throw the result.
+
+# Returns
+`HCTorsionError` with the supplied reason and explanatory text; `showerror`
+displays both fields.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed arguments
+   are not modified. [proved/agent: by construction]
+2. An exception emitted by the torsion API records a failed check, not a
+   Reidemeister-torsion value or a distinction between manifolds.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Arbitrary text and reason tags do not establish the asserted failure.
+Absence of this exception is not a certificate of the mathematical
+identification of a computed torsion.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> e = HCTorsionError(:free_homology, "finite first homology required"); (e.reason, e.detail)
+(:free_homology, "finite first homology required")
+```
+
+See also [`hc_reidemeister_torsion`](@ref), [`hc_torsion_character`](@ref).
+
+Role: construct
+"""
 struct HCTorsionError <: Exception
     reason::Symbol
     detail::String
@@ -467,20 +539,53 @@ function _hct_select_orientation(fox, right, factors, order, zeta, dual)
 end
 
 """
-Reidemeister torsion of a closed HC at the abelian characters of H₁, for b₁ = 0.
+    hc_reidemeister_torsion(hc::HeegaardCode) -> HCReidemeisterTorsion
 
-Generators are the α curves and relators are the β curves, as in `hc_presentation`.
-The Fox matrix is (∂β_k/∂α_j). For a character φ with acyclic twisted homology,
+Return the nontrivial abelian-character torsions of a finite-homology HC presentation.
 
-    τ^φ · (φ(α_i) − 1) · (ε_j (φ(β_j^♯) − 1)) = (−1)^{i+j+g+1} det φ(minor_{j,i})
+# Arguments
+`hc` has the [closed Heegaard domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+Closed curve counts and vanishing first Betti number are checked with
+`HCTorsionError(:not_closed)` or `HCTorsionError(:positive_betti)`.
+Invalid dual data, a failed differential, inconsistent minors or ambiguous
+orientation normalization raise condition-specific `HCTorsionError`.
+Complete cut systems and the geometric manifold interpretation remain the
+caller's responsibility. Exact-algebra and integer-conversion errors propagate.
 
-in F^× / ±φ(H₁). Each ε_j is ±1. The representative is the first pattern, in the
-order all signs +1 on the +1 class, the same signs on the inverse class, then the
-remaining patterns, for which ∂₂∂₃ = 0. Another pattern is kept in that choice
-only when its torsion lies in the same class. Two classes raise
-`ambiguous_orientation`. τ_0 of Lemma 5.3 stays +1. A character whose twisted
-complex is not acyclic is stored as `nothing`. b₁ > 0 raises
-`HCTorsionError(:positive_betti)`.
+# Returns
+`HCReidemeisterTorsion` with `order`, Smith `invariant_factors`, character
+`keys`, optional cyclotomic `values` and `acyclic` indicating that some value
+is defined. [Character coordinates, basis transport and normalization](../specs/heegaard-code.md#reidemeister-character-coordinates)
+own these fields' interpretation.
+
+# Guarantees
+1. Each defined value is the acyclic torsion of the character-specialized
+   Fox complex in the linked normalization; undefined acyclicity entries
+   are stored as `nothing`. [proved/agent: by construction]
+2. Every stored character passes both boundary-composition checks; all
+   available minor values for it agree. [proved/agent: by construction]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The trivial character is omitted. The result is a normalized representative,
+not an absolute diagram-independent scalar. The linked specification records
+the unresolved general identification of this Fox complex and normalization
+with the oriented 3-manifold's cellular Reidemeister torsion.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#reidemeister-character-coordinates — exact character domain, normalization and evidence limits.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1,-4],"m1"=>[1,2,3],"beta1"=>[-2,-3,4]), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.resolve_hc(lc,Dict("m1"=>:alpha,"beta1"=>:beta)); t = H.hc_reidemeister_torsion(hc);
+
+julia> (t.order, Tuple(Tuple(k) for k in t.keys))
+(2, ((1,),))
+```
+
+Role: invariant
 """
 function hc_reidemeister_torsion(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
@@ -570,6 +675,52 @@ function hc_reidemeister_torsion(hc::HeegaardCode)
     HCReidemeisterTorsion{order}(order, factors, keys, values, any(!isnothing, values))
 end
 
+"""
+    hc_torsion_character(torsion::HCReidemeisterTorsion, exponents::AbstractVector{<:Integer}) -> AkaghefAlgebra.TaftExact.Cyclotomic
+
+Return the stored acyclic Reidemeister-torsion value at a recorded character.
+
+# Arguments
+`torsion` is a result of `hc_reidemeister_torsion`; manually built records
+must have consistent `keys` and `values` (the caller's responsibility).
+`exponents` must match a stored key exactly after conversion to `Int`.
+Conversion errors propagate; an absent key raises `HCTorsionError(:character)`
+identifying the exponents, and a stored `nothing` raises
+`HCTorsionError(:not_acyclic)` identifying a nonacyclic twisted complex.
+
+# Returns
+The stored `Cyclotomic{N}` value for the selected key, where `N` is the
+cyclotomic order of the supplied torsion record.
+
+# Guarantees
+1. The result equals the stored value at the requested character, inheriting
+   the producer's mathematical domain and torsion normalization.
+   [proved/agent: by construction]
+2. Neither argument is modified. [proved/agent: by construction]
+
+# Not guaranteed
+This accessor does not recheck acyclicity or certify the identification of
+the stored Fox-complex value with a manifold's Reidemeister torsion.
+Use the [producer's character coordinates and normalization](../specs/heegaard-code.md#reidemeister-character-coordinates).
+An independent homology basis does not specify a stored key without transport.
+No modular reduction of a key is promised.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1,-4], "m1" => [1,2,3], "beta1" => [-2,-3,4]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("m1" => :alpha, "beta1" => :beta), Dict(), Dict(), Dict(), nothing);
+
+julia> t = hc_reidemeister_torsion(h); hc_torsion_character(t, [1]) == 1//4
+true
+```
+
+See also [`hc_reidemeister_torsion`](@ref).
+
+Role: access
+"""
 function hc_torsion_character(torsion::HCReidemeisterTorsion, exponents::AbstractVector{<:Integer})
     index = findfirst(==(Int.(collect(exponents))), torsion.keys)
     index === nothing && throw(HCTorsionError(
@@ -579,6 +730,49 @@ function hc_torsion_character(torsion::HCReidemeisterTorsion, exponents::Abstrac
     value
 end
 
+"""
+    hc_torsion_character(torsion::HCReidemeisterTorsion, k::Integer) -> AkaghefAlgebra.TaftExact.Cyclotomic
+
+Return a stored torsion value using the cyclic-homology character selector.
+
+# Arguments
+`torsion` must come from `hc_reidemeister_torsion` and have nontrivial cyclic
+first homology. The cyclic-factor check raises `HCTorsionError(:character)`
+when it fails. `k` must satisfy `0 <= k < torsion.order`; an out-of-range
+value raises the same exception with the allowed range. An absent character
+or nonacyclic value raises the exceptions of the vector-key overload.
+
+# Returns
+The selected `Cyclotomic{N}` value, with the supplied record's cyclotomic order
+`N`. The selector uses the [producer's cyclic-factor coordinate](../specs/heegaard-code.md#reidemeister-character-coordinates).
+
+# Guarantees
+1. The selected value is the vector-key overload's value in the unique
+   nontrivial cyclic factor. [proved/agent: by construction]
+2. Neither the torsion record nor its stored values are modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The trivial character need not be stored, even though zero lies in the
+numeric range. No change of homology basis, comparison modulo torsion units,
+or independent manifold-torsion certificate is returned.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1,-4], "m1" => [1,2,3], "beta1" => [-2,-3,4]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("m1" => :alpha, "beta1" => :beta), Dict(), Dict(), Dict(), nothing);
+
+julia> hc_torsion_character(hc_reidemeister_torsion(h), 1) == 1//4
+true
+```
+
+See also [`hc_reidemeister_torsion`](@ref).
+
+Role: access
+"""
 function hc_torsion_character(torsion::HCReidemeisterTorsion, k::Integer)
     slot = _hct_cyclic_slot(torsion.invariant_factors)
     slot === nothing && throw(HCTorsionError(:character, "H1 is not cyclic of order $(torsion.order)"))

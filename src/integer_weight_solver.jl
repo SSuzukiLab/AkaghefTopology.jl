@@ -18,24 +18,46 @@ function _weight_integer_inputs(A::AbstractMatrix,b::AbstractVector)
 end
 
 """
-    solve_integer_weight_system(A, b)
+    solve_integer_weight_system(A::AbstractMatrix, b::AbstractVector) -> NamedTuple
 
-Solve `A*x=b` over the integers with an exact Smith certificate. `status` is
-`:integer_solution`, `:rational_only`, or `:inconsistent`. `particular` is a
-`Vector{BigInt}` only in the first case. `kernel` has one full integer-lattice
-basis vector per COLUMN, so every integer solution is `particular + kernel*z`
-for a unique integer vector `z`. The kernel is also returned for infeasible
-inhomogeneous systems. `rational_particular` distinguishes a rational-only
-solution from rational inconsistency; it is never substituted for an integer
-solution.
+Solve an integer linear system with a certificate of its complete solution lattice or infeasibility.
 
-The certificate stores `U*A*V=S`, with unimodular `U,V`, and `U*b`. A nonzero
-entry of `U*b` in a zero Smith row proves rational inconsistency. Otherwise a
-failed diagonal divisibility proves integer infeasibility. These statements
-concern this matrix, not every presentation of an underlying manifold.
+# Arguments
+Checked: W4 of [exact integer solving](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility):
+one-based indexing, row/right-hand-side alignment and integer coefficients.
+Misalignment raises `DimensionMismatch`, noninteger entries `ArgumentError`;
+exact-algebra and certificate-check failures propagate.
+Caller: identify the supplied coordinates with the intended geometric problem.
 
-Uses the installed AbstractAlgebra `snf_with_transform`; no floating optimizer,
-kernel denominator clearing, or numerical rank is involved.
+# Returns
+A versioned record with `A`, `b`, `status`, `particular`, `kernel`,
+`rational_particular`, `certificate`, `obstruction` and
+`assignment_status=:not_requested`, with the meanings in §12.0.
+
+# Guarantees
+1. The status distinguishes integral solvability, rational-only solvability,
+   and rational inconsistency. When integral, the particular solution and
+   kernel columns parameterize every integer solution uniquely.
+   [proved/agent: by construction]
+2. The full integer kernel is returned even when the inhomogeneous equation
+   is infeasible; an obstruction witnesses the reported failure.
+   [proved/agent: by construction]
+3. Input arrays are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is a statement about the supplied matrix, not every presentation of a
+manifold; the returned lattice is not a quotient by geometric equivalence.
+
+# Sources
+cf: [virtual-link moves §12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility) — Smith solution records and their algebraic scope.
+
+# Examples
+```jldoctest
+julia> r = solve_integer_weight_system(reshape([2], 1, 1), [1]); (r.status, r.particular === nothing)
+(:rational_only, true)
+```
+
+Role: construct
 """
 function solve_integer_weight_system(A::AbstractMatrix,b::AbstractVector)
     A,b=_weight_integer_inputs(A,b)
@@ -86,13 +108,43 @@ function solve_integer_weight_system(A::AbstractMatrix,b::AbstractVector)
 end
 
 """
-    verify_integer_weight_solution(result) -> true
+    verify_integer_weight_solution(result) -> Bool
 
-Recheck a stored result using exact multiplication, determinants, divisibility,
-and equations. This does NOT recompute a Smith form. The unimodularity of `V`
-and the exact equality `kernel == V[:,rank+1:end]` certify the whole integer
-kernel lattice, beyond rational independence or `A*kernel==0` alone. Throws
-`ArgumentError` for an invalid certificate.
+Verify the exact certificate and solution-space claims of an integer weight result.
+
+# Arguments
+Checked: the ordinary or fixed-parity schema, exact matrix data, transforms,
+lattice basis, feasibility status, solution and obstruction of
+[§12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility).
+Failed certificate assertions raise `ArgumentError`; absent fields, invalid
+shapes, indexing or exact-algebra failures may propagate other exceptions.
+Caller: provide a structurally readable solver record; geometric coordinate
+identification remains the caller's responsibility.
+
+# Returns
+`true` if all certificate assertions pass; failure throws instead of returning false.
+
+# Guarantees
+1. Success certifies the claimed complete integer solution lattice, or
+   fixed-parity affine lattice for a lift record, and the reported feasibility
+   obstruction. [proved/agent: by construction]
+2. The result record is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The check does not authenticate a record's origin, its optional presentation
+metadata, or any manifold-level interpretation. It is not a check of
+assignment history.
+
+# Sources
+cf: [virtual-link moves §12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility) — exact certificates and fixed-parity records.
+
+# Examples
+```jldoctest
+julia> verify_integer_weight_solution(solve_integer_weight_system(reshape([2], 1, 1), [1]))
+true
+```
+
+Role: condition
 """
 function verify_integer_weight_solution(result)
     result.schema==INTEGER_WEIGHT_LIFT_SCHEMA && return _verify_integer_weight_lift(result)
@@ -203,25 +255,47 @@ function _assign_integer_weight_particular!(v::VirtualLink,result;boundary=nothi
 end
 
 """
-    solve_integer_weights(v::VirtualLink; assign=false, boundary=nothing)
+    solve_integer_weights(v::VirtualLink; assign=false, parity=nothing, boundary=nothing) -> NamedTuple
 
-Solve the current presentation's exact disk equations over the integers.
-Closed rows use `2*delta*w+cp2=0`; open rows use the measured
-`2*delta*w-Ndots` and require `boundary`, an explicit target mapping keyed by
-stable endpoint identities (or a row-aligned target vector). Edge coordinates
-are the `real_edge_table` traversal order, including the real arcs that pass
-through virtual crossings. A solution of the disk equation on a nonclosed
-presentation is not a closed framing claim.
+Solve the current presentation's exact integer disk equations, optionally with prescribed parity.
 
-No mutation occurs by default. With explicit `assign=true`, the result reports
-`:assigned`, `:not_integer_feasible`, `:outside_safe_integer_range`, or
-`:not_float64_representable` in `assignment_status`. In the
-last two cases the input remains unchanged and the exact result is still
-returned. The storage failure refers to this particular solution; it does not
-assert that its affine lattice contains no other representable solution.
-Assignment uses the same contiguous integer range `abs(w)<=2^53-1` as moves.
-Assignment is initial weight selection, never move transport. This function
-does not replace or call the legacy `calculate_weight` API.
+# Arguments
+Checked: Boolean `assign`, integer mode, valid Gauss/orientation data, one visit
+of each sign per real crossing, and applicable W2 boundary targets of
+[§12.0–12.1](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility).
+Invalid values raise `ArgumentError`; target lengths and row keys may raise
+`DimensionMismatch` or `BoundsError`. A nonnothing `parity` uses
+`solve_integer_weight_lift` and its checks.
+Caller: supply the geometric hypotheses and circuit identification for a
+framing interpretation. Existing assigned weights are not required.
+
+# Returns
+An ordinary or fixed-parity solution record, with presentation metadata,
+normalized `boundary_targets`, and the assignment outcome of §12.0.
+
+# Guarantees
+1. The exact solution space concerns this presentation's closed or relative
+   disk equation in real-edge coordinates. [proved/agent: by construction]
+2. Default operation leaves `v` unchanged. Requested assignment installs the
+   validated particular solution only when safe storage succeeds; infeasible
+   or unrepresentable outcomes leave the diagram unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+A nonclosed solution is not a closed framing claim. Storage failure for the
+chosen particular solution does not exclude another representable point in
+the affine lattice. Initial selection is not move transport.
+
+# Sources
+cf: [virtual-link moves §12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility) — integer selection, storage and geometric scope.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); r = solve_integer_weights(v; assign=true); (r.status, r.assignment_status, is_framed_weight(v))
+(:integer_solution, :assigned, true)
+```
+
+Role: convert
 """
 function solve_integer_weights(v::VirtualLink;assign=false,parity=nothing,boundary=nothing)
     assign isa Bool || throw(ArgumentError("assign must be an explicit Boolean"))
@@ -239,20 +313,46 @@ function solve_integer_weights(v::VirtualLink;assign=false,parity=nothing,bounda
 end
 
 """
-    solve_integer_weight_lift(A, b, parity)
-    solve_integer_weight_lift(v::VirtualLink, parity; assign=false, boundary=nothing)
+    solve_integer_weight_lift(A::AbstractMatrix, b::AbstractVector, parity::AbstractVector) -> NamedTuple
 
-Solve the additional constraint `w mod 2 == parity`, with each specified
-coordinate exactly 0 or 1. The transformed integer system is
-`(2A)*t=b-A*parity`, `w=parity+2t`. Its complete solver result is stored as
-`t_solution`; that Smith certificate concerns `t`, not the original `w`.
-The returned `kernel=2*t_solution.kernel` parametrizes all solutions with THIS
-parity and is generally not the full unrestricted integer kernel of `A`.
+Solve an integer linear system with a fixed parity in every coordinate.
 
-`:rational_only` means this parity has no integral lift even though the
-underlying rational equation is consistent. It does not imply that every
-parity is obstructed or that any manifold-level structure is absent. This is
-an initial lifting calculation, not a CP transport rule.
+# Arguments
+Checked: W4 of [§12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility),
+one-based parity indexing and one integer binary parity entry per column.
+Length failures raise `DimensionMismatch`; invalid coefficients or parity
+raise `ArgumentError`; exact solver errors propagate.
+Caller: interpret these matrix coordinates and the specified parity geometrically.
+
+# Returns
+A fixed-parity lift record with `A`, `b`, `parity`, feasibility `status`,
+optional particular solutions, column `kernel`, the certified `t_solution`,
+an optional obstruction and `assignment_status=:not_requested`.
+
+# Guarantees
+1. An integral result parameterizes exactly all solutions with the specified
+   parity; the returned columns form a basis for its translation lattice.
+   [proved/agent: by construction]
+2. The obstruction and status concern this fixed parity, with the
+   [lift semantics](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility).
+   [proved/agent: by construction]
+3. Inputs are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The kernel is generally not the unrestricted integer kernel. Failure does not
+rule out another parity or a geometric structure in another presentation;
+the rational particular need not have a meaningful integral parity.
+
+# Sources
+cf: [virtual-link moves §12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility) — fixed-parity substitution and certificate meaning.
+
+# Examples
+```jldoctest
+julia> r = solve_integer_weight_lift(reshape([1], 1, 1), [1], [0]); r.status
+:rational_only
+```
+
+Role: construct
 """
 function solve_integer_weight_lift(A::AbstractMatrix,b::AbstractVector,parity::AbstractVector)
     A,b=_weight_integer_inputs(A,b)
@@ -295,6 +395,49 @@ function _verify_integer_weight_lift(result)
     true
 end
 
+"""
+    solve_integer_weight_lift(v::VirtualLink, parity::AbstractVector; assign=false, boundary=nothing) -> NamedTuple
+
+Solve the presentation's integer disk equation with a fixed parity on its real edges.
+
+# Arguments
+Checked: the integer-mode diagram and boundary conditions of
+`solve_integer_weights`, Boolean `assign`, and the exact binary parity vector
+conditions of the matrix overload. Invalid data raise `ArgumentError`, length
+failures `DimensionMismatch`, and invalid row keys `BoundsError`; other errors propagate.
+Caller: use [real-edge coordinates](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility)
+and supply the geometric hypotheses for a framing interpretation.
+
+# Returns
+A fixed-parity lift record with presentation metadata, normalized boundary
+targets, and an assignment outcome.
+
+# Guarantees
+1. The record certifies exactly the integer disk-equation solutions having
+   this parity. [proved/agent: by construction]
+2. Default operation does not mutate the diagram. Requested assignment
+   installs the validated particular solution only after safe storage succeeds;
+   infeasibility or storage failure leaves it unchanged.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is initial lifting, not CP transport. Failure for one parity is not a
+manifold-level obstruction; unsafe storage of one particular solution does
+not exclude another representable solution.
+
+# Sources
+cf: [virtual-link moves §12.0](../specs/virtual-link-moves.md#120-initial-integer-weights-and-diagnostic-compatibility) — fixed parity and assignment semantics.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); p = Int.(mod.([e.weight for e in real_edge_table(v)], 2));
+
+julia> r = solve_integer_weight_lift(v, p); (r.status, mod.(r.particular, 2) == p)
+(:integer_solution, true)
+```
+
+Role: convert
+"""
 function solve_integer_weight_lift(v::VirtualLink,parity::AbstractVector;assign=false,boundary=nothing)
     assign isa Bool || throw(ArgumentError("assign must be an explicit Boolean"))
     A,b=_current_integer_weight_system(v;boundary=boundary)

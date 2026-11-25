@@ -19,6 +19,54 @@ const KNOT_GAUSS_CENSUS_KIND = :signed_gauss_representation
 """No classical-planarity/realizability oracle is bundled in this lane."""
 classical_knot_census_available() = false
 
+"""
+    KnotGaussDiagram(gauss, orientation) -> KnotGaussDiagram
+
+Return a validated signed Gauss representation of a one-component diagram.
+
+# Arguments
+- The vector form takes integer vectors for the visit code and crossing
+  orientations. A tuple code accepts iterable orientation data by conversion
+  to vectors; the keyword form `KnotGaussDiagram(; gauss, orientation)` uses
+  the same validation. Entries must be convertible to `Int`.
+- Condition K1 of the [specification](../specs/knot-gauss.md#numbered-conditions)
+  is enforced. Invalid code length,
+  zero labels, invalid orientation signs, inconsistent crossing counts or
+  invalid crossing occurrences throw `ArgumentError` identifying the failed
+  check. Integer conversion failures propagate.
+
+# Returns
+`KnotGaussDiagram` with immutable integer tuples `gauss` and `orientation`.
+`code` aliases `gauss`; `crossing_sign` and `signs` alias `orientation`.
+The representation belongs to [KnotGauss](../specs/knot-gauss.md#definitions).
+
+# Guarantees
+1. The returned tuples preserve the supplied integer entries and satisfy
+   K1 of the specification. [proved/agent: by construction]
+2. Input vectors are not mutated or retained as mutable backing storage. [proved/agent: by construction]
+3. The result is combinatorial diagram data; construction does not choose
+   a canonical rooted representative. [proved/agent: by construction]
+
+# Not guaranteed
+The constructor does not certify realizability by a classical planar knot
+diagram, identify a knot type, or quotient mirror images, orientation
+reversal or Reidemeister moves.
+
+# Sources
+cf:lib/topology.jl/src/knot_gauss.jl, KnotGaussDiagram — signed representation validation, finite enumeration and canonical coordinate access.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-1], [1]);
+
+julia> Tuple(d.gauss)
+(1, -1)
+```
+
+See also [`Topology.KnotGauss.canonicalize`](@ref), [`classical_gauss_realizable`](@ref).
+
+Role: construct
+"""
 struct KnotGaussDiagram
     gauss::Tuple{Vararg{Int}}
     orientation::Tuple{Vararg{Int}}
@@ -70,6 +118,41 @@ function Base.getproperty(d::KnotGaussDiagram, name::Symbol)
     getfield(d, name)
 end
 
+"""
+    crossing_count(d::KnotGaussDiagram) -> Int
+
+Return the number of crossings in a signed Gauss representation.
+
+# Arguments
+`d` is a `KnotGaussDiagram` accepted by its constructor; no further
+precondition or realizability check is imposed.
+
+# Returns
+An `Int` counting represented crossings, in the
+[KnotGauss API](../specs/knot-gauss.md#definitions).
+
+# Guarantees
+1. The result equals `length(d.orientation)` and `length(d.gauss) ÷ 2`. [proved/agent: by construction]
+2. It is nonnegative and the input is unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+This is a count of the supplied representation, not the minimum crossing
+number of a knot type. It neither tests classical realizability nor applies
+Reidemeister reductions.
+
+# Sources
+cf:lib/topology.jl/src/knot_gauss.jl, crossing_count — signed representation validation, finite enumeration and canonical coordinate access.
+
+# Examples
+```jldoctest
+julia> crossing_count(KnotGaussDiagram([1,-2,2,-1], [1,-1]))
+2
+```
+
+See also [`KnotGaussDiagram`](@ref), `movable`.
+
+Role: access
+"""
 crossing_count(d::KnotGaussDiagram) = length(d.orientation)
 
 """Return a mutable copy of the visit code for APIs that require vectors."""
@@ -181,7 +264,46 @@ function canonicalize_slow(d::KnotGaussDiagram)
     best
 end
 
-"""Production canonicalization from label-free partner-offset signatures."""
+"""    canonicalize(d::KnotGaussDiagram) -> KnotGaussDiagram
+
+Return the canonical representative of a signed Gauss diagram under root change and crossing relabelling.
+
+# Arguments
+`d` satisfies K1 ([conditions](../specs/knot-gauss.md#numbered-conditions))
+through its checked constructor. Classical realizability is not required.
+No additional domain precondition is checked by this operation.
+
+# Returns
+A `KnotGaussDiagram` in the
+[canonical coordinates](../specs/knot-gauss.md#canonical-coordinates).
+
+# Guarantees
+1. The result belongs to the canonical coordinate class of `d` and is its specified representative. Canonicalization is idempotent and commutes with choosing another cyclic root or consistent crossing labels in that class. [proved/agent: by construction]
+2. The source diagram is unchanged; the result satisfies K1. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates).
+
+# Not guaranteed
+Equality of these representatives is not a complete knot-isotopy test.
+Traversal reversal, mirror and Reidemeister equivalence are outside this
+quotient. No classicality or minimal crossing-number certificate is supplied.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md, Canonical coordinates — finite representation quotient.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1, -2, 2, -1], [1, -1]);
+
+julia> canonicalize(Topology.KnotGauss.reindex(d, [2, 1])) == canonicalize(d)
+true
+```
+
+See also [`canonical_serialization`](@ref).
+
+Role: move
+"""
 function canonicalize(d::KnotGaussDiagram)
     l = length(d.gauss)
     l == 0 && return copy(d)
@@ -195,6 +317,47 @@ end
 
 canonicalize_fast(d::KnotGaussDiagram) = canonicalize(d)
 
+"""
+    canonical_serialization(d::KnotGaussDiagram; canon_version::Integer=KNOT_GAUSS_CANON_VERSION) -> String
+
+Return versioned canonical text for a signed Gauss representation.
+
+# Arguments
+`d` is a `KnotGaussDiagram`. `canon_version` must equal the supported
+`KNOT_GAUSS_CANON_VERSION`; otherwise `ArgumentError` reports the unsupported
+version. No classical-realizability precondition is imposed.
+
+# Returns
+A `String` containing the canonicalization version, crossing count, visit
+code and crossing orientations of [`Topology.KnotGauss.canonicalize`](@ref).
+The representation belongs to [KnotGauss](../specs/knot-gauss.md#definitions).
+
+# Guarantees
+1. Equal canonical representatives produce identical text. Cyclic changes
+   of the traversal origin and consistent crossing relabellings preserve it. [proved/agent: by construction]
+2. Repeated calls with the same input and version return the same text and
+   leave the input unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a knot-type identifier: the
+[canonical quotient and version-1 format](../specs/knot-gauss.md#canonical-coordinates)
+do not assert cross-version compatibility or knot equivalence.
+
+# Sources
+cf:lib/topology.jl/src/knot_gauss.jl, canonical_serialization — signed representation validation, finite enumeration and canonical coordinate access.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-2,2,-1], [1,-1]);
+
+julia> occursin("canon=v1", Topology.KnotGauss.canonical_serialization(d))
+true
+```
+
+See also [`Topology.KnotGauss.canonical_hash`](@ref).
+
+Role: convert
+"""
 function canonical_serialization(d::KnotGaussDiagram;
                                 canon_version::Integer=KNOT_GAUSS_CANON_VERSION)
     canon_version == KNOT_GAUSS_CANON_VERSION ||
@@ -207,6 +370,46 @@ end
 canonical_serialize(d::KnotGaussDiagram; kwargs...) = canonical_serialization(d; kwargs...)
 serialize_canonical(d::KnotGaussDiagram; kwargs...) = canonical_serialization(d; kwargs...)
 
+"""
+    canonical_hash(d::KnotGaussDiagram; canon_version::Integer=KNOT_GAUSS_CANON_VERSION) -> String
+
+Return a SHA-256 fingerprint of a canonical signed Gauss representation.
+
+# Arguments
+`d` is a `KnotGaussDiagram`. The supported version is required by
+[`Topology.KnotGauss.canonical_serialization`](@ref); an unsupported value
+throws `ArgumentError` identifying that version.
+
+# Returns
+A 64-character `String` in the
+[canonical hash convention](../specs/knot-gauss.md#canonical-coordinates).
+
+# Guarantees
+1. The fingerprint is deterministic and invariant under the canonicalizer's
+   cyclic-origin and crossing-relabelling equivalences. [proved/agent: by construction]
+2. It identifies the serialized combinatorial representation in the
+   [KnotGauss API](../specs/knot-gauss.md#definitions); the input is unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+Hash equality is not a collision-free equality proof or a knot-equivalence
+decision. Mirror images and reversed traversal are not quotiented in
+general. No classical realizability or cross-version identity is certified.
+
+# Sources
+cf:lib/topology.jl/src/knot_gauss.jl, canonical_hash — signed representation validation, finite enumeration and canonical coordinate access.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,-2,2,-1], [1,-1]);
+
+julia> Topology.KnotGauss.canonical_hash(d) == Topology.KnotGauss.canonical_hash(Topology.KnotGauss.reindex(d, [2,1]))
+true
+```
+
+See also [`Topology.KnotGauss.canonical_serialization`](@ref).
+
+Role: invariant
+"""
 function canonical_hash(d::KnotGaussDiagram;
                        canon_version::Integer=KNOT_GAUSS_CANON_VERSION)
     bytes2hex(SHA.sha256(codeunits(canonical_serialization(d; canon_version=canon_version))))
@@ -228,7 +431,48 @@ orientation_reverse(d::KnotGaussDiagram) =
 
 reverse_orientation(d::KnotGaussDiagram) = orientation_reverse(d)
 
-"""Mirror the diagram under the stored crossing-sign convention."""
+"""
+    mirror(d::KnotGaussDiagram) -> KnotGaussDiagram
+
+Return the mirror of a signed one-component Gauss representation.
+
+# Arguments
+`d` satisfies K1 of the [Gauss specification](../specs/knot-gauss.md#numbered-conditions)
+by construction. No additional classicality check is performed. The result
+constructor rechecks K1; conversion or arithmetic errors propagate for
+unsupported data.
+
+# Returns
+A new `KnotGaussDiagram` in the
+[mirror coordinate convention](../specs/knot-gauss.md#mirror-and-traversal-reversal).
+
+# Guarantees
+1. The result is the specified stored mirror; applying the operation twice
+   restores the original diagram data. [proved/agent: by construction]
+2. The input is unchanged and its immutable tuples remain valid.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This operation does not prove classical realizability or identify the result
+with the input's knot type. Mirror is not part of canonical equivalence;
+a canonical hash may change. Traversal reversal is a separate operation.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-gauss.md Mirror and traversal reversal — the signed representation operation.
+cf:lib/topology.jl/test/knot_classical_invariants.jl orientation reversal and mirror — the finite polynomial comparison in the repository convention.
+
+# Examples
+```jldoctest
+julia> d = KnotGaussDiagram([1,2,-1,-2], [1,-1]);
+
+julia> Topology.KnotGauss.canonical_hash(d) != Topology.KnotGauss.canonical_hash(mirror(d))
+true
+```
+
+See also `Topology.KnotGauss.orientation_reverse`.
+
+Role: convert
+"""
 mirror(d::KnotGaussDiagram) =
     KnotGaussDiagram([-x for x in d.gauss], [-x for x in d.orientation])
 mirror_diagram(d::KnotGaussDiagram) = mirror(d)
@@ -317,6 +561,53 @@ end
 enumerate_rooted_normalized_signed_gc(n::Integer) = RootedSignedGaussEnumeration(Int(n))
 enumerate_rooted_normalized_signed_gauss(n::Integer) = enumerate_rooted_normalized_signed_gc(n)
 
+"""
+    KnotGaussEnumeration(n, orientations) -> KnotGaussEnumeration
+
+Store a lazy enumeration request for rooted signed Gauss representations.
+
+# Arguments
+`n` and `orientations` must convert to `Int` and `Bool`. Conversion errors
+propagate. Construction stores these values without checking the enumeration
+bound. Calling `length` or iterating requires `0 <= n <= 6`; otherwise
+`ArgumentError` reports nonnegativity or the six-crossing bound.
+
+# Returns
+`KnotGaussEnumeration` with `n` the crossing count and `orientations` the
+request to vary crossing orientations. Iteration yields `KnotGaussDiagram`.
+This belongs to [KnotGauss](../specs/knot-gauss.md#definitions).
+
+# Guarantees
+1. The fields equal the converted inputs, without generating diagrams. [proved/agent: by construction]
+2. In the supported range the iterator deterministically enumerates rooted
+   normalized signed visit codes, with every crossing-sign assignment when
+   `orientations` is true and the all-positive assignment otherwise. [proved/agent: by construction]
+3. `length` is available before iteration; with varying orientations it is
+   `rooted_normalized_signed_gc_count(n) * 2^n`, and otherwise it is
+   `rooted_normalized_signed_gc_count(n)`. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is a representation enumeration, not a census of planar diagrams or
+knot types. Root rotations, reflection and Reidemeister equivalence are not
+removed.
+
+# Sources
+cf:lib/topology.jl/src/knot_gauss.jl, KnotGaussEnumeration — signed representation validation, finite enumeration and canonical coordinate access.
+
+# Examples
+```jldoctest
+julia> length(KnotGaussEnumeration(0, true))
+1
+
+julia> length(KnotGaussEnumeration(1, true))
+4
+```
+
+See also `enumerate_knot_gauss`, [`KnotGaussDiagram`](@ref).
+
+Role: construct
+"""
 struct KnotGaussEnumeration
     n::Int
     orientations::Bool

@@ -115,6 +115,66 @@ Do not construct `lens_space_link(p,q)` and then invoke a weight solver.  The
 unweighted family can have a non-extendable combing even though the framed
 family supplies a valid presentation of the same lens space.
 
+#### Framed-family conditions and stored data
+
+The following conditions name the current public domain; they do not select a
+new framing convention. The presentation names and orientation are those of
+[LensSpaceNames](../conventions/LensSpaceNames.md), and weight coordinates are
+those of [the data model §2.4](virtual-link-data-model.md#24-weight-assignment-and-endpoint-coordinates).
+
+1. **F1 — Scalar parameter domain (checked).** `p` and `q` are non-Boolean
+   `Integer` values convertible to machine `Int`; after conversion they satisfy
+   `p > q > 0` and `gcd(p,q) == 1`. Boolean and domain violations raise
+   `ArgumentError`; an inexact `Int` conversion raises `InexactError`.
+2. **F2 — Construction range (caller).** Every intermediate integer operation,
+   index and allocation of the construction must be representable. Checking F1
+   does not check this range. Fixed-width overflow is not generally detected and
+   removes the mathematical construction guarantee. Exhausted memory can prevent
+   construction even for valid parameters.
+3. **F3 — Assigned-weight storage (caller).** For `framed_lens_space_link`, the
+   generated integer weights must be exactly representable by the `Float64`
+   storage conversion of `set_weight!`. The raw input record retains `Int`
+   weights; conversion to a link does not prove integrality, closed-normality or
+   framing independently. Outside this storage range, exact equality with the
+   generated integer weights is not guaranteed.
+4. **F4 — Series bounds (checked).** `minimum_p` and `maximum_p` are non-Boolean
+   integers convertible to `Int` with `2 <= minimum_p <= maximum_p`. Boolean or
+   ordering violations raise `ArgumentError`; inexact conversion raises
+   `InexactError`. The series contains all F1 pairs for that inclusive range of
+   `p`, in increasing `p` then increasing `q`, subject to F2–F3 for every row.
+
+The input record stores `schema = "framed-lens-o-graph-v2"`, the converted `p,q`,
+one-component `rgauss::Vector{Vector{Int}}`, its `orientation::Vector{Int}`, and
+one component's `weights::Vector{Vector{Int}}`. Both `search_used` and
+`linear_solver_used` are false. `orientation_convention` is
+`"local_all_positive_lens_space_link"`; this names the reference family and
+does not assert that every returned crossing sign is positive.
+`edge_weight_convention` is `"edge entering visit; word read cyclically"`.
+
+For `q == p-1`, `construction` is `"previous_q_minus_one_base"` and
+`parameters` contains only `vertices=p`. Otherwise `construction` is
+`"fixed_insertion_in_L_p_plus_q_p_then_P_r_and_mirror"`; `parameters` contains
+`m=p+q`, `d=gcd(2,p)`, `r_modulus=p÷d`, the modularly selected `r`, the patch
+coefficient `A`, `B=0`, `patch_vertices`, total `vertices`,
+`congruence="2*q*r == q-1 (mod p)"`, and
+`raw_seed_orientation="opposite; mirror already applied"`. The construction
+and these parameters refer to the
+[general construction record](../../../../threads/PJ260829/docs/notes/2026-09-27-034949-deterministic-framed-lens-intake.md#一般構成).
+These are construction metadata, not a canonical framing or an equivalence
+certificate. Each call allocates fresh word/sign/weight containers. A series
+stores `(p,q,link)` rows with independent mutable link containers.
+
+Status: fixed 2026-11-25 Codex (rule a), recording the existing
+[constructor](../../src/framed_lens_space.jl) and
+[framed-family tests](../../test/lens_space_vg2g.jl). Those tests embody both
+branches at `(5,2)` and `(4,3)`, the ordered series through `p=3`, exact weight
+storage for `(5,2)`, and selected domain rejections. Field and domain statements
+are proved/agent by construction; the general framed-manifold interpretation
+retains the [evidence boundary](#evidence-boundary) below. The raw-record and
+`Float64` link representations differ only by the declared numeric storage
+conversion on this interface; F3 is the condition for an exact translation.
+Compatibility beyond this schema's current implementation is not promised.
+
 ### Finite parameter sweep
 
 For experiments over many coprime pairs, use the series entrance instead of

@@ -1,3 +1,56 @@
+"""
+    SparseFactor(variables, terms::AbstractDict) -> SparseFactor
+
+Store coefficients and index labels of a sparse tensor.
+
+# Arguments
+`variables` supplies integer labels convertible to `Vector{Int}`; `terms`
+maps tuple keys to coefficients of type `T`. Failed conversions propagate.
+Construction does not check key lengths, coordinate ranges, repeated labels
+or zero coefficients. The caller supplies coherent tensor data for the
+operations that consume the result.
+
+# Returns
+`SparseFactor{T}` with `variables::Vector{Int}` and `terms::Dict{Tuple,T}`.
+These are the label and coefficient containers of the
+[Algebra tensor API](../specs/algebra.md#definitions).
+
+# Guarantees
+1. Coefficient type and values are preserved; construction does not convert
+   exact coefficients to floating point or discard stored zeros. [proved/agent: by construction]
+2. With a consistent choice of basis and index labels, the coefficient data
+   represent the supplied tensor in that basis. [proved/agent: by construction]
+3. Supplying exactly the declared field types retains those containers;
+   the general dictionary method collects labels and entries into new containers. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+No tensor identities or contraction rules are checked. In particular,
+unlabelled structure tensors must acquire appropriate labels before being
+used as network factors; construction does not infer tensor variance.
+
+# Sources
+cf:[[Kup91#^kup91-blk-0024]] basis coordinates of tensors; sparse storage and integer network labels are repository representations.
+
+# Examples
+```jldoctest
+julia> a = SparseFactor(Int[], Dict{Tuple,Rational{Int}}((1,1)=>1//2, (1,2)=>1//3, (2,1)=>2//5));
+
+julia> b = SparseFactor(Int[], Dict{Tuple,Rational{Int}}((1,1)=>3//7, (2,1)=>5//11));
+
+julia> r = evaluate_tensor_expression("A{1,2}B{2,3}", Dict("A"=>a, "B"=>b), [1,3]);
+
+julia> r isa SparseFactor{Rational{Int}}
+true
+```
+
+See also [`label_tensor`](@ref), [`dense_tensor`](@ref).
+
+Role: construct
+"""
 struct SparseFactor{T}
     variables::Vector{Int}
     terms::Dict{Tuple,T}
@@ -7,6 +60,60 @@ SparseFactor(variables,terms::AbstractDict{<:Tuple,T}) where {T}=
     SparseFactor{T}(Int.(collect(variables)),
                     Dict{Tuple,T}(Tuple(key)=>value for (key,value) in terms))
 
+"""
+    FiniteHopfAlgebra(dimension, multiplication, unit, coproduct, counit, positive_vertex, negative_vertex, antipode, right_integral, right_cointegral, left_integral, left_cointegral) -> FiniteHopfAlgebra
+
+Store finite-dimensional Hopf-algebra tensor data without validating the axioms.
+
+# Arguments
+`dimension` must be convertible to `Int`; the remaining eleven arguments
+must be `SparseFactor` values. Failed field conversions and unsupported
+argument lists propagate their Julia exceptions. The caller is responsible
+for a consistent dimension, basis, tensor shapes and algebraic identities.
+
+# Returns
+`FiniteHopfAlgebra{Nothing}` for the unparameterized constructor.
+`dimension` is the supplied vector-space dimension; `multiplication`, `unit`,
+`coproduct`, `counit`, and `antipode` store its structural maps.
+`positive_vertex` and `negative_vertex` store crossing tensors;
+`right_integral`, `right_cointegral`, `left_integral`, and `left_cointegral`
+store the supplied distinguished tensors. Their API belongs to
+[Algebra](../specs/algebra.md#definitions).
+
+# Guarantees
+1. The fields retain the supplied values after conversion; tensor containers
+   are shared rather than copied. [proved/agent: by construction]
+2. When the supplied structural maps satisfy the Hopf axioms in their
+   declared basis, the record represents that finite-dimensional Hopf algebra.
+   An instance of the type alone is not evidence for those hypotheses. [proved/agent: by construction]
+3. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+Construction checks neither the Hopf axioms nor integral normalization,
+involutivity, unimodularity or compatibility of the crossing tensors.
+The coefficient types may differ between fields. The record does not assert
+that a contraction gives a topological invariant.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0038]] Hopf algebras and their structural tensors; the storage constructor also permits noninvolutory and unchecked input data.
+
+# Examples
+```jldoctest
+julia> h = sweedler_algebra();
+
+julia> hcopy = FiniteHopfAlgebra(h.dimension, h.multiplication, h.unit, h.coproduct, h.counit, h.positive_vertex, h.negative_vertex, h.antipode, h.right_integral, h.right_cointegral, h.left_integral, h.left_cointegral);
+
+julia> all(values(verify_hopf(hcopy)))
+true
+```
+
+See also [`verify_hopf`](@ref), [`hopf_tensors`](@ref).
+
+Role: convert
+"""
 struct FiniteHopfAlgebra{Kind}
     dimension::Int
     multiplication::SparseFactor
@@ -119,11 +226,58 @@ function _build_uqsl2_borel_small(ratio::Rational;style=:L)
                       _sparse_data(left_integral),_sparse_data(left_cointegral))
 end
 
-"""Return an isolated small Borel algebra while caching its expensive build.
+"""
+    uqsl2_borel_small(ratio::Rational; style=:L) -> FiniteHopfAlgebra
 
-The algebra contains mutable sparse dictionaries.  The cached object is never
-returned directly, so callers retain the old ownership semantics even if they
-mutate a factor's terms.
+Return the library's small Borel tensor model at the rational root parameter.
+
+# Arguments
+- `ratio` must lie strictly between zero and one; otherwise `ArgumentError`
+  reports that interval. Its numerator and denominator must fit `Int`, and
+  the resulting tensor dimensions must fit available index and memory ranges.
+  Conversion, allocation and numerical linear-algebra errors propagate.
+- `style` must be `:L` or `:R`; otherwise `ArgumentError` identifies the
+  accepted styles. These are the repository's two small-Borel presentations
+  in the [Algebra API](../specs/algebra.md#definitions).
+
+# Returns
+A `FiniteHopfAlgebra` with dimension `denominator(ratio)^2`, `ComplexF64`
+tensor coefficients, and a type tag recording the root parameters and style.
+Fields have the roles described by [`FiniteHopfAlgebra`](@ref).
+
+# Guarantees
+1. Within the representable range, the result supplies the fixed small-Borel
+   structural and crossing tensors for the requested parameter and style on
+   that complex coordinate space. [proved/agent: by construction]
+2. The result's mutable tensor dictionaries are isolated from results of
+   other calls. Mutating a returned tensor does not change later results
+   for the same arguments. [proved/agent: by construction]
+3. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The coefficients are numerical, not exact cyclotomic values or a proof of
+Hopf identities. The parameter and basis naming do not certify a translation
+to every literature convention for a small quantum group. The type tag alone
+does not guarantee eligibility for an exact invariant route after tensors
+have been modified; consult [`hopf_invariant`](@ref).
+
+# Sources
+cf:lib/topology.jl/src/hopf_invariant.jl, _build_uqsl2_borel_small — the repository parameterized tensor model and its two styles.
+
+# Examples
+```jldoctest
+julia> h = uqsl2_borel_small(1//2; style=:L); other = uqsl2_borel_small(1//2; style=:L); other.antipode.terms[(1,1)] = 999;
+
+julia> (h !== other, h.antipode.terms[(1,1)] != 999)
+(true, true)
+```
+
+See also [`verify_hopf`](@ref), [`hopf_invariant`](@ref).
+
+Role: construct
 """
 function uqsl2_borel_small(ratio::Rational;style=:L)
     key=(ratio,style)
@@ -133,6 +287,50 @@ function uqsl2_borel_small(ratio::Rational;style=:L)
     deepcopy(prototype)
 end
 
+"""
+    sweedler_algebra() -> FiniteHopfAlgebra
+
+Return the library's four-dimensional Sweedler Hopf-algebra model.
+
+# Arguments
+No arguments are required.
+
+# Returns
+`FiniteHopfAlgebra{Nothing}` of dimension four with `ComplexF64` tensor
+coefficients and the stored structural, crossing and distinguished tensors.
+Its field roles belong to [`FiniteHopfAlgebra`](@ref).
+
+# Guarantees
+1. The result is the fixed finite-dimensional Hopf model on a complex
+   four-dimensional coordinate space used by the
+   [Algebra API](../specs/algebra.md#definitions). [proved/agent: by construction]
+2. Its antipode is not involutory. Each call returns independently allocated
+   sparse tensor data, so mutations do not alter another call's result. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The current specification does not fix a translation from these basis and
+integral-field names to a particular literature presentation of Sweedler's
+algebra. The model is not unimodular or an admissible involutory input merely
+because it has type `FiniteHopfAlgebra`. No manifold invariant is computed.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0038]] finite-dimensional Hopf structural tensors; the named noninvolutory model and its basis require a separate convention identification.
+
+# Examples
+```jldoctest
+julia> h = sweedler_algebra();
+
+julia> (all(values(verify_hopf(h))), is_involutory(h), is_unimodular(h))
+(true, false, false)
+```
+
+See also [`verify_hopf`](@ref), [`is_involutory`](@ref).
+
+Role: construct
+"""
 function sweedler_algebra()
     multiplication=Dict{Tuple,ComplexF64}(
         (1,1,1)=>1,(1,2,2)=>1,(2,1,2)=>1,(1,3,3)=>1,(3,1,3)=>1,
@@ -172,6 +370,57 @@ function sweedler_algebra()
                       _sparse_data(left_integral),_sparse_data(left_cointegral))
 end
 
+"""
+    exterior_algebra(generator_count::Integer) -> FiniteHopfAlgebra
+
+Return the library's finite exterior-algebra model with its graded Hopf tensors.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/algebra.md).
+
+`generator_count` must be nonnegative; otherwise `ArgumentError` states that
+requirement. The dimension `2^generator_count` must be representable and
+small enough to allocate the tensor data. No explicit overflow or resource
+bound is enforced; arithmetic and allocation failures propagate.
+
+# Returns
+`FiniteHopfAlgebra{Nothing}` with dimension `2^generator_count` and
+`ComplexF64` coefficients. The fields have the roles described by
+[`FiniteHopfAlgebra`](@ref), with exterior grading for the bialgebra identity.
+
+# Guarantees
+1. Within the representable range, the coordinate dimension is the dimension
+   of the exterior algebra on the requested number of generators. [proved/agent: by construction]
+2. The stored multiplication, coproduct and antipode give the repository's
+   exterior model; the antipode is involutory. [proved/agent: by construction]
+3. Each call returns independently allocated sparse tensors. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Conventions
+[Coordinate conventions](../conventions/Algebra.md).
+
+# Not guaranteed
+The ordinary, ungraded bialgebra check is not the graded Hopf check. No
+translation to another literature basis or sign convention is certified.
+No ordinary Hopf or topological-invariance claim is inferred by ignoring
+the grading.
+
+# Sources
+cf:[[Kup91#^kup91-sec-0038]] structural tensors for Hopf algebras; the exterior model uses an additional grading not specified by this ordinary Hopf-algebra source.
+
+# Examples
+```jldoctest
+julia> h = exterior_algebra(2);
+
+julia> (h.dimension, all(values(verify_hopf(h; degrees=count_ones.(0:3)))))
+(4, true)
+```
+
+See also [`verify_hopf`](@ref), [`is_involutory`](@ref).
+
+Role: construct
+"""
 function exterior_algebra(generator_count::Integer)
     generator_count >= 0 || throw(ArgumentError("generator count must be nonnegative"))
     dimension=2^generator_count

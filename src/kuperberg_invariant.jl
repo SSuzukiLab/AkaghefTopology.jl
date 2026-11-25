@@ -100,7 +100,52 @@ function _require_involutory_kuperberg_algebra(algebra::FiniteHopfAlgebra)
     algebra
 end
 
-"""π₁ presentation ⟨α generators | β relators⟩ walking each β word in cyclic order."""
+"""
+    heegaard_pi1_presentation(hc::HeegaardCodes.HeegaardCode) -> HeegaardCodes.GroupPresentation
+
+Return the alpha-generator and beta-relator group associated with the Heegaard code's words.
+
+# Arguments
+Requires H8 ([conditions](../specs/hopf-invariants.md#numbered-conditions)).
+The caller supplies coherent curve roles, words and passages. Conflicting
+same-sign passage owners raise `ArgumentError` naming the label; missing
+curve words or indices can raise `KeyError`. No HC validity, complete-family
+count or cutting-system check occurs here. Non-alpha/beta passages are omitted.
+
+# Returns
+A `HeegaardCodes.GroupPresentation` with `generators`, `relators`, empty
+`beta_ids`, and `metadata` identifying `lc_beta_words` and its passage
+convention. The group and exponent-pair meaning are the
+[Heegaard word group](../specs/hopf-invariants.md#heegaard-word-group-and-antipode-labels).
+
+# Guarantees
+1. The result presents the coordinate group defined in the linked specification, retaining the stored beta-word order without relator reduction. [proved/agent: by construction]
+2. The intended identification is the fundamental group of the closed 3-manifold of the complete Heegaard splitting. [unverified: identify these alpha generators and signed beta relators with the complete-cut-system manifold of heegaard-koda-conversion.md §5.1 and the group-state constraints of Kup91 ^kup91-blk-0140, in both local passage orientations and arbitrary genus]
+3. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This routine does not certify the geometric identification in guarantee 2.
+The missing comparison must identify the alpha generators with handlebody
+generators and each beta relator with its attaching circle, including the
+orientation of each crossing and the order along each beta circle. It must
+cover complete cutting systems in arbitrary genus; the registered S3 and T3
+homomorphism-count comparisons do not prove that identification. Malformed
+inputs need not be rejected, and the presentation need not be minimal or simplified.
+
+# Sources
+cf:lib/topology.jl/docs/specs/hopf-invariants.md Heegaard word group and antipode labels — coordinate presentation and geometric evidence boundary.
+cf:[[Kup91#^kup91-blk-0140]] group-state constraints on lower circles and upper attaching words — comparison target, not a certification of this HC coordinate map.
+
+# Examples
+```jldoctest
+julia> path = normpath(joinpath(pkgdir(Topology),"..","..","threads","PJ260922","data","261107-lickorish-data","group-15","case-01.hc"));
+
+julia> p = heegaard_pi1_presentation(Topology.HeegaardCodes.read_hc(path)); Tuple(only(p.relators))
+((1, -1), (1, 1), (1, -1))
+```
+
+Role: convert
+"""
 function heegaard_pi1_presentation(hc::Heegaard.HeegaardCode)
     owners = _lc_label_owners(hc.lc.words)
     alphas = sort(_hc_role_curves(hc, :alpha))
@@ -463,7 +508,56 @@ function _contract_kuperberg(factors::Vector{SparseFactor}, dimension::Int)
     total
 end
 
-"""Closed combinatorial tensor network for an involutory Hopf algebra on HC input."""
+"""    KuperbergTensorExpression(hc::HeegaardCode, link::VirtualLink, factors::Vector{SparseFactor}, normalization::ComplexF64, dimension::Int) -> KuperbergTensorExpression
+
+Store the finite tensor contraction associated with a Heegaard-code calculation.
+
+# Arguments
+The fields use the [Kuperberg coordinate target](../specs/hopf-invariants.md#kuperberg-coordinate-target).
+H6 ([conditions](../specs/hopf-invariants.md#numbered-conditions)) is the
+caller's responsibility: the constructor does not validate the algebra,
+diagram, closed legs or normalization. The general field-converting method
+converts arguments to the declared types; unsupported conversions propagate
+Julia conversion errors.
+
+# Returns
+A `KuperbergTensorExpression` with input `hc`, incidence `link`, tensor
+`factors`, scalar `normalization` and common `dimension`, with meanings
+specified in the linked coordinate-target entry.
+
+# Guarantees
+1. Fields equal the supplied values after conversion. Under H6 they specify the normalized finite coordinate contraction of the associated Heegaard calculation, subject to the [open HC/cellular sign convention](../conventions/Algebra.md#kuperberg-sign-contradiction) when interpreted as a Kuperberg invariant. [proved/agent: by construction]
+2. Construction does not modify its arguments; already correctly typed mutable fields remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Kuperberg normalization](../specs/hopf-invariants.md#kuperberg-coordinate-target)
+and [tensor ports](../conventions/Algebra.md#tensor-ports).
+
+# Not guaranteed
+A raw record does not certify H1–H6 or invariance of a represented
+3-manifold. The source crossing/dual/normalization identification is
+unverified as recorded in the specification and inherited source references.
+The [intended HC/cellular sign convention](../conventions/Algebra.md#kuperberg-sign-contradiction)
+is undecided; equality of the two entrances' values is not established.
+Numerical evaluation is not an exact algebraic certificate.
+
+# Sources
+cf:lib/topology.jl/docs/specs/hopf-invariants.md, Kuperberg coordinate target and H6 — expression record meaning and validation boundary.
+
+# Examples
+```jldoctest
+julia> path = normpath(joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc"));
+
+julia> expr = invariant_expression(Heegaard.read_hc(path), cyclic_group_algebra(2));
+
+julia> isapprox(evaluate_invariant(expr), 1; atol=1e-8)
+true
+```
+
+See also [`invariant_expression`](@ref), `evaluate_invariant`.
+
+Role: convert
+"""
 struct KuperbergTensorExpression
     hc::Heegaard.HeegaardCode
     link::VirtualLink
@@ -472,6 +566,53 @@ struct KuperbergTensorExpression
     dimension::Int
 end
 
+"""
+    invariant_expression(hc::HeegaardCodes.HeegaardCode, algebra::FiniteHopfAlgebra) -> KuperbergTensorExpression
+
+Return the normalized finite Kuperberg coordinate network of a Heegaard code.
+
+# Arguments
+Requires H1–H5 ([conditions](../specs/hopf-invariants.md#numbered-conditions)).
+Numerical involutivity and nonzero distinguished pairing are checked with
+`DomainError` identifying the failed algebra requirement. HC validation
+errors propagate. Wrong complete-family counts raise `DomainError` naming
+alpha or beta; missing words, conflicting owners or invalid passages raise
+`ArgumentError`. Full geometric cutting-system and source-port hypotheses
+remain caller obligations. Tensor shape and arithmetic errors propagate.
+
+# Returns
+A `KuperbergTensorExpression` containing the input `hc`, a new alpha/beta
+incidence `link`, coordinate `factors`, scalar `normalization` and algebra
+`dimension`, as defined by the
+[Kuperberg target](../specs/hopf-invariants.md#kuperberg-coordinate-target).
+
+# Guarantees
+1. On the supported coordinate domain, the expression denotes that normalized finite contraction with the HC entrance's current sign assignment; its intended relation to cellular signs is the [open sign point](../conventions/Algebra.md#kuperberg-sign-contradiction). [proved/agent: by construction]
+2. Inputs are not modified. The returned `hc` field shares the input HC object. [proved/agent: by construction]
+
+# Not guaranteed
+The input guards do not certify H1–H3, complete cutting systems, or the
+general source invariant identification. The source antipode and
+dimension-versus-pairing normalization comparisons remain unverified.
+The [intended HC/cellular sign convention](../conventions/Algebra.md#kuperberg-sign-contradiction)
+is undecided; equality with the cellular entrance's contraction is not established.
+Numeric tensor formation provides no exact-arithmetic or error certificate.
+
+# Sources
+cf:lib/topology.jl/docs/specs/hopf-invariants.md Kuperberg coordinate target and H1–H6 — finite network and geometric boundary.
+
+# Examples
+```jldoctest
+julia> path = normpath(joinpath(pkgdir(Topology),"..","..","threads","PJ260922","data","261107-lickorish-data","group-15","case-01.hc"));
+
+julia> x = invariant_expression(Topology.HeegaardCodes.read_hc(path),cyclic_group_algebra(2));
+
+julia> isapprox(evaluate_invariant(x),1; atol=1e-8)
+true
+```
+
+Role: convert
+"""
 function invariant_expression(hc::Heegaard.HeegaardCode, algebra::FiniteHopfAlgebra)
     _require_involutory_kuperberg_algebra(algebra)
     _require_heegaard_cutting_domain(hc)
@@ -485,6 +626,47 @@ function invariant_expression(hc::Heegaard.HeegaardCode, algebra::FiniteHopfAlge
     )
 end
 
+"""
+    invariant_expression(path::AbstractString, algebra::FiniteHopfAlgebra) -> KuperbergTensorExpression
+
+Read a Heegaard code and return its normalized finite Kuperberg coordinate network.
+
+# Arguments
+`path` is a readable file accepted by `HeegaardCodes.read_hc`; I/O, parsing
+and HC validation errors propagate. The parsed code and `algebra` require
+H1–H5 ([conditions](../specs/hopf-invariants.md#numbered-conditions)), with
+the checks and failures of `invariant_expression(::HeegaardCode,algebra)`.
+Complete cutting systems and the geometric/source-port hypotheses remain
+caller obligations.
+
+# Returns
+A `KuperbergTensorExpression` containing the parsed HC, incidence link,
+coordinate factors, normalization and dimension, as defined by the
+[Kuperberg target](../specs/hopf-invariants.md#kuperberg-coordinate-target).
+
+# Guarantees
+1. The result is the coordinate expression of the parsed HC and supplied algebra, with the HC method's supported finite meaning and the same [open HC/cellular sign point](../conventions/Algebra.md#kuperberg-sign-contradiction). [proved/agent: by construction]
+2. The input file and algebra are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Parsing and algebra guards do not certify H1–H3 or the full manifold-invariant
+identification. The [intended HC/cellular sign convention](../conventions/Algebra.md#kuperberg-sign-contradiction)
+is undecided; equality with the cellular entrance's contraction is not established.
+Numeric tensor formation has no exact-arithmetic certificate.
+
+# Sources
+cf:lib/topology.jl/docs/specs/hopf-invariants.md Kuperberg coordinate target — finite network and geometric boundary.
+
+# Examples
+```jldoctest
+julia> path = normpath(joinpath(pkgdir(Topology),"..","..","threads","PJ260922","data","261107-lickorish-data","group-15","case-01.hc"));
+
+julia> isapprox(evaluate_invariant(invariant_expression(path,cyclic_group_algebra(2))),1; atol=1e-8)
+true
+```
+
+Role: convert
+"""
 invariant_expression(path::AbstractString, algebra::FiniteHopfAlgebra) =
     invariant_expression(Heegaard.read_hc(path), algebra)
 
@@ -538,7 +720,61 @@ end
 Z_Kuperberg(punctured::Heegaard.PuncturedHeegaardDiagram, algebra::FiniteHopfAlgebra; kwargs...) =
     Z_Kuperberg(punctured.diagram, algebra; kwargs...)
 
-"""Labels this entrance treats as negative α∩β crossings. Specs do not decide this choice."""
+"""
+    kuperberg_hc_negative_labels(hc::HeegaardCodes.HeegaardCode) -> Set{Int}
+
+Return the alpha/beta passage labels assigned an antipode by the Kuperberg coordinate convention.
+
+# Arguments
+Requires H8 ([conditions](../specs/hopf-invariants.md#numbered-conditions)).
+Conflicting same-sign owners raise `ArgumentError` naming the label.
+Other malformed data can raise indexing or conversion errors; HC validity
+and cutting-system completeness are not checked. One-sided and non-alpha/beta
+passages are omitted rather than certified as valid crossings.
+
+# Returns
+A set of integer labels with the meaning in
+[Heegaard antipode labels](../specs/hopf-invariants.md#heegaard-word-group-and-antipode-labels).
+
+# Guarantees
+1. The set contains exactly the alpha/beta labels selected by that coordinate convention. [proved/agent: by construction]
+2. On the three convertible fixtures listed in the [HC/cellular sign contradiction](../conventions/Algebra.md#kuperberg-sign-contradiction), the set converted to strings equals the `source_label` set of positive-sign intersections of `forget_reference(realize_hc(hc)).diagram`, and differs from its negative-sign set. [verified-computationally: three fixtures of test/kuperberg_invariant.jl, against the assertion of that test]
+3. The input is unchanged. [proved/agent: by construction]
+
+# Conventions
+[Kuperberg and cellular crossing signs](../conventions/Algebra.md#kuperberg-and-cellular-crossing-signs).
+
+# Not guaranteed
+The intended HC/cellular sign convention is undecided: the
+[recorded bug](../conventions/Algebra.md#kuperberg-sign-contradiction) is a
+contradiction between the current code and its integration test.
+The returned set is neither an invariant nor an HC validity certificate. Source agreement remains
+unverified: identify the HC alpha/beta families with Kup91's lower/upper
+circles and match their ordered tangent bases and antipode input/output at
+both local crossing orientations in equations 26–28. The coordinate sign
+translation alone does not establish that source identification or equality
+of the two Kuperberg evaluator entrances.
+
+# Sources
+cf:lib/topology.jl/docs/specs/hopf-invariants.md Heegaard word group and antipode labels — coordinate selection and unresolved sign comparison.
+
+# Examples
+```jldoctest
+julia> path = normpath(joinpath(pkgdir(Topology),"..","..","threads","PJ260922","data","261107-lickorish-data","group-15","case-01.hc"));
+
+julia> hc = Topology.HeegaardCodes.read_hc(path); diagram = Topology.HeegaardCodes.forget_reference(Topology.HeegaardCodes.realize_hc(hc)).diagram;
+
+julia> labels = Set(string(k) for k in kuperberg_hc_negative_labels(hc));
+
+julia> labels == Set(p.source_label for p in diagram.code.code.intersections if p.sign > 0 && p.source_label !== nothing)
+true
+
+julia> (Tuple(sort!(collect(labels))), Tuple(sort!([p.source_label for p in diagram.code.code.intersections if p.sign < 0 && p.source_label !== nothing])))
+(("5",), ("4", "6"))
+```
+
+Role: access
+"""
 function kuperberg_hc_negative_labels(hc::Heegaard.HeegaardCode)
     owners = _lc_label_owners(hc.lc.words)
     Set(label for label in keys(owners)

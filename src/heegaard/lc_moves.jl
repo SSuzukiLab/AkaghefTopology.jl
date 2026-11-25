@@ -5,6 +5,44 @@
 # Parent of Heegaard. Unexported Topology move kernels are called through this binding.
 const _LC_MV = parentmodule(@__MODULE__)
 
+"""
+    LCMoveError(kind, message, detail) -> LCMoveError
+
+Store a diagnostic from an LC or HC move operation.
+
+# Arguments
+`kind::Symbol`, `message::String`, and `detail::Dict{String,Any}`, or
+convertible values. Conversion errors propagate. No kind or diagnostic is
+checked, and construction does not throw the result.
+
+# Returns
+`LCMoveError` with a failure-kind tag, message and details. `showerror`
+displays the kind and message, followed by nonempty details.
+
+# Guarantees
+1. Fields preserve supplied values after conversion; an already-typed detail
+   dictionary is retained and not modified. [proved/agent: by construction]
+2. The record reports a failure in the scope of
+   [catalogued diagram moves](../specs/heegaard-moves.md#4-探索と-witness).
+   It is not a move witness or a topological invariant.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Constructing the record does not establish that an operation failed, that
+no move exists, or that two diagrams represent different manifolds.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> e = LCMoveError(:witness_plan_mismatch, "support differs", Dict{String,Any}()); (e.kind, e.message)
+(:witness_plan_mismatch, "support differs")
+```
+
+See also [`Topology.HeegaardCodes.movable`](@ref), [`Topology.HeegaardCodes.move`](@ref).
+
+Role: construct
+"""
 struct LCMoveError <: Exception
     kind::Symbol
     message::String
@@ -16,6 +54,56 @@ function Base.showerror(io::IO, e::LCMoveError)
     isempty(e.detail) || print(io, " ", e.detail)
 end
 
+"""
+    LCMoveWitness(row_id, inverse_id, digest, relation, layer, names, locations, vertices, before_frags, after_frags, capacity, fingerprint, label_policy, genus_delta, extra) -> LCMoveWitness
+
+Store a selected application of a catalogued LC or HC move.
+
+# Arguments
+`row_id`, `inverse_id`, `digest`, `relation`, `layer`, `fingerprint` and
+`label_policy` are strings; `names::Vector{String}`;
+`locations::Vector{Tuple{Int,Int}}`; `vertices, capacity::Vector{Int}`;
+`before_frags, after_frags::Vector{Vector{Int}}`; `genus_delta::Int`;
+`extra::Dict{String,Any}`. Convertible values are accepted, with conversion
+errors propagated. No applicability condition is checked by construction.
+
+# Returns
+`LCMoveWitness` with catalog and inverse references, catalog digest,
+relation and data-layer labels, component names, selected intervals and
+labels, before/after fragments, connection data, input fingerprint,
+label policy, genus change and operation-specific data. Their semantic
+scope is [the witness specification](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed containers
+   are retained and not modified. [proved/agent: by construction]
+2. A witness from [`Topology.HeegaardCodes.movable`](@ref) identifies one selected local operation
+   on its input. Constructing this record neither applies that operation
+   nor proves the catalogue's asserted relation.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Arbitrary fields need not form a compatible witness. The relation string
+does not certify isotopy or manifold preservation. Applying a witness to
+changed input may fail; use [`Topology.HeegaardCodes.move`](@ref) to check and apply it. An inverse
+witness is distinct from a promise to restore original text bytes.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> d = H.LickorishCode(1, Dict("l1" => [-1,2,-3], "m1" => [1], "c" => [-2,3]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> w = only(H.movable(d, "lc.isotopy.digon.remove.00")); v = H.LCMoveWitness(w.row_id, w.inverse_id, w.digest, w.relation, w.layer, w.names, w.locations, w.vertices, w.before_frags, w.after_frags, w.capacity, w.fingerprint, w.label_policy, w.genus_delta, w.extra);
+
+julia> H.move(d,v).output.genus == d.genus
+true
+```
+
+See also [`Topology.HeegaardCodes.movable`](@ref), [`Topology.HeegaardCodes.move`](@ref), [`LCMoveResult`](@ref).
+
+Role: construct
+"""
 struct LCMoveWitness
     row_id::String
     inverse_id::String
@@ -34,6 +122,51 @@ struct LCMoveWitness
     extra::Dict{String,Any}
 end
 
+"""
+    LCMoveResult(output, inverse, correspondence) -> LCMoveResult
+
+Store the output, inverse witness and correspondence of an LC or HC move.
+
+# Arguments
+`output` may be any value, `inverse::LCMoveWitness`, and
+`correspondence::Dict{String,Any}`, with conversions to the declared field
+types where needed. Conversion errors propagate. The constructor checks no
+relationship between these arguments.
+
+# Returns
+`LCMoveResult` with `output`, an inverse witness, and correspondence data.
+The operation-specific meaning is owned by
+[move correspondence](../specs/heegaard-moves.md#5-共通の書き換えと対応).
+
+# Guarantees
+1. Already-typed arguments are retained without copying or modification.
+   [proved/agent: by construction]
+2. For output of [`Topology.HeegaardCodes.move`](@ref), the record packages the resulting LC or HC
+   and its recorded local-operation correspondence. Construction itself
+   performs no move. [proved/agent: by construction]
+
+# Not guaranteed
+An arbitrary `output` need not be an LC or HC. Construction does not verify
+the inverse or any geometric preservation claim. Different catalogued
+relations preserve different structures; the presence of this result type
+alone does not imply the same 3-manifold.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> d = H.LickorishCode(1, Dict("l1" => [-1,2,-3], "m1" => [1], "c" => [-2,3]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> r = H.move(d, only(H.movable(d, "lc.isotopy.digon.remove.00"))); s = H.LCMoveResult(r.output, r.inverse, r.correspondence);
+
+julia> (s.output.genus == d.genus, H.move(s.output,s.inverse).output.genus == d.genus)
+(true, true)
+```
+
+See also [`Topology.HeegaardCodes.movable`](@ref), [`Topology.HeegaardCodes.move`](@ref), [`LCMoveWitness`](@ref).
+
+Role: convert
+"""
 struct LCMoveResult
     output
     inverse::LCMoveWitness
@@ -59,6 +192,44 @@ function _row_digest(row)
     bytes2hex(sha256(JSON3.write(row)))
 end
 
+"""
+    load_heegaard_moves(; force::Bool=false) -> Dict{String,Any}
+
+Load the finite catalog of LC and HC move records.
+
+# Arguments
+`force=false` reuses a loaded cache; `force=true` reloads the installed JSON
+files. The files must be readable and match
+[the move catalog](../specs/heegaard-moves.md). File, JSON and missing-field
+errors propagate; duplicate row IDs raise `LCMoveError(:catalog)` with the ID.
+
+# Returns
+A shared dictionary with `schema_version`, `rows` keyed by move identifier,
+catalog `dir`, and `shared` data. Each row includes its source `file` and
+content `digest`.
+
+# Guarantees
+1. A successful load makes the selected catalog rows available by their
+   unique lookup keys. [proved/agent: by construction]
+2. Catalog files are read without modification. The shared module cache
+   can be initialized or replaced. [proved/agent: by construction]
+
+# Not guaranteed
+The returned dictionaries are mutable shared data. Loading does not certify
+geometric move validity, applicability or the truth of a row's source claims.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> haskey(load_heegaard_moves()["rows"], "lc.twist.annulus")
+true
+```
+
+See also [`heegaard_move_ids`](@ref), [`heegaard_move_row`](@ref).
+
+Role: access
+"""
 function load_heegaard_moves(; force::Bool=false)
     _LC_CATALOG[] !== nothing && !force && return _LC_CATALOG[]
     root = _moves_dir()
@@ -79,12 +250,84 @@ function load_heegaard_moves(; force::Bool=false)
     loaded
 end
 
+"""
+    heegaard_move_row(id::AbstractString) -> Dict{String,Any}
+
+Return the catalog record for a named LC or HC move.
+
+# Arguments
+`id` is a move identifier from `heegaard_move_ids`. An unknown identifier
+raises `LCMoveError(:catalog)` with the requested ID. Catalog file or JSON
+errors propagate; duplicate IDs raise `LCMoveError(:catalog)`.
+
+# Returns
+The cached string-keyed row dictionary, including its move definition,
+`id`, source `file` and content `digest`. Row-specific fields are owned by
+[the move catalog specification](../specs/heegaard-moves.md).
+
+# Guarantees
+1. The returned row has the requested catalog ID, provided callers have not
+   modified the shared catalog. [proved/agent: by construction]
+2. The function does not alter the selected row; it may initialize the
+   shared catalog cache. [proved/agent: by construction]
+
+# Not guaranteed
+The row is shared mutable data, not a copy. Reading it does not establish
+applicability to a diagram or validate a move witness; call `movable`.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> heegaard_move_row("lc.twist.annulus")["id"]
+"lc.twist.annulus"
+```
+
+See also [`heegaard_move_ids`](@ref), [`Topology.HeegaardCodes.movable`](@ref).
+
+Role: access
+"""
 function heegaard_move_row(id::AbstractString)
     rows = load_heegaard_moves()["rows"]
     haskey(rows, id) || throw(LCMoveError(:catalog, "unknown row", Dict("id" => id)))
     rows[id]
 end
 
+"""
+    heegaard_move_ids() -> Vector{String}
+
+List the identifiers in the LC and HC move catalog.
+
+# Arguments
+No arguments. The installed catalog files must be readable and valid JSON;
+file/JSON errors propagate. Duplicate row IDs raise `LCMoveError(:catalog)`.
+
+# Returns
+A fresh sorted vector of catalog identifiers.
+
+# Guarantees
+1. The vector contains each loaded catalog row's lookup key once, including
+   rows that are not applicable to a particular diagram.
+   [proved/agent: by construction]
+2. The catalog rows are not modified; an initially empty shared catalog
+   cache may be populated. [proved/agent: by construction]
+
+# Not guaranteed
+Catalog membership is not an applicability or manifold-preservation witness.
+See [the move catalog](../specs/heegaard-moves.md) and use `movable` for an input.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> "lc.twist.annulus" in heegaard_move_ids()
+true
+```
+
+See also [`heegaard_move_row`](@ref), [`Topology.HeegaardCodes.movable`](@ref).
+
+Role: access
+"""
 heegaard_move_ids() = sort(collect(keys(load_heegaard_moves()["rows"])))
 
 include("lc_moves_support.jl")
@@ -1189,6 +1432,56 @@ function _expand(input, row, selections)
     throw(LCMoveError(:expansion, "unknown expansion op", Dict("op" => op, "row" => row["id"])))
 end
 
+"""
+    movable(input::Union{LickorishCode,HeegaardCode}, row::AbstractDict; kwargs...) -> Vector{LCMoveWitness}
+
+Find supported move witnesses for one catalog row on an LC or HC.
+
+# Arguments
+`input` must satisfy its LC/HC input checks and
+[the move domain](../specs/heegaard-moves.md#4-探索と-witness).
+Input-validation errors propagate; incompatible HC rows on an LC raise
+`LCMoveError(:layer)`. `row` must be an unmodified catalog row from
+`heegaard_move_row`; arbitrary dictionaries have no validated-row guarantee.
+Selection keywords are row-dependent: support/acted components/twist power,
+curve pairs and band, disk and reference identification, gaps, or mark
+transport as specified by the row and §§5–6. Missing required choices,
+unsupported marks, or unsupported support raise `LCMoveError` with their
+reason. Omitted choices request the currently implemented finite enumeration;
+unknown keywords need not be rejected.
+
+# Returns
+A vector of `LCMoveWitness` records binding selected support and executable
+data to this input. Empty output means no supported witness was found in
+this row's implemented range.
+
+# Guarantees
+1. Returned witnesses carry the row's declared relation and input binding
+   for the checked application path of
+   [§4.1](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+   [proved/agent: by construction]
+2. The input LC/HC is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The enumeration is not a complete search over all embedded supports or
+isotopies. A relation tag alone does not prove manifold preservation, and
+partial-family twists can change the represented manifold. `move` performs
+the applicable witness checks before returning an output.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta); standard=true);
+
+julia> length(H.movable(h, H.heegaard_move_row("lc.twist.annulus")))
+4
+```
+
+See also [`Topology.HeegaardCodes.move`](@ref), [`heegaard_move_row`](@ref).
+
+Role: access
+"""
 function movable(input::Union{LickorishCode,HeegaardCode}, row::AbstractDict; kwargs...)
     input isa HeegaardCode ? validate_hc_input(input) : validate_lc_input(input)
     _move_validate_input(_lc_of(input))
@@ -1204,16 +1497,143 @@ function movable(input::Union{LickorishCode,HeegaardCode}, row::AbstractDict; kw
     ws
 end
 
+"""
+    movable(input::Union{LickorishCode,HeegaardCode}, row_id::AbstractString; kwargs...) -> Vector{LCMoveWitness}
+
+Find supported witnesses for a named LC or HC move.
+
+# Arguments
+`row_id` must name a catalog row; an unknown ID raises `LCMoveError(:catalog)`.
+`input` and the row-dependent selection keywords have the domain of the
+dictionary-row overload of `Topology.HeegaardCodes.movable` and
+[the move specification](../specs/heegaard-moves.md). Validation, missing
+selection, support and mark-transport errors propagate from that overload.
+
+# Returns
+The vector of `LCMoveWitness` records for the selected row and input.
+
+# Guarantees
+1. The result is the dictionary-row query for `heegaard_move_row(row_id)`
+   with the same selections. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+An empty result does not establish nonexistence of a geometric move.
+Witness relation tags do not by themselves certify the represented manifold.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta); standard=true);
+
+julia> isempty(H.movable(h, "hc.slide.pants"))
+true
+```
+
+See also [`Topology.HeegaardCodes.move`](@ref), [`heegaard_move_ids`](@ref).
+
+Role: access
+"""
 function movable(input::Union{LickorishCode,HeegaardCode}, row_id::AbstractString; kwargs...)
     movable(input, heegaard_move_row(row_id); kwargs...)
 end
 
+"""
+    move(input::Union{LickorishCode,HeegaardCode}, witness::LCMoveWitness) -> LCMoveResult
+
+Apply a supported LC or HC move witness and return its output and inverse data.
+
+# Arguments
+`input` must match the source of `witness`, normally returned by
+`Topology.HeegaardCodes.movable` for an unmodified catalog.
+The applicable input-binding, fragment, support and mark-transport checks
+are those of [§4.1](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+Failures raise `LCMoveError` with the mismatch or unsupported transport;
+invalid source data and downstream conversion errors can also propagate.
+Literal lower-level witnesses retain the trusted-constructor requirement of
+§4.1; callers must not treat arbitrary hand-built records as geometric proofs.
+
+# Returns
+`LCMoveResult` with the transformed `output`, an `inverse::LCMoveWitness`
+for that output, and a `correspondence` dictionary describing the operation.
+
+# Guarantees
+1. The returned object is the result of the selected supported operation
+   after its applicable witness checks. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+3. Registered genus-one annulus moves have inverse outputs with the same
+   canonical HC identity. [verified-computationally: test/heegaard/hc_search.jl, search db round trip and one inverse]
+
+# Not guaranteed
+General manifold preservation does not follow from a successful call or a
+relation tag: the operation's mathematical scope is row-specific, and a
+partial-family twist can change the manifold. Exact textual restoration and
+a globally minimal diagram are not promised.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta); standard=true);
+
+julia> r = H.move(h, first(H.movable(h, "lc.twist.annulus"))); back = H.move(r.output, r.inverse);
+
+julia> H.hc_search_state(back.output; identity=:canonical).state_id == H.hc_search_state(h; identity=:canonical).state_id
+true
+```
+
+See also [`Topology.HeegaardCodes.movable`](@ref), [`LCMoveResult`](@ref).
+
+Role: move
+"""
 function move(input::Union{LickorishCode,HeegaardCode}, witness::LCMoveWitness)
     row = heegaard_move_row(witness.row_id)
     _refuse_marks(input, row;policy=get(witness.extra,"mark_transport",nothing))
     _move_checked_apply(input, witness)
 end
 
+"""
+    lc_text(lc::LickorishCode) -> String
+
+Serialize LC genus, curve words and placement declarations as text.
+
+# Arguments
+`lc` must use the names, words and placements of
+[the LC text format](../specs/lickorish-code.md).
+The caller supplies valid, text-safe component names and references;
+this serializer performs no LC validation and malformed data need not round-trip.
+
+# Returns
+A newline-terminated string containing the genus, stored curve words in
+component order, and sorted placement declarations.
+
+# Guarantees
+1. The output records the supplied genus, emitted component words and
+   `place` references without changing their integer values.
+   [proved/agent: by construction]
+2. The input is not modified and no file is written.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Legacy LC `disks`, `points`, `weights` and `source_path` are not serialized
+by this function. Full record preservation and geometric validity are not
+consequences of producing text.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> mktemp() do path, io; close(io); write(path, lc_text(lc)); read_lc(path).words == lc.words end
+true
+```
+
+See also [`write_lc`](@ref), [`read_lc`](@ref), [`hc_text`](@ref).
+
+Role: convert
+"""
 function lc_text(lc::LickorishCode)
     lines = String["genus: $(lc.genus)"]
     for name in _component_names(lc)
@@ -1228,6 +1648,53 @@ function lc_text(lc::LickorishCode)
 end
 
 # cf: .research-scratch/PJ260922/261111-standard-revision/PJ260922_standard_bundle/overlay/lib/topology.jl/docs/specs/heegaard-code.md §5.1 — encoding はテキストの選択であり、役割も語も変えない
+"""
+    hc_text(hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto) -> String
+
+Serialize an HC's role binding and marks in the HC text format.
+
+# Arguments
+`hc` is checked by `validate_hc_input`; its input errors propagate.
+`lc_filename` must be a nonempty relative path without newline, carriage
+return or `#`; violations raise `ArgumentError` describing a required
+HC-safe path. `encoding` is `:auto`, `:standard` or `:explicit`;
+other values raise `ArgumentError`. Explicit `:standard` requires
+[`is_standard`](@ref), otherwise `ArgumentError` identifies the incompatible
+binding. The caller supplies the LC file referred to by the text; existence
+and matching contents are not checked here.
+
+# Returns
+A newline-terminated `String` in
+[the HC format](../specs/heegaard-code.md), containing the LC reference,
+role bindings and HC disk/point/weight declarations.
+
+# Guarantees
+1. `:explicit` writes all assigned roles; `:auto` uses the standard encoding
+   exactly when the binding is standard. The choice of text encoding does
+   not change the HC role binding. [proved/agent: by construction]
+2. The input is not modified and no file is written.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The text does not embed LC words or create its referenced LC file, and it
+does not itself certify that the input represents a closed 3-manifold.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1,2], "b" => [-2]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("m1" => :alpha, "b" => :beta), Dict(), Dict(), Dict(), nothing);
+
+julia> occursin("role m1 : alpha", hc_text(h; lc_filename="figure.lc", encoding=:explicit))
+true
+```
+
+See also [`write_hc`](@ref), [`read_hc`](@ref), [`lc_text`](@ref).
+
+Role: convert
+"""
 function hc_text(hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto)
     validate_hc_input(hc)
     encoding in (:auto, :standard, :explicit) || throw(ArgumentError("unknown HC encoding: $encoding"))
@@ -1258,6 +1725,43 @@ function hc_text(hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol
     join(lines, "\n") * "\n"
 end
 
+"""
+    write_lc(path::AbstractString, lc::LickorishCode) -> AbstractString
+
+Write a Lickorish-code record in the library's text format.
+
+# Arguments
+`path` has a writable existing parent; file errors propagate. `lc` must be
+serializable by `lc_text`, whose errors propagate. The caller validates its
+mathematical data separately under [the LC specification](../specs/lickorish-code.md).
+
+# Returns
+The supplied path after writing `lc_text(lc)`.
+
+# Guarantees
+1. The file contains the text serialization of the supplied LC record.
+   [proved/agent: by construction]
+2. Existing file contents are overwritten; `lc` is not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Writing is not atomic and does not create missing directories or certify
+geometric validity. Original formatting and comments are not preserved.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> mktempdir() do dir; p = joinpath(dir, "diagram.lc"); write_lc(p, lc); read_lc(p).words == lc.words end
+true
+```
+
+See also [`read_lc`](@ref).
+
+Role: other
+"""
 function write_lc(path::AbstractString, lc::LickorishCode)
     open(path, "w") do io
         write(io, lc_text(lc))
@@ -1265,6 +1769,46 @@ function write_lc(path::AbstractString, lc::LickorishCode)
     path
 end
 
+"""
+    write_hc(path::AbstractString, hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto) -> AbstractString
+
+Write an HC role-and-mark record referring to a supplied LC filename.
+
+# Arguments
+`path` has a writable existing parent. `lc_filename` is the reference written
+into the HC file; this function does not write or check that LC file.
+`encoding` and `hc` must be accepted by `hc_text`; its `ArgumentError` for
+unsupported or incompatible encodings and file errors propagate.
+The caller ensures the reference resolves to the intended LC when read.
+
+# Returns
+The supplied path after writing the HC text serialization.
+
+# Guarantees
+1. The file contains `hc_text(hc; lc_filename, encoding)` in the
+   [HC format](../specs/heegaard-code.md).
+   [proved/agent: by construction]
+2. The HC is not modified; existing contents at the path are overwritten.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The linked LC is not saved, and geometric validity is not certified.
+Writing is not atomic and does not create missing directories.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = HeegaardCode(lc, Dict("m1"=>:alpha, "l1"=>:beta), Dict(), Dict(), Dict(), nothing);
+
+julia> mktempdir() do dir; write_lc(joinpath(dir,"diagram.lc"), lc); p = joinpath(dir,"diagram.hc"); write_hc(p, h; lc_filename="diagram.lc"); read_hc(p).roles == h.roles end
+true
+```
+
+See also [`write_lc`](@ref), [`read_hc`](@ref).
+
+Role: other
+"""
 function write_hc(path::AbstractString, hc::HeegaardCode; lc_filename::AbstractString, encoding::Symbol=:auto)
     text = hc_text(hc; lc_filename=lc_filename, encoding=encoding)
     open(path, "w") do io

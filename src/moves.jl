@@ -1,8 +1,41 @@
-"""A concrete applicability witness returned by `movable`.
+"""
+    MoveCandidate(type, parameter, vertices, edges, direction, before, after, locations, ps_split_k=nothing) -> MoveCandidate
 
-The candidate freezes the selected ordering, direction, templates, and one
-location per source fragment.  `move!` consumes this witness instead of
-searching a second time with potentially different choices.
+Store a selected local move and its correspondence to a presentation.
+
+# Arguments
+The arguments have the meanings of the [candidate fields](../specs/virtual-link-moves.md#61-movecandidate).
+Checked: field conversions must succeed; their conversion errors propagate.
+Caller's responsibility: the candidate must satisfy the applicability and
+coordinate conditions of that section before it is used as a witness.
+Construction does not check those conditions or a PS split parameter.
+
+# Returns
+A `MoveCandidate` with the supplied selection and optional `BigInt` PS split
+parameter; the eight-argument form uses `nothing` for that parameter.
+
+# Guarantees
+1. The record stores the chosen move data after field conversion. It becomes
+   an applicability witness only when its linked conditions hold. [proved/agent: by construction]
+2. Construction does not modify arguments; mutable arrays and templates can
+   be shared with the caller. [proved/agent: by construction]
+
+# Not guaranteed
+A manually constructed record does not certify applicability, a supported
+weight rule, or preservation of a manifold, framing or spin structure.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §6.1 — candidate meaning and applicability boundary.
+
+# Examples
+```jldoctest
+julia> c = MoveCandidate("CP", "", Int[], NTuple{2,Int}[], :forward, nothing, nothing, Tuple{Int,Int}[]);
+
+julia> (c.type, c.ps_split_k === nothing)
+("CP", true)
+```
+
+Role: convert
 """
 struct MoveCandidate
     type::String
@@ -414,10 +447,58 @@ function _movable_geometry(v::VirtualLink,type;param=nothing,vertices=Int[],edge
                         if validate_ps_move(v,candidate).valid] : candidates
 end
 
-"""Enumerate applicable moves in the selected coefficient mode.
+"""
+    movable(v::VirtualLink, type; boundary=nothing, param=nothing, vertices=Int[], edges=nothing, edge_occurrences=nothing, strict=false) -> Vector{MoveCandidate}
 
-Weighted candidates satisfy their transport rules. Z2 mode supports spin CP
-on closed and cut presentations; other weighted families require integer mode.
+Return supported local move candidates for a VirtualLink in its current weight mode.
+
+# Arguments
+Use the presentation domain in [VirtualLink data](../specs/virtual-link-data-model.md),
+the [vertex and edge selections](../specs/virtual-link-moves.md#6-candidate-contract),
+[direction choices](../specs/virtual-link-moves.md#7-direction-selection),
+and [insertion occurrences](../specs/virtual-link-moves.md#15-current-support-matrix).
+The caller supplies coherent source data. This is not a global validity check.
+Move names, parameter case and `strict` follow [§4](../specs/virtual-link-moves.md#4-public-api).
+Missing or incompatible selections raise `ArgumentError` naming the move or
+selection; malformed pairs can raise `DimensionMismatch`, and conversion,
+indexing and unsupported-keyword failures propagate. No matching placement
+returns an empty vector. An omitted vertex list does not mean every subset.
+Integer weights must satisfy the applicable [§12 requirements](../specs/virtual-link-moves.md#12-weight-transport).
+In Z2 mode, spin data and optional cut-boundary targets have the domain of
+`spin_cp_move`; a boundary target on a closed CP source raises `ArgumentError`.
+
+# Returns
+A `Vector{MoveCandidate}` with the selected local data described by the
+[candidate record](../specs/virtual-link-moves.md#61-movecandidate).
+Use `move(v,candidate)` to obtain a result for inspection.
+
+# Guarantees
+1. Returned candidates satisfy the selected supported local matching rules; PS candidates additionally pass `validate_ps_move`. This is evidence about local presentation data. [proved/agent: by construction]
+2. In integer-weighted mode only MP, H, 02 and PS are offered, and returned candidates pass the current application checks. In Z2 mode only CP is offered, with successful spin transport checks. Other families in those modes return an empty vector. [proved/agent: by construction]
+3. R1, R2 and R3 queries on this representation return an empty vector; their knot representation has a separate method. [proved/agent: by construction]
+4. The source's words, crossing data and weights are unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+A candidate is not a theorem of manifold, combing or framing preservation.
+Unweighted local matching alone does not guarantee successful full application
+or an inverse witness. Empty output can mean unsupported weight mode/family,
+not mathematical impossibility. Candidate order and multiplicity do not
+provide a canonical choice. Boundary targets are interpreted only by the
+applicable transport route; they are not a generic boundary validator.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§6–8, 12 and 15 — supported candidates and coefficient-dependent domain.
+cf:lib/topology.jl/docs/specs/spin-weights.md — algebraic meaning and geometric boundary of spin targets.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> length(movable(v, "MP"; param="C3", vertices=[1,2], strict=true))
+1
+```
+
+Role: access
 """
 function movable(v::VirtualLink,type;boundary=nothing,kwargs...)
     if weight_mode(v)==:z2
@@ -452,6 +533,44 @@ function movable(v::VirtualLink,type;boundary=nothing,kwargs...)
     end
 end
 
+"""
+    movable(v::VirtualLink, type, arg::NamedTuple) -> Vector{MoveCandidate}
+
+Return VirtualLink move candidates selected by a named argument record.
+
+# Arguments
+The [named selector aliases](../specs/virtual-link-moves.md#41-namedtuple-argument-aliases)
+and the keyword overload's source, placement and weight requirements apply.
+Conflicting aliases in one record are not diagnosed as an error.
+`edge_occurrences` and `boundary` are also forwarded when present.
+Unrecognized fields are ignored. All failures of the selected keyword query
+propagate; this overload does not validate an arbitrary argument schema.
+
+# Returns
+The same vector of [MoveCandidate records](../specs/virtual-link-moves.md#61-movecandidate)
+as the corresponding keyword selection.
+
+# Guarantees
+1. Results have the local matching and weight-mode guarantees of the keyword overload. [proved/agent: by construction]
+2. The source's words, crossing data and weights and the supplied record are unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+This adds no global topological certification or search completeness to the
+keyword overload. Unrecognized record fields are not reported as errors.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§4 and 6 — record selectors and candidate meaning.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> length(movable(v, "MP", (p="C3", v=[1,2], strict=true)))
+1
+```
+
+Role: access
+"""
 function movable(v::VirtualLink,type,arg::NamedTuple)
     param=haskey(arg,:param) ? arg.param : haskey(arg,:p) ? arg.p : nothing
     vertices=haskey(arg,:vertices) ? arg.vertices : haskey(arg,:v) ? arg.v : Int[]
@@ -1215,6 +1334,53 @@ function _move_unchecked!(v::VirtualLink,type;param=nothing,vertices=Int[],edges
     end
 end
 
+"""
+    move!(v::VirtualLink, type; param=nothing, vertices=Int[], edges=nothing, edge_occurrences=nothing, strict=true, boundary=nothing) -> VirtualLink
+
+Replace a VirtualLink in place by its selected supported local move result.
+
+# Arguments
+The source and selector domain is that of `movable(v,type;...)`, with
+[strict matching](../specs/virtual-link-moves.md#43-strictness) enabled by default.
+The selected execution must satisfy the applicable
+[coefficient transport conditions](../specs/virtual-link-moves.md#12-weight-transport).
+Unsupported weighted families, R1/R2/R3 execution, invalid H weight parameters
+and an empty candidate population raise `ArgumentError` with the relevant
+reason. Malformed selectors and local reconstruction errors propagate.
+More than one candidate produces a warning and selects the first; `strict`
+does not require a singleton population. Boundary targets apply only to the
+supported transport route.
+
+# Returns
+The same `VirtualLink` object after successful replacement of its presentation
+fields, with no automatic canonicalization.
+
+# Guarantees
+1. On success the fields agree with the nonmutating `move` result for the same input and request. [proved/agent: by construction]
+2. The source is modified on success. Selection or application failure leaves its presentation data unchanged. [proved/agent: by construction]
+3. The operation produces the supported local rewrite and its coefficient transport, subject to that move family's mathematical scope. [proved/agent: by construction]
+
+# Not guaranteed
+The call does not certify a general topological equivalence or an inverse
+move. First-candidate selection is not canonical. References to old field
+containers need not reflect replacement of those fields; use the returned
+object or read the source fields again.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§4, 12, 13 and 15 — matching, supported transport and successful mutation.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> move!(v, "MP"; param="C3", vertices=[1,2], strict=true);
+
+julia> count(identity, Topology.strand_cuts(v))
+1
+```
+
+Role: move
+"""
 function move!(v::VirtualLink,type;kwargs...)
     target=deepcopy(v)
     _move_unchecked!(target,type;kwargs...)
@@ -1269,6 +1435,49 @@ function _same_candidate(left::MoveCandidate,right::MoveCandidate)
      (left.after!==nothing && right.after!==nothing && _same_move_pattern(left.after,right.after)))
 end
 
+"""
+    move!(v::VirtualLink, candidate::MoveCandidate; boundary=nothing) -> VirtualLink
+
+Replace a VirtualLink by an authenticated candidate's supported local rewrite.
+
+# Arguments
+The [candidate data and source requirements](../specs/virtual-link-moves.md#6-candidate-contract)
+and the coefficient-specific domain of `move(v,candidate;boundary)` apply.
+Templates, orientation roles and exact occurrences are checked against the
+current source; mismatch raises `ArgumentError` identifying the unmatched
+candidate. Invalid PS split data, unsupported weight modes and failed
+transport/reconstruction checks propagate their errors. Use a candidate
+returned by `movable` for the same source, or an explicitly supported
+weighted-PS candidate constructor.
+
+# Returns
+The same `VirtualLink`, with that candidate's result installed.
+
+# Guarantees
+1. Successful return has the same presentation data as nonmutating `move(v,candidate;boundary)` on the original input, with the candidate's occurrence fixed. [proved/agent: by construction]
+2. Successful application changes the source in place; failed candidate checks or local application leave its presentation data unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+The result is not canonicalized. Candidate authentication does not establish
+a general manifold-preservation theorem, a geometric boundary spin
+interpretation, or successful inverse execution. Aliases to replaced field
+containers need not follow the new data.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§6, 12 and 13 — candidate authentication and mutation boundary.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> c = only(movable(v, "MP"; param="C3", vertices=[1,2], strict=true)); move!(v,c);
+
+julia> count(identity, Topology.strand_cuts(v))
+1
+```
+
+Role: move
+"""
 function move!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _check_candidate_split(v,candidate)
     if weight_mode(v)==:z2
@@ -1298,14 +1507,94 @@ function move!(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     _apply_candidate!(target,candidate;boundary=boundary)
     _commit_move!(v,target)
 end
+"""
+    move(v::VirtualLink, candidate::MoveCandidate; boundary=nothing) -> VirtualLink
+
+Return the result of an authenticated local move candidate on a VirtualLink.
+
+# Arguments
+The [candidate domain](../specs/virtual-link-moves.md#6-candidate-contract)
+and applicable [weight transport conditions](../specs/virtual-link-moves.md#12-weight-transport)
+apply. Normally obtain `candidate` from `movable(v,...)` and keep the source
+unchanged. Candidate templates, orientation roles and occurrences are
+compared against the current source; mismatch raises `ArgumentError` with
+`move candidate does not match the current source`. Unsupported modes,
+invalid PS split data, invalid boundary targets and reconstruction failures
+propagate from the selected local execution. A weight or boundary check can
+fail after geometric matching has succeeded.
+
+# Returns
+An independent `VirtualLink` with that candidate's local rewrite and the
+selected coefficient transport. The candidate's occurrence is retained.
+
+# Guarantees
+1. The output is the result of the authenticated candidate application on an independent copy; no alternative occurrence is selected and no canonicalization is added. [proved/agent: by construction]
+2. The source presentation remains unchanged on success or failure. [proved/agent: by construction]
+
+# Not guaranteed
+Matching a candidate is not a proof of a topological equivalence or of an
+inverse operation. The general mathematical scope remains move- and
+coefficient-dependent. An unweighted geometric candidate alone does not
+certify weighted or spin transport on a different source.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§6, 12 and 15 — frozen local data and supported execution.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> c = only(movable(v, "MP"; param="C3", vertices=[1,2], strict=true)); target = move(v,c);
+
+julia> count(identity, Topology.strand_cuts(target))
+1
+```
+
+Role: move
+"""
 move(v::VirtualLink,candidate::MoveCandidate;boundary=nothing)=
     move!(deepcopy(v),candidate;boundary=boundary)
 
-"""Apply a frozen move on a copy and expose its actual boundary endpoint map.
+"""
+    move_boundary_transport(source::VirtualLink, candidate::MoveCandidate; boundary=nothing) -> NamedTuple
 
-Each row of `endpoints` maps one source `(strand,side)` to one target
-`(strand,side)`.  In particular, a target out-end need not descend from the
-same source strand as its in-end.  Endpoint lanes retain their lane number.
+Apply a frozen move on a copy and return its directed boundary endpoint correspondence.
+
+# Arguments
+Checked: applicability and weight checks of `move`; disagreement between the
+endpoint trace and executed target or nonbijective coverage raises
+`ArgumentError`. Other move errors propagate.
+Caller: supply a current candidate and applicable
+[relative targets](../specs/virtual-link-moves.md#121-supported-weighted-moves).
+
+# Returns
+`(target, endpoints)`, with the target diagram and records having `source`
+and `target` endpoint identities as specified in
+[boundary transport](../specs/virtual-link-moves.md#127-weighted-evidence).
+
+# Guarantees
+1. Endpoint records cover the cut ends of source and target bijectively and
+   describe the executed reconnection; disk lanes are retained.
+   [proved/agent: by construction and coverage checks]
+2. The target is the move applied to a copy; source and candidate are not
+   modified. [proved/agent: by construction]
+
+# Not guaranteed
+Endpoint correspondence does not prescribe boundary weights or prove a
+framing or spin extension over the represented space.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — endpoint lineage versus measured and prescribed boundary data.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]); c = only(movable(v, "H"; param=1, vertices=[1]));
+
+julia> isempty(move_boundary_transport(v, c).endpoints)
+true
+```
+
+Role: move
 """
 function move_boundary_transport(source::VirtualLink,candidate::MoveCandidate;boundary=nothing)
     target=move(source,candidate;boundary=boundary)
@@ -1337,18 +1626,176 @@ function move_boundary_transport(source::VirtualLink,candidate::MoveCandidate;bo
     (target=target,endpoints=trace)
 end
 
+"""
+    move_boundary_transport(source::VirtualLink, type; boundary=nothing, kwargs...) -> NamedTuple
+
+Select one applicable move and return its target with boundary endpoint correspondence.
+
+# Arguments
+Checked: `movable` must find exactly one candidate, otherwise `ArgumentError`;
+selection and execution errors propagate. `kwargs` are move-selection arguments.
+Caller: satisfy the selected move's [applicability conditions](../specs/virtual-link-moves.md#6-candidate-contract)
+and supply required relative `boundary` targets.
+
+# Returns
+The `(target, endpoints)` record of the candidate overload.
+
+# Guarantees
+1. The unique selected candidate determines the result and its directed
+   endpoint map. [proved/agent: by construction]
+2. The source is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The call does not choose among multiple matches and does not independently
+prove geometric or framing preservation.
+
+# Sources
+cf: [virtual-link moves §12.7](../specs/virtual-link-moves.md#127-weighted-evidence) — boundary endpoint lineage.
+
+# Examples
+```jldoctest
+julia> v = lens_space_link(2,1); set_weight!(v, [1,-1,-1,0]);
+
+julia> isempty(move_boundary_transport(v, "H"; param=1, vertices=[1]).endpoints)
+true
+```
+
+Role: move
+"""
 function move_boundary_transport(source::VirtualLink,type;boundary=nothing,kwargs...)
     candidates=movable(source,type;boundary=boundary,kwargs...)
     length(candidates)==1 || throw(ArgumentError("boundary transport requires one explicit move candidate"))
     move_boundary_transport(source,only(candidates);boundary=boundary)
 end
 
-"""Pure-value wrapper around MATLAB-compatible `move!`."""
+"""
+    move(v::VirtualLink, type; param=nothing, vertices=Int[], edges=nothing, edge_occurrences=nothing, strict=true, boundary=nothing) -> VirtualLink
+
+Return a VirtualLink after applying the selected supported local move.
+
+# Arguments
+The source, selectors and coefficient domain of `movable(v,type;...)` apply,
+with [strictness](../specs/virtual-link-moves.md#43-strictness) defaulting to
+`true`. The [weight transport requirements](../specs/virtual-link-moves.md#12-weight-transport)
+and the selected execution branch's checks must also hold.
+Unsupported weight families and R1/R2/R3 execution raise `ArgumentError`.
+H requires a valid integer weight parameter and a weighted source.
+No valid candidate raises `ArgumentError` with `No valid moves found.`.
+Multiple candidates produce a warning and the first candidate is applied;
+`strict` controls matching order, not rejection of every ambiguity.
+Selection, local reconstruction, boundary and arithmetic failures propagate.
+
+# Returns
+A separate `VirtualLink` with the chosen local rewrite and supported weight
+transport. Its raw presentation is not automatically canonicalized.
+
+# Guarantees
+1. The returned data equal the result of applying `move!` with the same request to an independent copy of the source. [proved/agent: by construction]
+2. The source presentation remains unchanged, including when selection or application fails. [proved/agent: by construction]
+3. The result is a rewritten presentation in the selected move family's supported domain; successful return does not broaden the family's mathematical guarantees. [proved/agent: by construction]
+
+# Not guaranteed
+The function does not certify manifold, combing or framing equivalence for
+arbitrary inputs. It neither returns a move certificate nor checks a general
+inverse. Use an explicit candidate when a particular occurrence matters.
+Canonicality and minimality of the output are not promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§4, 8, 12 and 15 — selected local rewrite, weight domain and support boundary.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> target = move(v, "MP"; param="C3", vertices=[1,2], strict=true);
+
+julia> count(identity, Topology.strand_cuts(target))
+1
+```
+
+Role: move
+"""
 function move(v::VirtualLink,type;kwargs...)
     result=deepcopy(v); move!(result,type;kwargs...); result
 end
+"""
+    move(v::VirtualLink, type, arg::NamedTuple) -> VirtualLink
+
+Return a VirtualLink after a move selected by a named argument record.
+
+# Arguments
+The [record selectors](../specs/virtual-link-moves.md#41-namedtuple-argument-aliases)
+and keyword `move` source, placement and weight requirements apply.
+`edge_occurrences` and `boundary` are recognized in addition to those aliases;
+`strict` defaults to `true`. Extra fields and conflicting aliases are not
+diagnosed as schema errors. Selection and execution exceptions propagate.
+
+# Returns
+A separate `VirtualLink` with the same result as the corresponding keyword
+selection, including its choice among multiple candidates.
+
+# Guarantees
+1. The output carries the local rewrite and weight-transport meaning of the keyword overload. [proved/agent: by construction]
+2. The source presentation and record are unchanged on success or failure. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a general record-schema validator and adds no topological
+certification, canonicalization or ambiguity rejection to the keyword call.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§4 and 12 — argument records and coefficient transport.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[-1,2,-2,3,-3,1,0]], orientation=[1,1,1]);
+
+julia> target = move(v, "MP", (p="C3", v=[1,2], strict=true));
+
+julia> count(identity, Topology.strand_cuts(target))
+1
+```
+
+Role: move
+"""
 move(v::VirtualLink,type,arg::NamedTuple)=move!(deepcopy(v),type,arg)
 
-"""Compatibility wrapper for the first Julia migration API."""
+"""
+    mp_move!(v::VirtualLink, parameter::AbstractString, vertices) -> VirtualLink
+
+Apply the uniquely selected MP move to the supplied diagram.
+
+# Arguments
+Checked: strict selection, applicability and supported weight transport are
+checked by `move!`; no match or ambiguity raises `ArgumentError`.
+Caller: use the [MP parameter and vertex conventions](../specs/virtual-link-moves.md#54-mp-catalogue)
+and satisfy the selected move's geometric hypotheses.
+
+# Returns
+The same `v`, after a successful MP move.
+
+# Guarantees
+1. The result is the MP rewrite selected by `parameter` and `vertices` under
+   the [move contract](../specs/virtual-link-moves.md#6-candidate-contract).
+   [proved/agent: by construction]
+2. Successful execution mutates `v`; its identity is retained.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This compatibility interface supplies no relative boundary targets, and does
+not establish manifold preservation independently of the move hypotheses.
+
+# Sources
+cf: [virtual-link moves §5.4](../specs/virtual-link-moves.md#54-mp-catalogue) — MP catalogue and selected vertex roles.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[-1,2,-2,3,-3,1,0], orientation=[1,1,1]);
+
+julia> mp_move!(v, "C3", [1,2]) === v
+true
+```
+
+Role: move
+"""
 mp_move!(v::VirtualLink,parameter::AbstractString,vertices)=
     move!(v,"MP";param=parameter,vertices=vertices,strict=true)

@@ -1,10 +1,42 @@
 """
-    circuit_b_boundary(v)
+    circuit_b_boundary(v::VirtualLink) -> Vector
 
-Return each directed open circuit-B path with its endpoint lane identities,
-ordered signed edge occurrences, dots and incidence row. Boundary identity is
-`(strand, side, lane)`; row numbers are local to this exact presentation.
-This is a combinatorial query, not a relative-framing certificate.
+Return the directed open paths of the presentation's Method-B circuit model.
+
+# Arguments
+`v` has the coherent real-edge and cut-marker data required by `disk_table`
+in the [data model](../specs/virtual-link-data-model.md#21-open-strands-and-cut-markers).
+That query checks malformed markers and inconsistent path incidences with
+`ArgumentError`; invalid indices or signs can propagate `BoundsError` or
+`KeyError`. The caller supplies the geometric interpretation of the data.
+
+# Returns
+One record per open row: `row`, directed endpoints `start` and `stop`, copied
+node path `nodes`, signed occurrences `edges_s`, dot count `dots` and copied
+incidence vector `coefficients`. Their meanings are the
+[Method-B model](../specs/ograph-move-verifier.md#ps-gate) and
+[relative endpoints](../specs/spin-weights.md#relative-boundary-data).
+
+# Guarantees
+1. The records are exactly the noncycle rows of `disk_table(v)`, in its row order. [proved/agent: by construction]
+2. The input is not modified. Returned path, occurrence and coefficient vectors are copies. [proved/agent: by construction]
+
+# Not guaranteed
+These paths are presentation coordinates, not a boundary-framing or spin
+extension certificate. A closed-normal manifold interpretation is not checked.
+
+# Sources
+cf:lib/topology.jl/docs/specs/ograph-move-verifier.md PS gate — the Method-B local-node model and source comparison.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[0]], orientation=Int[]);
+
+julia> length(circuit_b_boundary(v))
+3
+```
+
+Role: access
 """
 function circuit_b_boundary(v::VirtualLink)
     disks=disk_table(v)
@@ -15,13 +47,43 @@ function circuit_b_boundary(v::VirtualLink)
 end
 
 """
-    circuit_b_at(v, strand, side; lane=nothing)
+    circuit_b_at(v::VirtualLink, strand::Integer, side::Symbol; lane=nothing) -> Vector{NamedTuple}
 
-Query circuit B at a particular strand endpoint (`side=:in` or `:out`).
-With no lane, return the three lane incidences in lane order. Each result
-records whether the directed B path starts or ends at that endpoint, its other
-endpoint, and its full ordered edge occurrences. A closed strand has no such
-endpoint and is rejected rather than silently cut.
+Return the directed Method-B paths incident to selected lanes of a cut strand endpoint.
+
+# Arguments
+Caller: E1 of [circuit endpoint selection](../specs/virtual-link-data-model.md#26-circuit-endpoint-selection).
+Checked: E2–E4; strand bounds raise `BoundsError`, invalid selectors or an
+uncut strand raise `ArgumentError`, and nonunique directed incidence raises
+`ErrorException`. Selector errors identify the accepted selection; the
+incidence error states that exactly one directed B path is required.
+Other `disk_table` errors propagate.
+
+# Returns
+The selected `circuit_b_boundary` records extended by queried `endpoint`,
+`direction` and the `other` endpoint, in increasing lane order.
+
+# Guarantees
+1. Each returned path meets its queried endpoint. Direction is `:outgoing` when that endpoint is the path start and `:incoming` otherwise. [proved/agent: by construction]
+2. Omitting the lane returns three records; selecting one returns one record. [proved/agent: by construction]
+3. The input is unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+This does not cut a closed strand, select a boundary trivialization or certify
+a relative framing; it queries the fixed presentation's local circuit model.
+
+# Sources
+cf:lib/topology.jl/docs/specs/ograph-move-verifier.md PS gate — local Method-B paths and endpoint lanes.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[0]], orientation=Int[]);
+
+julia> Tuple(p.direction for p in circuit_b_at(v,1,:in))
+(:outgoing, :outgoing, :incoming)
+```
+
+Role: access
 """
 function circuit_b_at(v::VirtualLink,strand::Integer,side::Symbol;lane=nothing)
     1<=strand<=length(v.gauss) || throw(BoundsError(v.gauss,strand))
@@ -46,12 +108,43 @@ end
 _circuit_endpoint_label(e)=e===nothing ? "closed" : "S$(e.strand) $(e.side) / lane $(e.lane)"
 
 """
-    plot_circuit_b_svg(v, path)
+    plot_circuit_b_svg(v::VirtualLink, path::AbstractString) -> AbstractString
 
-Draw the actual ordered circuit-B paths as rows. Open endpoints and closed
-cycles are distinguished explicitly. Edge labels keep every signed occurrence
-(including repeated edges); this is a combinatorial diagram, not a planar
-embedding of the o-graph.
+Write a row drawing of the directed Method-B paths and cycles as SVG and return the supplied path.
+
+# Arguments
+`v` satisfies the `disk_table` domain linked by `circuit_b_boundary`.
+`path` names a writable destination whose parent exists; no directory is
+created. Path opening, writing and disk-table errors propagate. An existing
+file is overwritten, and a write failure can leave a partial file.
+
+# Returns
+The supplied `path`, after writing the
+[circuit-B view](../specs/virtual-link-plot.md#7-real-arc-aggregation).
+
+# Guarantees
+1. The drawing has one row per disk-table path/cycle and retains its ordered signed edge occurrences and dot count. Open endpoints carry their stored lane labels. [proved/agent: by construction]
+2. The output file changes; the input presentation is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The row drawing is not a planar o-graph embedding, a geometric disk diagram
+or a relative-framing certificate.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-plot.md §7 — the combinatorial circuit-B view.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(); set_data!(v; rgauss=[[0]], orientation=Int[]);
+
+julia> mktempdir() do dir
+           path = plot_circuit_b_svg(v,joinpath(dir,"interval.svg"))
+           occursin("S1 in / lane 3",read(path,String))
+       end
+true
+```
+
+Role: draw
 """
 function plot_circuit_b_svg(v::VirtualLink,path::AbstractString)
     d=disk_table(v)

@@ -432,6 +432,9 @@ profiles do not.
 
 ## Persistence and replay
 
+The field meanings and coordinate conventions are defined in
+[Witness coordinates and serialization](#witness-coordinates-and-serialization).
+
 `ograph_move_witness_data` is the canonical JSON-like surface.
 `ograph_move_witness_from_data` requires the exact schema and field set and
 rejects type drift. `replay_ograph_move` reconstructs the source and catalogue
@@ -446,3 +449,93 @@ historical raw field. Old evidence is not rewritten. Profile v2 records a
 type/direction capability snapshot separately from calculus completeness.
 The witness returned by replay retains the historical verifier version too,
 so serializing and replaying that returned witness remains valid.
+
+## Witness coordinates and serialization
+
+Status: fixed 2026-11-25 Codex (rule a). This is the current record format of
+[`ograph_move_verifier.jl`](../../src/ograph_move_verifier.jl), with regression
+cases in [move replay tests](../../test/ograph_move_verifier.jl) and
+[move extension tests](../../test/ograph_move_extensions.jl). Record constructors
+only store fields and can retain mutable vectors. The meanings below apply to
+records produced by successful verification; arbitrary constructed records
+must pass [replay](#persistence-and-replay).
+
+All component, occurrence, vertex, edge and local-node indices are one-based.
+An occurrence pair is `(component, position)` in the ordered real-Gauss
+presentation, before canonicalization. A signed entry is a signed crossing
+label, not an occurrence index. Canonicalization translates these coordinates
+by the [presentation representative rule](ograph-terminology.md#presentation-canonicalization-and-serialization).
+
+| Record or field | Meaning |
+|---|---|
+| `OGraphOutsideOccurrence` | `source_component`, `source_position`, `target_component`, `target_position` locate one preserved occurrence; `source_entry`, `target_entry` are the signed entries there. |
+| `OGraphCanonicalizationWitness.root_occurrence` | First root in the raw word that produces its canonical representative; `1` for the empty word. |
+| `raw_to_canonical_labels` | Vector indexed by raw vertex label whose value is its canonical label; empty for the empty word. Occurrence signs are preserved. |
+| `source_to_target_vertices` | Vector indexed by source vertex label; target label of a retained vertex, or `0` for a removed vertex. |
+| `outside_adjacencies` | Four-tuples `(source_position, source_next, target_position, target_next)` for retained consecutive exterior occurrences. Components are omitted in this closed one-circuit witness. Insertion gaps are excluded. |
+| `source_locations`, `target_locations` | Ordered occurrence pairs for the catalogue fragments in their respective raw presentations. |
+| `vertices` | Ordered concrete source vertex roles of the candidate. |
+
+`OGraphMethodBLaneStep` stores `edge_id` (the row of `real_edge_table`),
+`component`, `tail_occurrence`, `head_occurrence`, `lane`, `from_node`, and
+`to_node`. Lane and local-node meanings are those of the [PS gate](#ps-gate),
+not a new numbering. A vertex's local node `j` has global ID `6*(vertex-1)+j`;
+open boundary nodes use the IDs supplied by `disk_table.boundary_nodes`.
+Tail/head locate the directed real edge; from/to locate the directed Method-B
+segment, whose lane 3 direction is reversed as specified in the PS gate.
+
+`OGraphPSGapBoundary` has the following complete field set:
+
+| Fields | Meaning |
+|---|---|
+| `fragment_index`, `source_component`, `source_fragment_positions` | Catalogue fragment number, its source component and consumed source occurrences. |
+| `source_predecessor_position`, `source_successor_position` | Surviving occurrences on either side of the removed fragment(s); on a cut strand the terminal zero position represents the appropriate boundary when reached. |
+| `source_predecessor_entry`, `source_successor_entry` | Signed source entries at those positions, or boundary zero. |
+| `target_component`, `target_tail_occurrence`, `target_head_occurrence` | The resulting gap's real-edge occurrence in the evaluated presentation. |
+| `target_tail_entry`, `target_head_entry`, `target_edge_id` | Its signed endpoints and real-edge row ID. |
+
+For inverse PS these are source deletion data and the resulting target gap.
+For forward PS the evaluated diagram is the source: `source_fragment_positions`
+is empty and the target-named gap fields repeat the selected source gap.
+These field names therefore do not mean that every gap is evaluated in the
+move's target. Open inverse gaps follow boundary lineage; they never wrap a
+consumed interval through the opposite cut endpoint.
+
+`OGraphPSMethodBWitness` stores `paper_type`, `parameter`,
+`evaluated_state_side` (`:source_raw` forward, `:target_raw` inverse),
+`evaluated_state_sha256`, the two `gap_boundaries`, `left_edge_id`,
+`right_edge_id`, `left_lane`, `right_lane`, `circuit_id`, and `circuit_trace`.
+The paper's left/right translation, including the PS-II fragment swap, is the
+table in the PS gate. A trace is an ordered vector of lane steps; its
+`circuit_id` is the least incident node ID in that trace. It is a local label,
+not a canonical circuit invariant. Selected edges may coincide while lanes
+differ. The stored SHA-256 identifies the evaluated raw presentation.
+
+`OGraphMoveWitness` contains exactly `schema`, `verifier_version`, `move_type`,
+`parameter`, `direction`, `vertices`, `source_locations`, `target_locations`,
+`source_raw`, `target_raw`, `source_canonical`, `target_canonical`,
+`source_raw_sha256`, `target_raw_sha256`, `source_closedness`,
+`target_closedness`, `source_to_target_vertices`, `outside_occurrences`,
+`outside_adjacencies`, `source_canonicalization`, `target_canonicalization`,
+and `method_b`. The four state fields serialize as objects with `gauss`,
+`vertex_signs`, `convention_id`; closedness fields use the historical eight-field
+[persisted closedness format](ograph-terminology.md#persisted-closedness-evidence).
+`method_b` is `nothing` for moves without a PS witness.
+
+`ograph_move_witness_data` produces a `NamedTuple` with fresh array containers,
+serializes symbol direction/side fields as strings, and turns occurrence pairs
+and adjacency tuples into arrays. It does not itself produce JSON text.
+The database's [canonical JSON](ograph-relation-db.md#canonical-json) owns that
+encoding. Decoding requires the exact field set at every object, arrays at
+array positions, actual Booleans for criteria and non-Boolean integers for
+indices; it accepts schema `akaghef.ograph-move-witness/1` and the verifier
+versions named in Persistence and replay. Structural decoding alone does not
+establish the witness's geometric claims.
+
+The field/coordinate translation is [proved/agent: by construction]. Existing
+tests exercise D2, all MP rows, PS lane selection, boundary cases, serialization
+round trips and tamper rejection. Exhaustive coverage of arbitrary malformed
+or manually assembled record values remains unverified; replay, rather than
+successful construction, is the intended validation boundary. This entry
+does not strengthen the mathematical source gates or the unresolved
+comparisons recorded elsewhere on this page.

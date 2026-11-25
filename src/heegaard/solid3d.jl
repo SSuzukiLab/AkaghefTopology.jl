@@ -1,7 +1,37 @@
 include("solid3d_smoothing.jl")
 
 # cf: docs/specs/heegaard-plot.md and solid3d.md — reuse the full reference chart.
-"""Place a role-free LC in the planar cut chart, retaining all reference runs."""
+"""
+    plot(lc::LickorishCode; infinity_face=nothing) -> NamedTuple
+
+Produce a planar SVG of a role-free LC while retaining its reference curves.
+
+# Arguments
+The LC must pass `validate_lc_input`, passage consistency and surface validation; their exceptions propagate. Optional `infinity_face` is interpreted by [the planar chart](../specs/heegaard-plot.md). Chart and placement failures propagate.
+
+# Returns
+A named tuple with chart data, `placement`, `audit`, `success` and `svg`. The success flag equals `audit.ok`.
+
+# Guarantees
+1. The output retains the LC reference runs in its planar chart and reports the geometric audit of that placement. [proved/agent: by construction]
+2. The LC is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This overload does not assign alpha/beta roles or certify a Heegaard splitting. A returned record can have `success=false`; it does not open a viewer or write a file.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-plot.md — reference-chart geometry and acceptance.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); r = H.plot(lc); r.success == r.audit.ok
+true
+```
+
+Role: draw
+"""
 function plot(lc::LickorishCode; infinity_face=nothing)
     validate_lc_input(lc)
     _validate_diagram_passages(lc.words)
@@ -80,7 +110,44 @@ function _solid_svg(data)
     String(take!(io))
 end
 
-"""Write an interactive, rotatable HTML view of an LC or HC and return its absolute path."""
+"""
+    draw_heegaard_3d(input::Union{LickorishCode,HeegaardCode}, path::AbstractString; crossing_labels=false) -> String
+
+Write an interactive solid-chart display of an LC or resolved Heegaard diagram.
+
+# Arguments
+`input` belongs to the [solid-chart domain](../specs/solid3d.md).
+Checked: nonpositive genus raises `ArgumentError` requiring positive genus;
+failed planar geometry raises `ArgumentError`.
+`path` must be writable. `crossing_labels::Bool` controls crossing labels.
+Diagram validation, template-reading and filesystem errors propagate.
+
+# Returns
+The absolute path to the written HTML file, with its embedded chart.
+
+# Guarantees
+1. On success the HTML contains the full reference chart associated with the
+   input in the linked solid-display convention. [proved/agent: by construction]
+2. The input is not modified. Parent directories are created as needed and
+   an existing destination is overwritten. [proved/agent: by construction]
+
+# Not guaranteed
+The displayed folding is not a triangulation or a certificate of the represented
+3-manifold. Successful drawing is not guaranteed for every valid input.
+
+# Sources
+cf: lib/topology.jl/docs/specs/solid3d.md — full reference chart and interactive HTML display.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.draw_heegaard_3d(H.LickorishCode(0, Dict{String,Vector{Int}}(), Dict(), Dict(), Dict(), Dict(), nothing), "unused.html") catch e; e isa ArgumentError end
+true
+```
+
+Role: draw
+"""
 function draw_heegaard_3d(input::Union{LickorishCode,HeegaardCode}, path::AbstractString;
                          crossing_labels::Bool=false)
     data = _solid_data(input,crossing_labels)

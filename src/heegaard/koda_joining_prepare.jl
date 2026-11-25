@@ -4,33 +4,50 @@
 # An annulus left in the complement is cut by a finger across both of its boundaries.
 # The finger is written back into the HeegaardCode. It is not a catalogued move row.
 
-"""Prepare `hc` so `enumerate_joining_disk_candidates` is nonempty and no
-complementary annulus remains.
+"""
+    hc_prepare_joining_disk(hc::HeegaardCode; trace::Union{Nothing,Vector}=nothing) -> NamedTuple
 
-Return `(hc=prepared, witnesses=applied)`. `witnesses` is the `movable` /
-`move` sequence that produces a joining disk. An input that already has a
-joining disk contributes an empty sequence. The sequence is deterministic:
+Prepare an HC for joining-disk conversion and remove supported complementary annuli.
 
-1. While a β and an α share no label and bound one face, push that β across
-   that α with the first `lc.isotopy.digon.create.ab` witness.
-2. Otherwise try same-family `hc.slide.pants` witnesses, β pairs before α
-   pairs, and repeat step 1 on that result. Keep the first result that has a
-   joining disk.
-3. If the curves already intersect and neither step applies, push the first
-   β–α pair once. This is the genus-1 bigon.
+# Arguments
+`hc` must satisfy the [HC and joining-disk domain](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk).
+Input validation is checked. Unsupported search or annulus-finger configurations
+raise `KodaInputError` with a preparation reason; move and realization errors
+propagate. Optional `trace` must accept named tuples of `stage` and `seconds`.
 
-After that search, while a complementary region is an annulus, take the first
-opposite-bank pair whose β edge and α edge are each one boundary step of a
-single annulus face. If no such pair exists, take the first pair whose edges
-each meet one annulus face along their whole length. Push that β across the
-curve that separates those two faces, then across α on the other bank. The
-push starts at the boundary step when that step is a single corner. Each push
-is one digon written into the LC words. One pass cuts one annulus, so two
-annuli take two passes.
-`hc.stabilization.once` is not used. A diagram where these rows still produce
-no joining disk raises `KodaInputError`.
+# Returns
+A named tuple with prepared `hc` and `witnesses` from the joining-disk search.
+The optional trace receives timing entries for attempted stages.
 
-Pass `trace` as a `Vector` to record `(stage, seconds)` for each search step.
+# Guarantees
+1. Successful return has passed the search for a joining-disk candidate and
+   the check that no complementary annulus remains.
+   [proved/agent: by construction]
+2. The input is not modified; an already suitable input may be returned
+   unchanged. The supplied trace is appended to.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The witness list omits later annulus-finger edits and is not a complete replay
+certificate for the returned HC; see [the witness discrepancy](../specs/heegaard-koda-conversion.md#joining-preparation-witness-gap). The output does not select or mark a joining
+disk for the caller. General manifold preservation of the full preparation,
+including those unrecorded fingers, is not certified by this wrapper.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.2 — joining-disk condition.
+cf: lib/topology.jl/docs/specs/heegaard-moves.md — supported digon and same-family slide operations.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(-1, Dict(), Dict(), Dict(), Dict(), Dict(), nothing); hc = H.HeegaardCode(lc,Dict(),Dict(),Dict(),Dict(),nothing);
+
+julia> try H.hc_prepare_joining_disk(hc) catch e; e isa H.KodaInputError end
+true
+```
+
+Role: move
 """
 function hc_prepare_joining_disk(hc::HeegaardCode; trace::Union{Nothing,Vector}=nothing)
     validate_hc_input(hc)

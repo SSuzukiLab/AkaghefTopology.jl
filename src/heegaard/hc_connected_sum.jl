@@ -1,10 +1,51 @@
 # cf: docs/specs/heegaard-snappy.md — genus-one surface connected sum and explicit pending joining disk.
 # cf: .research-scratch/PJ260922/astra-lanes/snappy-bridge/answer-10-3-full-main.md, Implementation and Splice-order judgment — oriented collar compiler and neck gluing; reconstructed.
 
-"""Connect two genus-one HC surfaces, retaining the input alpha/beta roles.
-Returns (lc,hc,certificate). The marked punctures and reversed neck are recorded;
-input disk marks are consumed and the output has no joining disk.
-Empty curves and point/weight/LC decorations are outside this operation scope.
+"""
+    hc_connected_sum(left::HeegaardCode, right::HeegaardCode; left_gap=nothing, right_gap=nothing) -> NamedTuple
+
+Return the genus-two surface connected sum of two supported genus-one HCs.
+
+# Arguments
+The inputs and optional `Int` gaps must satisfy the
+[surface connected-sum domain](../specs/heegaard-snappy.md#hc-の曲面操作).
+These input, support, reference-word, surface and embedding conditions are
+checked; failures raise `LCMoveError` naming the stage, or propagate input
+realization errors. Caller-supplied cut systems must represent the intended
+3-manifolds for a manifold interpretation.
+
+# Returns
+A named tuple `lc`, `hc`, `certificate`: the connected-sum LC, its inherited
+alpha/beta roles and the recorded punctures, reversed neck, source embeddings,
+discarded input disks and consistency checks.
+
+# Guarantees
+1. A successful output has genus two, one transported alpha/beta pair from
+   each input, and checked source-word embeddings into the result.
+   [proved/agent: by construction]
+2. The output has no joining disk and its certificate reports
+   `joining-disk-pending`. [proved/agent: by construction]
+3. Neither input is modified. [proved/agent: by construction]
+
+# Not guaranteed
+The certificate does not complete a forward Koda/SnapPy identification or
+prove a general PL connected-sum theorem for the represented 3-manifolds.
+Unsupported annotations and empty curves are rejected rather than transported.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md#hc-の曲面操作 — surface connected sum and pending joining disk.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> h = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> try H.hc_connected_sum(h,h; left_gap=0) catch e; e isa H.LCMoveError end
+true
+```
+
+Role: convert
 """
 function hc_connected_sum(left::HeegaardCode, right::HeegaardCode;
         left_gap::Union{Nothing,Int}=nothing, right_gap::Union{Nothing,Int}=nothing)

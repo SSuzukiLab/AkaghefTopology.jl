@@ -87,12 +87,46 @@ function _spin_weight_system(v::VirtualLink;boundary=nothing)
     A,b,targets
 end
 
-"""Return Z2 edge weights together with the measured doubled spin boundary data.
+"""
+    spin_boundary_data(v::VirtualLink) -> NamedTuple
 
-For every disk row, `measured4` is the exact residue
-`2*delta*z - Ndots (mod 4)`.  Open rows have endpoint identities in the same
-directed `(boundary_start, boundary_end)` convention used by integer relative
-weight data.  No boundary target is inferred from this measurement.
+Measure the doubled spin boundary cochain of an assigned Z2-weighted presentation.
+
+# Arguments
+Checked: Z2 mode, assigned canonical weights, and alignment with disk columns;
+violations raise `ArgumentError` or `DimensionMismatch`. Disk construction
+errors propagate.
+Caller: provide coherent Gauss data and interpret the
+[relative boundary coordinates](../specs/spin-weights.md#relative-boundary-data)
+using the intended directed circuit structure.
+
+# Returns
+A record with mode, modulus, edge weights, disk incidence, dot counts, cycle
+flags, Euler data, measured residues, endpoints and directed boundary identities.
+
+# Guarantees
+1. The measurements are the doubled spin boundary cochain in the
+   [repository coordinates](../specs/spin-weights.md#repository-coordinates),
+   with values modulo four. [proved/agent: by construction]
+2. The function chooses no prescribed boundary target and does not modify
+   the input diagram. [proved/agent: by construction]
+
+# Not guaranteed
+Measurement alone does not establish the spin equation, closed-normality or
+a geometric boundary trivialization. It is not a choice of boundary condition.
+
+# Sources
+cf: [spin specification](../specs/spin-weights.md#relative-boundary-data) — measured cochain and directed endpoints.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[-2,-1,1,2,0], orientation=[1,1]); set_weight!(v, zeros(5));
+ 
+julia> Tuple(findall(!, spin_boundary_data(v).isCycle))
+(1, 3, 4)
+```
+
+Role: invariant
 """
 function spin_boundary_data(v::VirtualLink)
     edge_weights=_spin_edge_weights(v)
@@ -117,11 +151,50 @@ function spin_boundary_data(v::VirtualLink)
     )
 end
 
-"""[Mih23, def:spin normal o-graph]: delta*w = 1 + Ndots/2 (mod 2).
-Canonical paper-db Work: references/items/article/w-f2194518-7624-4b07-9eb5-3e04e0a7d036,
-locator `m23-blk-0020` (source condition S).
-Divide the even doubled Euler cochain BEFORE reduction mod 2.
-This is a spin equation, not an integral framing test.
+"""
+    spin_weight_equation(v::VirtualLink; boundary=nothing) -> NamedTuple
+
+Return the assigned closed or relative spin equation and its exact residual.
+
+# Arguments
+Checked: the data and parity conditions S1, S3 and S4 of the
+[spin specification](../specs/spin-weights.md#numbered-conditions), including
+Gauss validity and weight alignment. Invalid values raise `ArgumentError`,
+metadata or target lengths `DimensionMismatch`, and invalid row keys
+`BoundsError`; other diagram errors propagate.
+Caller: the closed geometric interpretation additionally requires the
+closed-normal hypotheses and identification with the source circuits.
+
+# Returns
+For closed disk rows, a modulus-two record with `delta`, `rhs`,
+`edge_weights` and `residual`. If any row is open, a modulus-four record
+also includes `measured4`, `boundary_targets` and directed endpoints, as
+specified under [equation records](../specs/spin-weights.md#equation-records).
+
+# Guarantees
+1. The residual is exactly that of the applicable
+   [coordinate equation](../specs/spin-weights.md#definitions); zero is the
+   algebraic spin condition on this presentation. [proved/agent: by construction]
+2. Neither the diagram nor the supplied targets are modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Returning a record does not assert that its residual vanishes. The equation
+does not certify closed-normality, identify equivalent spin structures, or
+establish a geometric relative spin-extension theorem.
+
+# Sources
+cf:[[Mih23#^m23-blk-0020]] closed condition S; [spin specification](../specs/spin-weights.md#relative-boundary-data) — relative algebraic extension.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[-2,-1,1,2,0], orientation=[1,1]); set_weight!(v, zeros(5));
+
+julia> e = spin_weight_equation(v; boundary=[0,2,2,0]); (e.modulus, all(iszero, e.residual))
+(4, true)
+```
+
+Role: invariant
 """
 function spin_weight_equation(v::VirtualLink;boundary=nothing)
     A,b,targets=_spin_weight_system(v;boundary=boundary)
@@ -137,11 +210,101 @@ function spin_weight_equation(v::VirtualLink;boundary=nothing)
     end
     (mode=:z2,modulus=2,delta=A,rhs=b,edge_weights=w,residual=mod.(A*w-b,2))
 end
+"""
+    validate_spin_weight(v::VirtualLink; boundary=nothing) -> Bool
+
+Check the assigned Z2 weights against the closed or relative spin equation.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/spin-weights.md).
+
+`v` and `boundary` must satisfy S1–S4 of the
+[spin specification](../specs/spin-weights.md#numbered-conditions).
+These conditions are checked by the supported equation interface.
+`ArgumentError` identifies an
+invalid mode, missing/noncanonical weights, missing or invalid boundary
+targets, parity obstruction, or nonzero spin residual. Metadata/weight-count
+mismatches raise `DimensionMismatch`; an out-of-range boundary row raises
+`BoundsError`. Other diagram errors propagate. A closed-normal geometric
+interpretation also requires N1, N2 and C1–C3 of
+[the terminology specification §11](../specs/ograph-terminology.md#11-closed-normal-conditions-n1-n2-c1-c2-c3),
+which this function does not fully certify.
+
+# Returns
+`true` when the supported spin equation has zero residual; failure raises
+an exception instead of returning `false`.
+
+# Guarantees
+1. Success means every residual reported by `spin_weight_equation` vanishes.
+   On closed normal data with the source's circuit interpretation, this checks
+   [condition S](../specs/spin-weights.md#closed-spin-normal-o-graph)
+   for the assigned weights. [proved/agent: by construction]
+2. The diagram and supplied boundary targets are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This does not validate an integral framing, identify a spin structure up to
+equivalence, or certify all closed-normal hypotheses. The open-path check
+is the repository's relative boundary equation; the cited closed condition S
+does not by itself prove a relative spin-extension theorem.
+
+# Sources
+cf:[[Mih23#^m23-blk-0020]] definition of spin normal o-graph, condition S — closed circuit condition; open relative boundary equations require additional interpretation.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[1,2,-5,3,-2,-3,-4,4,-1,5,6,-7,7,-6], orientation=[1,1,1,-1,-1,-1,1]); solve_spin_weights(v; assign=true);
+
+julia> validate_spin_weight(v)
+true
+```
+
+Role: condition
+"""
 function validate_spin_weight(v::VirtualLink;boundary=nothing)
     all(iszero,spin_weight_equation(v;boundary=boundary).residual) || throw(ArgumentError("weights do not satisfy the spin equation"))
     true
 end
-"""Check spin equations; cut inputs require the explicit relative target map."""
+"""
+    is_spin_weight(v::VirtualLink; boundary=nothing) -> Bool
+
+Test whether the assigned weights satisfy the supported closed or relative spin equation.
+
+# Arguments
+Checked: the conditions checked by `validate_spin_weight`; a cut component
+without explicit `boundary` returns `false`. Validation failures return
+`false`, while interruption propagates.
+Caller: the geometric interpretation requires the closed-normal hypotheses
+and circuit interpretation of the [spin specification](../specs/spin-weights.md#closed-spin-normal-o-graph).
+
+# Returns
+Whether validation succeeds, with the cut-input restriction above.
+
+# Guarantees
+1. A true result certifies the assigned equation of
+   [S1–S5](../specs/spin-weights.md#numbered-conditions), within the applicable
+   closed or relative case. [proved/agent: by construction]
+2. The diagram and boundary data are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+A false result does not distinguish invalid data from an equation obstruction.
+The test does not identify a spin structure up to equivalence or establish a
+relative spin-extension theorem for an open diagram.
+
+# Sources
+cf:[[Mih23#^m23-blk-0020]] condition S; see the closed and relative interpretation in the spin specification.
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[1,-1,0], orientation=[1]); set_weight!(v, [0,0,0]);
+
+julia> is_spin_weight(v)
+false
+```
+
+Role: condition
+"""
 function is_spin_weight(v::VirtualLink;boundary=nothing)
     any(_is_cut_component,v.gauss) && boundary===nothing && return false
     try
@@ -152,7 +315,44 @@ function is_spin_weight(v::VirtualLink;boundary=nothing)
     end
 end
 
-"""Exact elimination over F2, with full affine kernel and a row witness on failure."""
+"""
+    solve_spin_weight_system(A::AbstractMatrix, b::AbstractVector) -> NamedTuple
+
+Solve an exact binary linear system and return its full affine solution space or obstruction.
+
+# Arguments
+Checked: one-based indexing, one right-hand side per row (`DimensionMismatch`),
+and exact integer entries (`ArgumentError`). Entries, including booleans, are
+interpreted modulo two as specified under
+[binary solution records](../specs/spin-weights.md#binary-solution-records).
+Caller: choose coordinates identifying this matrix with the intended spin equation.
+
+# Returns
+A versioned solution record with reduced `A`, `b`, `status`, optional
+`particular`, column `kernel`, row certificate and optional `obstruction`.
+`assignment_status` is `:not_requested`.
+
+# Guarantees
+1. `:spin_solution` provides a particular solution and a full binary kernel
+   basis; `:inconsistent` provides a row-combination obstruction. The kernel
+   is supplied in either case. [proved/agent: by construction]
+2. Input arrays are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The matrix calculation alone does not identify a spin structure on a space,
+select an integer lift, or quotient solutions by geometric equivalence.
+
+# Sources
+cf: [spin specification](../specs/spin-weights.md#binary-solution-records) — exact solution and witness semantics.
+
+# Examples
+```jldoctest
+julia> r = solve_spin_weight_system([1 1 0; 0 1 1], [1,0]); (r.status, size(r.kernel), mod.(r.A*r.particular, 2) == r.b)
+(:spin_solution, (3, 1), true)
+```
+
+Role: construct
+"""
 function solve_spin_weight_system(A::AbstractMatrix,b::AbstractVector)
     Base.require_one_based_indexing(A,b)
     size(A,1)==length(b) || throw(DimensionMismatch("one RHS per row required"))
@@ -194,11 +394,49 @@ function solve_spin_weight_system(A::AbstractMatrix,b::AbstractVector)
      assignment_status=:not_requested)
 end
 
-"""Solve spin disk equations, including explicit relative targets on cut paths.
+"""
+    solve_spin_weights(v::VirtualLink; assign=false, boundary=nothing) -> NamedTuple
 
-Assignment preserves Z2 mode; never selects an integer lift.  For an open disk
-row, `boundary` must provide a target in Z4 keyed by its directed endpoint
-identity (or a row-aligned vector).
+Solve the presentation's closed or relative binary spin equations.
+
+# Arguments
+Checked: `assign` must be Boolean; Z2 mode, Gauss validity, boundary target
+coverage and parity satisfy the applicable
+[S3–S4 conditions](../specs/spin-weights.md#numbered-conditions).
+Violations raise `ArgumentError`, metadata length failures `DimensionMismatch`,
+and invalid row keys `BoundsError`; other diagram errors propagate.
+Caller: closed-normality and source-circuit correspondence are required for
+the geometric spin interpretation. Prior weight assignment is unnecessary.
+
+# Returns
+The binary solution record with `boundary_targets` and `assignment_status`,
+which is `:not_requested`, `:not_spin_feasible`, or `:assigned`.
+
+# Guarantees
+1. The solution space is exactly that of the
+   [closed or relative coordinate equation](../specs/spin-weights.md#definitions).
+   [proved/agent: by construction and exact binary solving]
+2. With `assign=false` the diagram is unchanged. Successful requested
+   assignment installs validated canonical Z2 weights and sets `is_weighted`;
+   infeasibility leaves it unchanged. [proved/agent: by construction]
+
+# Not guaranteed
+The function does not choose an integer lift or certify all closed-normal
+hypotheses. Relative equation solvability does not yet establish a geometric
+boundary spin extension.
+
+# Sources
+cf:[[Mih23#^m23-blk-0020]] closed condition S; [relative model](../specs/spin-weights.md#relative-boundary-data).
+
+# Examples
+```jldoctest
+julia> v = VirtualLink(; weight_mode=:z2); set_data!(v; rgauss=[-2,-1,1,2,0], orientation=[1,1]);
+
+julia> r = solve_spin_weights(v; boundary=[0,2,2,0], assign=true); (r.status, r.assignment_status)
+(:spin_solution, :assigned)
+```
+
+Role: convert
 """
 function solve_spin_weights(v::VirtualLink;assign=false,boundary=nothing)
     assign isa Bool || throw(ArgumentError("assign must be Boolean"))

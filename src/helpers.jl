@@ -1,7 +1,89 @@
+"""
+    SmallObject(value) -> SmallObject
+
+Wrap a value in a mutable typed cell.
+
+# Arguments
+`value` can have any type. `SmallObject{T}(value)` additionally converts to
+`T`, propagating conversion errors. No mathematical validity check is made.
+
+# Returns
+`SmallObject{typeof(value)}` for the inferred constructor, or `SmallObject{T}`
+for the explicitly typed constructor, with one mutable field `value`.
+
+# Guarantees
+1. The inferred constructor retains the supplied value; the typed constructor
+   retains its converted value. [proved/agent: by construction]
+2. Wrapping does not modify or copy the supplied object. Assigning the field
+   replaces the cell's value subject to its field type.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This cell adds no mathematical structure, ownership isolation, synchronization,
+or validity certificate to the wrapped value.
+
+# Sources
+cf:lib/topology.jl/src/helpers.jl, SmallObject — the current cell and polynomial-coordinate operations.
+
+# Examples
+```jldoctest
+julia> s = SmallObject(3); s.value = 4;
+
+julia> s.value
+4
+```
+
+Role: convert
+"""
 mutable struct SmallObject{T}
     value::T
 end
 
+"""
+    bernstein(n::Integer, t) -> Matrix
+
+Evaluate the degree-n Bernstein basis at one or more parameters.
+
+# Arguments
+`n` must satisfy B1 of the [curve specification](../specs/curves.md#numbered-conditions);
+otherwise `ArgumentError` reports `degree must be positive`.
+`t` is a number or a collectable one-dimensional sequence satisfying B2.
+Violation of B2 raises
+`ArgumentError` naming that interval. Comparison, binomial, power and
+arithmetic errors propagate. Exact arithmetic claims require coefficient
+types and degree sizes that do not overflow.
+
+# Returns
+A matrix with `n+1` basis rows in the
+[sample-matrix convention](../specs/curves.md#definitions).
+Element type follows the parameter arithmetic.
+
+# Guarantees
+1. On supported arithmetic, column entries are the Bernstein basis values
+   at the corresponding parameter, in increasing basis-index order.
+   [proved/agent: by construction]
+2. The result is newly allocated and inputs are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Degree zero is not supported. Floating-point partition-of-unity identities
+need not hold bit-for-bit, and no overflow or conditioning bound is provided.
+
+# Sources
+cf:lib/topology.jl/src/helpers.jl, bernstein — the current cell and polynomial-coordinate operations.
+
+# Examples
+```jldoctest
+julia> b = bernstein(3, [0.0,0.5,1.0]);
+
+julia> (size(b), all(isapprox.(sum(b; dims=1), 1)))
+((4, 3), true)
+```
+
+See also [`bezier`](@ref).
+
+Role: invariant
+"""
 function bernstein(n::Integer, t)
     n >= 1 || throw(ArgumentError("degree must be positive"))
     ts = t isa Number ? [t] : collect(t)
@@ -9,16 +91,94 @@ function bernstein(n::Integer, t)
     [binomial(n,i) * (1-x)^(n-i) * x^i for i in 0:n, x in ts]
 end
 
+"""
+    bezier(t, control_points::AbstractMatrix) -> AbstractMatrix
+
+Evaluate the polynomial Bezier curve with the supplied control-point columns.
+
+# Arguments
+`control_points` must satisfy B3 of the
+[curve specification](../specs/curves.md#numbered-conditions); a failed
+column-count check raises `ArgumentError` with
+`at least two control points are required`.
+`t` satisfies B2, checked by [`bernstein`](@ref). Coordinate and
+parameter types must support the required scalar arithmetic and matrix
+multiplication; arithmetic and conversion failures propagate.
+
+# Returns
+A matrix in the [sample-matrix convention](../specs/curves.md#definitions),
+with the same coordinate-row count as `control_points`.
+
+# Guarantees
+1. For supported arithmetic, each result column is the Bezier point at its
+   parameter for the supplied ordered control points.
+   [proved/agent: by construction]
+2. The function does not modify the control points or parameters.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This does not interpolate all control points, validate a link embedding,
+or bound floating-point error. Out-of-interval extrapolation is rejected
+by the Bernstein evaluator.
+
+# Sources
+cf:lib/topology.jl/src/helpers.jl, bezier — the current cell and polynomial-coordinate operations.
+
+# Examples
+```jldoctest
+julia> p = [0.0 1 2; 0.0 1 0];
+
+julia> bezier(0.5, p)[:,1] ≈ [1.0,0.5]
+true
+```
+
+Role: convert
+"""
 function bezier(t, control_points::AbstractMatrix)
     size(control_points,2) >= 2 || throw(ArgumentError("at least two control points are required"))
     control_points * bernstein(size(control_points,2)-1,t)
 end
 
-"""One row of MATLAB's generated move-data tables.
+"""
+    MovePattern(parameter::AbstractString, gauss, orientation, capacity=Int[]; weights=nothing) -> MovePattern
 
-`gauss_first`, `gauss_last`, `vertex_count`, `weights`, and `capacity` are the
-fields added by `makeMovesData.m/modify`.  The four-argument constructor is
-retained for source compatibility with the first Julia migration snapshot.
+Construct a local move template with its boundary and weight-rule metadata.
+
+# Arguments
+Use the fields and default conventions of [MovePattern](../specs/virtual-link-moves.md#51-movepattern).
+Checked: the capacity and weight-rule collections must have one entry per
+fragment; `DimensionMismatch` identifies the mismatched collection. Numeric
+and string conversion errors propagate.
+Caller's responsibility: local labels, orientations, capacities and rule
+lengths must satisfy the linked template contract for later move execution.
+The full eight-field constructor only performs field conversions.
+
+# Returns
+A `MovePattern` with the field meanings in the linked specification. The
+convenience constructor derives endpoint and vertex metadata from the fragments.
+
+# Guarantees
+1. The convenience constructor supplies the documented default metadata and
+   weight rules when omitted. [proved/agent: by construction]
+2. Inputs are not modified. The full field constructor may retain arrays
+   supplied by the caller. [proved/agent: by construction]
+
+# Not guaranteed
+Construction is not an applicability or geometric-preservation check.
+An unspecified weight rule is not permission to use a weighted move.
+
+# Sources
+cf:lib/topology.jl/docs/specs/virtual-link-moves.md §§5.1–5.2 — template fields and weight-rule coordinates.
+
+# Examples
+```jldoctest
+julia> p = MovePattern("transport", [[1],[-1]], [1], [1,2]);
+
+julia> (p.vertex_count, p.gauss_first, length.(p.weights))
+(1, [1, -1], [2, 2])
+```
+
+Role: construct
 """
 struct MovePattern
     parameter::String
@@ -126,7 +286,42 @@ function _mp_patterns(side::Symbol)
     patterns
 end
 
-"""Julia-native form of `makeMovesData.m`; returns data instead of writing MAT files."""
+"""
+    make_move_data() -> Dict{String,Vector{MovePattern}}
+
+Construct the library's catalogue of local virtual-link move patterns.
+
+# Arguments
+Checked: no arguments or input conditions.
+Caller: select and match patterns using the
+[candidate rules](../specs/virtual-link-moves.md#6-candidate-contract).
+
+# Returns
+A dictionary of pattern vectors, keyed by the
+[catalogue names](../specs/virtual-link-moves.md#53-catalogue-keys).
+
+# Guarantees
+1. The values are the local diagram templates and weight rules of the
+   [move catalogue](../specs/virtual-link-moves.md#5-move-data-contract),
+   including the sixteen MP variants on each side. [proved/agent: by construction]
+2. Each call constructs fresh catalogue data and writes no external file.
+   [proved/agent: by construction]
+
+# Not guaranteed
+A template alone does not certify applicability, weighted admissibility, or
+preservation of a represented manifold on an arbitrary input.
+
+# Sources
+cf: [virtual-link moves §5](../specs/virtual-link-moves.md#5-move-data-contract) — catalogue and local template semantics.
+
+# Examples
+```jldoctest
+julia> d = make_move_data(); (length(d), length(d["MP-L"]), length(d["MP-R"]))
+(16, 16, 16)
+```
+
+Role: construct
+"""
 function make_move_data()
     Dict(
         "MP-L" => _mp_patterns(:left),

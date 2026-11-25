@@ -34,7 +34,57 @@ const KNOT_N6_TARGETED_BARRIER8_STATE_LIMIT = 500_000
 const KNOT_N6_TARGETED_BARRIER8_TIME_LIMIT_NS = UInt64(1_800_000_000_000)
 const KNOT_N6_TARGETED_BARRIER8_RSS_LIMIT = UInt64(12) * UInt64(1024)^3
 
-"Compact result of one targeted barrier-8 closure."
+"""
+    KnotN6TargetedBarrier8Result(barrier, n6_input_fingerprint, barrier7_fingerprint, seed_components, seed_state_count, imported_n7_state_count, n7_state_count, n8_state_count, candidate_count, adopted_transition_count, duplicate_transition_count, imported_graph_edge_count, reused_n6_candidate_count, excluded_over_barrier_count, n7_processed_count, n8_processed_count, max_frontier, transition_verification_failures, n6_membership_failures, classicality_checks, classicality_failures, connected_known_labels, known_reach_distance, resolved_components, component_status, resolved_component_type_counts, resolved_state_type_counts, closure_groups, unresolved_components, status, resource_reason, fingerprint, elapsed_seconds) -> KnotN6TargetedBarrier8Result
+
+Store the counts, connectivity and stopping status of a targeted barrier-eight closure.
+
+# Arguments
+The field meanings are owned by [Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Q6 ([conditions](../specs/knot-classification.md#numbered-conditions)) is the
+caller's responsibility. The field constructor does not check run consistency,
+witness validity, counts or labels. Julia converts arguments to their declared
+field types; incompatible conversions can raise `MethodError`, `InexactError`
+or other conversion exceptions.
+
+# Returns
+A `KnotN6TargetedBarrier8Result` with fields `barrier`, `n6_input_fingerprint`, `barrier7_fingerprint`, `seed_components`, `seed_state_count`, `imported_n7_state_count`, `n7_state_count`, `n8_state_count`, `candidate_count`, `adopted_transition_count`, `duplicate_transition_count`, `imported_graph_edge_count`, `reused_n6_candidate_count`, `excluded_over_barrier_count`, `n7_processed_count`, `n8_processed_count`, `max_frontier`, `transition_verification_failures`, `n6_membership_failures`, `classicality_checks`, `classicality_failures`, `connected_known_labels`, `known_reach_distance`, `resolved_components`, `component_status`, `resolved_component_type_counts`, `resolved_state_type_counts`, `closure_groups`, `unresolved_components`, `status`, `resource_reason`, `fingerprint`, `elapsed_seconds`.
+Their individual meanings are given in the linked result-field entry.
+
+# Guarantees
+1. The returned fields equal the supplied values after conversion. Under Q6 they describe the finite graph or subordinate record specified by the linked definition, with exactly the enclosing run's population and bounds. [proved/agent: by construction]
+2. Construction leaves the arguments unchanged; vectors, dictionaries and contained records already of the declared types remain shared with the result. [proved/agent: by construction]
+
+# Conventions
+[Canonical coordinates](../specs/knot-gauss.md#canonical-coordinates) and
+[classification labels](../specs/knot-classification.md#evidence-and-boundaries).
+
+# Not guaranteed
+The field constructor is not a validator or a classification computation.
+A stored witness, resolved label or zero failure count is not independently
+verified here. Distinct bounded components need not be distinct knot types.
+The general classicality and knot-polynomial source identifications retain
+the evidence boundaries stated in the specification. Mutable fields can
+invalidate Q6 after construction.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Definitions and Q6 — finite graph and result semantics; no unrestricted knot classification claim.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(0; progress=false); workspace = Ref{Any}(nothing);
+
+julia> b = run_knot_n6_targeted_bridge(c; progress=false, _workspace_callback=w -> (workspace[] = w));
+
+julia> r = run_knot_n6_targeted_barrier8(c, b, workspace[]; progress=false);
+
+julia> (r.barrier, r.n7_state_count, r.n8_state_count, isempty(r.seed_components))
+(8, 0, 0, true)
+
+```
+
+Role: construct
+"""
 struct KnotN6TargetedBarrier8Result
     barrier::Int
     n6_input_fingerprint::String
@@ -547,11 +597,63 @@ function _n6b8_component_type_counts(classification::KnotN6Classification,
     component_counts, state_counts
 end
 
-"""Run the unresolved barrier-7 components through barrier 8.
+"""    run_knot_n6_targeted_barrier8(classification::KnotN6Classification, bridge7::KnotN6TargetedBridgeResult, workspace; barrier::Integer=8, progress::Bool=true) -> KnotN6TargetedBarrier8Result
 
-The three-argument method is useful for focused fixtures.  The production
-script obtains `classification`, `bridge7`, and `workspace` in one run and
-then calls this method.  No barrier above eight is accepted.
+Explore the targeted crossing-eight closure of unresolved barrier-seven seed components.
+
+# Arguments
+Q1–Q6 and Q10 ([conditions](../specs/knot-classification.md#numbered-conditions))
+are required for interpreting the result. In particular, the caller supplies
+the matching classification, bridge and workspace; fingerprints are not
+compared. Obtain `workspace` from the barrier-seven `_workspace_callback`.
+The barrier must convert to 8, the classification bound must lie in `0:6`,
+and `bridge7.barrier` must be 7; violations raise `ArgumentError` naming the
+check. Missing workspace, inconsistent imported connectivity, missing census
+targets, failed witnesses or conflicting labels raise `ErrorException`.
+Malformed raw records can also raise property/indexing errors. `progress`
+controls diagnostic output.
+
+# Returns
+A `KnotN6TargetedBarrier8Result` with the fields defined in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+Inspect `status`, `resource_reason` and `component_status` before interpreting
+unresolved components: a resource-limited result is a partial exploration.
+
+# Guarantees
+1. Under Q1–Q6 and Q10, the result describes the specified targeted closure, with new adopted transitions locally verified and new states checked by the Carter predicate. It concerns connectivity of these finite representations. [proved/agent: by construction]
+2. Reached known labels are propagated through closure connectivity; unreached seeds are not assigned new knot types. [proved/agent: by construction]
+3. The built-in resource limits return partial status when triggered; they do not convert incomplete exploration into an exhaustive classification. [proved/agent: by construction]
+4. The supplied classification, bridge and workspace are not modified, and no database is written. [proved/agent: by construction]
+
+# Conventions
+[Targeted closure and contracted distance](../specs/knot-classification.md#targeted-closure).
+
+# Not guaranteed
+This is not a full crossing-eight census or unrestricted isotopy decision.
+Imported evidence is trusted under Q4, not independently replayed here in
+full. The fixed state/time/resident-memory limits are checked between units
+of work, so they are not strict interrupt deadlines. The result retains no
+full paths, candidate witnesses or Carter surfaces. Source identifications
+retain the specification's evidence boundaries.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Targeted closure — finite relative search and partial-result interpretation.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(0; progress=false); workspace = Ref{Any}(nothing);
+
+julia> b = run_knot_n6_targeted_bridge(c; progress=false, _workspace_callback=w -> (workspace[] = w));
+
+julia> r = run_knot_n6_targeted_barrier8(c, b, workspace[]; progress=false);
+
+julia> (r.n7_state_count, r.n8_state_count, r.status)
+(0, 0, "barrier8_resolved_all_seed_components")
+```
+
+See also [`knot_n6_targeted_barrier8_summary`](@ref).
+
+Role: convert
 """
 function run_knot_n6_targeted_barrier8(
         classification::KnotN6Classification,
@@ -933,6 +1035,62 @@ function run_knot_n6_targeted_barrier8(
         unresolved, status, stats.resource_reason, fingerprint, elapsed)
 end
 
+"""
+    build_knot_n6_targeted_barrier8(; progress::Bool=true) -> KnotN6TargetedBarrier8Result
+
+Return the targeted barrier-eight extension of the default six-crossing classification.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/knot-classification.md).
+
+`progress` controls progress messages. The default local KnotInfo snapshot
+must be readable and valid for [`build_knot_n6_classification`](@ref).
+Input, snapshot, transition-verification and consistency errors from the
+classification and targeted searches propagate. This zero-argument route
+requests the full six-crossing input, not the small fixture overload.
+
+# Returns
+`KnotN6TargetedBarrier8Result`: `seed_components` identifies the still
+unresolved barrier-seven components, `resolved_components` and
+`unresolved_components` report the resulting disposition, and
+`connected_known_labels` records known labels reached. Counts describe states,
+candidates, adopted/reused transitions, verification outcomes and frontier
+size. `status` and `resource_reason` distinguish completion from resource
+termination; fingerprints identify the input and computed closure.
+
+# Guarantees
+1. The result concerns the repository's verified local-move graph through
+   eight crossings, targeted from components unresolved after barrier seven.
+   It is evidence about paths in that finite graph. [proved/agent: by construction]
+2. A resolved label is supported by a connection to the corresponding known
+   component. Unresolved components receive no invented knot type. [proved/agent: by construction]
+3. `barrier == 8`. A returned resource-limited result retains its status;
+   successful return alone does not assert exhaustive closure. [proved/agent: by construction]
+4. Arguments and the input snapshot are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a census of all diagrams through eight crossings or a proof that
+separate components represent distinct knots. Full paths and move witnesses
+are not retained in the result.
+
+# Sources
+cf: lib/topology.jl/src/reidemeister.jl verify_reidemeister_transition — retained edges have local signed-Gauss transition evidence, not an unbounded equivalence decision.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(3; barrier=3, progress=false);
+
+julia> r = build_knot_n6_targeted_barrier8(c; progress=false);
+
+julia> (isempty(r.seed_components), r.n7_state_count, r.n8_state_count, r.status)
+(true, 0, 0, "barrier8_resolved_all_seed_components")
+```
+
+See also [`knot_n6_targeted_barrier8_summary`](@ref), [`run_knot_n6_targeted_barrier8`](@ref).
+
+Role: construct
+"""
 function build_knot_n6_targeted_barrier8(; progress::Bool=true)
     classification = build_knot_n6_classification(6; barrier=6,
                                                    progress=progress)
@@ -945,10 +1103,119 @@ function build_knot_n6_targeted_barrier8(; progress::Bool=true)
         progress=progress)
 end
 
+"""
+    targeted_knot_n6_barrier8(classification::KnotN6Classification, bridge7::KnotN6TargetedBridgeResult, workspace; barrier=8, progress=true) -> KnotN6TargetedBarrier8Result
+
+Return targeted barrier-eight connections extending an unresolved barrier-seven closure.
+
+# Arguments
+The data definitions and numbered conditions are in the
+[specification](../specs/knot-classification.md).
+
+- Supply mutually corresponding classification, barrier-seven result and
+  transient workspace from the same run. Use
+  [`build_knot_n6_targeted_barrier8`](@ref) when no workspace is available.
+- `classification.max_n` must lie in `0:6`, `bridge7.barrier` must be seven,
+  and `barrier` must be eight. Violations throw `ArgumentError` identifying
+  the bound. `progress` controls progress messages.
+- Inconsistent workspace membership, transitions and known labels propagate
+  consistency errors from [`run_knot_n6_targeted_barrier8`](@ref). This is
+  not a validator for arbitrary hand-built workspace data.
+
+# Returns
+`KnotN6TargetedBarrier8Result` with seed and known-label connections,
+resolved/unresolved components, search and verification statistics,
+fingerprints, elapsed time and `status`/`resource_reason` fields.
+
+# Guarantees
+1. The result has the same semantics as `run_knot_n6_targeted_barrier8`:
+   finite diagram-graph connections through eight crossings from the supplied
+   unresolved closure. [proved/agent: by construction]
+2. `barrier == 8`. Known labels arise from reached known components; an
+   unresolved component is not assigned a new knot type. [proved/agent: by construction]
+3. Resource-limited termination is reported in `status` and `resource_reason`. [proved/agent: by construction]
+4. The supplied arguments are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Successful return alone does not establish exhaustive closure. This is not
+a full eight-crossing census or an unbounded knot-equivalence decision, and
+no full paths are retained. The transient workspace is not a public
+serialization format.
+
+# Sources
+cf: lib/topology.jl/src/reidemeister.jl verify_reidemeister_transition — local evidence for the retained diagram-graph transitions.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(3; barrier=3, progress=false); workspace = Ref{Any}(nothing);
+
+julia> b = run_knot_n6_targeted_bridge(c; progress=false, _workspace_callback=w -> (workspace[]=w));
+
+julia> r = targeted_knot_n6_barrier8(c, b, workspace[]; progress=false);
+
+julia> (r.barrier, isempty(r.seed_components), r.n8_state_count)
+(8, true, 0)
+```
+
+See also [`build_knot_n6_targeted_barrier8`](@ref), [`knot_n6_targeted_barrier8_summary`](@ref).
+
+Role: convert
+"""
 targeted_knot_n6_barrier8(args...; kwargs...) =
     run_knot_n6_targeted_barrier8(args...; kwargs...)
 
-"Return compact barrier-8 statistics without states, paths, or witnesses."
+"""
+    knot_n6_targeted_barrier8_summary(result::KnotN6TargetedBarrier8Result) -> Dict{String,Any}
+
+Return a compact dictionary summary of a finite knot-move result.
+
+# Arguments
+`result` satisfies Q6 ([conditions](../specs/knot-classification.md#numbered-conditions))
+for the intended interpretation. This is the caller's responsibility; the
+summary does not replay or validate a run. Inconsistent manually constructed
+records can produce inconsistent counts rather than a validation error.
+
+# Returns
+A new `Dict{String,Any}` with keys
+`version`, `barrier`, `n6_input_fingerprint`, `barrier7_fingerprint`, `seed_components`, `seed_state_count`, `imported_n7_state_count`, `n7_state_count`, `n8_state_count`, `candidate_count`, `adopted_transition_count`, `duplicate_transition_count`, `imported_graph_edge_count`, `reused_n6_candidate_count`, `excluded_over_barrier_count`, `n7_processed_count`, `n8_processed_count`, `max_frontier`, `transition_verification_failures`, `n6_membership_failures`, `classicality_checks`, `classicality_failures`, `connected_known_labels`, `known_reach_distance`, `resolved_components`, `component_status`, `resolved_component_type_counts`, `resolved_state_type_counts`, `closure_groups`, `unresolved_components`, `status`, `resource_reason`, `fingerprint_sha256`, `elapsed_seconds`.
+Same-named result fields have their meanings in
+[Result field meanings](../specs/knot-classification.md#result-field-meanings).
+`version` identifies the summary's implementation schema;
+`fingerprint_sha256` is the stored `fingerprint`. Where present,
+`total_states`, `edge_count`, `component_count`, `known_representative_count`,
+`known_component_count` and `unresolved_component_count` count the corresponding
+collections. Unresolved state count counts states in listed unresolved
+components; known-reachable state count is its complement in the population.
+Component-keyed output dictionaries use decimal string keys.
+
+# Guarantees
+1. The summary reports the supplied finite result's data and derived collection counts; it performs no new mathematical classification. [proved/agent: by construction]
+2. The input is unchanged. Returned vectors and dictionaries are copied, including the nested label lists and closure groups when present. [proved/agent: by construction]
+
+# Not guaranteed
+The dictionary is not a self-contained replay certificate and contains no
+full path or Carter surface data. It does not strengthen the source result's
+classicality, knot-type or completeness evidence. No cross-version schema
+compatibility is promised.
+
+# Sources
+cf:lib/topology.jl/docs/specs/knot-classification.md, Result field meanings — finite-run summary interpretation.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(0; progress=false); workspace = Ref{Any}(nothing);
+
+julia> b = run_knot_n6_targeted_bridge(c; progress=false, _workspace_callback=w -> (workspace[] = w));
+
+julia> r = run_knot_n6_targeted_barrier8(c, b, workspace[]; progress=false);
+
+julia> knot_n6_targeted_barrier8_summary(r)["n8_state_count"]
+0
+
+```
+
+Role: convert
+"""
 function knot_n6_targeted_barrier8_summary(
         result::KnotN6TargetedBarrier8Result)
     Dict{String,Any}(

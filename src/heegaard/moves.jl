@@ -65,7 +65,37 @@ function _finish_move(H::HeegaardDiagram, decorated, move_type, attachment, inve
     result, certificate
 end
 
-"""Reverse a curve orientation and all incident intersection signs."""
+"""
+    reverse_curve_orientation(H::CellularHeegaardDiagram, curve) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Return the legacy curve-reversal result and its move certificate.
+
+# Arguments
+`curve` selects a family and curve ID, for example `(:alpha,1)`; a bare ID must be unambiguous across families. Ambiguous, invalid-family or missing selectors raise `ArgumentError`. The resulting decorated record must pass `certify_heegaard`; validation and hashing errors propagate.
+
+# Returns
+The recertified diagram and a `MoveCertificate` recording the selection, inverse command and source/target identities.
+
+# Guarantees
+1. The selected curve's visit order is reversed and its label and tags are retained. [proved/agent: by construction]
+2. The input is not modified; some unchanged curve and partition objects remain shared with the result. [proved/agent: by construction]
+
+# Not guaranteed
+The legacy sign update compares the selected numeric ID against both families. If an unrelated curve in the other family shares that ID, extra crossing signs can change. Thus general geometric orientation reversal and manifold preservation are not guaranteed on that input; see [the legacy reversal limitation](../specs/heegaard-moves.md#legacy-reversal-id-collision).
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md — curve moves and validation of their witnesses.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> h = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]); cellular=true)); r,c = H.reverse_curve_orientation(h, (:alpha,1)); r.code.code.intersections[1].sign
+-1
+```
+
+Role: move
+"""
 function reverse_curve_orientation(H::HeegaardDiagram, curve)
     code = H.code.code
     family, index = _resolve_curve(code, curve)
@@ -91,7 +121,51 @@ function _insert_after(values::Vector{Int}, position::Integer, value::Int)
     isempty(values) ? [value] : [values[1:position]; value; values[position+1:end]]
 end
 
-"""Add a signed canceling pair at explicit alpha/beta segment positions."""
+"""
+    add_canceling_pair(H::CellularHeegaardDiagram, location) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Insert two opposite-sign intersections at specified legacy alpha and beta positions.
+
+# Arguments
+`H` is a certified legacy diagram. `location` supplies alpha and beta curve
+IDs, optional insertion positions and opposite signs. Missing/unknown curves,
+invalid positions or nonopposite signs raise `ArgumentError` with the failed
+requirement; result certification can raise `ValidationError`. The caller
+supplies the geometric support required by [the move domain](../specs/heegaard-moves.md#comparison-and-move-witnesses);
+the routine does not check a supporting disk between the chosen segments.
+
+# Returns
+The certified resulting diagram and a `MoveCertificate` with new
+intersection IDs, hashes, inverse annotation and input invariants.
+
+# Guarantees
+1. The output contains the two new intersections in the selected visits,
+   with opposite signs, and passes current cellular certification.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+3. The registered genus-one insertion/removal round trip recovers the source
+   canonical hash. [verified-computationally: test/heegaard/core.jl, Moves and certificates]
+
+# Not guaranteed
+Certification alone does not prove that arbitrary selected positions define
+a local manifold-preserving move. The witness boundary in the linked section
+applies.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §comparison-and-move-witnesses — legacy combinatorial move records and geometric support.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]])); a, _ = H.add_canceling_pair(d, (alpha_curve=1,beta_curve=1,alpha_position=1,beta_position=1)); length(a.code.code.intersections)
+3
+```
+
+See also [`remove_canceling_pair`](@ref).
+
+Role: move
+"""
 function add_canceling_pair(H::HeegaardDiagram, location)
     code = H.code.code
     alpha_id = _spec_field(location, :alpha_curve, _spec_field(location, :alpha, 0))
@@ -133,6 +207,53 @@ function add_canceling_pair(H::HeegaardDiagram, location)
         Dict("move" => "remove_canceling_pair", "pair" => [p, q]))
 end
 
+"""
+    remove_canceling_pair(H::CellularHeegaardDiagram, pair) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Remove a specified opposite-sign intersection pair from a legacy cellular diagram.
+
+# Arguments
+`H` is a certified diagram in the [legacy move domain](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+`pair` must collect to two distinct integer IDs of existing intersections on
+the same alpha and beta curves with opposite signs. Checked failures raise
+`ArgumentError` identifying the malformed or noncanceling pair; conversion
+errors propagate. Result certification can raise `ValidationError`.
+The caller supplies geometric cancellation data when a manifold-preserving
+interpretation is required; adjacency and a local disk are not checked here.
+
+# Returns
+The certified resulting diagram and its `MoveCertificate`, including the
+removed IDs, hashes, inverse-operation annotation and input invariant snapshot.
+
+# Guarantees
+1. On success the selected intersections are absent from the intersection
+   table and all visits, and the output passes cellular certification.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+3. Removal after the tested genus-one pair insertion recovers the original
+   canonical diagram. [verified-computationally: test/heegaard/core.jl, Moves and certificates, S3 fixture]
+
+# Not guaranteed
+Opposite signs alone do not certify a local geometric cancellation. The
+certificate's inverse annotation does not store all insertion positions.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §comparison-and-move-witnesses — distinction between combinatorial records and geometric witnesses.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]])); a, _ = H.add_canceling_pair(d, (alpha_curve=1, beta_curve=1, alpha_position=1, beta_position=1));
+
+julia> b, _ = H.remove_canceling_pair(a, [2,3]); H.canonical_hash(b) == H.canonical_hash(d)
+true
+```
+
+See also [`add_canceling_pair`](@ref).
+
+Role: move
+"""
 function remove_canceling_pair(H::HeegaardDiagram, pair)
     ids = Int.(collect(pair))
     length(ids) == 2 && ids[1] != ids[2] || throw(ArgumentError("R inverse requires two distinct intersection ids"))
@@ -154,12 +275,48 @@ function remove_canceling_pair(H::HeegaardDiagram, pair)
         Dict("move" => "add_canceling_pair", "pair" => ids))
 end
 
-"""Apply a fully explicit combinatorial band-sum replacement.
+"""
+    handle_slide(H::CellularHeegaardDiagram, slide_spec) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
 
-The specification deliberately does not infer a band from a picture.  The
-caller must provide `path`, `replacement_visits`, and the post-slide region
-partition.  This keeps the operation auditable even though the geometry of a
-band is not represented by the core code.
+Replace one legacy curve by an explicitly supplied candidate handle slide.
+
+# Arguments
+`H` is a certified legacy diagram. `slide_spec` supplies `path`,
+`replacement_visits`, `regions`, `source_curve` and `target_curve`.
+Missing fields, unresolved curves, different families or equal source and
+target raise `ArgumentError`; result certification errors propagate.
+The caller supplies a genuine band and compatible region partition in the
+[move-witness domain](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Returns
+The resulting certified diagram and a `MoveCertificate` recording source,
+target, path, hashes and inverse-description data.
+
+# Guarantees
+1. The source curve has the supplied replacement visits; the other curve
+   words and intersection records remain present. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The supplied path is not geometrically checked against the replacement.
+Certification alone does not prove that this is a handle slide preserving
+the represented 3-manifold, and the stored inverse description alone is not
+a validated inverse band.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md#comparison-and-move-witnesses — checked records versus geometric move witnesses.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]); h = H.certify_heegaard(H.decorate(c, [[1]]));
+
+julia> try H.handle_slide(h, (;)) catch e; e isa ArgumentError end
+true
+```
+
+Role: move
 """
 function handle_slide(H::HeegaardDiagram, slide_spec)
     path = _spec_field(slide_spec, :path, nothing)
@@ -188,6 +345,53 @@ function handle_slide(H::HeegaardDiagram, slide_spec)
         Dict("move" => "handle_slide", "slide_spec" => deepcopy(slide_spec)))
 end
 
+"""
+    stabilize(H::CellularHeegaardDiagram, specification=NamedTuple()) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Add an isolated one-intersection alpha–beta pair to a legacy cellular diagram.
+
+# Arguments
+`H` is a certified diagram in the [legacy move domain](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+`specification` supplies optional `region` (default 1) and `sign` (default 1).
+Checked: sign must be `1` or `-1`; an invalid sign or selected region raises
+`ArgumentError`. Result certification and invariant errors propagate.
+Geometric placement in the chosen region is the caller's responsibility
+when interpreting the result as a stabilization of a 3-manifold diagram.
+
+# Returns
+The certified diagram and a `MoveCertificate` with new curve/intersection
+IDs, source and target hashes, destabilization data and input invariants.
+
+# Guarantees
+1. The new alpha and beta curves meet only each other once with the selected
+   sign; the original curve words and intersections remain present.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+3. For the tested genus-one fixture, the resulting surface has genus two
+   and destabilization recovers the source canonical hash.
+   [verified-computationally: test/heegaard/core.jl, Moves and certificates]
+
+# Not guaranteed
+The certificate alone does not prove manifold preservation for arbitrary
+hand-built region data; see the linked move-witness boundary.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §§4.1, 6.4 — stabilization and its witness domain.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]])); s, _ = H.stabilize(d);
+
+julia> H.surface_genus(s)
+2
+```
+
+See also [`destabilize`](@ref).
+
+Role: move
+"""
 function stabilize(H::HeegaardDiagram, specification=NamedTuple())
     code = H.code.code
     region = _spec_field(specification, :region, 1)
@@ -206,6 +410,55 @@ function stabilize(H::HeegaardDiagram, specification=NamedTuple())
         Dict("move" => "destabilize", "pair" => [alpha_id, beta_id, point_id]))
 end
 
+"""
+    destabilize(H::CellularHeegaardDiagram, pair) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Remove a specified isolated stabilization pair from a legacy cellular diagram.
+
+# Arguments
+`H` is a certified cellular diagram. `pair` must collect and convert to
+three integers identifying the alpha curve, beta curve and intersection.
+Both curve visits must consist of that single intersection. Violations throw
+`ArgumentError` identifying the malformed tuple, absent curve or non-isolated
+pair; conversion errors propagate. Failed output certification throws
+`ValidationError`. Geometric interpretation follows
+[the move-witness boundary](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Returns
+The certified resulting diagram and a `MoveCertificate` with the selected
+IDs, input/output hashes, inverse data and input invariant snapshot.
+
+# Guarantees
+1. The returned code omits the selected two curves and intersection and
+   passes current cellular validation. [proved/agent: by construction]
+2. Inputs are not modified. [proved/agent: by construction]
+3. The tested stabilization followed by this operation recovers the original
+   legacy canonical hash. [verified-computationally: test/heegaard/core.jl, Moves and certificates, genus-one stabilization]
+
+# Not guaranteed
+The inverse record does not retain every choice of the original stabilization.
+The certificate alone does not prove manifold preservation for arbitrary
+hand-built input; its evidence scope is the linked witness boundary.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §§4.1, 6.4 — stabilization and the boundary of executable move records.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> s, _ = H.stabilize(d); back, _ = H.destabilize(s, [2,2,2]);
+
+julia> H.canonical_hash(back) == H.canonical_hash(d)
+true
+```
+
+See also [`stabilize`](@ref), [`apply_move`](@ref).
+
+Role: move
+"""
 function destabilize(H::HeegaardDiagram, pair)
     ids = Int.(collect(pair))
     length(ids) == 3 || throw(ArgumentError("destabilization requires [alpha_curve, beta_curve, intersection]"))
@@ -227,6 +480,62 @@ function destabilize(H::HeegaardDiagram, pair)
         Dict("move" => "stabilize", "pair" => ids))
 end
 
+"""
+    apply_move(H::CellularHeegaardDiagram, move) -> Tuple{CellularHeegaardDiagram,MoveCertificate}
+
+Apply a selected legacy cellular Heegaard operation and return its certified output and record.
+
+# Arguments
+`H` is a certified legacy diagram. `move` is a named tuple, dictionary with
+symbol or string keys, or property-bearing object. Its `kind` (or fallback
+`move`) selects `:epsilon`, `:R`, `:R_inverse`, `:H`, `:S` or `:S_inverse`.
+These call `reverse_curve_orientation`, `add_canceling_pair`,
+`remove_canceling_pair`, `handle_slide`, `stabilize` and `destabilize`,
+respectively, with their argument requirements. `:epsilon` uses `curve`;
+the inverse moves use `pair`; other operations take the whole specification.
+An unknown kind throws `ArgumentError` naming it. Selected-operation argument
+errors propagate, and failed output certification throws `ValidationError`.
+Geometric support is the caller's responsibility within
+[the witness boundary](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Returns
+The output `CellularHeegaardDiagram` and a `MoveCertificate` recording the
+operation, attachment, correspondence, source and target hashes, inverse
+data and input invariant snapshot.
+
+# Guarantees
+1. A returned output passes the current full cellular validation checks.
+   [proved/agent: by construction]
+2. The input diagram and move specification are not modified.
+   [proved/agent: by construction]
+3. The stabilization example raises surface genus from one to two and retains
+   trivial first-homology torsion. [verified-computationally: test/heegaard/core.jl, Moves and certificates, genus-one fixture]
+
+# Not guaranteed
+Cellular certification alone does not certify that a caller's band is
+geometrically valid or that every supported operation preserves a manifold.
+The stored inverse data are descriptive and are not necessarily accepted
+unchanged by this dispatcher. This is not the resolved-HC catalogue API.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §4.1 — executable records and the boundary of move certification.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> d = certify_heegaard(decorate(heegaard_code([[1]], [[1]], [Intersection(1,1,1,1)]), [[1]]));
+
+julia> out, cert = apply_move(d, (kind=:S,));
+
+julia> (surface_genus(out), isempty(Topology.HeegaardCodes.first_homology(out).torsion))
+(2, true)
+```
+
+See also [`stabilize`](@ref), [`handle_slide`](@ref), [`Topology.HeegaardCodes.move`](@ref).
+
+Role: move
+"""
 function apply_move(H::HeegaardDiagram, move)
     kind = Symbol(_spec_field(move, :kind, _spec_field(move, :move, "")))
     kind == :epsilon && return reverse_curve_orientation(H, _spec_field(move, :curve, move))
@@ -238,8 +547,91 @@ function apply_move(H::HeegaardDiagram, move)
     throw(ArgumentError("unknown Heegaard move $kind"))
 end
 
+"""
+    inverse_move(certificate::MoveCertificate) -> Dict{String,Any}
+
+Return an independent copy of a legacy move certificate's inverse metadata.
+
+# Arguments
+`certificate` is a `MoveCertificate`. The stored inverse metadata is accepted
+without checking whether it describes an executable inverse.
+
+# Returns
+A deep copy of `certificate.inverse_data`.
+
+# Guarantees
+1. The result preserves the stored inverse metadata and its nested values
+   under Julia's deep-copy semantics. [proved/agent: by construction]
+2. The certificate is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not apply or verify an inverse move. In particular, the metadata's
+`"move"` names need not be tags accepted by `apply_move`. The distinction
+between recorded assertions and checked witnesses is specified in
+[the move specification](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> H = Topology.HeegaardCodes; d = H.certify_heegaard(H.decorate(H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]), [[1]]));
+
+julia> _, c = H.reverse_curve_orientation(d, (:alpha, 1)); H.inverse_move(c)["move"]
+"reverse_curve_orientation"
+```
+
+See also [`apply_move`](@ref), [`MoveCertificate`](@ref).
+
+Role: access
+"""
 inverse_move(certificate::MoveCertificate) = deepcopy(certificate.inverse_data)
 
+"""
+    enumerate_local_moves(H::CellularHeegaardDiagram; kind=:all) -> Vector{Any}
+
+Return legacy orientation-reversal specifications and isolated destabilization candidates.
+
+# Arguments
+`H` is a certified cellular diagram. `kind=:epsilon` selects orientation
+reversals, `:destabilize` selects isolated-pair candidates, and `:all` selects
+both. Other values return an empty vector without error. No move is applied
+or output diagram certified during enumeration.
+
+# Returns
+A vector of specifications accepted in form by `apply_move`, carrying a
+kind and curve selector or pair of curve IDs with an intersection ID.
+
+# Guarantees
+1. The selected reversal specifications cover the stored curves; selected
+   destabilization specifications refer to alpha/beta curves whose visit
+   lists consist of the same single intersection.
+   [proved/agent: by construction]
+2. These are candidates in the scope of
+   [legacy move records](../specs/heegaard-moves.md#comparison-and-move-witnesses).
+   The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not an exhaustive move search: it lists no handle slides, pair
+insertions or stabilizations. A candidate can fail when applied and certified.
+It is not the resolved-HC catalogue's `movable` operation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §4.1 — candidate records and executable validation are distinct.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> d = certify_heegaard(decorate(heegaard_code([[1]], [[1]], [Intersection(1,1,1,1)]), [[1]]));
+
+julia> !isempty(enumerate_local_moves(d; kind=:epsilon))
+true
+```
+
+See also [`apply_move`](@ref), [`destabilize`](@ref), [`Topology.HeegaardCodes.movable`](@ref).
+
+Role: access
+"""
 function enumerate_local_moves(H::HeegaardDiagram; kind=:all)
     result = Any[]
     kind in (:all, :epsilon) && append!(result, [(kind=:epsilon, curve=(curve.family, curve.id))

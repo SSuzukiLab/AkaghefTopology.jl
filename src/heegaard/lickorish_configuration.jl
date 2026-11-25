@@ -4,6 +4,59 @@
 
 const LC_META = (:place, :disk, :point, :weight)
 
+"""
+    LickorishCode(genus, words, places, disks, points, weights, source_path) -> LickorishCode
+
+Store a curve arrangement's Lickorish words and placement metadata.
+
+# Arguments
+`genus::Int`, `words::Dict{String,Vector{Int}}`,
+`places::Dict{String,String}`, `disks::Dict{String,Vector{String}}`,
+`points::Dict{String,String}`, `weights::Dict{String,Int}`, and
+`source_path::Union{Nothing,String}`, or convertible values. Conversion
+errors propagate. This constructor does not check
+[LC validity](../specs/lickorish-code.md) or the value of the genus.
+
+# Returns
+`LickorishCode` with genus, named cyclic words, placement references, disk,
+point and weight dictionaries, and optional source path. The mathematical
+arrangement and reference surface are defined by
+[the LC specification](../specs/lickorish-code.md).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed containers
+   are retained and not modified. [proved/agent: by construction]
+2. The value stores the supplied LC data without assigning Heegaard roles
+   or realizing a surface. Construction does not read `source_path`.
+   [proved/agent: by construction]
+
+# Conventions
+Use [LC passage signs and reference-surface conventions](../conventions/HeegaardCodes.md).
+
+# Not guaranteed
+Arbitrary words and places need not realize a valid curve arrangement on
+the stated surface. The constructor accepts legacy annotation dictionaries;
+it does not transport or validate them. HC roles, disk and mark semantics
+belong to [HC annotations](../specs/heegaard-code.md#3-hc-に置く追加情報).
+Shared dictionaries and word vectors remain mutable.
+
+# Sources
+cf: lib/topology.jl/docs/specs/lickorish-code.md §§3–4 — Lickorish words, placement and their represented surface arrangement.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> d = H.LickorishCode(1, Dict("l1" => [-1,2,-3], "m1" => [1], "c" => [-2,3]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> length(H.movable(d, "lc.isotopy.digon.remove.00"))
+1
+```
+
+See also [`read_lc`](@ref), [`validate_lc_input`](@ref), [`realize_lc`](@ref), [`resolve_hc`](@ref).
+
+Role: construct
+"""
 struct LickorishCode
     genus::Int
     words::Dict{String, Vector{Int}}
@@ -75,12 +128,88 @@ function _lc_parse_text(text::AbstractString)
     LickorishCode(genus, words, places, disks, points, weights, nothing)
 end
 
+"""
+    read_lc(path::AbstractString) -> LickorishCode
+
+Read a Lickorish-code record from a text file.
+
+# Arguments
+`path` names a readable file in the [LC grammar](../specs/lickorish-code.md#3-lc-のデータ形式gauss-code-形式).
+File errors propagate. Checked syntax errors raise `KodaInputError` naming
+missing or duplicate declarations; invalid integer tokens raise parse errors.
+Geometric validity is the caller's responsibility until `validate_lc_input`
+and the relevant realization checks are run.
+
+# Returns
+A `LickorishCode` with the parsed genus, words and annotation dictionaries,
+and `source_path` equal to the absolute input path.
+
+# Guarantees
+1. The record represents the declarations read from the file, in the linked
+   LC format. [proved/agent: by construction]
+2. Reading does not modify the file. [proved/agent: by construction]
+
+# Not guaranteed
+Successful parsing alone does not certify an embedded curve arrangement or
+the surface's genus.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> mktemp() do path, io; write(io, "genus: 1\\nl1 : -1\\nm1 : 1\\n"); close(io); lc = read_lc(path); (lc.genus, lc.words["m1"]) end
+(1, [1])
+```
+
+See also [`validate_lc_input`](@ref), [`realize_lc`](@ref), [`write_lc`](@ref).
+
+Role: construct
+"""
 function read_lc(path::AbstractString)
     text = read(path, String)
     lc = _lc_parse_text(text)
     LickorishCode(lc.genus, lc.words, lc.places, lc.disks, lc.points, lc.weights, abspath(path))
 end
 
+"""
+    validate_lc_input(lc::LickorishCode) -> Bool
+
+Check the preliminary genus, reference-name and signed-incidence requirements of an LC record.
+
+# Arguments
+`lc` is an LC record. The implemented preliminary checks concern
+[LC input validity](../specs/lickorish-code.md).
+Failures raise `KodaInputError` with stage `:validate_lc` and detail naming
+the negative genus, missing K component or conflicting label incidence.
+
+# Returns
+`true` if these preliminary checks succeed; invalid input raises an exception.
+
+# Guarantees
+1. Successful return establishes the checked genus, K-name and signed-label
+   consistency of the input. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not the full LC validator: it does not check the complete K words,
+the realized surface, placements, disks or marks. Use the applicable
+realization and diagram checks before a geometric interpretation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/lickorish-code.md §4 — domain of LC consistency checks; this entry covers the preliminary subset.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); validate_lc_input(lc)
+true
+```
+
+See also [`realize_lc`](@ref), [`validate_diagram`](@ref).
+
+Role: condition
+"""
 function validate_lc_input(lc::LickorishCode)
     g = lc.genus
     g < 0 && throw(KodaInputError(:validate_lc, "genus must be nonnegative", Dict("genus" => g)))
@@ -108,6 +237,58 @@ function validate_lc_input(lc::LickorishCode)
     true
 end
 
+"""
+    HeegaardCode(lc, roles, disks, points, weights, hc_path) -> HeegaardCode
+
+Store a Lickorish-based Heegaard diagram's curve roles and annotations.
+
+# Arguments
+`lc::LickorishCode`, `roles::Dict{String,Symbol}`,
+`disks::Dict{String,Vector{String}}`, `points::Dict{String,String}`,
+`weights::Dict{String,Int}`, and `hc_path::Union{Nothing,String}`, or
+convertible values. Conversion errors propagate. This constructor does not
+check [HC input conditions](../specs/heegaard-code.md#4-hc-の入力検査) or
+[the public diagram domain](../specs/heegaard-diagram.md).
+
+# Returns
+`HeegaardCode`, also exposed as `Topology.HeegaardDiagram`, holding the LC,
+curve-role map, named disks, points, region weights and optional source path.
+The meanings of the annotations belong to
+[the HC specification](../specs/heegaard-code.md#3-hc-に置く追加情報).
+
+# Guarantees
+1. Fields preserve supplied values after conversion; already-typed objects
+   and dictionaries are retained and not modified.
+   [proved/agent: by construction]
+2. The value carries HC data over the supplied LC. It makes no automatic
+   standard-role binding; use [`resolve_hc`](@ref) for that operation.
+   [proved/agent: by construction]
+
+# Not guaranteed
+Construction does not realize a surface or certify a Heegaard splitting.
+The name `HeegaardDiagram` is not evidence that arbitrary fields satisfy
+the diagram conditions. Later mutation of shared containers can invalidate
+previously checked data. A source path is recorded without reading it.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md §§1–4 and lib/topology.jl/docs/specs/heegaard-diagram.md — public diagram data, role binding and validation scope.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1" => [-1], "m1" => [1,2], "b" => [-2]), Dict{String,String}(), Dict{String,Vector{String}}(), Dict{String,String}(), Dict{String,Int}(), nothing);
+
+julia> a = H.resolve_hc(lc, Dict("b" => :beta); standard=true); b = H.HeegaardCode(a.lc, a.roles, a.disks, a.points, a.weights, a.hc_path);
+
+julia> (b.roles == Dict("m1" => :alpha, "b" => :beta), H.is_standard(b), b isa Topology.HeegaardDiagram)
+(true, true, true)
+```
+
+See also [`resolve_hc`](@ref), [`validate_hc_input`](@ref), [`realize_hc`](@ref).
+
+Role: convert
+"""
 struct HeegaardCode
     lc::LickorishCode
     roles::Dict{String, Symbol}
@@ -123,7 +304,39 @@ function hc_component_names(lc::LickorishCode)
     vcat(reference, sort([name for name in keys(lc.words) if !(name in reference)]))
 end
 
-"""Bind `standard` onto the reference meridians. The LC words are not copied or rewritten."""
+"""
+    resolve_hc(lc::LickorishCode, roles::AbstractDict; standard=false, disks=Dict{String,Vector{String}}(), points=Dict{String,String}(), weights=Dict{String,Int}(), hc_path=nothing) -> HeegaardCode
+
+Bind role and mark data to an existing LC.
+
+# Arguments
+`roles` uses the [HC role and standard conventions](../specs/heegaard-code.md). Standard syntax conflicts, missing reference meridians, missing or invalid role assignments and nonexistent role targets raise `KodaInputError`. `validate_hc_input` errors and dictionary conversions propagate. The caller separately establishes geometric validity of disk, point and weight supports.
+
+# Returns
+A `HeegaardCode` retaining the supplied LC and `hc_path`, with newly constructed roles and copied mark dictionaries; disk vectors are deep-copied.
+
+# Guarantees
+1. Non-K components receive a declared role and standard mode supplies the prescribed reference-meridian binding. [proved/agent: by construction]
+2. Inputs are not modified; the LC is retained by reference, so later LC mutation is visible through the result. [proved/agent: by construction]
+
+# Not guaranteed
+This does not create duplicate meridian curves, certify full cut systems or validate all mark geometry. The returned HC does not freeze its shared LC.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md §§2–4 — role assignment, standard binding and additional data.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = H.resolve_hc(lc, Dict("l1"=>:beta, "m1"=>:alpha));
+
+julia> (h.lc === lc, H.is_standard(h))
+(true, true)
+```
+
+Role: convert
+"""
 function resolve_hc(lc::LickorishCode, roles::AbstractDict;
                     standard::Bool=false, disks=Dict{String,Vector{String}}(),
                     points=Dict{String,String}(), weights=Dict{String,Int}(), hc_path=nothing)
@@ -164,6 +377,46 @@ end
 hc_curve_names(hc::HeegaardCode, family::Symbol) =
     String[n for n in hc_component_names(hc.lc) if get(hc.roles, n, :none) == family]
 
+"""
+    is_standard(hc::HeegaardCode) -> Bool
+
+Test whether an HC has the standard alpha binding to its fixed reference curves.
+
+# Arguments
+`hc` must satisfy [HC input requirements](../specs/heegaard-code.md#4-hc-の入力検査).
+`validate_hc_input` checks them and its `KodaInputError` diagnostics propagate;
+an invalid record is not converted to a negative answer.
+
+# Returns
+`Bool` for the standard binding defined in
+[the HC format](../specs/heegaard-code.md).
+
+# Guarantees
+1. The result tests the existing standard binding of the HC independently
+   of whether it was read using compact or explicit text encoding.
+   [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The predicate does not change roles, introduce reference curves, certify
+complete cutting systems or identify the represented 3-manifold.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1" => [-1], "m1" => [1,2], "b" => [-2]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> h = HeegaardCode(lc, Dict("m1" => :alpha, "b" => :beta), Dict(), Dict(), Dict(), nothing);
+
+julia> is_standard(h)
+true
+```
+
+See also [`resolve_hc`](@ref), [`hc_text`](@ref).
+
+Role: condition
+"""
 function is_standard(hc::HeegaardCode)
     validate_hc_input(hc)
     hc_curve_names(hc, :alpha) == String["m$i" for i in 1:hc.lc.genus]
@@ -236,11 +489,41 @@ function _hc_parse_text(text::AbstractString, lc_path_hint=nothing)
     (; lc_ref=String(lc_ref), roles, disks, points, weights, standard=saw_standard, format_version)
 end
 
-"""Read an `.hc` file as one resolved HC.
+"""
+    read_hc(path::AbstractString) -> HeegaardCode
 
-`standard` assigns α to the existing meridians `m1,…,mg`. The value is a
-`HeegaardCode`, the same struct `Topology` exports as `HeegaardDiagram`.
-No second curve and no stored standard flag are created.
+Read an HC file and resolve its referenced LC with the declared roles and marks.
+
+# Arguments
+`path` must name a readable file in [the HC format](../specs/heegaard-code.md). The LC reference must be relative; standard or reference-role syntax requires format `hc/2`. Parser and role violations raise `KodaInputError` with the relevant stage and directive. LC reading, I/O and `resolve_hc` errors propagate.
+
+# Returns
+A resolved `HeegaardCode` whose `hc_path` is absolute and whose LC is read relative to the HC file.
+
+# Guarantees
+1. Roles and supported disk, point and weight declarations are retained in the resolved HC; the standard syntax has `resolve_hc`'s meaning. [proved/agent: by construction]
+2. Input files are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Reading does not certify complete cut systems, joining disks, a successful drawing or a successful Koda conversion.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md §§2–5 — HC file format and validation boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> mktempdir() do dir
+           write(joinpath(dir,"d.lc"), "genus: 1\\nl1 : -1\\nm1 : 1\\n")
+           write(joinpath(dir,"d.hc"), "format : hc/2\\nlc : d.lc\\nrole m1 : alpha\\nrole l1 : beta\\n")
+           h = H.read_hc(joinpath(dir,"d.hc"))
+           (h.lc.genus, H.is_standard(h))
+       end
+(1, true)
+```
+
+Role: construct
 """
 function read_hc(path::AbstractString)
     absolute = abspath(path)
@@ -257,6 +540,45 @@ function read_hc(path::AbstractString)
         points=parsed.points, weights=parsed.weights, hc_path=absolute)
 end
 
+"""
+    validate_hc_input(hc::HeegaardCode) -> Bool
+
+Check preliminary LC consistency and selected role requirements of an HC record.
+
+# Arguments
+`hc` is an HC record in the terminology of [HC input checks](../specs/heegaard-code.md#4-hc-の入力検査).
+LC input errors propagate. Invalid non-K role values or the absence of every
+alpha and beta role raise `KodaInputError` with stage `:validate_hc`.
+
+# Returns
+`true` if the implemented preliminary checks succeed.
+
+# Guarantees
+1. Successful return means `validate_lc_input` succeeds and the implemented
+   role checks accept the record. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not enforce every HC requirement: it does not check that every role
+target exists, that every non-K curve has a role, or that role values on K
+curves are valid. It does not certify cut systems, disk data or a 3-manifold.
+Use `resolve_hc` and the applicable diagram checks for those input workflows.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md §4 — HC input domain; this preliminary routine checks only a subset.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> lc = LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); h = HeegaardCode(lc, Dict("m1"=>:alpha, "l1"=>:beta), Dict(), Dict(), Dict(), nothing); validate_hc_input(h)
+true
+```
+
+See also [`resolve_hc`](@ref), [`validate_diagram`](@ref).
+
+Role: condition
+"""
 function validate_hc_input(hc::HeegaardCode)
     validate_lc_input(hc.lc)
     g = hc.lc.genus

@@ -24,6 +24,60 @@ struct CombinatorialRegion
     joining_disk::Bool
 end
 
+"""
+    ForgottenHeegaard(genus, realization, alpha_words, beta_words, crossings, regions, diagram, correspondence) -> ForgottenHeegaard
+
+Store the Heegaard arrangement and complement regions after forgetting auxiliary reference curves.
+
+# Arguments
+`genus::Int`, `realization::Union{Nothing,LCRealization}`,
+`alpha_words::Dict{String,Vector{Int}}`, `beta_words::Dict{String,Vector{Int}}`,
+`crossings::Vector{Dict{String,Any}}`, `regions::Vector{CombinatorialRegion}`,
+`diagram::Union{Nothing,CellularHeegaardDiagram}`,
+`correspondence::Dict{String,Any}`, or values convertible to those types.
+Conversion errors propagate. This constructor does not perform forgetting.
+
+# Returns
+`ForgottenHeegaard` with the supplied surface genus, optional LC realization,
+two curve-word dictionaries, crossing records, complement regions, optional
+cellular diagram and correspondence data. Helper types are available in
+`Topology.HeegaardCodes`. The object is specified in
+[reference forgetting](../specs/heegaard-koda-conversion.md#41-忘却の計算).
+
+# Guarantees
+1. Fields preserve the supplied values after conversion; typed containers
+   and supplied objects are retained without copying. Already-typed arguments are not modified. [proved/agent: by construction]
+2. For output of [`forget_reference`](@ref), the regions refer to the
+   complement of the retained alpha and beta curves on the realized surface.
+   The correspondence records which reference curves were forgotten or retained. [proved/agent: by construction]
+
+# Not guaranteed
+Direct construction does not verify the surface, incidence, region data or
+joining-disk flags. `diagram` may be `nothing` even when forgetting returned
+region data. Its presence is not checked against the other fields. No
+3-manifold, combing or framing is identified by construction.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§4.1–4.2 — complement regions and transported marks after forgetting auxiliary K curves.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes;
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-13", "case-01.hc");
+
+julia> f = H.forget_reference(H.realize_hc(H.read_hc(path)));
+
+julia> g = H.ForgottenHeegaard(f.genus, f.realization, f.alpha_words, f.beta_words, f.crossings, f.regions, f.diagram, f.correspondence);
+
+julia> only(r for r in g.regions if r.id == 3).joining_disk
+false
+```
+
+See also [`forget_reference`](@ref), [`enumerate_joining_disk_candidates`](@ref).
+
+Role: convert
+"""
 struct ForgottenHeegaard
     genus::Int
     realization::Union{Nothing, LCRealization}
@@ -361,10 +415,36 @@ function _arc_step_count(word::Vector{Int}, from_l::Int, to_l::Int, step::Int)
     -1
 end
 
-"""§5.2 failure, or `nothing` when the region is a joining disk.
+"""
+    joining_disk_failure(region::Topology.HeegaardCodes.CombinatorialRegion, words::AbstractDict, roles::Dict{String,Symbol}) -> Union{Nothing,Symbol}
 
-A contact that is the whole closed curve is not an arc. Endpoints must be α∩β corners.
-cf: docs/specs/heegaard-koda-conversion.md §5.2
+Diagnose a forgotten region's implemented joining-disk checks.
+
+# Arguments
+`region`, `words` and `roles` must describe the same forgotten curve arrangement. The caller supplies consistent region topology and ordered boundary ports, as produced by `forget_reference`; this function does not reconstruct them. Word entries must convert to integer labels. Conversion and malformed-record errors propagate.
+
+# Returns
+`nothing` on success, otherwise a diagnostic symbol such as `:arc_not_on_word`, `:whole_curve`, `:no_ab_corner`, `:not_disk`, `:short_boundary`, `:unequal_family_count` or `:not_one_arc`.
+
+# Guarantees
+1. The result diagnoses the supplied data against the implemented [joining-disk domain](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk). In particular, whole-curve contact is rejected. [proved/agent: by construction]
+2. The arguments are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+Success alone does not independently certify an embedded disk closure, the consistency of hand-built region records, or complete Heegaard cut systems. Diagnostics do not enumerate all simultaneous failures.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.2 — joining disk, nonempty contact arcs and whole-curve exclusion.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> r = H.CombinatorialRegion(1, String[], 1, 0, 1, H.RegionPort[], false); H.joining_disk_failure(r, Dict{String,Vector{Int}}(), Dict{String,Symbol}())
+:no_ab_corner
+```
+
+Role: condition
 """
 function joining_disk_failure(region::CombinatorialRegion, words::AbstractDict, roles::Dict{String, Symbol})
     bd = region.boundary_ports
@@ -627,6 +707,62 @@ function _map_ribbon_joining_regions!(regions::Vector{CombinatorialRegion}, h::H
     out
 end
 
+"""
+    forget_reference(realized::KodaConversionResult) -> ForgottenHeegaard
+
+Return the retained Heegaard arrangement and complement regions after forgetting auxiliary K curves.
+
+# Arguments
+`realized` normally comes from `realize_hc`; it must carry a compatible LC,
+its realization and applied roles under
+[the forgetting domain](../specs/heegaard-koda-conversion.md#41-忘却の計算).
+The caller is responsible for manually assembled results. Missing keys,
+wrong field types or inconsistent combinatorial data can raise lookup,
+type or Koda conversion errors. Full input validity is not rechecked.
+
+# Returns
+`ForgottenHeegaard` with genus, the retained realization, copies of the
+alpha/beta input words, crossing records, complement-region records, an
+optional cellular `diagram`, and `correspondence`. The correspondence lists
+forgotten/retained reference curves, region data, ribbon-region matches and
+`diagram_build_error`. The family words retain their input labels.
+
+# Guarantees
+1. On a valid realized HC, the region data describe the complement of the
+   retained alpha and beta curves under
+   [reference forgetting](../specs/heegaard-koda-conversion.md#41-忘却の計算).
+   [proved/agent: by construction]
+2. Region joining flags record the current checks of
+   [the joining domain](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk).
+   [proved/agent: by construction]
+3. The input is not modified. The realization is shared, while the family
+   word vectors are copied. [proved/agent: by construction]
+
+# Not guaranteed
+Successful forgetting need not produce a cellular diagram: a failure in that
+construction is retained as `diagram_build_error` with `diagram === nothing`.
+Region IDs can have gaps and are not array positions. This does not choose a
+joining disk or construct a spine, combing or framing.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§4.1–4.2, 5.2 — reference forgetting, complement regions and joining checks.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc");
+
+julia> f = forget_reference(realize_hc(read_hc(path)));
+
+julia> length(enumerate_joining_disk_candidates(f))
+2
+```
+
+See also [`enumerate_joining_disk_candidates`](@ref), [`as_punctured_heegaard`](@ref), [`heegaard_to_spine`](@ref).
+
+Role: convert
+"""
 function forget_reference(realized::KodaConversionResult)
     doc = realized.value
     lc = doc["lc"]::LickorishCode
@@ -699,6 +835,51 @@ function forget_reference(realized::KodaConversionResult)
 end
 
 
+"""
+    enumerate_joining_disk_candidates(forgot::ForgottenHeegaard) -> Vector
+
+Return the complement regions recorded as joining-disk candidates after forgetting K.
+
+# Arguments
+`forgot` normally comes from `forget_reference`. Its region records must be
+consistent with [joining conditions §5.2](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk).
+The caller is responsible for manually constructed records: stored flags
+are used without recomputing or validating the conditions.
+
+# Returns
+A fresh vector of dictionaries with `region_id`, `joining_disk`, `chi`,
+`genus` and `boundary_components`, in the order of the selected region records.
+
+# Guarantees
+1. Exactly the records with a true `joining_disk` flag are included.
+   For output of `forget_reference`, these flags are its recorded checks of
+   the joining domain. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The result does not select a disk, construct a punctured diagram or certify
+that a cellular counterpart is available. IDs need not be contiguous indices
+into the region vector.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §5.2 — joining union and joining-disk candidate conditions.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc");
+
+julia> f = forget_reference(realize_hc(read_hc(path)));
+
+julia> length(enumerate_joining_disk_candidates(f))
+2
+```
+
+See also [`as_punctured_heegaard`](@ref), [`heegaard_to_spine`](@ref).
+
+Role: access
+"""
 function enumerate_joining_disk_candidates(forgot::ForgottenHeegaard)
     [Dict("region_id" => r.id, "joining_disk" => r.joining_disk, "chi" => r.chi, "genus" => r.genus, "boundary_components" => r.boundary_components) for r in forgot.regions if r.joining_disk]
 end
@@ -745,6 +926,62 @@ function make_punctured_combinatorial(H::HeegaardDiagram, jd::JoiningDisk)
     PuncturedHeegaardDiagram(H, deepcopy(jd), cut, cert)
 end
 
+"""
+    as_punctured_heegaard(forgot::ForgottenHeegaard, selection; choices=Dict{String,Any}()) -> KodaConversionResult{PuncturedHeegaardDiagram}
+
+Return the punctured cellular diagram associated with a selected joining region after forgetting K.
+
+# Arguments
+`forgot` is obtained from `forget_reference`. `selection` is a region ID or
+its string representation and must select a joining disk satisfying
+[Koda conditions §5.2](../specs/heegaard-koda-conversion.md#52-joining-union-と-joining-disk).
+A missing selection, a non-joining region or unequal alpha/beta counts
+throws `KodaInputError` describing the failed requirement. An unknown string
+selection throws `KodaInputError`; an integer selection without a unique
+matching region throws `ArgumentError`. A missing cellular diagram or ribbon
+counterpart throws `KodaImplementationError`. Joining-disk validation errors
+propagate. `choices` must be a mutable string-keyed dictionary accepting the
+selected region ID; the default has type `Dict{String,Any}`.
+
+# Returns
+A `KodaConversionResult` with the punctured diagram in `value`, the updated
+`choices`, a `correspondence` containing `joining_region`, and
+`source_status == :constructed`. The diagram retains the cellular source
+and selected joining disk; its full alpha-cut chart is deferred.
+
+# Guarantees
+1. On success, the selected region has a joining-disk counterpart in the
+   returned cellular diagram under the
+   [forgetful correspondence](../specs/heegaard-koda-conversion.md#42-印の輸送).
+   [proved/agent: by construction]
+2. `forgot` is not modified. The supplied `choices` dictionary is updated at
+   `"joining_region"` and is retained in the result when already correctly
+   typed. [proved/agent: by construction]
+
+# Not guaranteed
+This operation does not compute a full alpha-cut chart, a spine or o-data.
+The embedded conversion certificate retains its unverified evidence status;
+`:constructed` alone is not a literature proof of the entire Koda correspondence.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-koda-conversion.md §§4.2, 5.2, 6 — joining-region transport and the punctured input to the spine construction.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> path = joinpath(pkgdir(Topology), "..", "..", "threads", "PJ260922", "data", "261107-lickorish-data", "group-15", "case-01.hc");
+
+julia> f = forget_reference(realize_hc(read_hc(path)));
+
+julia> as_punctured_heegaard(f, 2).value.joining_disk.region
+2
+```
+
+See also [`enumerate_joining_disk_candidates`](@ref), [`heegaard_to_spine`](@ref).
+
+Role: convert
+"""
 function as_punctured_heegaard(forgot::ForgottenHeegaard, selection; choices = Dict{String, Any}())
     region = _resolve_joining_region(forgot, selection)
     region === nothing && throw(KodaInputError(:as_punctured_heegaard, "joining disk selection required", Dict()))

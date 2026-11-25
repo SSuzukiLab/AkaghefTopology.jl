@@ -174,13 +174,49 @@ function _candidate(code::CombinatorialHeegaardCode, alpha_order, alpha_visits, 
     (; key, alpha=new_alpha, beta=new_beta, intersections=points, regions)
 end
 
-"""Canonicalize curve/intersection labels and cyclic starting points.
+"""
+    canonicalize_representation(object) -> Union{CombinatorialHeegaardCode,DecoratedHeegaardCode}
 
-For small codes this searches all family relabelings and cyclic rotations,
-which makes the representation equivalence exact.  Larger codes use the
-stable existing order to avoid putting canonicalization on normal compute
-paths; the returned hash remains deterministic but is explicitly not a
-complete graph-isomorphism solver for that case.
+Return a deterministic relabelled legacy representation with normalized cyclic starts.
+
+# Arguments
+`object` is a legacy combinatorial, decorated or certified diagram under
+[legacy records](../specs/heegaard-terminology.md#legacy-cellular-records).
+Syntax and incidence are checked; failures raise `ArgumentError` describing
+the invalid code. Decorated inputs require a consistent boundary partition;
+ribbon and correspondence errors propagate. Full Heegaard validity is not checked.
+
+# Returns
+A `CombinatorialHeegaardCode` for an undecorated input, otherwise a
+`DecoratedHeegaardCode`, with relabelled curves/intersections and corresponding
+region partition. A certified input does not retain its certification wrapper.
+
+# Guarantees
+1. On consistent input, the returned representation differs by family-preserving
+   relabelling and cyclic starts, with the supplied region correspondence
+   transported. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This is not a complete representation-isomorphism solver on every size and
+does not decide 3-manifold homeomorphism. Large inputs use bounded choices;
+curve labels/tags and the certified wrapper are not preserved. The complete
+canonical-order and cutoff convention needs an owning specification entry.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9 — representation identity versus manifold equivalence.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]); n = H.canonicalize_representation(c); (length(n.alpha), length(n.beta), length(n.intersections))
+(1, 1, 1)
+```
+
+See also [`Topology.HeegaardCodes.canonical_hash`](@ref).
+
+Role: move
 """
 function canonicalize_representation(object)
     code = _undecorated(object)
@@ -260,6 +296,57 @@ end
 # This preserves `_canonical_structural_dict` and every existing hash value.
 const _canonical_hash_cache = Dict{String,String}()
 const _canonical_hash_lock = ReentrantLock()
+"""
+    canonical_hash(object) -> String
+
+Return a structural fingerprint of a legacy cellular Heegaard representation.
+
+# Arguments
+`object` is a `CombinatorialHeegaardCode`, `DecoratedHeegaardCode` or
+`CellularHeegaardDiagram` with consistent
+[legacy records](../specs/heegaard-terminology.md#legacy-cellular-records).
+Syntax and incidence failures throw `ArgumentError` identifying the failed
+class of checks. Decorations must reference existing boundary cycles;
+invalid references can raise indexing or lookup errors. Metadata must be
+serializable by the JSON interface, whose errors propagate. A resolved HC
+is not accepted by this legacy operation.
+
+# Returns
+A lowercase hexadecimal SHA-256 string for the normalized structural data.
+
+# Guarantees
+1. For unchanged data, the result is deterministic and ignores display
+   labels, source paths and metadata in the fingerprinted structure.
+   [proved/agent: by construction]
+2. The registered relabeled examples and reordered region blocks have equal
+   fingerprints. [verified-computationally: test/heegaard/core.jl, Representation canonicalization, two-curve signed examples]
+3. The input and its containers are not modified.
+   [proved/agent: by construction]
+
+# Not guaranteed
+This is not a manifold invariant or a collision-free identity certificate.
+For large codes, representation normalization limits the considered curve
+orders; equivalent representations can therefore have different hashes.
+Neither equal nor different hashes alone decide homeomorphism. Full surface
+and Heegaard validity is not checked.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-terminology.md §9 — representation identity is distinct from moves and manifold comparison.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1], [2]], [[1], [2]], [H.Intersection(1,1,1,1), H.Intersection(2,2,2,-1)]);
+
+julia> H.canonical_hash(H.decorate(c, [[2], [1]])) == H.canonical_hash(H.decorate(c, [[1], [2]]))
+true
+```
+
+See also [`canonicalize_representation`](@ref), [`hc_canonical`](@ref).
+
+Role: invariant
+"""
 function canonical_hash(object)
     key = _canonical_json(_json_dict(object))
     lock(_canonical_hash_lock) do

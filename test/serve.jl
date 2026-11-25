@@ -4,14 +4,21 @@
 # Protocol (files in the queue directory owned by this server):
 #   <id>.req   caller cwd followed by arguments, each terminated by NUL
 #   <id>.log   the run's output
-#   <id>.exit  the exit code: 0 pass, 1 fail, 3 Revise could not apply the edit
+#   <id>.taken created when the server takes the request; applying source edits
+#              (Revise) is measured from it, with its own limit of 300 s
+#   <id>.start created when the request itself starts to run; the supervisor in
+#              client.sh measures the limit of the queue from this file
+#   <id>.exit  the exit code: 0 pass, 1 fail, 3 Revise could not apply the edit,
+#              124 stopped by the supervisor at the limit of the queue
 #   server.alive  touched every few seconds while the server waits
+# With TOPOLOGY_TEST_ONESHOT=1 (the --long tier) the server exits after one request.
 # When Revise cannot apply an edit (for example a changed struct), the server
 # answers 3 before dispatching the request and exits.
 
 const QUEUE = get(ENV, "TOPOLOGY_TEST_QUEUE", joinpath(@__DIR__, ".queue"))
 mkpath(QUEUE)
 const ALIVE = joinpath(QUEUE, "server.alive")
+const ONESHOT = get(ENV, "TOPOLOGY_TEST_ONESHOT", "") == "1"
 write(joinpath(QUEUE, "server.pid"), string(getpid()))
 
 println("SERVE loading Revise and Topology"); flush(stdout)
@@ -52,6 +59,8 @@ function reply(id, code)
     path = joinpath(QUEUE, id * ".exit")
     write(path * ".tmp", string(code))
     mv(path * ".tmp", path)
+    rm(joinpath(QUEUE, id * ".start"); force=true)
+    rm(joinpath(QUEUE, id * ".taken"); force=true)
 end
 
 function serve()
@@ -74,6 +83,7 @@ function serve()
         else
             (pwd(), String.(split(strip(payload))))
         end
+        touch(joinpath(QUEUE, id * ".taken"))
         rm(req; force=true)
         log = joinpath(QUEUE, id * ".log")
         code = 1
@@ -93,6 +103,7 @@ function serve()
             exit(3)
         end
         @debug "Running request" request=id
+        touch(joinpath(QUEUE, id * ".start"))
         open(log, "w") do io
             redirect_stdout(io) do
                 redirect_stderr(io) do
@@ -109,6 +120,10 @@ function serve()
             end
         end
         reply(id, code)
+        if ONESHOT
+            rm(ALIVE; force=true)
+            exit(0)
+        end
     end
 end
 

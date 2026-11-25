@@ -91,4 +91,90 @@ The test `face cycles of the adopted calibration` prints the mandatory counts. O
 
 Off the closed-normal branch, `d = n + 1` is not required. Under B, the one-vertex graph with mate `(2, 1, 4, 3)`, over pair `(2, 4)`, and colours `(0, 0)` has two discs, lengths 2 and 4, `χ = 1`, one boundary sphere, and H₁ = Z/4. Colours `(1, 1)` have the same counts and a different corner partition, with the same H₁. Setting the stored colour −1 of `s3_abalone` to +1 produces that second coloured graph. Disc orientations of the converse of Proposition 3.2.1 are not constructed.
 
+## Canonical form and serialization
+
+This section records the current representation of `canonical_coloured_ograph`,
+`coloured_ograph_serialization` and `coloured_ograph_hash` in
+[`ograph_colours.jl`](../../src/ograph_colours.jl). The domain is O0–O3 with
+at most six vertices. The representation choices are fixed 2026-11-25 Codex
+(rule a: the existing implementation and its canonical-hash tests).
+
+For each permutation of the vertices and each independent cyclic rotation of
+its four half-edges, assign half-edge labels `1:4n` consecutively in that order.
+An opposite over pair `(1,3)` has over-code `1`, and `(2,4)` has over-code `2`.
+Record the mate tuple in increasing half-edge order. Record one colour per
+edge in increasing order of its smaller endpoint, using the representative
+`-1`, `0` or `1` of its Z₃ value. Congruent duplicate colour records contribute
+one value. The canonical representative is the least tuple
+`(convention_id, over_codes, mate, colours)` in Julia's lexicographic tuple
+order. Its vertex tuples are consecutive blocks of four labels, its over
+positions are the pair encoded above, and its colour record is attached to
+the smaller endpoint. Ties describe the same returned fields.
+
+This fixes half-edge and vertex relabelling, cyclic origins, colour-record
+endpoint choice and integer representatives of Z₃. It keeps cyclic orientation,
+the convention identifier and the stored colour class. It does not quotient
+the colour gauge described in [Chart](#chart), C-moves, MP-moves or reflection.
+The reconstruction interpretation is the one in
+[OGraphColours](../conventions/OGraphColours.md); choosing a representative adds
+no geometric certification.
+
+The current serialization is UTF-8 text, with exactly these literal separators
+and no terminal newline:
+
+```text
+ColouredOGraph;convention=<identifier>;n=<n>;over_positions=<pairs>;mate=<mates>;colours=<records>
+```
+
+Here `<identifier>` is the canonical graph's stored `convention_id`, `<n>` is
+the decimal vertex count, `<pairs>` is the comma-separated list of over pairs
+written as `1+3` or `2+4`, `<mates>` is the comma-separated decimal mate tuple,
+and `<records>` lists `halfedge:colour` pairs separated by commas in increasing
+smaller-endpoint order. Decimal integers use Julia's ordinary base-10 string
+form, with a minus sign on negative colours. The constructor strips surrounding
+whitespace from the identifier; serialization inserts the stored identifier
+verbatim, without escaping or length-prefixing. Arbitrary identifiers therefore
+have no promised unambiguous inverse grammar. There is no public inverse parser.
+The hash is the lowercase hexadecimal SHA-256 digest of these UTF-8 bytes.
+
+Compatibility policy: these bytes describe the current implementation, not a
+versioned interchange format. No cross-version byte or hash compatibility is
+promised. A consumer needing persistent interchange must retain the serializer
+revision and convention identifier; the identifier alone does not version this
+grammar. The [canonical-hash tests](../../test/ograph_colours.jl) check the
+identified changes and colour-sensitive distinctions. They do not supply a
+cross-version golden-byte fixture or an arbitrary-identifier decoding guarantee.
+
+## Boundary diagnostic flags
+
+This section owns the flags of `SpineBoundaryComponent` returned by
+[`thickening_boundary`](../../src/ograph_face_cycles.jl). They refer to the
+corner-link model in [Face cycles](#face-cycles). The distinct ribbon model and
+its component counts are specified in
+[Boundary of a coloured o-graph](ograph-colour-boundary.md#what-is-counted).
+The face orientation used here is fixed on
+[OGraphColours](../conventions/OGraphColours.md#四面体と-link-triangle-の向き).
+
+`orientable` is true exactly when every dual face gluing incident to that
+corner-link component reverses the prescribed local orientation. This tests
+compatibility of those prescribed orientations; it does not search for a new
+choice of orientation on each triangle. A false flag is therefore not a
+certificate that the underlying surface admits no orientation. The geometric
+surface interpretation still requires the reconstruction assumptions above.
+
+`closed_surface` is set to true for every returned component after the side
+pairing, involution, corner-membership and vertex-walk consistency checks
+succeed. It is not a separately computed recognition result for an arbitrary
+surface. It is neither the closed-normal conditions C1–C3 nor a statement that
+the corresponding 3-manifold has empty boundary. The public record constructor
+checks neither flag and permits arbitrary stored Boolean values.
+
+For the slot model, the component counts give `euler = vertex_count -
+edge_count + face_count`; `euler_sum` is their sum. Equivalence with the
+[ribbon model](ograph-colour-boundary.md#checks) is checked on the examples
+listed in [Face cycles](#face-cycles), not established here for every input.
+The [invariant specification](ograph-colour-invariants.md#c-move-and-mp-move)
+records move images with nonreversing face pairs and failed boundary sanity
+checks. These flags do not remove that limitation.
+
 <!-- XQQQ1000000 -->

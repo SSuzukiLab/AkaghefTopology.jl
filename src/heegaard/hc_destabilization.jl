@@ -71,6 +71,59 @@ The exact named joining region is transported through the surface surgery.
 Returns the existing standard-constructor result with cancellation correspondence.
 """
 # cf: koda_forward.jl::_hc_disk_selection/_resolve_hc_named_disk; preserve the exact named LC support.
+"""
+    hc_destabilize(hc; alpha::Int, beta::Int, alpha_basis::Symbol, joining_disk=nothing, disk_name=nothing, disk_id=nothing) -> NamedTuple
+
+Return a standard HC after a supported one-intersection handle cancellation.
+
+# Arguments
+`hc` is a validated HC in the domain of
+[HC surface operations](../specs/heegaard-snappy.md#hc-の曲面操作).
+`alpha` and `beta` select the forgotten diagram's curve orders; in-range
+indices are the caller's responsibility (`BoundsError` otherwise).
+`alpha_basis` is required; values other than `:l` or `:m` raise
+`HCTriangulationError` naming the standard-basis choice.
+Supply an explicit joining-disk selection through the named keywords.
+Unsupported marks, noncellular input, an unavailable disk transport, failed
+one-intersection support or incomplete cut systems raise `LCMoveError`
+with the scope or support reason. Input/selection errors from HC and Koda
+validation propagate. Output certification errors also propagate.
+
+# Returns
+The named-tuple result of `hc_koda_to_standard`, including `lc`, `hc` and
+`certificate`. The certificate adds `destabilization` (curve, crossing,
+genus and disk-corner correspondence), `input_joining_region` and
+`input_joining_faces`.
+
+# Guarantees
+1. A successful result has a certified cellular legacy diagram of genus
+   one less than the input, with complete alpha and beta systems and the
+   transported joining disk. [proved/agent: by construction]
+2. The resulting HC is intended to describe the same closed 3-manifold
+   through the specified cancellation. [unverified: a general geometric identification of the emitted standard HC with that surgery is not certified here]
+3. The input HC is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The result does not prove minimal genus or independently identify the output
+3-manifold. The general manifold-preservation statement in guarantee 2 is
+not a consequence of homology agreement alone.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> root = normpath(joinpath(dirname(pathof(Topology)), "..", "..", ".."));
+
+julia> h = read_hc(joinpath(root, "threads", "PJ260922", "data", "261112-example-table", "E1-summand-L3", "turn9-public-standard-l", "diagram.hc"));
+
+julia> try hc_destabilize(h; alpha=1, beta=1, alpha_basis=:l, disk_name="joining"); false catch e; e isa LCMoveError end
+true
+```
+
+See also [`hc_koda_to_standard`](@ref), [`hc_first_homology`](@ref).
+
+Role: move
+"""
 function hc_destabilize(hc;alpha::Int,beta::Int,alpha_basis::Symbol,joining_disk=nothing,disk_name=nothing,disk_id=nothing)
     validate_hc_input(hc)
     isempty(hc.lc.disks)&&isempty(hc.lc.points)&&isempty(hc.lc.weights)&&length(hc.disks)<=1 ||

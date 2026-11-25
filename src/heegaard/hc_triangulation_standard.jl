@@ -197,11 +197,48 @@ function _hc_standard_finalize(diagram,lc,labels;joining_region::Integer,alpha_b
 end
 
 
-"""Construct reference-bound alpha and free beta words on the original Koda surface.
+"""
+    hc_koda_to_standard(diagram; joining_region::Integer, alpha_basis::Symbol) -> NamedTuple
 
-`alpha_basis` is required and accepts `:l` or `:m`. The source must be cellular,
-closed, positive genus, with complete minimal alpha and beta systems. The given
-joining region is transported as the whole union of its child LC faces.
+Place a cellular Koda diagram on the fixed Lickorish reference surface.
+
+# Arguments
+`diagram` satisfies the [standard-reference construction domain](../specs/heegaard-snappy.md).
+Checked: `alpha_basis` is `:l` or `:m`, the source is cellular with positive
+genus and both complete cut systems, and `joining_region` is a valid joining
+disk. Failures raise `HCTriangulationError` identifying the standard-construction
+condition or propagate the joining-disk error. Route and transport failures
+also raise stage-specific errors.
+
+# Returns
+A named tuple containing `lc`, resolved `hc`, `joining_region_id`,
+`joining_faces` and a `certificate` of source curves, reference construction,
+regions, corners and joining-disk transport.
+
+# Guarantees
+1. On success the result carries the original curve data and chosen joining
+   region on the reference surface; source-curve and region correspondences
+   pass the recorded checks. [proved/agent: by construction]
+2. Neither the input nor its chosen joining region is modified or replaced.
+   [proved/agent: by construction]
+
+# Not guaranteed
+The certificate is not an independent PL homeomorphism proof for the
+represented 3-manifold. This entry does not promise that every supported
+input's reference routing will finish successfully.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — standard-reference construction and explicit basis.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> try H.hc_koda_to_standard(nothing; joining_region=1, alpha_basis=:unknown) catch e; e isa H.HCTriangulationError end
+true
+```
+
+Role: convert
 """
 function hc_koda_to_standard(diagram;joining_region::Integer,alpha_basis::Symbol)
     alpha_basis in (:l,:m)||throw(HCTriangulationError(:standard_alpha_basis,"choose :l or :m explicitly"))
@@ -218,7 +255,48 @@ function hc_koda_to_standard(diagram;joining_region::Integer,alpha_basis::Symbol
     result
 end
 
-"""Actual triangulation → Koda → reference-bound HC, with an explicit alpha basis."""
+"""
+    hc_triangulation_to_standard(input; alpha_basis::Symbol, orders=nothing, max_nodes::Int=100_000) -> NamedTuple
+
+Return the reference-bound HC obtained from a triangulation's checked Koda flow.
+
+# Arguments
+`input` and branching keywords have the domain of `hc_flow_certificate`;
+`alpha_basis` and the reconstructed diagram must satisfy
+[the standard-reference construction](../specs/heegaard-snappy.md).
+Flow construction precedes the basis check. All encoding, flow, joining-disk,
+complete-system and reference-transport exceptions propagate.
+
+# Returns
+The named-tuple output of `hc_koda_to_standard`, containing `lc`, `hc`,
+joining-region data and a certificate extended with `flow_certificate`.
+
+# Guarantees
+1. The result transports the reconstructed diagram's selected joining region
+   and curve data to the chosen fixed reference basis.
+   [proved/agent: by construction]
+2. The input triangulation is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The composed conversion is not an independent general PL homeomorphism
+certificate. Success and mathematical interpretation retain both the flow
+and standard-reference producers' domain limits.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — composed inverse flow and standard-reference conversion.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> t = H.hc_triangulation(Topology.lens_space_link(2,1); signature=false);
+
+julia> r = H.hc_triangulation_to_standard(t; alpha_basis=:m, orders=t.branch_orders); r.certificate["reference_words_checked"]
+true
+```
+
+Role: convert
+"""
 function hc_triangulation_to_standard(input;alpha_basis::Symbol,orders=nothing,max_nodes::Int=100_000)
     flow=hc_flow_certificate(input;orders,max_nodes)
     result=hc_koda_to_standard(flow.diagram;joining_region=flow.region,alpha_basis)

@@ -4,13 +4,45 @@
 # b₁ = 0 stays on hc_reidemeister_torsion and is not handled here.
 import AbstractAlgebra
 
-"""Reidemeister–Turaev torsion for a closed HC with b₁ ≥ 1.
+"""
+    HCGroupRingFraction(betti, free_basis, numerator, denominator) -> HCGroupRingFraction
 
-`free_basis` has one column per generator of the free part of H₁. Column k is the
-exponent vector of that generator on the α curves, in the order of the presentation.
-`numerator / denominator` lies in the fraction field of Z[t₁^{±1}, …, t_b^{±1}].
-The class is taken in that field modulo ± monomials. b₁ = 0 raises
-`HCTorsionError(:finite_homology)`.
+Store a rational Laurent-expression record for positive-Betti Heegaard torsion.
+
+# Arguments
+`betti::Int`, `free_basis::Matrix{Int}`, and arbitrary numerator and denominator
+values, with field conversions where applicable. Conversion errors propagate.
+The caller supplies consistent coordinates and compatible ring elements;
+the constructor checks neither dimensions nor a nonzero denominator.
+
+# Returns
+An `HCGroupRingFraction` with the supplied Betti number, free-coordinate
+matrix and fraction components.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed arrays and ring
+   values are retained without modification. [proved/agent: by construction]
+2. Construction stores claimed torsion data without computing a Fox complex
+   or proving a manifold identification. [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+A hand-built fraction need not define a valid torsion. The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the producer's basis and normalization; comparing raw fractions across HC presentations is not certified here.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> f = HCGroupRingFraction(1, ones(Int,1,1), 1, 2); (f.betti, f.numerator, f.denominator)
+(1, 1, 2)
+```
+
+See also [`hc_positive_torsion`](@ref).
+
+Role: construct
 """
 struct HCGroupRingFraction
     betti::Int
@@ -19,11 +51,47 @@ struct HCGroupRingFraction
     denominator
 end
 
-"""Multivariable Alexander polynomial of a closed HC with b₁ ≥ 2.
+"""
+    HCMultivariableAlexander(betti, free_basis, polynomial) -> HCMultivariableAlexander
 
-The polynomial is the torsion of Theorem 4.4, as a Laurent polynomial on the same
-`free_basis` as `hc_positive_torsion`. Comparison with another normalization is
-modulo GL(b₁, Z) and multiplication by ± a monomial. b₁ < 2 raises `HCTorsionError`.
+Store a multivariable Alexander-polynomial record with its free-coordinate matrix.
+
+# Arguments
+`betti::Int`, `free_basis::Matrix{Int}` and an arbitrary polynomial value.
+Field conversions are applied and conversion errors propagate. The caller
+supplies compatible coordinates and a suitable polynomial; the constructor
+checks neither the Betti number nor the coefficient ring.
+
+# Returns
+An `HCMultivariableAlexander` retaining the supplied Betti number,
+free-coordinate matrix and polynomial.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed containers and
+   the polynomial are retained without mutation. [proved/agent: by construction]
+2. No invariant computation or manifold certification is performed.
+   [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+Arbitrary fields need not describe a manifold's Alexander polynomial.
+The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the producer's coordinates and normalization; raw polynomial equality across presentations
+is not an invariant comparison supplied by this constructor.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> a = HCMultivariableAlexander(2, [1 0; 0 1], 1); (a.betti, size(a.free_basis), a.polynomial)
+(2, (2, 2), 1)
+```
+
+See also [`hc_multivariable_alexander`](@ref).
+
+Role: construct
 """
 struct HCMultivariableAlexander
     betti::Int
@@ -189,11 +257,48 @@ end
 """
     hc_positive_torsion(hc::HeegaardCode) -> HCGroupRingFraction
 
-The representative is the first defined Fox minor
+Return a Laurent-fraction torsion record for the free abelian quotient of an HC presentation.
 
-    τ = (−1)^{i+j+g+1} det(minor_{j,i}) / ((φ(α_i) − 1)(φ(β_j^♯) − 1)),
+# Arguments
+`hc` has the [Heegaard input domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+Closed curve counts and positive first Betti number are checked with
+`HCTorsionError(:not_closed)` or `HCTorsionError(:finite_homology)`.
+Invalid dual data, absent or disagreeing minors and a zero denominator raise
+stage-specific `HCTorsionError`; algebra errors propagate. The caller supplies
+complete cut systems for a geometric manifold interpretation.
 
-with τ₀ = +1. Later minors are kept only when they differ from it by ± a monomial.
+# Returns
+`HCGroupRingFraction` with `betti`, integer `free_basis`, and reduced Laurent
+`numerator` and `denominator`.
+
+# Guarantees
+1. All defined Fox-minor fractions agree with the returned quotient up to
+   a signed Laurent monomial. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the positive-Betti basis, augmentation and normalization. The record's general identification with the represented
+3-manifold's Reidemeister torsion is not independently certified here. It is
+not an absolute value invariant under arbitrary basis changes.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#reidemeister-character-coordinates — Fox-complex identification boundary; positive-Betti normalization requires its own entry.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1],"m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> try H.hc_positive_torsion(hc) catch e; e isa H.HCTorsionError && e.reason == :finite_homology end
+true
+```
+
+Role: invariant
 """
 function hc_positive_torsion(hc::HeegaardCode)
     alphas, betas, _ = _hc_curve_lists(hc)
@@ -262,6 +367,49 @@ _hcm_same_fraction(left_num, left_den, right_num, right_den) =
 
 """
     hc_multivariable_alexander(hc::HeegaardCode) -> HCMultivariableAlexander
+
+Return the multivariable Laurent-polynomial record associated with a positive-Betti HC.
+
+# Arguments
+`hc` has the domain of `hc_positive_torsion`, including closed curve counts
+and positive first Betti number. Its errors propagate. Checked: Betti number
+is at least two, otherwise `HCTorsionError(:univariate)`; nonzero torsion must
+have a Laurent-unit denominator, otherwise `HCTorsionError(:not_laurent)`.
+Complete cut systems are the caller's responsibility in the
+[Heegaard domain](../specs/heegaard-koda-conversion.md#51-曲線系と多様体).
+
+# Returns
+`HCMultivariableAlexander` with `betti`, the producer's `free_basis` and a
+Laurent `polynomial` in that basis.
+
+# Guarantees
+1. The polynomial equals the positive-torsion quotient on the reported
+   free coordinates, including a zero numerator. [proved/agent: by construction]
+2. The input is not modified. [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the free-basis and unit convention. General identification
+with the represented manifold's Alexander polynomial is not certified by this
+wrapper, and literal coefficient comparison across bases is not justified.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#reidemeister-character-coordinates — related Fox-complex identification boundary; positive-Betti conventions remain separate.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> hc = H.resolve_hc(H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing), Dict("l1"=>:beta,"m1"=>:alpha));
+
+julia> try H.hc_multivariable_alexander(hc) catch e; e isa H.HCTorsionError && e.reason == :finite_homology end
+true
+```
+
+Role: invariant
 """
 function hc_multivariable_alexander(hc::HeegaardCode)
     torsion = hc_positive_torsion(hc)
@@ -304,12 +452,51 @@ function _hcm_det_int(matrix::Matrix{Int})
 end
 
 """
-    hc_laurent_gl_matrix(polynomial, terms; bound::Int=2) -> Union{Matrix{Int}, Nothing}
+    hc_laurent_gl_matrix(polynomial, terms; bound::Int=2) -> Union{Matrix{Int},Nothing}
 
-Search GL(b, Z) with entries in `-bound:bound`. The result is a matrix A such that
-the substituted polynomial and the term list differ by ± a monomial, where column
-j of A is the image of the j-th variable. `nothing` means no such matrix was found
-inside the bound.
+Search for a bounded unimodular change of Laurent-polynomial coordinates.
+
+# Arguments
+`polynomial` is an AbstractAlgebra integer Laurent polynomial and `terms`
+is an iterable of integer exponent-vector/coefficient pairs in the same
+number of variables. The caller must restrict the number of variables to
+one, two or three; that determinant-domain restriction is not checked.
+A nonnegative `bound` is the caller's responsibility. Integer arithmetic must
+fit in `Int`. Ring, exponent and conversion failures propagate.
+
+# Returns
+A unimodular integer matrix witnessing unit-equivalence to the term-list
+polynomial, or `nothing` if none was found inside the supplied entry bound.
+
+# Guarantees
+1. Within the stated dimension and arithmetic domain, a returned matrix
+   witnesses equality up to a signed Laurent monomial after substitution.
+   [proved/agent: by construction]
+2. Neither input is modified. [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+A failed bounded search does not rule out an unbounded change of basis.
+The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the exponent transport and unit comparison;
+this numerical witness alone does not identify manifold invariants.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#alexander-laurent-coordinates — exponent transport and Laurent-unit comparison.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes; A = H.AbstractAlgebra;
+
+julia> r, v = A.laurent_polynomial_ring(A.ZZ, [:u,:v]); p = one(r) + v[2]^2;
+
+julia> H.hc_laurent_gl_matrix(p, [(Int[0,0],1),(Int[2,0],1)]; bound=1) !== nothing
+true
+```
+
+Role: other
 """
 function hc_laurent_gl_matrix(polynomial, terms; bound::Int=2)
     ring = parent(polynomial)
@@ -338,8 +525,45 @@ end
 """
     hc_turaev_matches(torsion::HCGroupRingFraction, alexander) -> Bool
 
-`alexander` is a Laurent polynomial on the same basis. b₁ ≥ 2 requires
-τ ∼ Δ, and b₁ = 1 requires τ ∼ Δ/(t−1)^2, both modulo ± monomials.
+Test the supported torsion–Alexander identity on common Laurent coordinates.
+
+# Arguments
+`alexander` must be a Laurent polynomial; `torsion` must have consistent
+positive-Betti fraction fields. A different parent ring returns false.
+The caller ensures that both objects use the same free basis and that the
+denominator is nonzero; malformed ring data and exact-division errors propagate.
+
+# Returns
+A Boolean reporting equality in the supported torsion–Alexander unit class.
+
+# Guarantees
+1. In the stated domain the result tests the Betti-one or higher-Betti
+   torsion–Alexander relation implemented for these records.
+   [proved/agent: by construction]
+2. Neither input is modified. [proved/agent: by construction]
+
+# Conventions
+Laurent coordinates and normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-code.md#alexander-laurent-coordinates).
+
+# Not guaranteed
+Matching is not a manifold identification or a proof that either input is
+its claimed invariant. The [Laurent-coordinate specification](../specs/heegaard-code.md#alexander-laurent-coordinates)
+states the normalization, basis transport and comparison relation.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-code.md#reidemeister-character-coordinates — related torsion-identification boundary; positive-Betti normalization remains separate.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> A = H.AbstractAlgebra; r, v = A.laurent_polynomial_ring(A.ZZ, [:t]); t = only(v); f = H.HCGroupRingFraction(1, ones(Int,1,1), one(r), (t-1)^2);
+
+julia> H.hc_turaev_matches(f,one(r))
+true
+```
+
+Role: condition
 """
 function hc_turaev_matches(torsion::HCGroupRingFraction, alexander)
     parent(alexander) == parent(torsion.numerator) || return false

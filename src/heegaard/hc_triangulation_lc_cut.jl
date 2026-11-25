@@ -17,11 +17,52 @@ end
 
 include("hc_triangulation_lc_cut_overlay.jl")
 
-"""Transport a checked genus-one or standard genus-two Koda surface into a resolved LC/HC.
+"""
+    hc_cut_to_resolved(diagram, cut=hc_surface_cut_system(diagram); joining_region::Integer) -> NamedTuple
 
-The old ribbon graph is retained. Only the reference curves are inserted;
-all old crossings and the specified joining region have checked ancestry.
-Other polygon words and higher genus require additional transport and are unsupported.
+Transport a supported cellular Koda surface and its chosen joining disk into an LC-bound HC.
+
+# Arguments
+`diagram` and `cut` satisfy the [reference-overlay domain](../specs/heegaard-snappy.md).
+Checked: the cut equals the current surface-cut certificate, has a supported
+genus-one or genus-two polygon, and meets the transport checks; failures raise
+`HCTriangulationError` with the stage. An out-of-range `joining_region` raises
+`ArgumentError`; `joining_disk` validates that selected region. No alternative
+region is chosen. Other validation and conversion errors propagate.
+
+# Returns
+A named tuple with `lc`, `hc`, `joining_disk_name`, the selected region's
+`joining_faces` and `joining_region_id`, and a `certificate` of curve, crossing,
+reference-overlay, corner and region correspondences.
+
+# Guarantees
+1. The output preserves the source curve words after forgetting inserted
+   reference crossings; original vertex rotations and the bijection of
+   source regions with forgotten LC regions are checked.
+   [proved/agent: by construction]
+2. The joining disk marks the transported source region as a union of LC
+   faces, rather than a replacement face. [proved/agent: by construction]
+3. The input diagram and cut are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This surface correspondence is not an independent PL homeomorphism
+certificate for the capped 3-manifold. General polygon standardization and
+higher genus are outside the implemented transport domain.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-snappy.md — checked surface cut, reference overlay and PL-identification boundary.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> c = H.heegaard_code([[1]], [[1]], [H.Intersection(1,1,1,1)]); h = H.certify_heegaard(H.decorate(c, [[1]]));
+
+julia> try H.hc_cut_to_resolved(h, Dict{String,Any}(); joining_region=1) catch e; e isa H.HCTriangulationError end
+true
+```
+
+Role: convert
 """
 function hc_cut_to_resolved(diagram, cut=hc_surface_cut_system(diagram); joining_region::Integer)
     cut==hc_surface_cut_system(diagram) ||
@@ -151,6 +192,57 @@ function hc_cut_to_resolved(diagram, cut=hc_surface_cut_system(diagram); joining
     (;lc,hc,joining_disk_name="joining",joining_faces,joining_region_id,certificate)
 end
 
+"""
+    hc_triangulation_to_resolved(input; orders=nothing, max_nodes::Int=100_000) -> NamedTuple
+
+Convert a supported closed triangulation into an LC-bound Heegaard diagram with a joining disk.
+
+# Arguments
+`input` is an `HCClosedTriangulation` or its string-keyed data dictionary in
+[the inverse bridge domain](../specs/heegaard-snappy.md#逆方向の実装範囲と未解決).
+`orders` optionally supplies the branching orders; otherwise a branching is
+searched for within positive `max_nodes`. Nonpositive budgets raise
+`ArgumentError`. The checks of `hc_flow_certificate` and `hc_cut_to_resolved`
+apply: failed face/branching, flow, polygon or transport conditions raise
+`HCTriangulationError` identifying the stage; Koda conversion errors propagate.
+The supported cut surface is genus one or the specified genus-two polygon;
+arbitrary higher-genus inputs are outside this conversion's domain.
+
+# Returns
+A named tuple with `lc`, resolved `hc`, `joining_disk_name`, `joining_faces`,
+`joining_region_id`, and a `certificate` containing source-curve, crossing,
+region and reference-overlay correspondence checks.
+
+# Guarantees
+1. The output contains the selected source joining region and the curve and
+   vertex-rotation correspondence checked by `hc_cut_to_resolved`.
+   [proved/agent: by construction]
+2. The LC-bound diagram is intended to represent the capped 3-manifold of
+   the input triangulation via the Koda flow construction.
+   [unverified: the general composed PL identification is not certified by this wrapper]
+3. The input triangulation is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+An output record is not an independent PL homeomorphism certificate. The
+finite correspondence and round-trip checks do not settle guarantee 2 for
+all inputs, and unsupported polygon words are not automatically standardized.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> t = hc_triangulation(Topology.lens_space_link(2, 1); signature=false);
+
+julia> h = hc_triangulation_to_resolved(t; orders=t.branch_orders).hc;
+
+julia> h isa Topology.HeegaardDiagram
+true
+```
+
+See also [`hc_flow_certificate`](@ref), [`hc_cut_to_resolved`](@ref), [`hc_triangulation_to_standard`](@ref).
+
+Role: convert
+"""
 function hc_triangulation_to_resolved(input;orders=nothing,max_nodes::Int=100_000)
     flow=hc_flow_certificate(input;orders,max_nodes)
     hc_cut_to_resolved(flow.diagram;joining_region=flow.region)

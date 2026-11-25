@@ -215,6 +215,57 @@ export ograph_move_weight_relation, solve_ograph_path_weights,
 # Fixture-friendly package overload.  The source-level production builder is
 # zero-argument and reconstructs max_n=6; this overload keeps the transient
 # bridge workspace private while allowing a small package smoke test.
+"""
+    build_knot_n6_targeted_barrier8(classification::KnotN6Classification; progress::Bool=true) -> KnotN6TargetedBarrier8Result
+
+Return a targeted barrier-eight extension of an existing bounded knot classification.
+
+# Arguments
+`classification` must be a coherent result of
+[`build_knot_n6_classification`](@ref) with `max_n` in `0:6`.
+`progress` controls progress messages. An out-of-range `max_n` throws
+`ArgumentError`; inconsistent indices, known labels, transitions or closure
+data propagate the targeted-search errors. No independent validation of all
+manually assembled classification fields is performed.
+
+# Returns
+`KnotN6TargetedBarrier8Result` with barrier, input fingerprints, seed and
+resolved/unresolved component data, known-label connections, search and
+verification counts, elapsed time, and `status`/`resource_reason` fields.
+Use [`knot_n6_targeted_barrier8_summary`](@ref) for a compact view.
+
+# Guarantees
+1. The result describes finite verified-move connections extending the input's
+   unresolved components through the targeted barrier-seven and barrier-eight
+   searches. Its mathematical scope is that finite diagram graph. [proved/agent: by construction]
+2. `barrier == 8`. Reported resolved labels come from connections to known
+   input components; unresolved components are preserved as unresolved. [proved/agent: by construction]
+3. The supplied classification is not modified by this operation. [proved/agent: by construction]
+
+# Not guaranteed
+This is not an eight-crossing census or an unbounded knot-equivalence
+decision. Resource termination can produce a partial result; inspect
+`status` and `resource_reason`. No full paths or parent arrays are returned.
+The [module scope](../specs/module-structure.md#1-構成) does not itself
+certify the local-move or classical-realizability conventions.
+
+# Sources
+cf: lib/topology.jl/src/reidemeister.jl verify_reidemeister_transition — local transition evidence underlying the finite graph.
+
+# Examples
+```jldoctest
+julia> c = build_knot_n6_classification(3; barrier=3, progress=false);
+
+julia> r = build_knot_n6_targeted_barrier8(c; progress=false);
+
+julia> (isempty(r.seed_components), r.n7_state_count, r.n8_state_count, r.status)
+(true, 0, 0, "barrier8_resolved_all_seed_components")
+```
+
+See also [`knot_n6_targeted_barrier8_summary`](@ref).
+
+Role: convert
+"""
 function build_knot_n6_targeted_barrier8(
         classification::KnotN6Classification; progress::Bool=true)
     workspace_ref = Ref{Any}(nothing)
@@ -274,8 +325,90 @@ finish_search_run!(store::MoveGraphStoreDB, ::Type{HeegaardCode}, run_id::Abstra
     HeegaardCodes.finish_hc_search_run!(store, run_id; kwargs...)
 finish_search_run!(store::MoveGraphStoreDB, ::Type{VirtualLink}, run_id::AbstractString; kwargs...) =
     finish_ograph_search_run!(store, run_id; kwargs...)
+"""
+    search_neighbors(store::MoveGraphStoreDB, ::Type{HeegaardCode}, state_id::AbstractString; row_ids=nothing) -> Vector
+
+Read the stored outgoing edges of an HC presentation in the search graph.
+
+# Arguments
+`store` satisfies M7 of the [search-store conditions](../specs/move-graph-store.md#numbered-conditions);
+`state_id` is the source presentation's stored identifier.
+Checked: the HC schema must be installed and supported; `ArgumentError` names
+the absent schema or unsupported version. Database and string-conversion errors
+propagate. `row_ids` is absent or an iterable of move-row names.
+Caller's responsibility: trust the stored certificates only to the extent
+they have been independently verified.
+
+# Returns
+Records containing `operation_id`, `run_id`, source and target state IDs,
+`depth`, `row_id`, `inverse_status`, and decoded `candidate` data.
+
+# Guarantees
+1. Only stored successful outgoing HC edges matching the requested row names
+   are returned, ordered by depth, row name and operation ID. [proved/agent: by construction]
+2. Database records are not modified. [proved/agent: by construction]
+
+# Not guaranteed
+This does not enumerate unstored moves or recheck equivalence of manifolds.
+An empty result is compatible with undiscovered neighbors.
+
+# Sources
+cf:lib/topology.jl/docs/specs/module-structure.md §3.1 — representation-selected search interface.
+
+# Examples
+```jldoctest
+julia> s = open_store(); Topology.HeegaardCodes.migrate_hc_search_store!(s);
+
+julia> isempty(search_neighbors(s, Topology.HeegaardCodes.HeegaardCode, "absent"; row_ids=String[]))
+true
+
+julia> close_store!(s);
+```
+
+Role: access
+"""
 search_neighbors(store::MoveGraphStoreDB, ::Type{HeegaardCode}, state_id::AbstractString; kwargs...) =
     HeegaardCodes.hc_search_neighbors(store, state_id; kwargs...)
+"""
+    search_neighbors(store::MoveGraphStoreDB, ::Type{VirtualLink}, state_id::AbstractString; kinds=("MP", "02")) -> Vector
+
+Read the stored outgoing edges of an o-graph presentation in the search graph.
+
+# Arguments
+Use the store, identifier and kind conditions of
+[`ograph_search_neighbors`](@ref) and the [search specification](../specs/ograph-search-db.md#contract).
+The store requires M7 of the [store conditions](../specs/move-graph-store.md#numbered-conditions).
+Checked: unsupported move kinds raise `ArgumentError`; schema and database
+errors propagate. The caller supplies a readable store and interprets its
+stored evidence independently of this query.
+
+# Returns
+The neighbor records of `ograph_search_neighbors`, including operation and
+endpoint IDs, kind, direction, engine version and candidate JSON.
+
+# Guarantees
+1. The returned rows equal `ograph_search_neighbors(store,state_id; kinds)`.
+   These are stored successful directed operations, not newly generated moves. [proved/agent: by construction]
+2. The store is not modified. [proved/agent: by construction]
+
+# Not guaranteed
+The call does not replay transitions or establish manifold equivalence.
+
+# Sources
+cf:lib/topology.jl/docs/specs/ograph-search-db.md §Contract — the persisted presentation graph.
+
+# Examples
+```jldoctest
+julia> s = open_store(); migrate_ograph_search_store!(s);
+
+julia> isempty(search_neighbors(s, VirtualLink, "absent"; kinds=String[]))
+true
+
+julia> close_store!(s);
+```
+
+Role: access
+"""
 search_neighbors(store::MoveGraphStoreDB, ::Type{VirtualLink}, state_id::AbstractString; kwargs...) =
     ograph_search_neighbors(store, state_id; kwargs...)
 query_search_paths(store::MoveGraphStoreDB, ::Type{HeegaardCode}, source_state_id::AbstractString; kwargs...) =
@@ -284,6 +417,44 @@ query_search_paths(store::MoveGraphStoreDB, ::Type{VirtualLink}, source_state_id
     query_ograph_search_paths(store, source_state_id; kwargs...)
 put_search_state!(store::MoveGraphStoreDB, hc::HeegaardCode; kwargs...) =
     HeegaardCodes.put_hc_search_state!(store, hc; kwargs...)
+"""
+    search_state(hc::HeegaardCode; identity=:canonical) -> CanonicalState
+
+Construct the stored presentation identity of a Heegaard code.
+
+# Arguments
+`hc` satisfies the [HC data specification](../specs/heegaard-code.md).
+Checked: `identity` selects `:canonical` or `:literal`; an unsupported name
+raises `ArgumentError`. The caller supplies valid HC data; writing or
+canonicalization failures propagate, and invalid data has no certified
+presentation-identity interpretation.
+
+# Returns
+A `CanonicalState` with the serialized identity, its hash and versioned ID,
+HC writing as payload, genus as complexity, and representation `hc-search`.
+
+# Guarantees
+1. The result equals `Topology.HeegaardCodes.hc_search_state(hc; identity)`
+   under the [common search interface](../specs/module-structure.md#31-moveapi). [proved/agent: by construction]
+2. The input is not modified and no database row is inserted. [proved/agent: by construction]
+
+# Not guaranteed
+Identity of stored presentations is not a classification of represented
+manifolds. Canonicalization has the scope of `hc_canonical`.
+
+# Sources
+cf:lib/topology.jl/docs/specs/module-structure.md §3.1 — HC search-state adapter.
+
+# Examples
+```jldoctest
+julia> H = Topology.HeegaardCodes; lc = H._lc_parse_text("genus: 1\\nl1 : -1\\nm1 : +1\\n"); h = H.resolve_hc(lc, Dict("l1" => :beta); standard=true);
+
+julia> search_state(h; identity=:literal).representation
+"hc-search"
+```
+
+Role: convert
+"""
 search_state(hc::HeegaardCode; kwargs...) =
     HeegaardCodes.hc_search_state(hc; kwargs...)
 expand_search_state!(store::MoveGraphStoreDB, run_id::AbstractString, hc::HeegaardCode; kwargs...) =

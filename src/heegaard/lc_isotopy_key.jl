@@ -32,9 +32,48 @@ struct LCIsotopyKeyFailure
     after::Vector{Tuple{String,String,Int}}
 end
 
-"""Representative of one curve in minimal position with K.
+"""
+    LCIsotopyKey(curve, names, words, key, orbit, digons_after_isolation, digons_after_vertex, algebra_ok, failure) -> LCIsotopyKey
 
-`key` is `nothing` when `failure` is set. `words` is empty in that case.
+Store a curve representative and diagnostics from a bounded isotopy-key search.
+
+# Arguments
+`curve::String`, `names::Vector{String}`, `words::Vector{Vector{Int}}`,
+`key::Union{Nothing,String}`, three integer search counts, `algebra_ok::Bool`
+and an optional `LCIsotopyKeyFailure`, or convertible values. Conversion
+errors propagate. The constructor does not check consistency of a key,
+word data, counts or failure record.
+
+# Returns
+An `LCIsotopyKey` retaining the curve name, representative words, optional
+key, search counts, algebra-check flag and optional failure.
+
+# Guarantees
+1. Fields preserve supplied values after conversion. Typed containers are
+   shared and not modified. [proved/agent: by construction]
+2. The record can carry a search result for the fixed-surface curve-isotopy
+   problem in [the move specification](../specs/heegaard-moves.md).
+   [proved/agent: by construction]
+
+# Conventions
+LC key normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/lickorish-code.md#lc-isotopy-key-normalization).
+
+# Not guaranteed
+Construction does not certify minimal position or isotopy. A stopped bounded
+search does not prove that no equivalence exists. The [key specification](../specs/lickorish-code.md#lc-isotopy-key-normalization)
+states the normalization and bounded-search scope.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes
+
+julia> k = LCIsotopyKey("c", String[], Vector{Int}[], nothing, 0, 0, 0, false, nothing); (k.curve, k.key, k.algebra_ok)
+("c", nothing, false)
+```
+
+See also [`lc_isotopy_key`](@ref).
+
+Role: construct
 """
 struct LCIsotopyKey
     curve::String
@@ -344,23 +383,39 @@ end
 
 """
     lc_isotopy_key(lc::LickorishCode, curve::AbstractString) -> LCIsotopyKey
-    lc_isotopy_key(lc::LickorishCode, curves) -> Vector{LCIsotopyKey}
 
-Representative of `curve` in minimal position with the K curves of `lc`.
+Compute a bounded representative key for one oriented curve against the fixed LC reference curves.
 
-The curve is separated together with K. Digons are removed by the four
-`lc.isotopy.digon.remove` rows, taking the first witness of the first row
-that applies. The vertex orbit uses `lc.isotopy.vertex.000` through `.111`.
-Each exchange is followed by the same digon removal. The representative is a
-shortest word, then the lexicographically least cyclic relabeling. Labels of
-K-K crossings stay fixed. A word with reversed orientation is a different key.
+# Arguments
+`curve` names an existing component of `lc`; a missing name raises `KodaInputError` at `:lc_isotopy_key`. The curve together with the fixed reference curves must pass `validate_lc_input`. Move-domain and validation errors propagate. Search caps and detected changes of algebraic intersections are reported in the result rather than as a successful key.
 
-Algebraic intersections with K are compared around every removal and every
-vertex exchange. When one changes, `key` is `nothing` and `failure` holds the
-row and the intersections before and after. The search also stops without a
-key after 4000 digon removals, when a word exceeds length 800, when the
-vertex orbit exceeds 4000 states, or when the product of the cyclic shifts
-exceeds 20000. The input `lc` is left unchanged.
+# Returns
+An `LCIsotopyKey` with representative names and words, search counts and diagnostics. `key === nothing` with a failure record means no key was certified by this run; a string key accompanies `algebra_ok=true` and `failure=nothing`.
+
+# Guarantees
+1. A successful record describes a representative reached by the supported local isotopy moves in the [LC move domain](../specs/heegaard-moves.md#6-各-move-のデータ). Its checked algebraic intersections with the reference curves agree with those of the isolated input. [proved/agent: by construction]
+2. The input LC is not modified. [proved/agent: by construction]
+
+# Conventions
+LC key normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/lickorish-code.md#lc-isotopy-key-normalization).
+
+# Not guaranteed
+A successful key is not a proved complete invariant of surface isotopy, and a failed or unequal key does not prove nonisotopy. Global minimality over all geometric representatives and orientation-reversal invariance are not guaranteed.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §6 — local isotopy moves on reference-marked curves.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-2,-1], "m1"=>[1,3], "a"=>[-4,-3], "b"=>[2,4]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> r = H.lc_isotopy_key(lc, "a"); (r.key isa String, r.algebra_ok, r.failure === nothing)
+(true, true, true)
+```
+
+Role: invariant
 """
 function lc_isotopy_key(lc::LickorishCode, curve::AbstractString)
     name = String(curve)
@@ -390,6 +445,42 @@ function lc_isotopy_key(lc::LickorishCode, curve::AbstractString)
     )
 end
 
+"""
+    lc_isotopy_key(lc::LickorishCode, curves::AbstractVector{<:AbstractString}) -> Vector{LCIsotopyKey}
+
+Compute bounded representative keys for a list of oriented curves.
+
+# Arguments
+Each requested name has the single-curve `lc_isotopy_key` overload's preconditions and exceptions. A thrown failure interrupts the call; diagnostic result values are retained.
+
+# Returns
+One `LCIsotopyKey` per requested name, in the input order, including repeated names.
+
+# Guarantees
+1. Each element has the single-curve overload's representative and algebraic-intersection guarantees. [proved/agent: by construction]
+2. The LC and the name vector are not modified. [proved/agent: by construction]
+
+# Conventions
+LC key normalization: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/lickorish-code.md#lc-isotopy-key-normalization).
+
+# Not guaranteed
+This does not compute a simultaneous isotopy of the whole curve system or certify that independently chosen representatives are mutually compatible. The single-curve normalization and completeness limitations apply.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §6 — supported local moves for each selected curve.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-2,-1], "m1"=>[1,3], "a"=>[-4,-3], "b"=>[2,4]), Dict(), Dict(), Dict(), Dict(), nothing);
+
+julia> r = H.lc_isotopy_key(lc, ["a", "b"]); (length(r), all(x -> x.key isa String, r))
+(2, true)
+```
+
+Role: invariant
+"""
 function lc_isotopy_key(lc::LickorishCode, curves::AbstractVector{<:AbstractString})
     LCIsotopyKey[lc_isotopy_key(lc, curve) for curve in curves]
 end

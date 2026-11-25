@@ -15,10 +15,39 @@ function _move_corner(value)
     c
 end
 
-"""Certify a route using the common right-face engine.
-Legacy corner triples denote the LEFT face. Explicit dictionaries contain a
-RIGHT-face `dart` and its rational `u`, and permit ordered repeated-edge visits.
-The returned `route` can be supplied as a handle-slide band.
+"""
+    lc_move_path(lc::LickorishCode; start, crossings=Any[], finish, avoid=String[]) -> Dict{String,Any}
+
+Validate a prescribed route through the disk faces of a reference-marked LC.
+
+# Arguments
+`lc` must pass `validate_lc_input`. The caller supplies mutually consistent start, crossing and finish route points on the LC, in the move support representation, and a list of components the intermediate crossings must avoid. The geometric domain is the [move support](../specs/heegaard-moves.md#6-各-move-のデータ) in disk faces. Invalid point data, repeated events, disconnected routes, excluded crossings, punctured-face or self-intersection checks raise `LCMoveError`; missing keys and conversion errors can propagate.
+
+# Returns
+A dictionary with `kind`, `faces`, `crossings`, `start`, `finish`, `route` and `range`. `route` is a band specification usable by the move interface; the record lists the visited faces and crossing events.
+
+# Guarantees
+1. On the stated cellular input domain, the accepted route has nonintersecting within-face arcs and crosses none of the excluded components at its intermediate events. [proved/agent: the cyclic endpoint checks give disjoint chords in each disk]
+2. Input values are not modified. Supplied point dictionaries can be retained by reference in the returned record. [proved/agent: by construction]
+
+# Conventions
+Move route-point coordinates: [convention entry](../conventions/HeegaardCodes.md#computed-coordinate-conventions), [definition](../specs/heegaard-moves.md#route-point-coordinates).
+
+# Not guaranteed
+This validates a supplied route rather than finding one. Routes through punctured faces, complete move applicability, and a complete isotopy classification of routes are not certified. Endpoints are not prohibited merely because their components occur in `avoid`.
+
+# Sources
+cf: lib/topology.jl/docs/specs/heegaard-moves.md §5–§6 — finite geometric support and handle-slide bands.
+
+# Examples
+```jldoctest
+julia> using Topology.HeegaardCodes; H = Topology.HeegaardCodes;
+
+julia> lc = H.LickorishCode(1, Dict("l1"=>[-1], "m1"=>[1]), Dict(), Dict(), Dict(), Dict(), nothing); p = H.lc_move_path(lc; start=Dict("dart"=>[1,"-","out"],"u"=>"1/2"), finish=Dict("dart"=>[1,"+","out"],"u"=>"1/2")); (length(p["faces"]), isempty(p["crossings"]))
+(1, true)
+```
+
+Role: condition
 """
 function lc_move_path(lc::LickorishCode; start, crossings=Any[], finish, avoid=String[])
     validate_lc_input(lc)
