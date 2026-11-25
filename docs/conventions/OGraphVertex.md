@@ -46,6 +46,7 @@
 | [[K08]] の branch direction と Heegaard 図 | §3、§5、Fig. 12 | $b$ と同じ | 同じ | 左手系 $(\mathbf u,\mathbf v,\mathbf w)$ | Fig. 12 に横断の矢印は無い。どちらの向きで読んでも型は同じ（上の図が型 $-$、下の図が型 $+$） | 枠の手を反転（Koda 変換仕様 §6.1 の「頂点符号 $=-S$」） | 図は確認済み |
 | [[IIKN23]] の $\ell/r$ | Fig. 1（[[IIKN23#^iikn23-fig-0048]]）、Fig. 3（[[IIKN23#^iikn23-fig-0071]]） | | | 右手系（[[IIKN23#^iikn23-blk-0047]]） | $\partial/\partial z$、可視側・図の上 | $r$ は型 $+$、$\ell$ は型 $-$ | owner 2026-11-23。図の照合で確認（研究レーン、見積もり 85%） |
 | INS24 の $\ell/r$ と passage sign | `docs/specs/ograph-source-conventions.md` の INS24 行 | | | | Fig. 6 は前進側を図の下に置く | INS24 の $\ell\mapsto-1$ は chord の符号で、頂点符号ではない。passage の $p_{\mathrm{MST}}=-p_{\mathrm{INS24}}$（owner 2026-09-08）とは別の軸で、二つは両立する | 図は確認済み |
+| [[Les14]] の Morse 関数の勾配 | [[Les14#^anonnd62-blk-0073]]、[[Les14#^anonnd62-blk-0074]]：$\alpha$ は $H_A$ の meridian、$\beta$ は $H_B$ の meridian、曲面は $\partial H_A=f^{-1}(3)$、勾配は値 1 の側から値 5 の側 | | | $\partial H_A$ の外向き法線を先に置いて右手系 | $\alpha$ の handlebody から $\beta$ の handlebody | 恒等。定義 2 の $X$ は Heegaard 曲面の開いた面で勾配と同じ向き（[Koda 変換仕様 §6.1](../specs/heegaard-koda-conversion.md#61-b-の構成と向き) の外向き法線、lib の route A の `lescop_theta` が曲面を $\alpha$ handlebody の境界とすることと一致）。[[K08]] の正の法線 $\mathbf w_x$ は $-X$ | fixed 2026-11-25 Grok（規則 a） |
 | [[Ish06]] の $\ell/r$ | Fig. 2、§1 | | 同じ | | $X=\partial_z$ | 照合待ち | 照合待ち |
 
 ## 検査
