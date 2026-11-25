@@ -156,10 +156,15 @@ def main(argv):
 
     changed_tests = {c[len("test/"):] for c in changed if c.startswith("test/")}
     selected = []
+    deferred = []   # higher-tier tests that use a changed file directly
+    direct = set(c for c in changed if c in text)
     for e in manifest["test"]:
-        if ORDER[e["tier"]] > ORDER[tier]:
-            continue
         tf = e["file"]
+        if ORDER[e["tier"]] > ORDER[tier]:
+            path = os.path.join(TEST, tf)
+            if e["tier"] != "manual" and os.path.exists(path) and uses(defs, code_only(read("test/" + tf)), None) & direct:
+                deferred.append((tf, e["tier"]))
+            continue
         reason = None
         if tf in changed_tests:
             reason = "test file changed"
@@ -184,7 +189,9 @@ def main(argv):
         else:
             print(tf)
     if not files_only:
-        note = ", manifest changed: run --check too" if "test/manifest.toml" in changed else ""
+        for tf, t in deferred:
+            print(f"DEFERRED {tf} ({t}, about {timings.get(tf, float('nan')):.0f} s): uses a changed file; runs with --tier {t} before commit")
+        note =", manifest changed: run --check too" if "test/manifest.toml" in changed else ""
         print(f"IMPACTED {len(selected)} files, about {total:.0f} s ({unknown} without a timing); "
               f"changed {len(changed)}, impacted sources {len(impacted)}, tier <= {tier}, depth {depth}{note}")
 
